@@ -1,0 +1,123 @@
+---
+// src/pages/admin/documents/index.astro
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+const documents = [
+  {
+    title: 'MP Police Notification Rulebook 2026',
+    type: 'Notification',
+    recruitment: 'MP Police Constable 2026',
+    sourceUrl: 'https://esb.mp.gov.in/Rulebooks/PC_2026.pdf',
+    pubDate: '15 Sep 2026',
+    verification: 'Verified',
+    verifColor: 'text-emerald-700 font-semibold',
+    updated: 'Today',
+  },
+  {
+    title: 'Police Constable Age Correction Corrigendum',
+    type: 'Correction notice',
+    recruitment: 'MP Police Constable 2026',
+    sourceUrl: 'https://esb.mp.gov.in/Corrigendum/PC_Age.pdf',
+    pubDate: '18 Sep 2026',
+    verification: 'Needs verification',
+    verifColor: 'text-amber-700 font-semibold',
+    updated: '18 Sep 2026',
+  },
+  {
+    title: 'Forest Guard Written Examination Admit Card Notice',
+    type: 'Admit card',
+    recruitment: 'Forest Guard 2026',
+    sourceUrl: 'https://esb.mp.gov.in/Notices/FG_Admit.pdf',
+    pubDate: '19 Sep 2026',
+    verification: 'Verified',
+    verifColor: 'text-emerald-700 font-semibold',
+    updated: '19 Sep 2026',
+  },
+];
+---
+
+<BaseLayout title="Official Documents Registry — NIRNAY OPS">
+  <div class="flex min-h-[calc(100vh-65px)] bg-background">
+    <!-- Admin Sidebar Shell -->
+    <aside class="w-64 bg-sidebar border-r border-border shrink-0 hidden md:flex flex-col justify-between p-4">
+      <div class="space-y-6">
+        <div class="px-3 py-2 border-b border-border">
+          <div class="font-bold text-xs uppercase tracking-widest text-primary">NIRNAY OPS</div>
+          <div class="text-[11px] text-muted-foreground">Document Provenance</div>
+        </div>
+
+        <nav class="space-y-1 text-xs font-medium">
+          <a href="/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+            <span>Dashboard</span>
+          </a>
+          <a href="/admin/documents" class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+            <span>Documents</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="pt-4 border-t border-border flex items-center gap-3 px-3">
+        <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">AM</div>
+        <div class="truncate">
+          <div class="text-xs font-semibold text-foreground">Aarav Mehta</div>
+          <div class="text-[10px] text-muted-foreground">Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-foreground">Documents</h1>
+          <p class="text-xs text-muted-foreground mt-0.5">Link to official documents without storing copyrighted files unnecessarily.</p>
+        </div>
+
+        <button type="button" class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors">
+          <span>+ Add document link</span>
+        </button>
+      </div>
+
+      <!-- Table Card -->
+      <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-muted text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b border-border">
+            <tr>
+              <th class="py-3 px-4">Title</th>
+              <th class="py-3 px-4">Type</th>
+              <th class="py-3 px-4">Recruitment</th>
+              <th class="py-3 px-4">Source URL</th>
+              <th class="py-3 px-4">Publication Date</th>
+              <th class="py-3 px-4">Verification</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {documents.map((doc) => (
+              <tr class="hover:bg-muted/40 transition-colors">
+                <td class="py-3.5 px-4 font-bold text-foreground">{doc.title}</td>
+                <td class="py-3.5 px-4">
+                  <span class="px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                    {doc.type}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-foreground">{doc.recruitment}</td>
+                <td class="py-3.5 px-4 font-mono text-primary truncate max-w-xs">
+                  <a href={doc.sourceUrl} target="_blank" rel="noopener noreferrer" class="hover:underline">
+                    {doc.sourceUrl}
+                  </a>
+                </td>
+                <td class="py-3.5 px-4 font-mono text-muted-foreground">{doc.pubDate}</td>
+                <td class={`py-3.5 px-4 ${doc.verifColor}`}>{doc.verification}</td>
+                <td class="py-3.5 px-4 text-right">
+                  <button class="text-primary hover:underline font-semibold">Edit</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</BaseLayout>

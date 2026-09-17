@@ -1,0 +1,234 @@
+---
+// src/pages/admin/recruitments/index.astro
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getAllActiveRecruitments } from '../../../db/queries';
+
+// @ts-ignore
+const recruitments = await getAllActiveRecruitments();
+
+const rows = [
+  {
+    title: 'MP Police Constable Recruitment 2026',
+    slug: 'mp-police-constable-recruitment-2026',
+    org: 'MPESB',
+    dept: 'Police',
+    status: 'Published',
+    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    vacancies: '7,500',
+    lastDate: '06 Oct 2026',
+    source: 'Official link',
+    verification: 'Verified',
+    verifColor: 'text-emerald-700 font-semibold',
+    updated: 'Today, 18:32',
+  },
+  {
+    title: 'Forest Guard Recruitment 2026',
+    slug: 'mp-forest-guard-recruitment-2026',
+    org: 'MPESB',
+    dept: 'Forest',
+    status: 'Review',
+    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
+    vacancies: '1,420',
+    lastDate: '29 Sep 2026',
+    source: 'Official link',
+    verification: 'Needs verification',
+    verifColor: 'text-amber-700 font-semibold',
+    updated: 'Yesterday',
+  },
+  {
+    title: 'Assistant Grade III Recruitment 2026',
+    slug: 'mp-assistant-grade-3-recruitment-2026',
+    org: 'MP High Court',
+    dept: 'Judiciary',
+    status: 'Draft',
+    statusColor: 'bg-muted text-muted-foreground border-border',
+    vacancies: '980',
+    lastDate: '18 Oct 2026',
+    source: 'Gazette PDF',
+    verification: 'Verified',
+    verifColor: 'text-emerald-700 font-semibold',
+    updated: '16 Sep 2026',
+  },
+];
+---
+
+<BaseLayout title="Recruitment Management — NIRNAY OPS">
+  <div class="flex min-h-[calc(100vh-65px)] bg-background">
+    <!-- Admin Sidebar Shell -->
+    <aside class="w-64 bg-sidebar border-r border-border shrink-0 hidden md:flex flex-col justify-between p-4">
+      <div class="space-y-6">
+        <div class="px-3 py-2 border-b border-border">
+          <div class="font-bold text-xs uppercase tracking-widest text-primary">NIRNAY OPS</div>
+          <div class="text-[11px] text-muted-foreground">Private Workspace</div>
+        </div>
+
+        <nav class="space-y-1 text-xs font-medium">
+          <a href="/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+            <span>Dashboard</span>
+          </a>
+          <a href="/admin/recruitments" class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <span>Recruitments</span>
+          </a>
+          <a href="/admin/organisations" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/></svg>
+            <span>Organisations</span>
+          </a>
+          <a href="/admin/departments" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="6" height="6" x="9" y="2" rx="1"/></svg>
+            <span>Departments</span>
+          </a>
+          <a href="/admin/taxonomy" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/></svg>
+            <span>Sectors & posts</span>
+          </a>
+          <a href="/admin/rules" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/></svg>
+            <span>Eligibility rules</span>
+          </a>
+          <a href="/admin/sources/verify" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/></svg>
+            <span>Sources</span>
+          </a>
+          <a href="/admin/documents" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
+            <span>Documents</span>
+          </a>
+          <a href="/admin/seo" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/></svg>
+            <span>SEO</span>
+          </a>
+          <a href="/admin/audit-log" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+            <span>Audit log</span>
+          </a>
+          <a href="/admin/users" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/></svg>
+            <span>Team Access</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="pt-4 border-t border-border flex items-center gap-3 px-3">
+        <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+          AM
+        </div>
+        <div class="truncate">
+          <div class="text-xs font-semibold text-foreground">Aarav Mehta</div>
+          <div class="text-[10px] text-muted-foreground">Super Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Table Content -->
+    <main class="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-foreground">
+            Recruitments
+          </h1>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Manage, verify and publish opportunity records.
+          </p>
+        </div>
+
+        <a
+          href="/admin/recruitments/new"
+          class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <span>Add recruitment</span>
+        </a>
+      </div>
+
+      <!-- Filters & Search Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          {['All', 'Draft', 'Review', 'Verified', 'Published', 'Archived'].map((f, i) => (
+            <button
+              type="button"
+              class={`px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+                i === 0
+                  ? 'bg-primary text-primary-foreground border-primary font-bold'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        <div class="max-w-xs w-full">
+          <input
+            type="search"
+            placeholder="Search recruitments..."
+            class="w-full px-3.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:border-primary outline-none"
+          />
+        </div>
+      </div>
+
+      <!-- Dense Operational Table -->
+      <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-muted text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b border-border">
+              <tr>
+                <th class="py-3 px-4 w-6"><input type="checkbox" class="size-3.5 rounded text-primary" /></th>
+                <th class="py-3 px-4">Recruitment</th>
+                <th class="py-3 px-4">Organisation</th>
+                <th class="py-3 px-4">Department</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Vacancies</th>
+                <th class="py-3 px-4">Last Date</th>
+                <th class="py-3 px-4">Source</th>
+                <th class="py-3 px-4">Verification</th>
+                <th class="py-3 px-4">Updated</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              {rows.map((row) => (
+                <tr class="hover:bg-muted/40 transition-colors">
+                  <td class="py-3.5 px-4"><input type="checkbox" class="size-3.5 rounded text-primary" /></td>
+                  <td class="py-3.5 px-4 font-bold text-foreground">
+                    <a href={`/recruitments/${row.slug}`} class="hover:underline">
+                      {row.title}
+                    </a>
+                  </td>
+                  <td class="py-3.5 px-4 text-muted-foreground">{row.org}</td>
+                  <td class="py-3.5 px-4 text-muted-foreground">{row.dept}</td>
+                  <td class="py-3.5 px-4">
+                    <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${row.statusColor}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td class="py-3.5 px-4 font-mono font-bold text-foreground">{row.vacancies}</td>
+                  <td class="py-3.5 px-4 font-mono text-muted-foreground">{row.lastDate}</td>
+                  <td class="py-3.5 px-4 text-primary font-medium">{row.source}</td>
+                  <td class={`py-3.5 px-4 ${row.verifColor}`}>{row.verification}</td>
+                  <td class="py-3.5 px-4 text-muted-foreground">{row.updated}</td>
+                  <td class="py-3.5 px-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <a href="/admin/recruitments/new" class="text-primary hover:underline font-semibold">Edit</a>
+                      <span>·</span>
+                      <a href={`/recruitments/${row.slug}`} class="text-muted-foreground hover:underline">Preview</a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+          <span>Showing 3 of 128 recruitments</span>
+          <div class="flex items-center gap-2">
+            <button class="px-2.5 py-1 rounded border border-border disabled:opacity-40" disabled>Previous</button>
+            <button class="px-2.5 py-1 rounded border border-border hover:bg-muted">Next</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>

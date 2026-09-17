@@ -1,0 +1,205 @@
+---
+// src/pages/eligibility/report.astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Eligibility Assessment Report — NIRNAY MP"
+  description="Official document preview of evaluated Madhya Pradesh recruitment opportunities matching your profile."
+>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <!-- Top breadcrumb -->
+    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6 no-print">
+      <a href="/" class="hover:text-foreground">Home</a>
+      <span>/</span>
+      <a href="/eligibility-checker" class="hover:text-foreground">Eligibility Calculator</a>
+      <span>/</span>
+      <span class="text-foreground font-medium">Official Report</span>
+    </nav>
+
+    <!-- Main Grid: Report Document (2 Cols) + Action Rail (1 Col) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Centered Document Card -->
+      <div class="lg:col-span-2 bg-card rounded-2xl border border-border shadow-sm p-8 sm:p-12 print-card">
+        <!-- Report Header -->
+        <div class="flex items-start justify-between pb-6 border-b border-border mb-8">
+          <div>
+            <div class="flex items-baseline gap-2 mb-1">
+              <span class="font-bold text-xl tracking-[0.18em] text-foreground">NIRNAY</span>
+              <span class="text-xs text-muted-foreground uppercase font-medium">State Advisory</span>
+            </div>
+            <h1 class="text-2xl font-bold text-foreground">
+              Eligibility Report
+            </h1>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              Deterministic Candidate Evaluation
+            </p>
+          </div>
+
+          <div class="text-right text-xs">
+            <span class="text-muted-foreground block">Generated Date</span>
+            <span class="font-mono font-bold text-foreground">21 September 2026</span>
+            <span class="text-[10px] text-muted-foreground block mt-1">ID: NIR-2026-8842</span>
+          </div>
+        </div>
+
+        <!-- Section 1: Input Criteria -->
+        <div class="mb-8">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            1. Candidate Input Criteria
+          </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border text-xs">
+            <div>
+              <span class="text-muted-foreground block">Age:</span>
+              <span class="font-bold text-foreground">21 years</span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Highest Qualification:</span>
+              <span class="font-bold text-foreground">Graduation (B.Tech)</span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Domicile:</span>
+              <span class="font-bold text-foreground">Madhya Pradesh</span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Category:</span>
+              <span class="font-bold text-foreground">General (UR)</span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Rojgar Panjiyan:</span>
+              <span class="font-bold text-emerald-700">Active</span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Physical / CPCT:</span>
+              <span class="font-bold text-amber-700">Self-certified</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Evaluation Summary -->
+        <div class="mb-8">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            2. Match Summary
+          </h2>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-center">
+              <span class="text-2xl font-bold font-mono text-emerald-700 block">24</span>
+              <span class="text-xs font-semibold text-emerald-800">Eligible</span>
+            </div>
+            <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-center">
+              <span class="text-2xl font-bold font-mono text-amber-700 block">7</span>
+              <span class="text-xs font-semibold text-amber-800">Needs Verification</span>
+            </div>
+            <div class="p-3.5 rounded-xl border border-border bg-muted/40 text-center">
+              <span class="text-2xl font-bold font-mono text-muted-foreground block">12</span>
+              <span class="text-xs font-semibold text-muted-foreground">Ineligible</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Eligible Opportunities -->
+        <div class="mb-8">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            3. Verified Eligible Opportunities (Top Matches)
+          </h2>
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-foreground block">MP Police Constable Recruitment 2026</span>
+                <span class="text-muted-foreground">MPESB · 7,500 Vacancies · Age 18–33</span>
+              </div>
+              <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
+                <span>Official Notice</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-foreground block">Assistant Grade III Recruitment 2026</span>
+                <span class="text-muted-foreground">MP High Court · 980 Vacancies · Age 18–40</span>
+              </div>
+              <a href="https://mphc.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
+                <span>Official Notice</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-foreground block">Patwari Recruitment 2026</span>
+                <span class="text-muted-foreground">Revenue Dept / MPESB · 3,800 Vacancies · Age 18–40</span>
+              </div>
+              <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
+                <span>Official Notice</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Needs Verification -->
+        <div class="mb-8">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            4. Opportunities Needing Verification
+          </h2>
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 text-xs">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-foreground">Forest Guard Recruitment 2026</span>
+                <span class="text-[11px] font-semibold text-amber-800">Physical Verification Needed</span>
+              </div>
+              <p class="text-muted-foreground">Age and 12th qualification met. Candidate must self-verify male height minimum 163 cm & 25 km walk.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statutory Disclaimer -->
+        <div class="pt-6 border-t border-border text-center">
+          <p class="text-xs text-muted-foreground italic max-w-lg mx-auto">
+            "This report is based on the information entered and should be verified against the official recruitment notification."
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Action Rail -->
+      <aside class="space-y-4 no-print">
+        <div class="bg-card p-6 rounded-2xl border border-border shadow-sm space-y-3">
+          <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Actions</h3>
+          
+          <button
+            type="button"
+            onclick="window.print()"
+            class="w-full py-3 px-4 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Download PDF</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="window.print()"
+            class="w-full py-3 px-4 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-xs transition-colors flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+            <span>Print Report</span>
+          </button>
+
+          <a
+            href="/eligibility-checker"
+            class="w-full py-2.5 px-4 text-center text-xs text-primary font-medium hover:underline block"
+          >
+            Start a new check &rarr;
+          </a>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-muted/60 border border-border text-xs text-muted-foreground">
+          <span class="font-bold text-foreground block mb-1">Session Privacy</span>
+          <p>
+            No account required. This assessment was evaluated dynamically in your client session and is not stored on any remote tracking servers.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
