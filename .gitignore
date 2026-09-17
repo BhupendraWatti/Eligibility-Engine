@@ -77,3 +77,4 @@ playwright-report/
 .cache/
 .parcel-cache/
 .vinext/
+report.md

@@ -1,0 +1,856 @@
+---
+// src/pages/admin/recruitments/[id]/edit.astro
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import {
+  getRecruitmentById,
+  getAllCanonicalPosts,
+  getAllSectors,
+  updateRecruitmentAtomic,
+} from '../../../../db/queries';
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/admin/recruitments');
+}
+
+const recruitment = await getRecruitmentById(id);
+if (!recruitment) {
+  return Astro.redirect('/admin/recruitments');
+}
+
+const posts = await getAllCanonicalPosts();
+const sectors = await getAllSectors();
+
+let errorMessage = '';
+let validationErrors: string[] = [];
+let successMessage = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const title = formData.get('title')?.toString().trim();
+    const postId = formData.get('postId')?.toString().trim();
+    const organisationShortName = formData.get('organisationShortName')?.toString().trim() || recruitment.organisationShortName;
+    const advtNumber = formData.get('advtNumber')?.toString().trim();
+    const cycleYear = parseInt(formData.get('cycleYear')?.toString() || String(recruitment.cycleYear || 2026), 10);
+    const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
+    const lifecycleStatus = formData.get('lifecycleStatus')?.toString().trim() || 'OPEN';
+    const status = formData.get('status')?.toString().trim() || 'PUBLISHED';
+    const shortSummary = formData.get('shortSummary')?.toString().trim();
+    const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
+
+    // Section 2: Eligibility Criteria
+    const minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
+    const maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
+    const ageCutoffDate = formData.get('ageCutoffDate')?.toString().trim() || '2026-01-01';
+    const ageRelaxationScSt = parseInt(formData.get('ageRelaxationScSt')?.toString() || '5', 10);
+    const ageRelaxationObc = parseInt(formData.get('ageRelaxationObc')?.toString() || '3', 10);
+    const ageRelaxationFemale = parseInt(formData.get('ageRelaxationFemale')?.toString() || '5', 10);
+    const ageRelaxationEws = parseInt(formData.get('ageRelaxationEws')?.toString() || '0', 10);
+
+    const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
+    const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
+    const relaxationNotesMarkdown = formData.get('relaxationNotesMarkdown')?.toString().trim();
+
+    const requiresMpDomicile = formData.get('requiresMpDomicile') === '1';
+    const requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1';
+    const requiresCpct = formData.get('requiresCpct') === '1';
+    const genderAllowed = (formData.get('genderAllowed')?.toString() || 'ALL') as 'ALL' | 'MALE' | 'FEMALE';
+
+    const minHeightMaleCm = formData.get('minHeightMaleCm') ? parseFloat(formData.get('minHeightMaleCm')!.toString()) : null;
+    const minHeightFemaleCm = formData.get('minHeightFemaleCm') ? parseFloat(formData.get('minHeightFemaleCm')!.toString()) : null;
+    const minChestMaleCm = formData.get('minChestMaleCm') ? parseFloat(formData.get('minChestMaleCm')!.toString()) : null;
+
+    // Section 3: Vacancies Breakdown
+    const vacUr = parseInt(formData.get('vac_ur')?.toString() || '0', 10);
+    const vacObc = parseInt(formData.get('vac_obc')?.toString() || '0', 10);
+    const vacSt = parseInt(formData.get('vac_st')?.toString() || '0', 10);
+    const vacSc = parseInt(formData.get('vac_sc')?.toString() || '0', 10);
+    const vacEws = parseInt(formData.get('vac_ews')?.toString() || '0', 10);
+    const subPostName = formData.get('subPostName')?.toString().trim();
+
+    const vacanciesBreakdown: Array<{ category: string; count: number; pct?: string; quotaPct?: string; subPostName?: string }> = [];
+    if (vacUr > 0 || vacObc > 0 || vacSt > 0 || vacSc > 0 || vacEws > 0) {
+      if (vacUr > 0) vacanciesBreakdown.push({ category: 'General / Unreserved (UR)', count: vacUr, quotaPct: '27%', subPostName });
+      if (vacObc > 0) vacanciesBreakdown.push({ category: 'Other Backward Classes (OBC)', count: vacObc, quotaPct: '27%', subPostName });
+      if (vacSt > 0) vacanciesBreakdown.push({ category: 'Scheduled Tribes (ST)', count: vacSt, quotaPct: '20%', subPostName });
+      if (vacSc > 0) vacanciesBreakdown.push({ category: 'Scheduled Castes (SC)', count: vacSc, quotaPct: '16%', subPostName });
+      if (vacEws > 0) vacanciesBreakdown.push({ category: 'Economically Weaker Section (EWS)', count: vacEws, quotaPct: '10%', subPostName });
+    }
+
+    // Section 4: Important Dates
+    const notificationDate = formData.get('notificationDate')?.toString().trim();
+    const applicationStart = formData.get('applicationStart')?.toString().trim();
+    const applicationEnd = formData.get('applicationEnd')?.toString().trim();
+    const correctionEnd = formData.get('correctionEnd')?.toString().trim();
+    const examDate = formData.get('examDate')?.toString().trim();
+
+    const importantDates: Array<{ eventType: string; eventDate: string; isTentative?: number; notes?: string }> = [];
+    if (notificationDate) importantDates.push({ eventType: 'NOTIFICATION', eventDate: notificationDate, notes: 'Gazette notification published' });
+    if (applicationStart) importantDates.push({ eventType: 'APPLICATION_START', eventDate: applicationStart, notes: 'Online registration begins' });
+    if (applicationEnd) importantDates.push({ eventType: 'APPLICATION_END', eventDate: applicationEnd, notes: 'Application deadline' });
+    if (correctionEnd) importantDates.push({ eventType: 'CORRECTION_END', eventDate: correctionEnd, notes: 'Form correction window closes' });
+    if (examDate) importantDates.push({ eventType: 'EXAM_DATE', eventDate: examDate, notes: 'Scheduled competitive examination' });
+
+    // Section 5: Selection Process Stages
+    const selectionStagesRaw = formData.get('selectionStagesJson')?.toString().trim();
+    let selectionStages: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }> = [];
+    if (selectionStagesRaw) {
+      try {
+        selectionStages = JSON.parse(selectionStagesRaw);
+      } catch (e) {
+        // Parse from fallback stage 1..3 inputs
+      }
+    }
+    if (selectionStages.length === 0) {
+      const stage1Name = formData.get('stage1_name')?.toString().trim();
+      const stage1Desc = formData.get('stage1_desc')?.toString().trim();
+      const stage2Name = formData.get('stage2_name')?.toString().trim();
+      const stage2Desc = formData.get('stage2_desc')?.toString().trim();
+      const stage3Name = formData.get('stage3_name')?.toString().trim();
+      const stage3Desc = formData.get('stage3_desc')?.toString().trim();
+
+      if (stage1Name) selectionStages.push({ stage: 1, name: stage1Name, desc: stage1Desc || '' });
+      if (stage2Name) selectionStages.push({ stage: 2, name: stage2Name, desc: stage2Desc || '' });
+      if (stage3Name) selectionStages.push({ stage: 3, name: stage3Name, desc: stage3Desc || '' });
+    }
+
+    // Section 6: Salary & Cadre Matrix
+    const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
+    const cadreClassification = formData.get('cadreClassification')?.toString().trim();
+    const salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim();
+
+    // Section 7: Documents & Gazette Sources
+    const sourceTitle = formData.get('sourceTitle')?.toString().trim();
+    const sourceUrl = formData.get('sourceUrl')?.toString().trim();
+    const officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim();
+    const syllabusUrl = formData.get('syllabusUrl')?.toString().trim();
+
+    const sources: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }> = [];
+    if (sourceUrl) {
+      sources.push({
+        sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+        sourceTitle: sourceTitle || `${organisationShortName} Official Rulebook Gazette`,
+        sourceUrl,
+        publicationDate: notificationDate || applicationStart || undefined,
+      });
+    }
+
+    const officialLinks: Array<{ linkType: string; title: string; url: string }> = [];
+    if (officialApplyUrl) {
+      officialLinks.push({
+        linkType: 'APPLY_ONLINE',
+        title: `Apply Online (${organisationShortName} Portal)`,
+        url: officialApplyUrl,
+      });
+    }
+    if (sourceUrl) {
+      officialLinks.push({
+        linkType: 'NOTIFICATION_PDF',
+        title: 'Download Official Notification PDF',
+        url: sourceUrl,
+      });
+    }
+    if (syllabusUrl) {
+      officialLinks.push({
+        linkType: 'SYLLABUS_PDF',
+        title: 'Download Official Examination Syllabus',
+        url: syllabusUrl,
+      });
+    }
+
+    if (title && postId && advtNumber && totalVacancies >= 0) {
+      const updateResult = await updateRecruitmentAtomic(id, {
+        title,
+        postId,
+        organisationShortName,
+        advtNumber,
+        cycleYear,
+        totalVacancies,
+        status,
+        lifecycleStatus,
+        shortSummary,
+        overviewMarkdown,
+        minAge,
+        maxAgeGeneral,
+        ageCutoffDate,
+        ageRelaxationScSt,
+        ageRelaxationObc,
+        ageRelaxationFemale,
+        ageRelaxationEws,
+        minQualificationLevel,
+        qualificationDetailsMarkdown,
+        relaxationNotesMarkdown,
+        requiresMpDomicile,
+        requiresMpEmploymentReg,
+        requiresCpct,
+        genderAllowed,
+        minHeightMaleCm,
+        minHeightFemaleCm,
+        minChestMaleCm,
+        payScaleOverride,
+        cadreClassification,
+        salaryDetailsMarkdown,
+        applicationStart,
+        applicationEnd,
+        examDate,
+        sourceTitle,
+        sourceUrl,
+        selectionStages: selectionStages.length > 0 ? selectionStages : undefined,
+        vacanciesBreakdown: vacanciesBreakdown.length > 0 ? vacanciesBreakdown : undefined,
+        importantDates: importantDates.length > 0 ? importantDates : undefined,
+        sources: sources.length > 0 ? sources : undefined,
+        officialLinks: officialLinks.length > 0 ? officialLinks : undefined,
+      });
+
+      if (updateResult.success) {
+        return Astro.redirect(`/recruitments/${recruitment.slug}?updated=1`);
+      } else {
+        errorMessage = `Failed to update recruitment: ${(updateResult.errors || []).join('; ')}`;
+        validationErrors = updateResult.validation?.blockingErrors || [];
+      }
+    } else {
+      errorMessage = 'Please provide required fields: Title, Canonical Post, Advertisement Number, and Total Vacancies.';
+    }
+  } catch (err: any) {
+    errorMessage = `Update error: ${err.message}`;
+  }
+}
+
+// Group posts by sector for clean optgroup dropdown rendering
+const postsBySector = sectors.map(sec => ({
+  sector: sec,
+  posts: posts.filter(p => p.sectorId === sec.id),
+})).filter(group => group.posts.length > 0);
+
+// Pre-fill helpers
+const vacMap = new Map((recruitment.vacanciesList || []).map(v => [v.code || v.category, v.count]));
+const vacUr = vacMap.get('UR') || 0;
+const vacObc = vacMap.get('OBC') || 0;
+const vacSt = vacMap.get('ST') || 0;
+const vacSc = vacMap.get('SC') || 0;
+const vacEws = vacMap.get('EWS') || 0;
+const firstSubPost = recruitment.vacanciesList?.find(v => v.subPostName)?.subPostName || '';
+
+const datesList = recruitment.importantDatesList || [];
+const notifDateObj = datesList.find(d => d.eventType === 'NOTIFICATION');
+const appStartDateObj = datesList.find(d => d.eventType === 'APPLICATION_START');
+const appEndDateObj = datesList.find(d => d.eventType === 'APPLICATION_END');
+const corrDateObj = datesList.find(d => d.eventType === 'CORRECTION_END');
+const examDateObj = datesList.find(d => d.eventType === 'EXAM_DATE');
+
+const stages = recruitment.selectionStages || [];
+const stage1 = stages[0] || { name: '', desc: '' };
+const stage2 = stages[1] || { name: '', desc: '' };
+const stage3 = stages[2] || { name: '', desc: '' };
+
+const primarySource = recruitment.sourcesList?.[0];
+const primaryApplyLink = recruitment.officialLinksList?.find(l => l.linkType === 'APPLY_ONLINE');
+const primarySyllabusLink = recruitment.officialLinksList?.find(l => l.linkType === 'SYLLABUS_PDF');
+---
+
+<BaseLayout title={`Edit ${recruitment.title} — NIRNAY OPS`}>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb & Top Bar -->
+    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
+      <a href="/admin" class="hover:text-foreground">Operations</a>
+      <span>/</span>
+      <a href="/admin/recruitments" class="hover:text-foreground">Recruitments</a>
+      <span>/</span>
+      <span class="text-foreground font-medium">Edit: {recruitment.advtNumber}</span>
+    </nav>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-8">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+          <span class="size-2 rounded-full bg-amber-500"></span>
+          <span>Recruitment Editor (7 Sections)</span>
+        </div>
+        <h1 class="text-2xl font-bold text-foreground">
+          {recruitment.title}
+        </h1>
+        <p class="text-xs text-muted-foreground mt-1">
+          Slug: <span class="font-mono text-foreground">{recruitment.slug}</span> · ID: <span class="font-mono">{recruitment.id}</span>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a
+          href={`/recruitments/${recruitment.slug}`}
+          target="_blank"
+          class="px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+        >
+          <span>Live Preview</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+        <button
+          type="submit"
+          form="recruitmentEditForm"
+          class="px-5 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+        >
+          Save All Changes
+        </button>
+      </div>
+    </div>
+
+    {errorMessage && (
+      <div class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
+        ⛔ {errorMessage}
+      </div>
+    )}
+
+    {validationErrors.length > 0 && (
+      <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
+        <p class="font-bold mb-2">⚠️ Publication Warnings ({validationErrors.length})</p>
+        <ul class="list-disc ml-4 space-y-1">
+          {validationErrors.map((e: string) => <li>{e}</li>)}
+        </ul>
+      </div>
+    )}
+
+    <!-- Multi-Section Editor Form -->
+    <form id="recruitmentEditForm" method="POST" class="space-y-8">
+      
+      <!-- Section 1: Specification & Overview -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            1. Specification & Overview
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+            Core Metadata
+          </span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-foreground mb-1">
+            Recruitment Public Title <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="title"
+            required
+            value={recruitment.title}
+            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Canonical Post <span class="text-red-500">*</span>
+            </label>
+            <select
+              name="postId"
+              required
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              {postsBySector.map(group => (
+                <optgroup label={group.sector.name}>
+                  {group.posts.map(post => (
+                    <option value={post.id} selected={post.id === recruitment.postId}>{post.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Statutory Organisation <span class="text-red-500">*</span>
+            </label>
+            <select
+              name="organisationShortName"
+              required
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              <option value="MPESB" selected={recruitment.organisationShortName === 'MPESB'}>MPESB (Employees Selection Board)</option>
+              <option value="MPPSC" selected={recruitment.organisationShortName === 'MPPSC'}>MPPSC (Public Service Commission)</option>
+              <option value="MPHC" selected={recruitment.organisationShortName === 'MPHC'}>MPHC (High Court of Madhya Pradesh)</option>
+              <option value="MPSEDC" selected={recruitment.organisationShortName === 'MPSEDC'}>MPSEDC (State Electronics Development)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Advertisement Number <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="advtNumber"
+              required
+              value={recruitment.advtNumber}
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground focus:border-primary outline-none"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Cycle Year
+            </label>
+            <input
+              type="number"
+              name="cycleYear"
+              value={recruitment.cycleYear || 2026}
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground focus:border-primary outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Lifecycle Status
+            </label>
+            <select
+              name="lifecycleStatus"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              {['UPCOMING', 'OPEN', 'CLOSING_SOON', 'EXAM_SCHEDULED', 'ADMIT_CARD_OUT', 'ANSWER_KEY_ACTIVE', 'RESULT_DECLARED', 'HOLD'].map(st => (
+                <option value={st} selected={recruitment.lifecycleStatus === st}>{st}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Catalog Publication Status
+            </label>
+            <select
+              name="status"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              {['PUBLISHED', 'PENDING_VERIFICATION', 'DRAFT', 'ARCHIVED'].map(s => (
+                <option value={s} selected={recruitment.status === s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-foreground mb-1">
+            Short Summary
+          </label>
+          <input
+            type="text"
+            name="shortSummary"
+            value={recruitment.shortSummary}
+            class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-foreground mb-1">
+            Detailed Overview Markdown / Official Narrative
+          </label>
+          <textarea
+            name="overviewMarkdown"
+            rows="4"
+            placeholder="Official background narrative, conducting department terms, exam nature..."
+            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs leading-relaxed text-foreground focus:border-primary outline-none"
+          >{recruitment.overviewMarkdown || ''}</textarea>
+        </div>
+      </div>
+
+      <!-- Section 2: Eligibility Rules & Details -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            2. Eligibility Criteria & Statutory Notes
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            Deterministic Rules
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Min Age</label>
+            <input type="number" name="minAge" value={recruitment.criteria?.minAge ?? 18} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Max Age (General)</label>
+            <input type="number" name="maxAgeGeneral" value={recruitment.criteria?.maxAgeGeneral ?? 33} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Age Cutoff Date</label>
+            <input type="date" name="ageCutoffDate" value={recruitment.criteria?.ageCutoffDate || '2026-01-01'} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Min Qualification</label>
+            <select name="minQualificationLevel" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none">
+              {['8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION', 'DOCTORATE'].map(q => (
+                <option value={q} selected={recruitment.criteria?.minQualificationLevel === q}>{q}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">SC/ST Relaxation (+yrs)</label>
+            <input type="number" name="ageRelaxationScSt" value={recruitment.criteria?.ageRelaxationScSt ?? 5} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">OBC Relaxation (+yrs)</label>
+            <input type="number" name="ageRelaxationObc" value={recruitment.criteria?.ageRelaxationObc ?? 3} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Female Relaxation (+yrs)</label>
+            <input type="number" name="ageRelaxationFemale" value={recruitment.criteria?.ageRelaxationFemale ?? 5} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">EWS Relaxation (+yrs)</label>
+            <input type="number" name="ageRelaxationEws" value={recruitment.criteria?.ageRelaxationEws ?? 0} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Qualification Details Markdown
+            </label>
+            <textarea
+              name="qualificationDetailsMarkdown"
+              rows="3"
+              placeholder="e.g. Higher Secondary (10+2) with 1-year DCA/PGDCA computer certificate..."
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
+            >{recruitment.criteria?.qualificationDetailsMarkdown || ''}</textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Special Relaxation & Reservation Notes
+            </label>
+            <textarea
+              name="relaxationNotesMarkdown"
+              rows="3"
+              placeholder="e.g. Ex-Servicemen get service deduction + 3 years; Green card holders get +2 years..."
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
+            >{recruitment.criteria?.relaxationNotesMarkdown || ''}</textarea>
+          </div>
+        </div>
+
+        <!-- Checkboxes & Physical standards -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
+          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+            <input type="checkbox" name="requiresMpDomicile" value="1" checked={recruitment.criteria?.requiresMpDomicile} class="size-4 rounded border-border" />
+            <span>MP Domicile Mandatory</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+            <input type="checkbox" name="requiresMpEmploymentReg" value="1" checked={recruitment.criteria?.requiresMpEmploymentReg} class="size-4 rounded border-border" />
+            <span>Employment Reg (Rojgar Panjiyan)</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+            <input type="checkbox" name="requiresCpct" value="1" checked={recruitment.criteria?.requiresCpct} class="size-4 rounded border-border" />
+            <span>Mandatory CPCT Scorecard</span>
+          </label>
+          <div>
+            <select name="genderAllowed" class="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground outline-none">
+              <option value="ALL" selected={recruitment.criteria?.genderAllowed === 'ALL'}>All Genders Allowed</option>
+              <option value="MALE" selected={recruitment.criteria?.genderAllowed === 'MALE'}>Male Only</option>
+              <option value="FEMALE" selected={recruitment.criteria?.genderAllowed === 'FEMALE'}>Female Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Min Male Height (cm)</label>
+            <input type="number" step="0.1" name="minHeightMaleCm" value={recruitment.criteria?.minHeightMaleCm || ''} placeholder="e.g. 168.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Min Female Height (cm)</label>
+            <input type="number" step="0.1" name="minHeightFemaleCm" value={recruitment.criteria?.minHeightFemaleCm || ''} placeholder="e.g. 155.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Min Male Chest (cm)</label>
+            <input type="number" step="0.1" name="minChestMaleCm" value={recruitment.criteria?.minChestMaleCm || ''} placeholder="e.g. 81.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Category-wise Vacancies -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            3. Category-wise Vacancies
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20">
+            Official Quota Matrix
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Total Overall Vacancies <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="totalVacancies"
+              required
+              value={recruitment.totalVacancies}
+              class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm font-mono font-bold text-foreground outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Sub-Post / Combined Exam Stream Name
+            </label>
+            <input
+              type="text"
+              name="subPostName"
+              value={firstSubPost}
+              placeholder="e.g. Patwari & Revenue Inspector or Constable (GD)"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+          <div>
+            <label class="block text-[11px] font-bold text-muted-foreground mb-1">UR / General</label>
+            <input type="number" name="vac_ur" value={vacUr} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-muted-foreground mb-1">OBC</label>
+            <input type="number" name="vac_obc" value={vacObc} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-muted-foreground mb-1">ST</label>
+            <input type="number" name="vac_st" value={vacSt} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-muted-foreground mb-1">SC</label>
+            <input type="number" name="vac_sc" value={vacSc} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-muted-foreground mb-1">EWS</label>
+            <input type="number" name="vac_ews" value={vacEws} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Important Dates -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            4. Important Timeline Dates
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 border border-purple-500/20">
+            Cycle Milestones
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Notification Date</label>
+            <input type="date" name="notificationDate" value={notifDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Applications Open</label>
+            <input type="date" name="applicationStart" value={recruitment.applicationStart || appStartDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Application Deadline</label>
+            <input type="date" name="applicationEnd" value={recruitment.applicationEnd || appEndDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Correction Window Closes</label>
+            <input type="date" name="correctionEnd" value={corrDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">Written Exam Date</label>
+            <input type="date" name="examDate" value={recruitment.examDate || examDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Selection Process Stages -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            5. Selection Process Stages
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+            Evaluation Stages
+          </span>
+        </div>
+
+        <div class="space-y-3">
+          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
+            <span class="text-xs font-bold text-primary">Stage 1</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input type="text" name="stage1_name" value={stage1.name} placeholder="Stage Name (e.g. Written CBT)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+              <input type="text" name="stage1_desc" value={stage1.desc} placeholder="Description (e.g. 100 marks objective test covering GK & Reasoning)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
+            <span class="text-xs font-bold text-primary">Stage 2</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input type="text" name="stage2_name" value={stage2.name} placeholder="Stage Name (e.g. Physical Proficiency Test)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+              <input type="text" name="stage2_desc" value={stage2.desc} placeholder="Description (e.g. 800m run, long jump, shot put)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
+            <span class="text-xs font-bold text-primary">Stage 3</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input type="text" name="stage3_name" value={stage3.name} placeholder="Stage Name (e.g. Document Verification & Medical)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+              <input type="text" name="stage3_desc" value={stage3.desc} placeholder="Description (e.g. Original certificate scrutiny and biometric check)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
+            </div>
+          </div>
+        </div>
+
+        <details class="text-xs text-muted-foreground pt-2">
+          <summary class="cursor-pointer font-semibold hover:text-foreground">Advanced: Edit Raw Selection Stages JSON</summary>
+          <textarea
+            name="selectionStagesJson"
+            rows="3"
+            placeholder='[{"stage": 1, "name": "Stage 1", "desc": "Details..."}]'
+            class="w-full mt-2 px-3.5 py-2 rounded-lg border border-border bg-background font-mono text-[11px] text-foreground outline-none"
+          >{recruitment.selectionStages ? JSON.stringify(recruitment.selectionStages, null, 2) : ''}</textarea>
+        </details>
+      </div>
+
+      <!-- Section 6: Salary & Cadre Matrix -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            6. Salary & Cadre Matrix
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            Pay & Service Terms
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Official Pay Scale (Override)
+            </label>
+            <input
+              type="text"
+              name="payScaleOverride"
+              value={recruitment.payScaleOverride || recruitment.payScale || ''}
+              placeholder="e.g. Rs. 19,500 - 62,000/- (Pay Matrix Level 4)"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Cadre & Service Classification
+            </label>
+            <input
+              type="text"
+              name="cadreClassification"
+              value={recruitment.cadreClassification || ''}
+              placeholder="e.g. Class III Non-Gazetted Executive Police Service"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-foreground mb-1">
+            Allowances, Probation & Stipend Terms (Markdown)
+          </label>
+          <textarea
+            name="salaryDetailsMarkdown"
+            rows="3"
+            placeholder="e.g. Basic pay Rs. 19,500/- plus DA, HRA, Uniform Allowance. 3-year statutory probation period with 70%, 80%, 90% stipend applies."
+            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs leading-relaxed text-foreground outline-none"
+          >{recruitment.salaryDetailsMarkdown || ''}</textarea>
+        </div>
+      </div>
+
+      <!-- Section 7: Documents & Gazette Sources -->
+      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-border">
+          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
+            7. Official Documents & Portal Links
+          </h2>
+          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
+            Source Ground Truth
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Gazette Rulebook Document Title
+            </label>
+            <input
+              type="text"
+              name="sourceTitle"
+              value={primarySource?.sourceTitle || ''}
+              placeholder="e.g. MP Police Constable Recruitment Test 2026 Detailed Rulebook"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Official Notification PDF URL <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="url"
+              name="sourceUrl"
+              value={primarySource?.sourceUrl || ''}
+              placeholder="https://esb.mp.gov.in/Rulebooks/RB_2026/...pdf"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Official Apply Online URL
+            </label>
+            <input
+              type="url"
+              name="officialApplyUrl"
+              value={primaryApplyLink?.url || 'https://esb.mponline.gov.in'}
+              placeholder="https://esb.mponline.gov.in"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Official Syllabus Document URL
+            </label>
+            <input
+              type="url"
+              name="syllabusUrl"
+              value={primarySyllabusLink?.url || ''}
+              placeholder="https://esb.mp.gov.in/...syllabus.pdf"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-4">
+        <a
+          href="/admin/recruitments"
+          class="px-5 py-2.5 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors"
+        >
+          Cancel
+        </a>
+        <button
+          type="submit"
+          class="px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+        >
+          Save All 7 Sections
+        </button>
+      </div>
+
+    </form>
+  </div>
+</BaseLayout>

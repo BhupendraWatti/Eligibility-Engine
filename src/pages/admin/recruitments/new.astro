@@ -20,6 +20,11 @@ if (Astro.request.method === 'POST') {
     const advtNumber = formData.get('advtNumber')?.toString().trim();
     const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
     const shortSummary = formData.get('shortSummary')?.toString().trim();
+    const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
+    const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
+    const cadreClassification = formData.get('cadreClassification')?.toString().trim();
+    const salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim();
+    const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
     const minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
     const maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
     const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
@@ -38,6 +43,11 @@ if (Astro.request.method === 'POST') {
         advtNumber,
         totalVacancies,
         shortSummary,
+        overviewMarkdown,
+        payScaleOverride,
+        cadreClassification,
+        salaryDetailsMarkdown,
+        qualificationDetailsMarkdown,
         minAge,
         maxAgeGeneral,
         minQualificationLevel,
@@ -292,8 +302,49 @@ const postsBySector = sectors.map(sec => ({
               <label class="block text-xs font-bold text-foreground mb-1">Summary / Mandate</label>
               <textarea
                 name="shortSummary"
-                rows="3"
+                rows="2"
                 placeholder="Official notification summary..."
+                class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-foreground mb-1">Detailed Overview Narrative (Markdown)</label>
+              <textarea
+                name="overviewMarkdown"
+                rows="3"
+                placeholder="Official overview background narrative, exam nature, conducting department terms..."
+                class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+              ></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">Pay Scale Override</label>
+                <input
+                  type="text"
+                  name="payScaleOverride"
+                  placeholder="e.g. Rs. 19,500 - 62,000/- (Pay Matrix Level 4)"
+                  class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">Cadre Classification</label>
+                <input
+                  type="text"
+                  name="cadreClassification"
+                  placeholder="e.g. State Gazetted Executive or Class III Non-Gazetted"
+                  class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-foreground mb-1">Qualification Details & Relaxations (Markdown)</label>
+              <textarea
+                name="qualificationDetailsMarkdown"
+                rows="2"
+                placeholder="Detailed degree specifications, permissible streams, typing/computer certificate requirements..."
                 class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
               ></textarea>
             </div>

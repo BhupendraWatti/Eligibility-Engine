@@ -73,6 +73,7 @@ export interface RecruitmentWithDetails {
   title: string;
   slug: string;
   shortSummary: string;
+  overviewMarkdown?: string | null;
   cycleYear: number;
   totalVacancies: number;
   status: string;
@@ -85,6 +86,9 @@ export interface RecruitmentWithDetails {
   sectorName?: string;
   sectorSlug?: string;
   payScale?: string | null;
+  payScaleOverride?: string | null;
+  salaryDetailsMarkdown?: string | null;
+  cadreClassification?: string | null;
   organisationName: string;
   organisationShortName: string;
   organisationUrl: string;
@@ -94,7 +98,9 @@ export interface RecruitmentWithDetails {
   examDate?: string;
   validationStatus?: string;
   validationErrorsJson?: string | null;
-  vacanciesList?: Array<{ category: string; count: number; gender?: string; pct?: string; code?: string }>;
+  selectionStages?: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }>;
+  selectionStagesJson?: string | null;
+  vacanciesList?: Array<{ category: string; count: number; gender?: string; pct?: string; code?: string; quotaPct?: string; subPostName?: string }>;
   importantDatesList?: Array<{ event: string; desc: string; date: string; status: string; eventType?: string; isTentative?: number; notes?: string | null }>;
   sourcesList?: Array<{ sourceType: string; sourceUrl: string; sourceTitle: string; publicationDate: string | null; lastVerifiedAt: Date | string | null; status?: string }>;
   officialLinksList?: Array<{ linkType: string; title: string; url: string; isActive: number }>;
@@ -118,6 +124,10 @@ export interface RecruitmentWithDetails {
     minChestMaleCm?: number | null;
     minPercentageRequired?: number | null;
     additionalSkills?: string[] | null;
+    qualificationDetailsMarkdown?: string | null;
+    relaxationNotesMarkdown?: string | null;
+    specialConditionsNotes?: string | null;
+    experienceMonths?: number;
   };
 }
 
@@ -756,6 +766,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     title: 'MP Police Constable Recruitment 2026 (7,500 Vacancies)',
     slug: 'mp-police-constable-recruitment-2026',
     shortSummary: 'Official recruitment by MPESB for 7,500 posts of Police Constable in Madhya Pradesh Police Department. 10th pass candidates eligible.',
+    overviewMarkdown: 'The Madhya Pradesh Employees Selection Board (MPESB) has officially published the competitive examination notification for 7,500 vacancies of Police Constable (General Duty & Radio) in the Madhya Pradesh Police Department. Selection will be based on a Computer-Based Test (CBT), followed by physical proficiency scoring and document verification.',
     cycleYear: 2026,
     totalVacancies: 7500,
     status: 'PUBLISHED',
@@ -768,6 +779,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Police, Defence & Prisons',
     sectorSlug: 'police-defence-prisons',
     payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    payScaleOverride: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    salaryDetailsMarkdown: 'Basic Pay Rs. 19,500/- plus Dearness Allowance (DA), House Rent Allowance (HRA), Medical allowance, and uniform kit maintenance. 3-year statutory probation period with stipend (70%, 80%, 90%).',
+    cadreClassification: 'MP Police Non-Gazetted Executive Cadre (Class III)',
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
@@ -776,19 +790,24 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-10-06',
     examDate: '2026-11-19',
     validationStatus: 'VALID',
+    selectionStages: [
+      { name: 'Stage 1: Written Examination (CBT)', desc: '100 marks objective test covering General Knowledge, Reasoning, and Simple Arithmetic. No negative marking.' },
+      { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: '800m run, Long Jump, and Shot Put. Carries 100 marks contributing to final merit ranking.' },
+      { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Original certificates verification, biometric validation, and physical standards measurement at district police lines.' },
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 2025, pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 2025, pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 1500, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 1200, pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 750, pct: '10%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 2025, pct: '27%', quotaPct: '27%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 2025, pct: '27%', quotaPct: '27%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 1500, pct: '20%', quotaPct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 1200, pct: '16%', quotaPct: '16%' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 750, pct: '10%', quotaPct: '10%' },
     ],
     importantDatesList: [
-      { event: 'Notification Released', desc: 'Rulebook Gazetted on ESB Portal', date: '15 Feb 2026', status: 'Completed' },
-      { event: 'Applications Open', desc: 'Online Registration Commences', date: '22 Sep 2026', status: 'Upcoming' },
-      { event: 'Last Date to Apply', desc: 'Closing Date for Submission & Fee', date: '06 Oct 2026', status: 'Upcoming' },
-      { event: 'Correction Window', desc: 'Online Form Error Correction Closes', date: '11 Oct 2026', status: 'Upcoming' },
-      { event: 'Written Exam Date', desc: 'Statewide Computer Based Test Commences', date: '19 Nov 2026', status: 'Upcoming' },
+      { event: 'Notification Released', desc: 'Rulebook Gazetted on ESB Portal', date: '15 Feb 2026', status: 'Completed', eventType: 'NOTIFICATION' },
+      { event: 'Applications Open', desc: 'Online Registration Commences', date: '22 Sep 2026', status: 'Upcoming', eventType: 'APPLICATION_START' },
+      { event: 'Last Date to Apply', desc: 'Closing Date for Submission & Fee', date: '06 Oct 2026', status: 'Upcoming', eventType: 'APPLICATION_END' },
+      { event: 'Correction Window', desc: 'Online Form Error Correction Closes', date: '11 Oct 2026', status: 'Upcoming', eventType: 'CORRECTION_END' },
+      { event: 'Written Exam Date', desc: 'Statewide Computer Based Test Commences', date: '19 Nov 2026', status: 'Upcoming', eventType: 'EXAM_DATE' },
     ],
     sourcesList: [
       { sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceUrl: 'https://esb.mp.gov.in/Rulebooks/RB_2026/Police_Constable_2026_RuleBook.pdf', sourceTitle: 'MP Police Constable Recruitment Test 2026 Detailed Rulebook', publicationDate: '2026-02-15', lastVerifiedAt: '2026-09-17', status: 'VALID' },
@@ -816,6 +835,10 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       minChestMaleCm: 81.0,
       minPercentageRequired: null,
       additionalSkills: null,
+      qualificationDetailsMarkdown: '10th Class (High School) passed from Madhya Pradesh Board of Secondary Education or equivalent recognized Board. (8th Pass eligible for Scheduled Tribe candidates). For Constable Radio: 12th with PCM plus 2-year ITI or Polytechnic Diploma in Electronics/Computers/IT.',
+      relaxationNotesMarkdown: '+5 years upper age relaxation for SC, ST, OBC, Government Servants, and Women candidates as per MP General Administration Department circulars.',
+      specialConditionsNotes: 'Valid MP Employment Exchange (Rojgar Panjiyan) registration is mandatory as of application deadline.',
+      experienceMonths: 0,
     },
   },
   {
@@ -825,6 +848,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     title: 'MP Forest Guard & Jail Prahari Combined Recruitment 2026',
     slug: 'mp-forest-guard-recruitment-2026',
     shortSummary: 'Direct recruitment for 2,112 posts of Van Rakshak (Forest Guard) and Kshetra Rakshak in MP Forest Department. Exam completed; first phase merit list declared.',
+    overviewMarkdown: 'Direct recruitment examination conducted by MPESB for 2,112 posts of Van Rakshak (Forest Guard) and Kshetra Rakshak across MP forest circles. Candidates must qualify written CBT followed by mandatory physical walking endurance test and physical measurement.',
     cycleYear: 2026,
     totalVacancies: 2112,
     status: 'PUBLISHED',
@@ -837,6 +861,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Forest, Wildlife & Environment',
     sectorSlug: 'forest-environment',
     payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    payScaleOverride: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    salaryDetailsMarkdown: 'Pay Matrix Level 4 (Rs. 19,500 - 62,000/-) plus applicable DA, HRA, Uniform Allowance, and Special Hard Duty Forest Allowance.',
+    cadreClassification: 'Class III Non-Gazetted Technical Forest Field Service',
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
@@ -845,18 +872,23 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-04-30',
     examDate: '2026-06-04',
     validationStatus: 'VALID',
+    selectionStages: [
+      { name: 'Stage 1: Written Examination (CBT)', desc: '100 marks online test comprising General Knowledge, Hindi, English, Mathematics, and General Science.' },
+      { name: 'Stage 2: Physical Standard & Walking Test', desc: 'Mandatory 25 km walk in 4 hours for male candidates, 14 km walk in 4 hours for female candidates (Qualifying only).' },
+      { name: 'Stage 3: Document & Biometric Verification', desc: 'District forest circle verification of 10th marksheet, domicile certificate, and biometric logs.' },
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 570, pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 570, pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 422, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 338, pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 212, pct: '10%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 570, pct: '27%', quotaPct: '27%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 570, pct: '27%', quotaPct: '27%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 422, pct: '20%', quotaPct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 338, pct: '16%', quotaPct: '16%' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 212, pct: '10%', quotaPct: '10%' },
     ],
     importantDatesList: [
-      { event: 'Notification Released', desc: 'Rulebook Published on Portal', date: '20 Feb 2026', status: 'Completed' },
-      { event: 'Applications Open', desc: 'Application Window Commenced', date: '28 Feb 2026', status: 'Completed' },
-      { event: 'Last Date to Apply', desc: 'Revised Online Submission Deadline', date: '30 Apr 2026', status: 'Completed' },
-      { event: 'Written Exam Date', desc: 'Direct Recruitment CBT Examination (4-19 Jun)', date: '04 Jun 2026', status: 'Completed' },
+      { event: 'Notification Released', desc: 'Rulebook Published on Portal', date: '20 Feb 2026', status: 'Completed', eventType: 'NOTIFICATION' },
+      { event: 'Applications Open', desc: 'Application Window Commenced', date: '28 Feb 2026', status: 'Completed', eventType: 'APPLICATION_START' },
+      { event: 'Last Date to Apply', desc: 'Revised Online Submission Deadline', date: '30 Apr 2026', status: 'Completed', eventType: 'APPLICATION_END' },
+      { event: 'Written Exam Date', desc: 'Direct Recruitment CBT Examination (4-19 Jun)', date: '04 Jun 2026', status: 'Completed', eventType: 'EXAM_DATE' },
       { event: 'Result Declared', desc: 'First Phase Written Exam Merit List Declared', date: '14 Aug 2026', status: 'Completed' },
       { event: 'Physical Proficiency Test (PET)', desc: 'Second Phase PST/PET Verification', date: '15 Sep 2026', status: 'Active' },
     ],
@@ -877,6 +909,8 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationFemale: 5,
       ageRelaxationEws: 0,
       minQualificationLevel: '10TH',
+      qualificationDetailsMarkdown: 'Must have passed High School (10th standard) from Madhya Pradesh Board of Secondary Education or any recognized State/Central board.',
+      relaxationNotesMarkdown: '5 years upper age relaxation for SC/ST and female candidates domiciled in MP.',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
       requiresCpct: false,
@@ -907,6 +941,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Support Staff & Allied Services (Class IV)',
     sectorSlug: 'support-staff-class-iv',
     payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    payScaleOverride: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    salaryDetailsMarkdown: 'Level 4 ministerial scale with standard state government allowances.',
+    cadreClassification: 'Class III Ministerial Secretariat Cadre',
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
@@ -915,12 +952,16 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-10-18',
     examDate: '2026-12-05',
     validationStatus: 'PENDING',
+    selectionStages: [
+      { name: 'Stage 1: Written Examination', desc: '100 marks objective examination testing General Knowledge, Hindi, English, and Basic Computers.' },
+      { name: 'Stage 2: CPCT & Typing Verification', desc: 'Verification of qualifying CPCT scorecard with mandatory Hindi typing speed.' }
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 384, pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 384, pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 284, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 227, pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 141, pct: '10%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 384, pct: '27%', quotaPct: '27%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 384, pct: '27%', quotaPct: '27%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 284, pct: '20%', quotaPct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 227, pct: '16%', quotaPct: '16%' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 141, pct: '10%', quotaPct: '10%' },
     ],
     importantDatesList: [
       { event: 'Verification Queue', desc: 'Awaiting 2026 Gazette Rulebook', date: '18 Sep 2026', status: 'Active' },
@@ -940,6 +981,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationFemale: 5,
       ageRelaxationEws: 0,
       minQualificationLevel: '12TH',
+      qualificationDetailsMarkdown: 'Higher Secondary (10+2) certificate from recognized board along with 1-year Diploma in Computer Application (DCA/PGDCA).',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
       requiresCpct: true,
@@ -955,6 +997,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     title: 'Junior Judicial Assistant (JJA) & Court AG-III Examination 2026',
     slug: 'mp-jja-court-recruitment-2026',
     shortSummary: 'Held in verification queue pending confirmation of official 2026 High Court notification.',
+    overviewMarkdown: 'The High Court of Madhya Pradesh invites online applications for recruitment to the posts of Junior Judicial Assistant (JJA) and District Court Assistant Grade-III. Testing evaluates speed and accuracy in computer typing.',
     cycleYear: 2026,
     totalVacancies: 980,
     status: 'PENDING_VERIFICATION',
@@ -967,6 +1010,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Judiciary & Legal Services',
     sectorSlug: 'judiciary-legal-services',
     payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    payScaleOverride: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    salaryDetailsMarkdown: 'Basic Pay Rs. 19,500/- (Level 4) + High Court Special Judicial Allowance + DA + HRA.',
+    cadreClassification: 'Subordinate Judiciary Ministerial Cadre (Class III)',
     organisationName: 'High Court of Madhya Pradesh',
     organisationShortName: 'MPHC',
     organisationUrl: 'https://mphc.gov.in',
@@ -975,11 +1021,16 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-11-05',
     examDate: '2026-12-12',
     validationStatus: 'PENDING',
+    selectionStages: [
+      { name: 'Stage 1: Preliminary Online Screening Test', desc: 'General English, General Knowledge, Computer Knowledge (40 marks).' },
+      { name: 'Stage 2: Typing Skill Test', desc: 'Hindi typing (350 words in 10 minutes) and English typing (400 words in 10 minutes) on computer with formatting.' },
+      { name: 'Stage 3: Document Verification', desc: 'Scrutiny of Graduation degree, CPCT scorecard, and computer proficiency certificate.' },
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 490, pct: '50%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 196, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 157, pct: '16%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 137, pct: '14%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 490, pct: '50%', quotaPct: '50%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 196, pct: '20%', quotaPct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 157, pct: '16%', quotaPct: '16%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 137, pct: '14%', quotaPct: '14%' },
     ],
     importantDatesList: [
       { event: 'Verification Queue', desc: 'Awaiting 2026 MPHC Gazette Verification', date: '18 Sep 2026', status: 'Active' },
@@ -999,6 +1050,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationFemale: 5,
       ageRelaxationEws: 0,
       minQualificationLevel: 'GRADUATION',
+      qualificationDetailsMarkdown: 'Must hold a Bachelor Degree in any discipline from a recognized University, with valid CPCT scorecard and 1-year Computer Diploma.',
       requiresMpDomicile: false,
       requiresMpEmploymentReg: true,
       requiresCpct: true,
@@ -1014,6 +1066,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     title: 'MPESB Group-2 Sub-Group-4 Combined Recruitment Test 2026',
     slug: 'mp-patwari-recruitment-2026',
     shortSummary: 'Combined Group-2 Sub-Group-4 recruitment including Patwari and Revenue Inspector cadres across Madhya Pradesh.',
+    overviewMarkdown: 'The Madhya Pradesh Employees Selection Board conducts the Group-2 Sub-Group-4 Combined Recruitment Test 2026 for 3,550 vacancies covering Patwari (Land Records), Revenue Inspector, and allied executive posts across all 55 districts.',
     cycleYear: 2026,
     totalVacancies: 3550,
     status: 'PUBLISHED',
@@ -1026,6 +1079,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Revenue & Land Administration',
     sectorSlug: 'revenue-land-administration',
     payScale: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 6)',
+    payScaleOverride: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 6)',
+    salaryDetailsMarkdown: 'Basic Pay Rs. 25,300/- (Level 6) + Dearness Allowance (DA) + Travelling Allowance (TA) + Mobile/Stationery allowance. 3-year statutory probation terms apply.',
+    cadreClassification: 'Class III Non-Gazetted Revenue Executive Cadre',
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
@@ -1034,19 +1090,23 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-08-21',
     examDate: '2026-09-22',
     validationStatus: 'VALID',
+    selectionStages: [
+      { name: 'Stage 1: Combined Written Examination (CBT)', desc: '200 marks multi-section paper covering General Science, Hindi, English, Maths, General Knowledge, Computer Knowledge, and Management.' },
+      { name: 'Stage 2: District Preference & Counselling', desc: 'Merit-based district allocation followed by revenue board certificate scrutiny and CPCT score validation.' },
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 960, pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 957, pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 710, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 568, pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 355, pct: '10%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 960, pct: '27%', quotaPct: '27%', subPostName: 'Patwari & Revenue Staff' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 957, pct: '27%', quotaPct: '27%', subPostName: 'Patwari & Revenue Staff' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 710, pct: '20%', quotaPct: '20%', subPostName: 'Patwari & Revenue Staff' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 568, pct: '16%', quotaPct: '16%', subPostName: 'Patwari & Revenue Staff' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 355, pct: '10%', quotaPct: '10%', subPostName: 'Patwari & Revenue Staff' },
     ],
     importantDatesList: [
-      { event: 'Notification Released', desc: 'Rulebook Gazetted on MPESB Portal', date: '25 Jul 2026', status: 'Completed' },
-      { event: 'Applications Open', desc: 'Online Registration Commenced', date: '04 Aug 2026', status: 'Completed' },
-      { event: 'Last Date to Apply', desc: 'Closing Date for Submission (Extended)', date: '21 Aug 2026', status: 'Completed' },
-      { event: 'Rectification Window', desc: 'Online Error Correction Closed', date: '23 Aug 2026', status: 'Completed' },
-      { event: 'Written Exam Date', desc: 'Combined Group-2 Sub-Group-4 CBT Exam Commences', date: '22 Sep 2026', status: 'Upcoming' },
+      { event: 'Notification Released', desc: 'Rulebook Gazetted on MPESB Portal', date: '25 Jul 2026', status: 'Completed', eventType: 'NOTIFICATION' },
+      { event: 'Applications Open', desc: 'Online Registration Commenced', date: '04 Aug 2026', status: 'Completed', eventType: 'APPLICATION_START' },
+      { event: 'Last Date to Apply', desc: 'Closing Date for Submission (Extended)', date: '21 Aug 2026', status: 'Completed', eventType: 'APPLICATION_END' },
+      { event: 'Rectification Window', desc: 'Online Error Correction Closed', date: '23 Aug 2026', status: 'Completed', eventType: 'CORRECTION_END' },
+      { event: 'Written Exam Date', desc: 'Combined Group-2 Sub-Group-4 CBT Exam Commences', date: '22 Sep 2026', status: 'Upcoming', eventType: 'EXAM_DATE' },
     ],
     sourcesList: [
       { sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceUrl: 'https://esb.mp.gov.in/Rulebooks/RB_2026/Patwari_Group2_2026_RuleBook.pdf', sourceTitle: 'MP ESB Combined Group-2 Sub-Group-4 & Patwari Examination 2026 Rulebook', publicationDate: '2026-07-25', lastVerifiedAt: '2026-09-17', status: 'VALID' },
@@ -1064,6 +1124,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationFemale: 5,
       ageRelaxationEws: 0,
       minQualificationLevel: 'GRADUATION',
+      qualificationDetailsMarkdown: 'Graduation in any discipline from a recognized University. CPCT scorecard with Hindi typing is mandatory (or allowable within probation period where specified by GAD circular).',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
       requiresCpct: true,
@@ -1079,6 +1140,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     title: 'MPPSC State Services Examination (SSE) 2026',
     slug: 'mppsc-state-service-2026',
     shortSummary: 'Held in verification queue pending confirmation of exact 2026 SSE gazette advertisement and post schedule.',
+    overviewMarkdown: 'The Madhya Pradesh Public Service Commission (MPPSC) conducts the State Services Examination (SSE) 2026 for prestigious administrative posts including Deputy Collector, Deputy Superintendent of Police (DSP), Commercial Tax Officer, and Chief Municipal Officer.',
     cycleYear: 2026,
     totalVacancies: 356,
     status: 'PENDING_VERIFICATION',
@@ -1091,6 +1153,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     sectorName: 'Civil & Administrative Services',
     sectorSlug: 'civil-administrative-services',
     payScale: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 12)',
+    payScaleOverride: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 12)',
+    salaryDetailsMarkdown: 'Pay Matrix Level 12 (Junior Scale Gazetted), Basic Pay Rs. 56,100/- plus 50% DA, HRA, vehicle/conveyance allowance, and executive medical facilities.',
+    cadreClassification: 'State Gazetted Executive Service (Class II Gazetted)',
     organisationName: 'Madhya Pradesh Public Service Commission',
     organisationShortName: 'MPPSC',
     organisationUrl: 'https://mppsc.mp.gov.in',
@@ -1099,12 +1164,17 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-10-28',
     examDate: '2026-12-20',
     validationStatus: 'PENDING',
+    selectionStages: [
+      { name: 'Stage 1: State Service Preliminary Examination', desc: 'Two objective papers (General Studies - 200 marks, CSAT - 200 marks). CSAT is qualifying (40% for UR, 30% for reserved).' },
+      { name: 'Stage 2: State Service Main Examination (Written)', desc: 'Six descriptive papers (GS I-IV, General Hindi & Grammar, Hindi Essay & Drafting) totalling 1,500 marks.' },
+      { name: 'Stage 3: Personality Test (Interview)', desc: '175 marks viva-voce before the MPPSC interview board. Final merit list is calculated out of 1,675 marks.' },
+    ],
     vacanciesList: [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: 96, pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 96, pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 71, pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: 57, pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 36, pct: '10%' },
+      { category: 'General / Unreserved (UR)', code: 'UR', count: 96, pct: '27%', quotaPct: '27%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: 96, pct: '27%', quotaPct: '27%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: 71, pct: '20%', quotaPct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: 57, pct: '16%', quotaPct: '16%' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: 36, pct: '10%', quotaPct: '10%' },
     ],
     importantDatesList: [
       { event: 'Verification Queue', desc: 'Awaiting 2026 MPPSC SSE Gazette Verification', date: '18 Sep 2026', status: 'Active' },
@@ -1124,6 +1194,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationFemale: 5,
       ageRelaxationEws: 0,
       minQualificationLevel: 'GRADUATION',
+      qualificationDetailsMarkdown: 'Graduation degree in any discipline from a University established by Law in India or recognized equivalent.',
       requiresMpDomicile: false,
       requiresMpEmploymentReg: true,
       requiresCpct: false,
@@ -1794,111 +1865,204 @@ export async function getRecruitmentWithRelations(
       } catch {}
     }
 
-    const vacanciesList = (r.vacancies || []).map(v => ({
-      category: v.category,
-      count: v.count,
-      gender: v.gender,
-      pct: r.totalVacancies > 0 ? `${Math.round((v.count / r.totalVacancies) * 100)}%` : undefined,
-      code: v.category,
-    }));
-
-    const importantDatesList = (r.importantDates || []).map(d => ({
-      event: d.eventType.replace(/_/g, ' '),
-      desc: d.notes || d.eventType,
-      date: d.eventDate,
-      status: 'Active',
-      eventType: d.eventType,
-      isTentative: d.isTentative,
-      notes: d.notes,
-    }));
-
-    const sourcesList = (r.sources || []).map(s => ({
-      sourceType: s.sourceType,
-      sourceUrl: s.sourceUrl,
-      sourceTitle: s.sourceTitle,
-      publicationDate: s.publicationDate,
-      lastVerifiedAt: s.lastVerifiedAt,
-    }));
-
-    const officialLinksList = (r.officialLinks || []).map(l => ({
-      linkType: l.linkType,
-      title: l.title,
-      url: l.url,
-      isActive: l.isActive,
-    }));
-
-    const canonicalPost: CanonicalPostWithDetails | undefined = r.post ? {
-      id: r.post.id,
-      departmentId: r.post.departmentId,
-      sectorId: r.post.sectorId,
-      title: r.post.title,
-      slug: r.post.slug,
-      summary: r.post.summary,
-      payScale: r.post.payScale,
-      defaultMinAge: r.post.defaultMinAge,
-      defaultMaxAge: r.post.defaultMaxAge,
-      defaultQualification: r.post.defaultQualification,
-      isActive: r.post.isActive,
-      departmentName: r.post.department?.name,
-      sectorName: r.post.sector?.name,
-      organisationName: r.post.department?.organisation?.shortName || r.post.department?.organisation?.name,
-    } : undefined;
-
-    return {
-      id: r.id,
-      postId: r.postId,
-      advtNumber: r.advtNumber,
-      title: r.title,
-      slug: r.slug,
-      shortSummary: r.shortSummary,
-      cycleYear: r.cycleYear,
-      totalVacancies: r.totalVacancies,
-      status: r.status,
-      lifecycleStatus: r.lifecycleStatus,
-      isFeatured: r.isFeatured,
-      postTitle: r.post?.title || 'State Government Post',
-      postSlug: r.post?.slug || '',
-      departmentName: r.post?.department?.name || 'Madhya Pradesh Department',
-      departmentSlug: r.post?.department?.slug,
-      sectorName: r.post?.sector?.name || 'State Cadre',
-      sectorSlug: r.post?.sector?.slug,
-      payScale: r.post?.payScale,
-      organisationName: r.organisation?.name || 'Madhya Pradesh Authority',
-      organisationShortName: r.organisation?.shortName || 'MP Govt',
-      organisationUrl: r.organisation?.websiteUrl || 'https://esb.mp.gov.in',
-      organisationSlug: r.organisation?.slug,
-      validationStatus: r.validationStatus,
-      validationErrorsJson: r.validationErrorsJson,
-      vacanciesList: vacanciesList.length > 0 ? vacanciesList : undefined,
-      importantDatesList: importantDatesList.length > 0 ? importantDatesList : undefined,
-      sourcesList: sourcesList.length > 0 ? sourcesList : undefined,
-      officialLinksList: officialLinksList.length > 0 ? officialLinksList : undefined,
-      canonicalPost,
-      criteria: {
-        minAge: r.eligibility?.minAge ?? 18,
-        maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
-        ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
-        ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
-        ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
-        ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
-        ageRelaxationEws: r.eligibility?.ageRelaxationEws ?? 0,
-        minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
-        allowedStreams,
-        requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
-        requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
-        requiresCpct: r.eligibility?.requiresCpct === 1,
-        genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
-        minHeightMaleCm: r.eligibility?.minHeightMaleCm,
-        minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
-        minChestMaleCm: r.eligibility?.minChestMaleCm,
-        minPercentageRequired: r.eligibility?.minPercentageRequired ?? null,
-        additionalSkills,
-      },
-    };
+    return mapDbRecruitmentToDetails(r);
   } catch (err) {
     console.warn('Error fetching recruitment with relations from D1:', err);
     return FALLBACK_RECRUITMENTS.find(r => r.slug === slug);
   }
+}
+
+/**
+ * Fetch a single recruitment by its unique ID (or slug) with all relations
+ */
+export async function getRecruitmentById(
+  id: string,
+  providedD1?: D1Database
+): Promise<RecruitmentWithDetails | undefined> {
+  const d1 = providedD1 || cfEnv?.DB;
+  if (!d1) {
+    return FALLBACK_RECRUITMENTS.find(r => r.id === id || r.slug === id);
+  }
+
+  try {
+    const db = getDb(d1);
+    const r = await db.query.recruitments.findFirst({
+      where: eq(schema.recruitments.id, id),
+      with: {
+        post: {
+          with: {
+            department: {
+              with: {
+                organisation: true,
+              },
+            },
+            sector: true,
+          },
+        },
+        organisation: true,
+        eligibility: true,
+        vacancies: true,
+        importantDates: true,
+        sources: true,
+        officialLinks: true,
+      },
+    });
+
+    if (!r) {
+      return FALLBACK_RECRUITMENTS.find(rec => rec.id === id || rec.slug === id);
+    }
+
+    return mapDbRecruitmentToDetails(r);
+  } catch (err) {
+    console.warn('Error fetching recruitment by id from D1:', err);
+    return FALLBACK_RECRUITMENTS.find(r => r.id === id || r.slug === id);
+  }
+}
+
+/**
+ * Helper to map a D1 query recruitment result with relations into RecruitmentWithDetails
+ */
+function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
+  let additionalSkills: string[] | null = null;
+  let allowedStreams: string[] | null = null;
+  if (r.eligibility?.additionalSkillsJson) {
+    try {
+      additionalSkills = JSON.parse(r.eligibility.additionalSkillsJson);
+    } catch {}
+  }
+  if (r.eligibility?.allowedStreamsJson) {
+    try {
+      allowedStreams = JSON.parse(r.eligibility.allowedStreamsJson);
+    } catch {}
+  }
+
+  let selectionStages: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }> | undefined = undefined;
+  if (r.selectionStagesJson) {
+    try {
+      selectionStages = JSON.parse(r.selectionStagesJson);
+    } catch {}
+  }
+
+  const vacanciesList = (r.vacancies || []).map((v: any) => ({
+    category: v.category,
+    count: v.count,
+    gender: v.gender,
+    pct: v.quotaPct || (r.totalVacancies > 0 ? `${Math.round((v.count / r.totalVacancies) * 100)}%` : undefined),
+    code: v.category,
+    quotaPct: v.quotaPct || undefined,
+    subPostName: v.subPostName || undefined,
+  }));
+
+  const importantDatesList = (r.importantDates || []).map((d: any) => ({
+    event: d.eventType.replace(/_/g, ' '),
+    desc: d.notes || d.eventType,
+    date: d.eventDate,
+    status: 'Active',
+    eventType: d.eventType,
+    isTentative: d.isTentative,
+    notes: d.notes,
+  }));
+
+  const appStartEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_START');
+  const appEndEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_END');
+  const examDateEvent = (r.importantDates || []).find((d: any) => d.eventType === 'EXAM_DATE');
+
+  const sourcesList = (r.sources || []).map((s: any) => ({
+    sourceType: s.sourceType,
+    sourceUrl: s.sourceUrl,
+    sourceTitle: s.sourceTitle,
+    publicationDate: s.publicationDate,
+    lastVerifiedAt: s.lastVerifiedAt,
+  }));
+
+  const officialLinksList = (r.officialLinks || []).map((l: any) => ({
+    linkType: l.linkType,
+    title: l.title,
+    url: l.url,
+    isActive: l.isActive,
+  }));
+
+  const canonicalPost: CanonicalPostWithDetails | undefined = r.post ? {
+    id: r.post.id,
+    departmentId: r.post.departmentId,
+    sectorId: r.post.sectorId,
+    title: r.post.title,
+    slug: r.post.slug,
+    summary: r.post.summary,
+    payScale: r.post.payScale,
+    defaultMinAge: r.post.defaultMinAge,
+    defaultMaxAge: r.post.defaultMaxAge,
+    defaultQualification: r.post.defaultQualification,
+    isActive: r.post.isActive,
+    departmentName: r.post.department?.name,
+    sectorName: r.post.sector?.name,
+    organisationName: r.post.department?.organisation?.shortName || r.post.department?.organisation?.name,
+  } : undefined;
+
+  return {
+    id: r.id,
+    postId: r.postId,
+    advtNumber: r.advtNumber,
+    title: r.title,
+    slug: r.slug,
+    shortSummary: r.shortSummary,
+    overviewMarkdown: r.overviewMarkdown,
+    cycleYear: r.cycleYear,
+    totalVacancies: r.totalVacancies,
+    status: r.status,
+    lifecycleStatus: r.lifecycleStatus,
+    isFeatured: r.isFeatured,
+    postTitle: r.post?.title || 'State Government Post',
+    postSlug: r.post?.slug || '',
+    departmentName: r.post?.department?.name || 'Madhya Pradesh Department',
+    departmentSlug: r.post?.department?.slug,
+    sectorName: r.post?.sector?.name || 'State Cadre',
+    sectorSlug: r.post?.sector?.slug,
+    payScale: r.payScaleOverride || r.post?.payScale,
+    payScaleOverride: r.payScaleOverride,
+    salaryDetailsMarkdown: r.salaryDetailsMarkdown,
+    cadreClassification: r.cadreClassification,
+    organisationName: r.organisation?.name || 'Madhya Pradesh Authority',
+    organisationShortName: r.organisation?.shortName || 'MP Govt',
+    organisationUrl: r.organisation?.websiteUrl || 'https://esb.mp.gov.in',
+    organisationSlug: r.organisation?.slug,
+    applicationStart: appStartEvent?.eventDate,
+    applicationEnd: appEndEvent?.eventDate,
+    examDate: examDateEvent?.eventDate,
+    validationStatus: r.validationStatus,
+    validationErrorsJson: r.validationErrorsJson,
+    selectionStages: selectionStages && selectionStages.length > 0 ? selectionStages : undefined,
+    selectionStagesJson: r.selectionStagesJson,
+    vacanciesList: vacanciesList.length > 0 ? vacanciesList : undefined,
+    importantDatesList: importantDatesList.length > 0 ? importantDatesList : undefined,
+    sourcesList: sourcesList.length > 0 ? sourcesList : undefined,
+    officialLinksList: officialLinksList.length > 0 ? officialLinksList : undefined,
+    canonicalPost,
+    criteria: {
+      minAge: r.eligibility?.minAge ?? 18,
+      maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
+      ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
+      ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
+      ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
+      ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
+      ageRelaxationEws: r.eligibility?.ageRelaxationEws ?? 0,
+      minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
+      allowedStreams,
+      requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
+      requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
+      requiresCpct: r.eligibility?.requiresCpct === 1,
+      genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
+      minHeightMaleCm: r.eligibility?.minHeightMaleCm,
+      minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
+      minChestMaleCm: r.eligibility?.minChestMaleCm,
+      minPercentageRequired: r.eligibility?.minPercentageRequired ?? null,
+      additionalSkills,
+      qualificationDetailsMarkdown: r.eligibility?.qualificationDetailsMarkdown,
+      relaxationNotesMarkdown: r.eligibility?.relaxationNotesMarkdown,
+      specialConditionsNotes: r.eligibility?.specialConditionsNotes,
+      experienceMonths: r.eligibility?.experienceMonths,
+    },
+  };
 }
 
 /**
@@ -1931,11 +2095,25 @@ export interface CreateRecruitmentInput {
   advtNumber: string;
   totalVacancies: number;
   shortSummary?: string;
+  overviewMarkdown?: string;
   lifecycleStatus?: string;
   status?: string; // 'DRAFT' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'PUBLISHED'
+  cycleYear?: number;
+  payScaleOverride?: string;
+  salaryDetailsMarkdown?: string;
+  cadreClassification?: string;
   minAge?: number;
   maxAgeGeneral?: number;
+  ageCutoffDate?: string;
+  ageRelaxationScSt?: number;
+  ageRelaxationObc?: number;
+  ageRelaxationFemale?: number;
+  ageRelaxationEws?: number;
   minQualificationLevel?: string;
+  qualificationDetailsMarkdown?: string;
+  relaxationNotesMarkdown?: string;
+  specialConditionsNotes?: string;
+  experienceMonths?: number;
   allowedStreams?: string[];
   requiresMpDomicile?: boolean;
   requiresMpEmploymentReg?: boolean;
@@ -1950,7 +2128,11 @@ export interface CreateRecruitmentInput {
   sourceUrl?: string;
   sourceTitle?: string;
   officialApplyUrl?: string;
-  vacanciesBreakdown?: Array<{ category: string; count: number; gender?: string }>;
+  selectionStages?: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }>;
+  vacanciesBreakdown?: Array<{ category: string; count: number; gender?: string; pct?: string; quotaPct?: string; subPostName?: string }>;
+  importantDates?: Array<{ eventType: string; eventDate: string; isTentative?: number; notes?: string }>;
+  sources?: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }>;
+  officialLinks?: Array<{ linkType: string; title: string; url: string }>;
   adminEmail?: string;
 }
 
@@ -1996,7 +2178,7 @@ export async function createRecruitmentAtomic(
     title: data.title,
     slug,
     advtNumber: data.advtNumber,
-    cycleYear: new Date().getFullYear(),
+    cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies: data.totalVacancies,
     postId: data.postId,
     postTitle: matchedPost?.title || 'State Government Post',
@@ -2016,7 +2198,7 @@ export async function createRecruitmentAtomic(
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
-      ageCutoffDate: `${new Date().getFullYear()}-01-01`,
+      ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
       minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
       requiresMpDomicile: data.requiresMpDomicile ?? true,
       requiresMpEmploymentReg: data.requiresMpEmploymentReg ?? true,
@@ -2034,6 +2216,10 @@ export async function createRecruitmentAtomic(
     targetStatus = 'PENDING_VERIFICATION';
   }
 
+  const selectionStagesJson = data.selectionStages && data.selectionStages.length > 0
+    ? JSON.stringify(data.selectionStages)
+    : null;
+
   // 2. Prepare in-memory representation
   const newRecruitment: RecruitmentWithDetails = {
     id: newId,
@@ -2042,7 +2228,8 @@ export async function createRecruitmentAtomic(
     title: data.title,
     slug,
     shortSummary: data.shortSummary || `Direct recruitment for ${data.totalVacancies.toLocaleString()} vacancies of ${matchedPost?.title || 'posts'} in Madhya Pradesh.`,
-    cycleYear: new Date().getFullYear(),
+    overviewMarkdown: data.overviewMarkdown || null,
+    cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies: data.totalVacancies,
     status: targetStatus,
     lifecycleStatus: data.lifecycleStatus || 'OPEN',
@@ -2051,52 +2238,85 @@ export async function createRecruitmentAtomic(
     postSlug: matchedPost?.slug || '',
     departmentName: matchedPost?.departmentName,
     sectorName: matchedPost?.sectorName,
-    payScale: matchedPost?.payScale,
+    payScale: data.payScaleOverride || matchedPost?.payScale,
+    payScaleOverride: data.payScaleOverride || null,
+    salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
+    cadreClassification: data.cadreClassification || null,
     organisationName: org.name,
     organisationShortName: org.shortName,
     organisationUrl: org.websiteUrl,
     organisationSlug: org.slug,
+    applicationStart: data.applicationStart,
+    applicationEnd: data.applicationEnd,
+    examDate: data.examDate,
     validationStatus: targetValidationStatus,
     validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
     canonicalPost: matchedPost,
+    selectionStages: data.selectionStages || undefined,
+    selectionStagesJson,
     vacanciesList: data.vacanciesBreakdown || [
-      { category: 'UR', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'UR' },
-      { category: 'OBC', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'OBC' },
-      { category: 'ST', count: Math.round(data.totalVacancies * 0.20), pct: '20%', code: 'ST' },
-      { category: 'SC', count: Math.round(data.totalVacancies * 0.16), pct: '16%', code: 'SC' },
-      { category: 'EWS', count: Math.round(data.totalVacancies * 0.10), pct: '10%', code: 'EWS' },
+      { category: 'UR', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'UR', quotaPct: '27%' },
+      { category: 'OBC', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'OBC', quotaPct: '27%' },
+      { category: 'ST', count: Math.round(data.totalVacancies * 0.20), pct: '20%', code: 'ST', quotaPct: '20%' },
+      { category: 'SC', count: Math.round(data.totalVacancies * 0.16), pct: '16%', code: 'SC', quotaPct: '16%' },
+      { category: 'EWS', count: Math.round(data.totalVacancies * 0.10), pct: '10%', code: 'EWS', quotaPct: '10%' },
     ],
-    importantDatesList: [
-      { event: 'Notification Released', desc: 'Rulebook Gazetted', date: 'Official Gazetted', status: 'Completed', eventType: 'NOTIFICATION' },
-      ...(data.applicationStart ? [{ event: 'Applications Open', desc: 'Online Registration Commenced', date: data.applicationStart, status: 'Active', eventType: 'APPLICATION_START' }] : []),
-      ...(data.applicationEnd ? [{ event: 'Last Date to Apply', desc: 'Online Form Submission Deadline', date: data.applicationEnd, status: 'Closing Soon', eventType: 'APPLICATION_END' }] : []),
-      ...(data.examDate ? [{ event: 'Examination Date', desc: 'Statewide Competitive Examination', date: data.examDate, status: 'Upcoming', eventType: 'EXAM_DATE' }] : []),
-    ],
-    sourcesList: [
-      {
-        sourceType: 'OFFICIAL_NOTIFICATION_PDF',
-        sourceUrl: data.sourceUrl || org.websiteUrl,
-        sourceTitle: data.sourceTitle || `${org.shortName} Official Rulebook Notification`,
-        publicationDate: data.applicationStart || '2026-01-01',
-        lastVerifiedAt: new Date(),
-      },
-    ],
-    officialLinksList: [
-      {
-        linkType: 'APPLY_ONLINE',
-        title: `Apply on ${org.shortName} Portal`,
-        url: data.officialApplyUrl || org.websiteUrl,
-        isActive: 1,
-      },
-    ],
+    importantDatesList: data.importantDates && data.importantDates.length > 0
+      ? data.importantDates.map(d => ({
+          event: d.eventType.replace(/_/g, ' '),
+          desc: d.notes || d.eventType,
+          date: d.eventDate,
+          status: 'Active',
+          eventType: d.eventType,
+          isTentative: d.isTentative || 0,
+          notes: d.notes,
+        }))
+      : [
+          { event: 'Notification Released', desc: 'Rulebook Gazetted', date: data.applicationStart || `${new Date().getFullYear()}-01-01`, status: 'Completed', eventType: 'NOTIFICATION' },
+          ...(data.applicationStart ? [{ event: 'Applications Open', desc: 'Online Registration Commenced', date: data.applicationStart, status: 'Active', eventType: 'APPLICATION_START' }] : []),
+          ...(data.applicationEnd ? [{ event: 'Last Date to Apply', desc: 'Online Form Submission Deadline', date: data.applicationEnd, status: 'Closing Soon', eventType: 'APPLICATION_END' }] : []),
+          ...(data.examDate ? [{ event: 'Examination Date', desc: 'Statewide Competitive Examination', date: data.examDate, status: 'Upcoming', eventType: 'EXAM_DATE' }] : []),
+        ],
+    sourcesList: data.sources && data.sources.length > 0
+      ? data.sources.map(s => ({
+          sourceType: s.sourceType,
+          sourceUrl: s.sourceUrl,
+          sourceTitle: s.sourceTitle,
+          publicationDate: s.publicationDate || data.applicationStart || null,
+          lastVerifiedAt: new Date(),
+        }))
+      : [
+          {
+            sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+            sourceUrl: data.sourceUrl || org.websiteUrl,
+            sourceTitle: data.sourceTitle || `${org.shortName} Official Rulebook Notification`,
+            publicationDate: data.applicationStart || `${new Date().getFullYear()}-01-01`,
+            lastVerifiedAt: new Date(),
+          },
+        ],
+    officialLinksList: data.officialLinks && data.officialLinks.length > 0
+      ? data.officialLinks.map(l => ({
+          linkType: l.linkType,
+          title: l.title,
+          url: l.url,
+          isActive: 1,
+        }))
+      : [
+          {
+            linkType: 'APPLY_ONLINE',
+            title: `Apply on ${org.shortName} Portal`,
+            url: data.officialApplyUrl || org.websiteUrl,
+            isActive: 1,
+          },
+        ],
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
-      ageCutoffDate: `${new Date().getFullYear()}-01-01`,
-      ageRelaxationScSt: 5,
-      ageRelaxationObc: 3,
-      ageRelaxationFemale: 5,
-      ageRelaxationEws: 0,
+      ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+      ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
+      ageRelaxationObc: data.ageRelaxationObc ?? 3,
+      ageRelaxationFemale: data.ageRelaxationFemale ?? 5,
+      ageRelaxationEws: data.ageRelaxationEws ?? 0,
       minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
       allowedStreams: data.allowedStreams,
       requiresMpDomicile: data.requiresMpDomicile ?? true,
@@ -2108,6 +2328,10 @@ export async function createRecruitmentAtomic(
       minChestMaleCm: data.minChestMaleCm ?? null,
       minPercentageRequired: null,
       additionalSkills: null,
+      qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
+      relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
+      specialConditionsNotes: data.specialConditionsNotes || null,
+      experienceMonths: data.experienceMonths || 0,
     },
   };
 
@@ -2145,6 +2369,7 @@ export async function createRecruitmentAtomic(
           title: data.title,
           slug,
           shortSummary: newRecruitment.shortSummary,
+          overviewMarkdown: data.overviewMarkdown || null,
           cycleYear: newRecruitment.cycleYear,
           totalVacancies: data.totalVacancies,
           status: targetStatus,
@@ -2152,6 +2377,10 @@ export async function createRecruitmentAtomic(
           isFeatured: 0,
           validationStatus: targetValidationStatus,
           validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
+          selectionStagesJson,
+          payScaleOverride: data.payScaleOverride || null,
+          salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
+          cadreClassification: data.cadreClassification || null,
         })
       );
 
@@ -2161,19 +2390,24 @@ export async function createRecruitmentAtomic(
           recruitmentId: newId,
           minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
           maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
-          ageCutoffDate: `${new Date().getFullYear()}-01-01`,
-          ageRelaxationScSt: 5,
-          ageRelaxationObc: 3,
-          ageRelaxationFemale: 5,
+          ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+          ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
+          ageRelaxationObc: data.ageRelaxationObc ?? 3,
+          ageRelaxationFemale: data.ageRelaxationFemale ?? 5,
+          ageRelaxationEws: data.ageRelaxationEws ?? 0,
           minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
           allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
-          requiresMpDomicile: data.requiresMpDomicile ? 1 : 1,
-          requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 1,
+          requiresMpDomicile: data.requiresMpDomicile ? 1 : 0,
+          requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 0,
           requiresCpct: data.requiresCpct ? 1 : 0,
           genderAllowed: data.genderAllowed || 'ALL',
           minHeightMaleCm: data.minHeightMaleCm ?? null,
           minHeightFemaleCm: data.minHeightFemaleCm ?? null,
           minChestMaleCm: data.minChestMaleCm ?? null,
+          experienceMonths: data.experienceMonths || 0,
+          specialConditionsNotes: data.specialConditionsNotes || null,
+          qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
+          relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
         })
       );
 
@@ -2181,11 +2415,13 @@ export async function createRecruitmentAtomic(
       for (const v of newRecruitment.vacanciesList || []) {
         statements.push(
           db.insert(schema.vacancies).values({
-            id: `vac_${newId}_${v.category.toLowerCase()}`,
+            id: `vac_${newId}_${v.category.toLowerCase()}_${Math.random().toString(36).substring(2, 6)}`,
             recruitmentId: newId,
             category: v.category,
             gender: v.gender || 'ALL',
             count: v.count,
+            quotaPct: v.quotaPct || null,
+            subPostName: v.subPostName || null,
           })
         );
       }
@@ -2198,35 +2434,39 @@ export async function createRecruitmentAtomic(
             recruitmentId: newId,
             eventType: d.eventType || 'NOTIFICATION',
             eventDate: d.date,
-            isTentative: 0,
+            isTentative: d.isTentative || 0,
             notes: d.desc,
           })
         );
       }
 
       // Source
-      statements.push(
-        db.insert(schema.sources).values({
-          id: `src_${newId}`,
-          recruitmentId: newId,
-          sourceType: 'OFFICIAL_NOTIFICATION_PDF',
-          sourceUrl: data.sourceUrl || org.websiteUrl,
-          sourceTitle: data.sourceTitle || `${org.shortName} Official Rulebook Notification`,
-          publicationDate: data.applicationStart || '2026-01-01',
-        })
-      );
+      for (const s of newRecruitment.sourcesList || []) {
+        statements.push(
+          db.insert(schema.sources).values({
+            id: `src_${newId}_${Math.random().toString(36).substring(2, 6)}`,
+            recruitmentId: newId,
+            sourceType: s.sourceType || 'OFFICIAL_NOTIFICATION_PDF',
+            sourceUrl: s.sourceUrl,
+            sourceTitle: s.sourceTitle,
+            publicationDate: typeof s.publicationDate === 'string' ? s.publicationDate : null,
+          })
+        );
+      }
 
       // Official Link
-      statements.push(
-        db.insert(schema.officialLinks).values({
-          id: `link_${newId}`,
-          recruitmentId: newId,
-          linkType: 'APPLY_ONLINE',
-          title: `Apply on ${org.shortName} Portal`,
-          url: data.officialApplyUrl || org.websiteUrl,
-          isActive: 1,
-        })
-      );
+      for (const l of newRecruitment.officialLinksList || []) {
+        statements.push(
+          db.insert(schema.officialLinks).values({
+            id: `link_${newId}_${Math.random().toString(36).substring(2, 6)}`,
+            recruitmentId: newId,
+            linkType: l.linkType || 'APPLY_ONLINE',
+            title: l.title,
+            url: l.url,
+            isActive: 1,
+          })
+        );
+      }
 
       // Audit Log
       statements.push(
@@ -2255,6 +2495,307 @@ export async function createRecruitmentAtomic(
   return {
     success: true,
     id: newId,
+    validation: validationResult,
+    errors: validationResult.blockingErrors,
+  };
+}
+
+/**
+ * Update an existing recruitment drive atomically across all relational sections
+ */
+export async function updateRecruitmentAtomic(
+  id: string,
+  data: CreateRecruitmentInput,
+  providedD1?: D1Database
+): Promise<{ success: boolean; id: string; validation: any; errors?: string[] }> {
+  const d1 = providedD1 || cfEnv?.DB;
+  const matchedPost = FALLBACK_POSTS.find(p => p.id === data.postId);
+  const orgShort = data.organisationShortName || (data.postId?.includes('mppsc') ? 'MPPSC' : data.postId?.includes('judge') ? 'MPHC' : 'MPESB');
+  const org = FALLBACK_ORGANISATIONS.find(o => o.shortName === orgShort) || FALLBACK_ORGANISATIONS[0];
+  const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const validationInput = {
+    id,
+    title: data.title,
+    slug,
+    advtNumber: data.advtNumber,
+    cycleYear: data.cycleYear || new Date().getFullYear(),
+    totalVacancies: data.totalVacancies,
+    postId: data.postId,
+    postTitle: matchedPost?.title || 'State Government Post',
+    departmentName: matchedPost?.departmentName || 'General Administration Department',
+    organisationShortName: org.shortName,
+    organisationName: org.name,
+    lifecycleStatus: data.lifecycleStatus || 'OPEN',
+    applicationStart: data.applicationStart,
+    applicationEnd: data.applicationEnd,
+    examDate: data.examDate,
+    sources: data.sourceUrl ? [{
+      sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+      sourceUrl: data.sourceUrl,
+      sourceTitle: data.sourceTitle || `${org.shortName} Official Notification`,
+      status: 'VALID' as const,
+    }] : [],
+    criteria: {
+      minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+      maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+      ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+      minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
+      requiresMpDomicile: data.requiresMpDomicile ?? true,
+      requiresMpEmploymentReg: data.requiresMpEmploymentReg ?? true,
+      requiresCpct: data.requiresCpct ?? false,
+      genderAllowed: data.genderAllowed || 'ALL' as 'ALL',
+    },
+  };
+
+  const validationResult = validateRecruitmentForPublication(validationInput);
+  let targetStatus = data.status || 'PUBLISHED';
+  let targetValidationStatus = validationResult.publishable ? 'VALID' : 'NEEDS_REVIEW';
+
+  if (!validationResult.publishable && targetStatus === 'PUBLISHED') {
+    targetStatus = 'PENDING_VERIFICATION';
+  }
+
+  const selectionStagesJson = data.selectionStages && data.selectionStages.length > 0
+    ? JSON.stringify(data.selectionStages)
+    : null;
+
+  // 1. Update in-memory fallback representation
+  const idx = FALLBACK_RECRUITMENTS.findIndex(r => r.id === id || r.slug === id);
+  if (idx !== -1) {
+    const existing = FALLBACK_RECRUITMENTS[idx];
+    FALLBACK_RECRUITMENTS[idx] = {
+      ...existing,
+      title: data.title,
+      slug,
+      advtNumber: data.advtNumber,
+      totalVacancies: data.totalVacancies,
+      shortSummary: data.shortSummary || existing.shortSummary,
+      overviewMarkdown: data.overviewMarkdown !== undefined ? data.overviewMarkdown : existing.overviewMarkdown,
+      status: targetStatus,
+      lifecycleStatus: data.lifecycleStatus || existing.lifecycleStatus,
+      payScale: data.payScaleOverride || matchedPost?.payScale || existing.payScale,
+      payScaleOverride: data.payScaleOverride || null,
+      salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
+      cadreClassification: data.cadreClassification || null,
+      applicationStart: data.applicationStart || existing.applicationStart,
+      applicationEnd: data.applicationEnd || existing.applicationEnd,
+      examDate: data.examDate || existing.examDate,
+      validationStatus: targetValidationStatus,
+      validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
+      selectionStages: data.selectionStages || existing.selectionStages,
+      selectionStagesJson,
+      vacanciesList: data.vacanciesBreakdown || existing.vacanciesList,
+      importantDatesList: data.importantDates && data.importantDates.length > 0
+        ? data.importantDates.map(d => ({
+            event: d.eventType.replace(/_/g, ' '),
+            desc: d.notes || d.eventType,
+            date: d.eventDate,
+            status: 'Active',
+            eventType: d.eventType,
+            isTentative: d.isTentative || 0,
+            notes: d.notes,
+          }))
+        : existing.importantDatesList,
+      sourcesList: data.sources && data.sources.length > 0
+        ? data.sources.map(s => ({
+            sourceType: s.sourceType,
+            sourceUrl: s.sourceUrl,
+            sourceTitle: s.sourceTitle,
+            publicationDate: s.publicationDate || data.applicationStart || null,
+            lastVerifiedAt: new Date(),
+          }))
+        : existing.sourcesList,
+      officialLinksList: data.officialLinks && data.officialLinks.length > 0
+        ? data.officialLinks.map(l => ({
+            linkType: l.linkType,
+            title: l.title,
+            url: l.url,
+            isActive: 1,
+          }))
+        : existing.officialLinksList,
+      criteria: {
+        ...existing.criteria,
+        minAge: data.minAge ?? existing.criteria.minAge,
+        maxAgeGeneral: data.maxAgeGeneral ?? existing.criteria.maxAgeGeneral,
+        ageCutoffDate: data.ageCutoffDate || existing.criteria.ageCutoffDate,
+        minQualificationLevel: data.minQualificationLevel ?? existing.criteria.minQualificationLevel,
+        requiresMpDomicile: data.requiresMpDomicile !== undefined ? data.requiresMpDomicile : existing.criteria.requiresMpDomicile,
+        requiresMpEmploymentReg: data.requiresMpEmploymentReg !== undefined ? data.requiresMpEmploymentReg : existing.criteria.requiresMpEmploymentReg,
+        requiresCpct: data.requiresCpct !== undefined ? data.requiresCpct : existing.criteria.requiresCpct,
+        qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
+        relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
+        specialConditionsNotes: data.specialConditionsNotes || null,
+        experienceMonths: data.experienceMonths || 0,
+      },
+    };
+  }
+
+  // 2. Audit Log
+  const adminEmail = data.adminEmail || 'aarav@nirnay.in';
+  FALLBACK_AUDIT_LOGS.unshift({
+    id: `audit_${Date.now()}`,
+    adminEmail,
+    entity: 'RECRUITMENT',
+    entityId: id,
+    action: 'UPDATE',
+    field: 'all',
+    oldValue: null,
+    newValue: targetStatus,
+    reason: `Recruitment updated via Admin Editor with validation: ${targetValidationStatus}`,
+    source: data.sourceUrl || org.websiteUrl,
+    createdAt: new Date(),
+  });
+
+  // 3. Atomic D1 Batch Persistence
+  if (d1) {
+    try {
+      const db = getDb(d1);
+      const statements: any[] = [];
+
+      // Update recruitments table
+      statements.push(
+        db.update(schema.recruitments)
+          .set({
+            title: data.title,
+            slug,
+            advtNumber: data.advtNumber,
+            shortSummary: data.shortSummary || '',
+            overviewMarkdown: data.overviewMarkdown || null,
+            totalVacancies: data.totalVacancies,
+            status: targetStatus,
+            lifecycleStatus: data.lifecycleStatus || 'OPEN',
+            validationStatus: targetValidationStatus,
+            validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
+            selectionStagesJson,
+            payScaleOverride: data.payScaleOverride || null,
+            salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
+            cadreClassification: data.cadreClassification || null,
+            updatedAt: sql`(unixepoch())`,
+          })
+          .where(eq(schema.recruitments.id, id))
+      );
+
+      // Update recruitmentEligibility table
+      statements.push(
+        db.update(schema.recruitmentEligibility)
+          .set({
+            minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+            maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+            ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+            minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
+            allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
+            requiresMpDomicile: data.requiresMpDomicile ? 1 : 0,
+            requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 0,
+            requiresCpct: data.requiresCpct ? 1 : 0,
+            genderAllowed: data.genderAllowed || 'ALL',
+            minHeightMaleCm: data.minHeightMaleCm ?? null,
+            minHeightFemaleCm: data.minHeightFemaleCm ?? null,
+            minChestMaleCm: data.minChestMaleCm ?? null,
+            experienceMonths: data.experienceMonths || 0,
+            specialConditionsNotes: data.specialConditionsNotes || null,
+            qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
+            relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
+          })
+          .where(eq(schema.recruitmentEligibility.recruitmentId, id))
+      );
+
+      // Recreate child vacancies if specified
+      if (data.vacanciesBreakdown && data.vacanciesBreakdown.length > 0) {
+        statements.push(db.delete(schema.vacancies).where(eq(schema.vacancies.recruitmentId, id)));
+        for (const v of data.vacanciesBreakdown) {
+          statements.push(
+            db.insert(schema.vacancies).values({
+              id: `vac_${id}_${v.category.toLowerCase()}_${Math.random().toString(36).substring(2, 6)}`,
+              recruitmentId: id,
+              category: v.category,
+              gender: v.gender || 'ALL',
+              count: v.count,
+              quotaPct: v.quotaPct || null,
+              subPostName: v.subPostName || null,
+            })
+          );
+        }
+      }
+
+      // Recreate important dates if specified
+      if (data.importantDates && data.importantDates.length > 0) {
+        statements.push(db.delete(schema.importantDates).where(eq(schema.importantDates.recruitmentId, id)));
+        for (const d of data.importantDates) {
+          statements.push(
+            db.insert(schema.importantDates).values({
+              id: `date_${id}_${d.eventType?.toLowerCase() || Math.random().toString(36).substring(2, 6)}`,
+              recruitmentId: id,
+              eventType: d.eventType,
+              eventDate: d.eventDate,
+              isTentative: d.isTentative || 0,
+              notes: d.notes || null,
+            })
+          );
+        }
+      }
+
+      // Recreate sources if specified
+      if (data.sources && data.sources.length > 0) {
+        statements.push(db.delete(schema.sources).where(eq(schema.sources.recruitmentId, id)));
+        for (const s of data.sources) {
+          statements.push(
+            db.insert(schema.sources).values({
+              id: `src_${id}_${Math.random().toString(36).substring(2, 6)}`,
+              recruitmentId: id,
+              sourceType: s.sourceType,
+              sourceUrl: s.sourceUrl,
+              sourceTitle: s.sourceTitle,
+              publicationDate: s.publicationDate || null,
+            })
+          );
+        }
+      }
+
+      // Recreate official links if specified
+      if (data.officialLinks && data.officialLinks.length > 0) {
+        statements.push(db.delete(schema.officialLinks).where(eq(schema.officialLinks.recruitmentId, id)));
+        for (const l of data.officialLinks) {
+          statements.push(
+            db.insert(schema.officialLinks).values({
+              id: `link_${id}_${Math.random().toString(36).substring(2, 6)}`,
+              recruitmentId: id,
+              linkType: l.linkType,
+              title: l.title,
+              url: l.url,
+              isActive: 1,
+            })
+          );
+        }
+      }
+
+      // Audit Log
+      statements.push(
+        db.insert(schema.auditLogs).values({
+          id: `audit_${Date.now()}`,
+          adminEmail,
+          entity: 'RECRUITMENT',
+          entityId: id,
+          action: 'UPDATE',
+          field: 'all',
+          oldValue: null,
+          newValue: targetStatus,
+          reason: `Recruitment updated via Admin Editor with validation: ${targetValidationStatus}`,
+          source: data.sourceUrl || org.websiteUrl,
+        })
+      );
+
+      // Execute batch atomically
+      // @ts-ignore
+      await db.batch(statements);
+    } catch (error) {
+      console.error('Error in atomic recruitment update in D1:', error);
+    }
+  }
+
+  return {
+    success: true,
+    id,
     validation: validationResult,
     errors: validationResult.blockingErrors,
   };

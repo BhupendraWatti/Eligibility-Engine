@@ -23,16 +23,10 @@ function formatDate(dateStr?: string): string {
 const isUnderVerification = recruitment && (recruitment.status !== 'PUBLISHED' || recruitment.validationStatus === 'NEEDS_REVIEW');
 const isInvalid = recruitment && recruitment.validationStatus === 'INVALID';
 
-const vacancies = recruitment?.vacanciesList && recruitment.vacanciesList.length > 0
-  ? recruitment.vacanciesList
-  : recruitment ? [
-      { category: 'General / Unreserved (UR)', code: 'UR', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
-      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
-      { category: 'Scheduled Tribes (ST)', code: 'ST', count: Math.round(recruitment.totalVacancies * 0.20), pct: '20%' },
-      { category: 'Scheduled Castes (SC)', code: 'SC', count: Math.round(recruitment.totalVacancies * 0.16), pct: '16%' },
-      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: Math.round(recruitment.totalVacancies * 0.10), pct: '10%' },
-    ] : [];
+// Database-driven Vacancies (Strictly NO synthetic fallback formulas)
+const vacancies = recruitment?.vacanciesList || [];
 
+// Database-driven Important Dates
 const importantDates = recruitment?.importantDatesList && recruitment.importantDatesList.length > 0
   ? recruitment.importantDatesList
   : recruitment ? [
@@ -42,22 +36,10 @@ const importantDates = recruitment?.importantDatesList && recruitment.importantD
       ...(recruitment.examDate ? [{ event: 'Written Examination', desc: 'Statewide Competitive Exam', date: formatDate(recruitment.examDate), status: 'Upcoming' }] : []),
     ] : [];
 
-// Derive Selection Process
-const selectionStages = recruitment?.canonicalPost?.selectionStages || (
-  recruitment?.organisationShortName === 'MPPSC' ? [
-    { name: 'Stage 1: Preliminary Examination', desc: 'Statewide Objective OMR exam for shortlisting candidates to Main Examination.' },
-    { name: 'Stage 2: Main Examination', desc: 'Comprehensive descriptive written examination testing academic and administrative depth.' },
-    { name: 'Stage 3: Interview & Personality Test', desc: 'Viva-voce conducted by MPPSC board followed by medical examination and merit ranking.' },
-  ] : recruitment?.criteria?.minHeightMaleCm ? [
-    { name: 'Stage 1: Written Examination (CBT)', desc: 'Objective multiple-choice question paper testing general knowledge and aptitude.' },
-    { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: 'Physical standards measurement and outdoor physical endurance test.' },
-    { name: 'Stage 3: Document Verification & Medical', desc: 'Original certificates verification, biometric validation and medical examination.' },
-  ] : [
-    { name: 'Stage 1: Written Competitive Examination', desc: 'Computer-based test or written examination as prescribed in official rulebook.' },
-    { name: 'Stage 2: Document Verification', desc: 'Scrutiny of original educational, caste, domicile certificates and CPCT scorecards.' },
-    { name: 'Stage 3: Medical Fitness & Character Verification', desc: 'Final appointment formalities and district cadre allocation.' },
-  ]
-);
+// Database-driven Selection Stages
+const selectionStages = recruitment?.selectionStages && recruitment.selectionStages.length > 0
+  ? recruitment.selectionStages
+  : recruitment?.canonicalPost?.selectionStages || [];
 
 const officialSource = recruitment?.sourcesList?.[0] || {
   sourceTitle: `${recruitment?.organisationShortName || 'Official'} Rulebook Gazette`,
@@ -287,13 +269,19 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           <!-- Overview -->
           <section id="overview" class="scroll-mt-32">
             <h2 class="text-xl font-bold text-foreground mb-4">Overview</h2>
-            <div class="prose prose-slate text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
-              <p>
-                The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has officially published online applications for the recruitment of <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under the <strong>{recruitment.departmentName || 'State Government Cadre'}</strong> of Madhya Pradesh.
-              </p>
-              <p>
-                Candidates possessing recognized statutory educational qualifications ({recruitment.criteria?.minQualificationLevel}) and complying with the state age criteria as of the official cutoff date ({recruitment.criteria?.ageCutoffDate || '01 January 2026'}) may submit applications online via the authoritative state portal.
-              </p>
+            <div class="prose prose-slate dark:prose-invert max-w-none text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
+              {recruitment.overviewMarkdown ? (
+                <p class="whitespace-pre-line text-foreground/90">{recruitment.overviewMarkdown}</p>
+              ) : (
+                <>
+                  <p>
+                    The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has officially published online applications for the recruitment of <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under the <strong>{recruitment.departmentName || 'State Government Cadre'}</strong> of Madhya Pradesh.
+                  </p>
+                  <p>
+                    Candidates possessing recognized statutory educational qualifications ({recruitment.criteria?.minQualificationLevel}) and complying with the state age criteria as of the official cutoff date ({recruitment.criteria?.ageCutoffDate || '01 January 2026'}) may submit applications online via the authoritative state portal.
+                  </p>
+                </>
+              )}
             </div>
           </section>
 
@@ -318,6 +306,14 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
                       </span>
                     </td>
                   </tr>
+                  {recruitment.criteria?.qualificationDetailsMarkdown && (
+                    <tr class="hover:bg-muted/40 transition-colors">
+                      <td class="py-3 px-4 font-semibold text-muted-foreground">Qualification Details</td>
+                      <td class="py-3 px-4 font-medium text-foreground">
+                        <p class="text-xs leading-relaxed text-foreground/90 whitespace-pre-line">{recruitment.criteria.qualificationDetailsMarkdown}</p>
+                      </td>
+                    </tr>
+                  )}
                   <tr class="hover:bg-muted/40 transition-colors">
                     <td class="py-3 px-4 font-semibold text-muted-foreground">Age Bracket</td>
                     <td class="py-3 px-4 font-medium text-foreground">
@@ -332,6 +328,14 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
                       </span>
                     </td>
                   </tr>
+                  {recruitment.criteria?.relaxationNotesMarkdown && (
+                    <tr class="hover:bg-muted/40 transition-colors">
+                      <td class="py-3 px-4 font-semibold text-muted-foreground">Special Relaxations</td>
+                      <td class="py-3 px-4 font-medium text-foreground">
+                        <p class="text-xs leading-relaxed text-foreground/90 whitespace-pre-line">{recruitment.criteria.relaxationNotesMarkdown}</p>
+                      </td>
+                    </tr>
+                  )}
                   <tr class="hover:bg-muted/40 transition-colors">
                     <td class="py-3 px-4 font-semibold text-muted-foreground">State Domicile</td>
                     <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
@@ -382,60 +386,159 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
 
           <!-- Vacancy Breakdown -->
           <section id="vacancy" class="scroll-mt-32 pt-8 border-t border-border">
-            <h2 class="text-xl font-bold text-foreground mb-4">Category-wise Vacancy Breakdown</h2>
-            <div class="bg-card rounded-xl border border-border overflow-hidden">
-              <table class="w-full text-xs text-left">
-                <thead class="bg-muted text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b border-border">
-                  <tr>
-                    <th class="py-2.5 px-4">Category</th>
-                    <th class="py-2.5 px-4">Quota (%)</th>
-                    <th class="py-2.5 px-4 text-right">Vacancies</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                  {vacancies.map((v: any) => (
-                    <tr class="hover:bg-muted/30 transition-colors">
-                      <td class="py-2.5 px-4 font-medium text-foreground">{v.category}</td>
-                      <td class="py-2.5 px-4 text-muted-foreground">{v.pct || 'Statutory'}</td>
-                      <td class="py-2.5 px-4 text-right font-mono font-bold text-foreground">{v.count.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-bold text-foreground">Category-wise Vacancy Breakdown</h2>
+              <span class="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                Total: {recruitment.totalVacancies?.toLocaleString()} Posts
+              </span>
             </div>
+
+            {vacancies && vacancies.length > 0 ? (
+              <div class="bg-card rounded-xl border border-border overflow-hidden">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-muted text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b border-border">
+                    <tr>
+                      <th class="py-2.5 px-4">Category / Post</th>
+                      <th class="py-2.5 px-4">Quota (%)</th>
+                      <th class="py-2.5 px-4 text-right">Vacancies</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-border">
+                    {vacancies.map((v: any) => (
+                      <tr class="hover:bg-muted/30 transition-colors">
+                        <td class="py-2.5 px-4 font-medium text-foreground">
+                          {v.category}
+                          {v.subPostName && (
+                            <span class="block text-[11px] text-muted-foreground">{v.subPostName}</span>
+                          )}
+                        </td>
+                        <td class="py-2.5 px-4 text-muted-foreground">{v.quotaPct || v.pct || 'Statutory'}</td>
+                        <td class="py-2.5 px-4 text-right font-mono font-bold text-foreground">{v.count?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div class="p-6 rounded-xl bg-card border border-border text-center space-y-2">
+                <div class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <h4 class="text-sm font-semibold text-foreground">Category-wise Quota Breakdown Pending</h4>
+                <p class="text-xs text-muted-foreground max-w-md mx-auto">
+                  Total {recruitment.totalVacancies?.toLocaleString()} vacancies announced. Detailed community category quotas (UR, SC, ST, OBC, EWS, Ex-Servicemen, Women) will be gazetted in the final notification rulebook.
+                </p>
+              </div>
+            )}
           </section>
 
           <!-- Selection Process -->
           <section id="selection" class="scroll-mt-32 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Selection Process</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {selectionStages.map((stage: any, index: number) => (
-                <div class="p-4 rounded-xl bg-card border border-border">
-                  <span class="text-xs font-bold text-primary block mb-1">Stage 0{index + 1}</span>
-                  <h4 class="font-bold text-sm text-foreground mb-1">{stage.name}</h4>
-                  <p class="text-xs text-muted-foreground">{stage.desc}</p>
-                </div>
-              ))}
-            </div>
+            {selectionStages && selectionStages.length > 0 ? (
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {selectionStages.map((stage: any, index: number) => (
+                  <div class="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
+                    <div>
+                      <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-primary">Stage 0{index + 1}</span>
+                        {stage.isQualifying && (
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-semibold border border-amber-500/20">Qualifying</span>
+                        )}
+                      </div>
+                      <h4 class="font-bold text-sm text-foreground mb-1">{stage.name}</h4>
+                      <p class="text-xs text-muted-foreground leading-relaxed">{stage.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div class="p-5 rounded-xl bg-card border border-border text-xs text-muted-foreground">
+                Selection process stages will be published per the statutory rules of {recruitment.organisationShortName}. Refer to the official rulebook in the Documents section below.
+              </div>
+            )}
           </section>
 
           <!-- Salary & Cadre -->
           <section id="salary" class="scroll-mt-32 pt-8 border-t border-border">
-            <h2 class="text-xl font-bold text-foreground mb-4">Pay Scale & Allowances</h2>
-            <div class="p-4 rounded-xl bg-card border border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Salary & Cadre</h2>
+            <div class="p-5 rounded-xl bg-card border border-border space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span class="text-xs text-muted-foreground block">Appointed Cadre / Post</span>
                   <span class="text-base font-bold text-foreground font-['Outfit']">{recruitment.postTitle}</span>
-                  <span class="text-xs text-muted-foreground block mt-0.5">{recruitment.departmentName || 'State Civil Services'}</span>
+                  <span class="text-xs text-muted-foreground block mt-0.5">{recruitment.cadreClassification || recruitment.departmentName || 'State Civil Services'}</span>
                 </div>
                 <div class="sm:text-right">
                   <span class="text-xs text-muted-foreground block">Official Pay Scale</span>
                   <span class="text-base font-bold text-primary font-mono">
-                    {recruitment.payScale || recruitment.canonicalPost?.payScale || 'Refer Rulebook Matrix'}
+                    {recruitment.payScaleOverride || recruitment.payScale || recruitment.canonicalPost?.payScale || 'Refer Rulebook Matrix'}
                   </span>
                 </div>
               </div>
+              {recruitment.salaryDetailsMarkdown && (
+                <div class="pt-3 border-t border-border/60 text-xs text-muted-foreground leading-relaxed">
+                  <span class="font-semibold text-foreground block mb-1">Allowances & Service Terms:</span>
+                  <p class="whitespace-pre-line text-foreground/90">{recruitment.salaryDetailsMarkdown}</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <!-- Documents & Official Sources (NEW Section: Fixes Anchor #documents) -->
+          <section id="documents" class="scroll-mt-32 pt-8 border-t border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Official Documents & Verification Sources</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Gazette / Notification Sources */}
+              {recruitment.sourcesList && recruitment.sourcesList.length > 0 ? (
+                recruitment.sourcesList.map((src: any) => (
+                  <a
+                    href={src.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="p-4 rounded-xl bg-card border border-border hover:border-primary/50 hover:bg-muted/30 transition-all flex items-start gap-3.5 group"
+                  >
+                    <div class="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                      <span class="text-xs font-bold text-foreground group-hover:text-primary transition-colors block truncate">
+                        {src.sourceTitle || 'Official Gazette Notification'}
+                      </span>
+                      <span class="text-[11px] text-muted-foreground block mt-0.5">
+                        Type: {src.sourceType?.replace(/_/g, ' ') || 'Notification Document'}
+                        {src.publicationDate && ` · ${formatDate(src.publicationDate)}`}
+                      </span>
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div class="p-4 rounded-xl bg-card border border-border text-xs text-muted-foreground col-span-full">
+                  Official gazette document link will be made available upon formal notification release.
+                </div>
+              )}
+
+              {/* Official External Links */}
+              {recruitment.officialLinksList && recruitment.officialLinksList.map((lnk: any) => (
+                <a
+                  href={lnk.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="p-4 rounded-xl bg-card border border-border hover:border-primary/50 hover:bg-muted/30 transition-all flex items-start gap-3.5 group"
+                >
+                  <div class="size-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </div>
+                  <div class="min-w-0">
+                    <span class="text-xs font-bold text-foreground group-hover:text-primary transition-colors block truncate">
+                      {lnk.title || 'Official Portal Link'}
+                    </span>
+                    <span class="text-[11px] text-muted-foreground block mt-0.5 truncate">
+                      {lnk.url}
+                    </span>
+                  </div>
+                </a>
+              ))}
             </div>
           </section>
         </div>

@@ -83,6 +83,11 @@ export const recruitments = sqliteTable('recruitments', {
   isFeatured: integer('is_featured').notNull().default(0),
   validationStatus: text('validation_status').notNull().default('NEEDS_REVIEW'), // 'VALID', 'WARNING', 'INVALID', 'NEEDS_REVIEW'
   validationErrorsJson: text('validation_errors_json'),
+  overviewMarkdown: text('overview_markdown'),
+  selectionStagesJson: text('selection_stages_json'),
+  payScaleOverride: text('pay_scale_override'),
+  salaryDetailsMarkdown: text('salary_details_markdown'),
+  cadreClassification: text('cadre_classification'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
@@ -116,6 +121,8 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   additionalSkillsJson: text('additional_skills_json'),
   experienceMonths: integer('experience_months').notNull().default(0),
   specialConditionsNotes: text('special_conditions_notes'),
+  qualificationDetailsMarkdown: text('qualification_details_markdown'),
+  relaxationNotesMarkdown: text('relaxation_notes_markdown'),
 });
 
 // 8. Vacancies (Category-Wise Breakdown)
@@ -125,6 +132,8 @@ export const vacancies = sqliteTable('vacancies', {
   category: text('category').notNull(), // 'UR', 'SC', 'ST', 'OBC', 'EWS', 'TOTAL'
   gender: text('gender').notNull().default('ALL'), // 'ALL', 'MALE', 'FEMALE'
   count: integer('count').notNull(),
+  quotaPct: text('quota_pct'),
+  subPostName: text('sub_post_name'),
 }, (table) => [
   index('idx_vacancies_rec').on(table.recruitmentId),
 ]);
@@ -189,6 +198,17 @@ export const auditLogs = sqliteTable('audit_logs', {
   index('idx_audit_entity').on(table.entity, table.entityId),
   index('idx_audit_admin').on(table.adminEmail),
   index('idx_audit_created').on(table.createdAt),
+]);
+
+// 14. Generic Records & Key-Value Document Store
+export const records = sqliteTable('records', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull().default('general'),
+  data: text('data').notNull().default('{}'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_records_type').on(table.type),
 ]);
 
 // Relationships
