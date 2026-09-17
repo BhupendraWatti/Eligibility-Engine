@@ -1157,6 +1157,12 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     applicationEnd: '2026-11-02',
     examDate: '2026-12-22',
     validationStatus: 'PENDING',
+    sourcesList: [
+      { sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceUrl: 'https://esb.mp.gov.in', sourceTitle: 'Pending Group-5 / Nursing Officer Cycle Gazette Reconciliation', publicationDate: null, lastVerifiedAt: '2026-09-18', status: 'PENDING' },
+    ],
+    officialLinksList: [
+      { linkType: 'PORTAL', title: 'MPESB Official Portal', url: 'https://esb.mp.gov.in', isActive: 1 },
+    ],
     criteria: {
       minAge: 21,
       maxAgeGeneral: 40,
@@ -1205,6 +1211,13 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       { event: 'Last Date to Apply', desc: 'Closing Date for Submission', date: '23 Sep 2026', status: 'Closing Soon' },
       { event: 'Rectification Window', desc: 'Application Error Correction Closed', date: '28 Sep 2026', status: 'Upcoming' },
       { event: 'Written Exam Date', desc: 'Written Examination Commences', date: '28 Oct 2026', status: 'Upcoming' },
+    ],
+    sourcesList: [
+      { sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceUrl: 'https://esb.mp.gov.in/Rulebooks/RB_2026/Subedar_SI_2026_RuleBook.pdf', sourceTitle: 'MPESB Subedar and Sub-Inspector Recruitment Test 2026 Detailed Rulebook', publicationDate: '2026-09-01', lastVerifiedAt: '2026-09-18', status: 'VALID' },
+    ],
+    officialLinksList: [
+      { linkType: 'APPLY_ONLINE', title: 'Apply Online (MPOnline Portal)', url: 'https://esb.mponline.gov.in', isActive: 1 },
+      { linkType: 'NOTIFICATION_PDF', title: 'Download Official SI Rulebook PDF', url: 'https://esb.mp.gov.in/Rulebooks/RB_2026/Subedar_SI_2026_RuleBook.pdf', isActive: 1 },
     ],
     criteria: {
       minAge: 21,
@@ -1257,6 +1270,13 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       { event: 'Last Date to Apply', desc: 'Closing Date for Application Submission', date: '18 Sep 2026', status: 'Active' },
       { event: 'Rectification Window', desc: 'Form Correction Window Closes', date: '20 Sep 2026', status: 'Upcoming' },
       { event: 'Written Exam Date', desc: 'Statewide Eligibility Test Commences', date: '12 Oct 2026', status: 'Upcoming' },
+    ],
+    sourcesList: [
+      { sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceUrl: 'https://esb.mp.gov.in/Rulebooks/RB_2026/TET_Primary_2026_RuleBook.pdf', sourceTitle: 'MP Primary & Middle School Teacher Eligibility Test 2026 Rulebook', publicationDate: '2026-08-10', lastVerifiedAt: '2026-09-18', status: 'VALID' },
+    ],
+    officialLinksList: [
+      { linkType: 'APPLY_ONLINE', title: 'Apply Online (MPOnline Portal)', url: 'https://esb.mponline.gov.in', isActive: 1 },
+      { linkType: 'NOTIFICATION_PDF', title: 'Download Teacher TET Rulebook PDF', url: 'https://esb.mp.gov.in/Rulebooks/RB_2026/TET_Primary_2026_RuleBook.pdf', isActive: 1 },
     ],
     criteria: {
       minAge: 18,
