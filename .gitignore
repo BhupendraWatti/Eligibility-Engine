@@ -76,3 +76,4 @@ playwright-report/
 *.temp
 .cache/
 .parcel-cache/
+.vinext/

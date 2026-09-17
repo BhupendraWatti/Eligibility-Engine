@@ -7,8 +7,14 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "dev:vinext": "vinext dev --port 3001",
     "build": "astro build",
+    "build:vinext": "vinext build",
     "preview": "astro preview",
+    "preview:workers": "wrangler dev --config dist/server/wrangler.json",
+    "preview:vinext": "wrangler dev --config dist/server/wrangler.json",
+    "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",
+    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
     "astro": "astro",
     "generate-types": "wrangler types"
   },
@@ -18,18 +24,23 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vinext/cloudflare": "^1.0.0-beta.8",
     "astro": "^7.3.3",
     "drizzle-orm": "^0.45.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
+    "vinext": "^1.0.0-beta.10"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.54.11",
+    "@cloudflare/workers-types": "^5.20260917.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "drizzle-kit": "^0.31.10",
+    "vite": "^8.3.0",
     "wrangler": "^4.133.0"
   },
   "allowScripts": {
     "esbuild": true
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260917.1",
-    "drizzle-kit": "^0.31.10"
   }
 }
