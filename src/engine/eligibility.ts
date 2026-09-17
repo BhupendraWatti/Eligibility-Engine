@@ -10,8 +10,10 @@ export interface UserEligibilityProfile {
   hasCpct?: boolean;
   qualificationLevel?: '8TH' | '10TH' | '12TH' | 'DIPLOMA' | 'GRADUATION' | 'POST_GRADUATION';
   stream?: string;
+  percentage?: number;
   heightCm?: number;
   chestCm?: number;
+  additionalSkills?: string[];
 }
 
 export interface RecruitmentCriteria {
@@ -21,6 +23,7 @@ export interface RecruitmentCriteria {
   ageRelaxationScSt: number;
   ageRelaxationObc: number;
   ageRelaxationFemale: number;
+  ageRelaxationEws: number;
   minQualificationLevel: string;
   requiresMpDomicile: boolean;
   requiresMpEmploymentReg: boolean;
@@ -29,6 +32,8 @@ export interface RecruitmentCriteria {
   minHeightMaleCm?: number | null;
   minHeightFemaleCm?: number | null;
   minChestMaleCm?: number | null;
+  minPercentageRequired?: number | null;
+  additionalSkills?: string[] | null;
 }
 
 export interface RuleEvaluationItem {
@@ -47,7 +52,7 @@ export interface RecruitmentEligibilityResult {
   unknownCount: number;
 }
 
-const QUALIFICATION_RANK: Record<string, number> = {
+export const QUALIFICATION_RANK: Record<string, number> = {
   '8TH': 1,
   '10TH': 2,
   '12TH': 3,
@@ -133,14 +138,18 @@ export function evaluateEligibility(
     const ageAtCutoff = calculateAgeAtCutoff(user.dob, criteria.ageCutoffDate);
     let maxAllowed = criteria.maxAgeGeneral;
 
-    // Category relaxation
+    // Category-specific age relaxation
     if (user.category === 'SC' || user.category === 'ST') {
       maxAllowed += criteria.ageRelaxationScSt;
     } else if (user.category === 'OBC') {
       maxAllowed += criteria.ageRelaxationObc;
+    } else if (user.category === 'EWS') {
+      // EWS gets explicit relaxation (typically 0, same as UR)
+      maxAllowed += (criteria.ageRelaxationEws ?? 0);
     }
+    // UR: no relaxation (maxAllowed stays as maxAgeGeneral)
 
-    // Female relaxation
+    // Female relaxation — applied as max(category-relaxed, female-relaxed) per MP standard
     if (user.gender === 'FEMALE' && criteria.ageRelaxationFemale > 0) {
       const femaleMax = criteria.maxAgeGeneral + criteria.ageRelaxationFemale;
       if (femaleMax > maxAllowed) maxAllowed = femaleMax;
@@ -185,7 +194,31 @@ export function evaluateEligibility(
     });
   }
 
-  // 5. MP Rojgar Panjiyan Rule
+  // 5. Minimum Percentage Rule (only if the job specifies a threshold)
+  if (criteria.minPercentageRequired && criteria.minPercentageRequired > 0) {
+    if (user.percentage === undefined || user.percentage === null) {
+      items.push({
+        ruleName: 'Minimum Percentage',
+        status: 'UNKNOWN',
+        userValue: 'Not provided',
+        requirement: `Minimum ${criteria.minPercentageRequired}%`,
+        message: 'Percentage not provided. Cannot verify minimum marks requirement.',
+      });
+    } else {
+      const isMatch = user.percentage >= criteria.minPercentageRequired;
+      items.push({
+        ruleName: 'Minimum Percentage',
+        status: isMatch ? 'MATCH' : 'FAIL',
+        userValue: `${user.percentage}%`,
+        requirement: `Minimum ${criteria.minPercentageRequired}%`,
+        message: isMatch
+          ? `Percentage (${user.percentage}%) meets the minimum requirement (${criteria.minPercentageRequired}%).`
+          : `Percentage (${user.percentage}%) is below the required minimum (${criteria.minPercentageRequired}%).`,
+      });
+    }
+  }
+
+  // 6. MP Rojgar Panjiyan Rule
   if (criteria.requiresMpEmploymentReg) {
     if (user.hasMpRojgarPanjiyan === undefined) {
       items.push({
@@ -214,7 +247,7 @@ export function evaluateEligibility(
     }
   }
 
-  // 6. CPCT Certificate Rule
+  // 7. CPCT Certificate Rule
   if (criteria.requiresCpct) {
     if (user.hasCpct === undefined) {
       items.push({
@@ -243,7 +276,7 @@ export function evaluateEligibility(
     }
   }
 
-  // 7. Physical Standards (Height)
+  // 8. Physical Standards — Height
   const minHeight = user.gender === 'FEMALE' ? criteria.minHeightFemaleCm : criteria.minHeightMaleCm;
   if (minHeight && minHeight > 0) {
     if (user.heightCm === undefined) {
@@ -270,6 +303,71 @@ export function evaluateEligibility(
         requirement: `Minimum ${minHeight} cm`,
         message: `Height standard satisfied (${user.heightCm} cm >= ${minHeight} cm).`,
       });
+    }
+  }
+
+  // 9. Physical Standards — Chest (Male only for uniformed posts)
+  if (criteria.minChestMaleCm && criteria.minChestMaleCm > 0 && user.gender !== 'FEMALE') {
+    if (user.chestCm === undefined) {
+      items.push({
+        ruleName: 'Physical Standards (Chest)',
+        status: 'UNKNOWN',
+        userValue: 'Not provided',
+        requirement: `Minimum ${criteria.minChestMaleCm} cm (unexpanded)`,
+        message: 'Chest measurement not provided.',
+      });
+    } else if (user.chestCm < criteria.minChestMaleCm) {
+      items.push({
+        ruleName: 'Physical Standards (Chest)',
+        status: 'FAIL',
+        userValue: `${user.chestCm} cm`,
+        requirement: `Minimum ${criteria.minChestMaleCm} cm`,
+        message: `Chest measurement (${user.chestCm} cm) is below minimum required (${criteria.minChestMaleCm} cm).`,
+      });
+    } else {
+      items.push({
+        ruleName: 'Physical Standards (Chest)',
+        status: 'MATCH',
+        userValue: `${user.chestCm} cm`,
+        requirement: `Minimum ${criteria.minChestMaleCm} cm`,
+        message: `Chest standard satisfied (${user.chestCm} cm >= ${criteria.minChestMaleCm} cm).`,
+      });
+    }
+  }
+
+  // 10. Additional Skills / Exams (e.g., Hindi Typing, Stenographer Certification)
+  if (criteria.additionalSkills && criteria.additionalSkills.length > 0) {
+    if (!user.additionalSkills || user.additionalSkills.length === 0) {
+      items.push({
+        ruleName: 'Additional Skills / Certifications',
+        status: 'UNKNOWN',
+        userValue: 'Not provided',
+        requirement: criteria.additionalSkills.join(', '),
+        message: `Required certifications: ${criteria.additionalSkills.join(', ')}. Status not provided.`,
+      });
+    } else {
+      const userSkillsNormalized = user.additionalSkills.map(s => s.toUpperCase().trim());
+      const missingSkills = criteria.additionalSkills.filter(
+        s => !userSkillsNormalized.includes(s.toUpperCase().trim())
+      );
+
+      if (missingSkills.length > 0) {
+        items.push({
+          ruleName: 'Additional Skills / Certifications',
+          status: 'FAIL',
+          userValue: user.additionalSkills.join(', '),
+          requirement: criteria.additionalSkills.join(', '),
+          message: `Missing required certifications: ${missingSkills.join(', ')}.`,
+        });
+      } else {
+        items.push({
+          ruleName: 'Additional Skills / Certifications',
+          status: 'MATCH',
+          userValue: user.additionalSkills.join(', '),
+          requirement: criteria.additionalSkills.join(', '),
+          message: 'All required certifications satisfied.',
+        });
+      }
     }
   }
 

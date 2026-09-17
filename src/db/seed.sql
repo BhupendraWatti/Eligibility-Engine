@@ -77,24 +77,28 @@ INSERT OR REPLACE INTO recruitment_eligibility (
   min_qualification_level, allowed_streams_json, requires_mp_domicile, 
   requires_mp_employment_reg, requires_cpct, gender_allowed, 
   min_height_male_cm, min_height_female_cm, min_chest_male_cm, 
+  age_relaxation_ews, min_percentage_required, additional_skills_json,
   experience_months, special_conditions_notes
 ) VALUES
 ('el_constable_2026', 'rec_mp_constable_2026', 
  18, 33, '2026-01-01', 5, 3, 5, 
  '10TH', '["ANY"]', 1, 1, 0, 'ALL', 
- 168.0, 158.0, 81.0, 0, 
+ 168.0, 158.0, 81.0, 0, NULL, NULL,
+ 0, 
  'ST candidates have height relaxation up to 160 cm. Physical proficiency test is qualifying and carries scoring marks.'),
 
 ('el_patwari_2026', 'rec_mp_patwari_2026', 
  18, 40, '2026-01-01', 5, 5, 5, 
  'GRADUATION', '["ANY"]', 1, 1, 1, 'ALL', 
- NULL, NULL, NULL, 0, 
+ NULL, NULL, NULL, 0, NULL, '["Hindi Typing"]',
+ 0, 
  'Valid CPCT scorecard with Hindi typing certification is mandatory. 3-year probation period.'),
 
 ('el_forest_2026', 'rec_mp_forest_guard_2026', 
  18, 33, '2026-01-01', 5, 3, 5, 
  '10TH', '["ANY"]', 1, 1, 0, 'ALL', 
- 163.0, 150.0, 79.0, 0, 
+ 163.0, 150.0, 79.0, 0, NULL, NULL,
+ 0, 
  'Walking test: 25 km in 4 hours for male candidates, 14 km in 4 hours for female candidates.');
 
 -- 8. Vacancies by Category

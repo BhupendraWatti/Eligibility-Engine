@@ -33,6 +33,7 @@ export interface RecruitmentWithDetails {
     ageRelaxationScSt: number;
     ageRelaxationObc: number;
     ageRelaxationFemale: number;
+    ageRelaxationEws: number;
     minQualificationLevel: string;
     requiresMpDomicile: boolean;
     requiresMpEmploymentReg: boolean;
@@ -41,6 +42,8 @@ export interface RecruitmentWithDetails {
     minHeightMaleCm?: number | null;
     minHeightFemaleCm?: number | null;
     minChestMaleCm?: number | null;
+    minPercentageRequired?: number | null;
+    additionalSkills?: string[] | null;
   };
 }
 
@@ -68,6 +71,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationScSt: 5,
       ageRelaxationObc: 3,
       ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
       minQualificationLevel: '10TH',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
@@ -75,6 +79,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       genderAllowed: 'ALL',
       minHeightMaleCm: 168.0,
       minHeightFemaleCm: 158.0,
+      minChestMaleCm: 81.0,
+      minPercentageRequired: null,
+      additionalSkills: null,
     },
   },
   {
@@ -100,11 +107,14 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationScSt: 5,
       ageRelaxationObc: 5,
       ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
       minQualificationLevel: 'GRADUATION',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
       requiresCpct: true,
       genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: ['Hindi Typing'],
     },
   },
   {
@@ -130,6 +140,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       ageRelaxationScSt: 5,
       ageRelaxationObc: 3,
       ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
       minQualificationLevel: '10TH',
       requiresMpDomicile: true,
       requiresMpEmploymentReg: true,
@@ -137,6 +148,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       genderAllowed: 'ALL',
       minHeightMaleCm: 163.0,
       minHeightFemaleCm: 150.0,
+      minChestMaleCm: 79.0,
+      minPercentageRequired: null,
+      additionalSkills: null,
     },
   },
 ];
@@ -159,39 +173,54 @@ export async function getAllActiveRecruitments(providedD1?: D1Database): Promise
 
     if (!rows || rows.length === 0) return FALLBACK_RECRUITMENTS;
 
-    return rows.map(r => ({
-      id: r.id,
-      advtNumber: r.advtNumber,
-      title: r.title,
-      slug: r.slug,
-      shortSummary: r.shortSummary,
-      cycleYear: r.cycleYear,
-      totalVacancies: r.totalVacancies,
-      status: r.status,
-      lifecycleStatus: r.lifecycleStatus,
-      isFeatured: r.isFeatured,
-      postTitle: r.post?.title || 'State Government Post',
-      postSlug: r.post?.slug || '',
-      organisationName: r.organisation?.name || 'Madhya Pradesh Authority',
-      organisationShortName: r.organisation?.shortName || 'MP Govt',
-      organisationUrl: r.organisation?.websiteUrl || 'https://esb.mp.gov.in',
-      criteria: {
-        minAge: r.eligibility?.minAge ?? 18,
-        maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
-        ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
-        ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
-        ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
-        ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
-        minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
-        requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
-        requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
-        requiresCpct: r.eligibility?.requiresCpct === 1,
-        genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
-        minHeightMaleCm: r.eligibility?.minHeightMaleCm,
-        minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
-        minChestMaleCm: r.eligibility?.minChestMaleCm,
-      },
-    }));
+    return rows.map(r => {
+      // Parse additional skills from JSON text column
+      let additionalSkills: string[] | null = null;
+      if (r.eligibility?.additionalSkillsJson) {
+        try {
+          additionalSkills = JSON.parse(r.eligibility.additionalSkillsJson);
+        } catch {
+          additionalSkills = null;
+        }
+      }
+
+      return {
+        id: r.id,
+        advtNumber: r.advtNumber,
+        title: r.title,
+        slug: r.slug,
+        shortSummary: r.shortSummary,
+        cycleYear: r.cycleYear,
+        totalVacancies: r.totalVacancies,
+        status: r.status,
+        lifecycleStatus: r.lifecycleStatus,
+        isFeatured: r.isFeatured,
+        postTitle: r.post?.title || 'State Government Post',
+        postSlug: r.post?.slug || '',
+        organisationName: r.organisation?.name || 'Madhya Pradesh Authority',
+        organisationShortName: r.organisation?.shortName || 'MP Govt',
+        organisationUrl: r.organisation?.websiteUrl || 'https://esb.mp.gov.in',
+        criteria: {
+          minAge: r.eligibility?.minAge ?? 18,
+          maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
+          ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
+          ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
+          ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
+          ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
+          ageRelaxationEws: r.eligibility?.ageRelaxationEws ?? 0,
+          minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
+          requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
+          requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
+          requiresCpct: r.eligibility?.requiresCpct === 1,
+          genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
+          minHeightMaleCm: r.eligibility?.minHeightMaleCm,
+          minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
+          minChestMaleCm: r.eligibility?.minChestMaleCm,
+          minPercentageRequired: r.eligibility?.minPercentageRequired ?? null,
+          additionalSkills,
+        },
+      };
+    });
   } catch (error) {
     console.warn('Error querying D1 database, using fallback dataset:', error);
     return FALLBACK_RECRUITMENTS;

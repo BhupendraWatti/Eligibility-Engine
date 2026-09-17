@@ -108,6 +108,9 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   minHeightMaleCm: real('min_height_male_cm'),
   minHeightFemaleCm: real('min_height_female_cm'),
   minChestMaleCm: real('min_chest_male_cm'),
+  ageRelaxationEws: integer('age_relaxation_ews').notNull().default(0),
+  minPercentageRequired: integer('min_percentage_required'),
+  additionalSkillsJson: text('additional_skills_json'),
   experienceMonths: integer('experience_months').notNull().default(0),
   specialConditionsNotes: text('special_conditions_notes'),
 });
