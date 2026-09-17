@@ -19,10 +19,10 @@ function formatDate(dateStr?: string): string {
 
 // Derive admit card entries from recruitments with verified exam events
 const admitCards = allRecruitments
-  .filter(r => Boolean(r.examDate) || r.lifecycleStatus === 'APPLICATION_OPEN' || r.lifecycleStatus === 'OPEN')
+  .filter(r => Boolean(r.examDate) || r.resolvedLifecycle === 'APPLICATION_OPEN' || r.resolvedLifecycle === 'APPLICATION_CLOSING' || r.lifecycleStatus === 'OPEN')
   .map(r => {
     const isReleased = r.lifecycleStatus === 'ADMIT_CARD_RELEASED';
-    const isExamConcluded = r.lifecycleStatus === 'EXAM_COMPLETED' || r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
+    const isExamConcluded = r.resolvedLifecycle === 'EXAM_COMPLETED' || r.resolvedLifecycle === 'RESULT_DECLARED' || r.examStatus === 'COMPLETED';
     
     let statusText = 'Not Released';
     let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';

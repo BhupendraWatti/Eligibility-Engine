@@ -38,8 +38,30 @@ let filteredRecruitments = allRecruitments.filter((job) => {
     return false;
   }
 
-  if (status && job.lifecycleStatus !== status) {
-    return false;
+  if (status) {
+    if (status === 'OPEN') {
+      if (job.resolvedLifecycle !== 'APPLICATION_OPEN' && job.resolvedLifecycle !== 'APPLICATION_CLOSING' && job.lifecycleStatus !== 'OPEN') {
+        return false;
+      }
+    } else if (status === 'CLOSING_SOON') {
+      if (job.resolvedLifecycle !== 'APPLICATION_CLOSING') {
+        return false;
+      }
+    } else if (status === 'UPCOMING') {
+      if (job.resolvedLifecycle !== 'NOT_STARTED' && job.lifecycleStatus !== 'UPCOMING') {
+        return false;
+      }
+    } else if (status === 'CLOSED' || status === 'CONCLUDED') {
+      if (
+        job.resolvedLifecycle === 'APPLICATION_OPEN' ||
+        job.resolvedLifecycle === 'APPLICATION_CLOSING' ||
+        job.resolvedLifecycle === 'NOT_STARTED'
+      ) {
+        return false;
+      }
+    } else if (job.resolvedLifecycle !== status && job.lifecycleStatus !== status) {
+      return false;
+    }
   }
 
   return true;
@@ -216,8 +238,9 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
             >
               <option value="">All Statuses</option>
               <option value="OPEN" selected={status === 'OPEN'}>Open (Applications Active)</option>
+              <option value="CLOSING_SOON" selected={status === 'CLOSING_SOON'}>Closing Soon (&le; 7 Days)</option>
               <option value="UPCOMING" selected={status === 'UPCOMING'}>Upcoming Drives</option>
-              <option value="CLOSED" selected={status === 'CLOSED'}>Recently Concluded</option>
+              <option value="CONCLUDED" selected={status === 'CONCLUDED' || status === 'CLOSED'}>Concluded (Exams / Results)</option>
             </select>
           </div>
         </form>
@@ -284,8 +307,8 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
                 <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-sm hover:border-border/80 transition-all">
                   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div class="flex items-center gap-2">
-                      <span class={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border ${statusColor}`}>
-                        {job.lifecycleStatus}
+                      <span class={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
+                        {job.presentation?.label || job.lifecycleStatus}
                       </span>
                       <span class="text-xs text-muted-foreground font-medium">
                         {job.organisationShortName} · {job.postTitle}

@@ -195,12 +195,19 @@ export function getEligibleJobs(
 
   // Sort each bucket: featured first, then by vacancy count descending, then by lifecycle
   const lifecyclePriority: Record<string, number> = {
+    'APPLICATION_OPEN': 1,
     'OPEN': 1,
+    'APPLICATION_CLOSING': 2,
     'CLOSING_SOON': 2,
+    'NOT_STARTED': 3,
     'UPCOMING': 3,
+    'APPLICATION_CLOSED': 4,
     'CLOSED': 4,
-    'EXAM_HELD': 5,
-    'RESULT_OUT': 6,
+    'EXAM_SCHEDULED': 5,
+    'EXAM_COMPLETED': 6,
+    'EXAM_HELD': 6,
+    'RESULT_DECLARED': 7,
+    'RESULT_OUT': 7,
   };
 
   const sortFn = (a: EvaluatedRecruitment, b: EvaluatedRecruitment) => {

@@ -2,6 +2,7 @@
 // src/pages/organisations/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getOrganisationBySlug, getAllOrganisations } from '../../db/queries';
+import { calculateRecruitmentMetrics, isActiveDrive } from '../../services/lifecycle';
 
 const slug = (Astro.params.slug || '').toLowerCase();
 
@@ -9,8 +10,7 @@ const org = await getOrganisationBySlug(slug);
 const allOrgs = await getAllOrganisations();
 
 const orgRecruitments = org?.recruitments || [];
-const openRecruitments = orgRecruitments.filter(r => r.lifecycleStatus === 'OPEN');
-const upcomingRecruitments = orgRecruitments.filter(r => r.lifecycleStatus === 'UPCOMING');
+const metrics = calculateRecruitmentMetrics(orgRecruitments);
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return 'Refer Notification';
@@ -76,9 +76,9 @@ function formatDate(dateStr?: string): string {
             <div class="flex flex-wrap items-center gap-3 mt-2 text-xs font-mono">
               <span class="text-foreground font-bold">{orgRecruitments.length} Tracked Opportunities</span>
               <span class="text-muted-foreground">·</span>
-              <span class="text-emerald-700 font-bold">{openRecruitments.length} Open Applications</span>
+              <span class="text-emerald-700 font-bold">{metrics.activeDriveCount} Active Applications</span>
               <span class="text-muted-foreground">·</span>
-              <span class="text-muted-foreground">{org.domain || new URL(org.websiteUrl).hostname}</span>
+              <span class="text-muted-foreground">{org.domain || (org.websiteUrl ? new URL(org.websiteUrl).hostname : '')}</span>
             </div>
           </div>
         </div>
@@ -128,8 +128,8 @@ function formatDate(dateStr?: string): string {
                   return (
                     <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
                       <div class="flex items-center justify-between gap-2 mb-2">
-                        <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
-                          {job.lifecycleStatus}
+                        <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
+                          {job.presentation?.label || job.lifecycleStatus}
                         </span>
                         <span class="text-xs font-mono font-bold text-foreground">
                           Last date: {formatDate(job.applicationEnd)}

@@ -79,7 +79,9 @@ export const recruitments = sqliteTable('recruitments', {
   cycleYear: integer('cycle_year').notNull(),
   totalVacancies: integer('total_vacancies').notNull().default(0),
   status: text('status').notNull().default('DRAFT'), // 'DRAFT', 'PENDING_VERIFICATION', 'VERIFIED', 'PUBLISHED', 'UPDATE_REQUIRED', 'ARCHIVED'
-  lifecycleStatus: text('lifecycle_status').notNull().default('UPCOMING'), // 'UPCOMING', 'OPEN', 'CLOSING_SOON', 'CLOSED', 'EXAM_HELD', 'RESULT_OUT'
+  lifecycleStatus: text('lifecycle_status').notNull().default('NOT_STARTED'), // Canonical derived lifecycle state: 'NOT_STARTED', 'APPLICATION_OPEN', 'APPLICATION_CLOSING', 'APPLICATION_CLOSED', 'EXAM_SCHEDULED', 'EXAM_COMPLETED', 'RESULT_DECLARED'
+  examStatus: text('exam_status').notNull().default('NOT_SCHEDULED'), // 'NOT_SCHEDULED', 'SCHEDULED', 'POSTPONED', 'CANCELLED', 'COMPLETED'
+  resultStatus: text('result_status').notNull().default('NOT_DECLARED'), // 'NOT_DECLARED', 'DECLARED'
   isFeatured: integer('is_featured').notNull().default(0),
   validationStatus: text('validation_status').notNull().default('NEEDS_REVIEW'), // 'VALID', 'WARNING', 'INVALID', 'NEEDS_REVIEW'
   validationErrorsJson: text('validation_errors_json'),
@@ -92,6 +94,7 @@ export const recruitments = sqliteTable('recruitments', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index('idx_rec_status_lifecycle').on(table.status, table.lifecycleStatus),
+  index('idx_rec_exam_result').on(table.examStatus, table.resultStatus),
   index('idx_rec_post').on(table.postId),
   index('idx_rec_state').on(table.stateId),
   index('idx_rec_validation').on(table.validationStatus),

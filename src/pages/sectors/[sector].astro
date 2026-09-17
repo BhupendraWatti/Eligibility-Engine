@@ -2,6 +2,7 @@
 // src/pages/sectors/[sector].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getAllSectors, getPostsBySectorId, getAllActiveRecruitments } from '../../db/queries';
+import { calculateRecruitmentMetrics, formatSectorVacancySummary, isActiveDrive } from '../../services/lifecycle';
 
 const sectorParam = (Astro.params.sector || 'police').toLowerCase();
 
@@ -28,10 +29,7 @@ const sectorRecruitments = allRecruitments.filter(r =>
   r.title?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0])
 );
 
-const openRecruitments = sectorRecruitments.filter(r => r.lifecycleStatus === 'OPEN');
-const upcomingRecruitments = sectorRecruitments.filter(r => r.lifecycleStatus === 'UPCOMING');
-
-const totalVacancies = sectorRecruitments.reduce((acc, r) => acc + (r.totalVacancies || 0), 0);
+const metrics = calculateRecruitmentMetrics(sectorRecruitments);
 
 // Sector guidelines helper
 const isUniformService = sector.slug.includes('police') || sector.slug.includes('forest');
@@ -68,9 +66,7 @@ const isMedical = sector.slug.includes('health');
         </p>
 
         <div class="flex flex-wrap items-center gap-4 mt-4 text-xs font-mono">
-          <span class="text-foreground font-bold">{openRecruitments.length} Active Drives</span>
-          <span class="text-muted-foreground">·</span>
-          <span class="text-foreground font-bold">{totalVacancies.toLocaleString()} Total Vacancies</span>
+          <span class="text-foreground font-bold">{formatSectorVacancySummary(metrics)}</span>
           <span class="text-muted-foreground">·</span>
           <span class="text-muted-foreground">{posts.length} Recognized Cadres</span>
         </div>
@@ -106,17 +102,11 @@ const isMedical = sector.slug.includes('health');
           ) : (
             <div class="space-y-4">
               {sectorRecruitments.map((r) => {
-                const statusColor = r.lifecycleStatus === 'OPEN'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : r.lifecycleStatus === 'UPCOMING'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-muted text-muted-foreground border-border';
-
                 return (
                   <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
                     <div class="flex items-center justify-between gap-2 mb-2">
-                      <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
-                        {r.lifecycleStatus}
+                      <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${r.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
+                        {r.presentation?.label || r.lifecycleStatus}
                       </span>
                       <span class="text-xs text-muted-foreground font-mono font-bold">
                         {r.totalVacancies.toLocaleString()} Vacancies

@@ -2,6 +2,37 @@ import { getDb, schema } from './client';
 import { eq, desc, asc, sql } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates } from '../services/duplicate-detector';
+import {
+  resolveRecruitmentLifecycle,
+  getLifecyclePresentation,
+  calculateRecruitmentMetrics,
+  formatSectorVacancySummary,
+  isActiveDrive,
+  isUpcomingDrive,
+  isCurrentRecruitment,
+  type CanonicalLifecycle,
+  type StatusPresentation,
+  type RecruitmentMetrics,
+  type PublicationStatus,
+  type ExamStatus,
+  type ResultStatus,
+} from '../services/lifecycle';
+
+export {
+  resolveRecruitmentLifecycle,
+  getLifecyclePresentation,
+  calculateRecruitmentMetrics,
+  formatSectorVacancySummary,
+  isActiveDrive,
+  isUpcomingDrive,
+  isCurrentRecruitment,
+  type CanonicalLifecycle,
+  type StatusPresentation,
+  type RecruitmentMetrics,
+  type PublicationStatus,
+  type ExamStatus,
+  type ResultStatus,
+};
 
 let cfEnv: any = undefined;
 try {
@@ -78,6 +109,10 @@ export interface RecruitmentWithDetails {
   totalVacancies: number;
   status: string;
   lifecycleStatus: string;
+  examStatus?: string;
+  resultStatus?: string;
+  resolvedLifecycle: CanonicalLifecycle;
+  presentation: StatusPresentation;
   isFeatured: number;
   postTitle: string;
   postSlug: string;
@@ -758,7 +793,38 @@ export let FALLBACK_POSTS: CanonicalPostWithDetails[] = [
   },
 ];
 
-export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
+export function enrichRecruitmentWithLifecycle(rec: any): RecruitmentWithDetails {
+  const appStart = rec.applicationStart || rec.importantDatesList?.find((d: any) => d.eventType === 'APPLICATION_START')?.date;
+  const appEnd = rec.applicationEnd || rec.importantDatesList?.find((d: any) => d.eventType === 'APPLICATION_END')?.date;
+  const examDate = rec.examDate || rec.importantDatesList?.find((d: any) => d.eventType === 'EXAM_DATE')?.date;
+
+  const resolvedLifecycle = resolveRecruitmentLifecycle({
+    status: rec.status,
+    lifecycleStatus: rec.lifecycleStatus,
+    applicationStart: appStart,
+    applicationEnd: appEnd,
+    examDate,
+    examStatus: rec.examStatus,
+    resultStatus: rec.resultStatus,
+    totalVacancies: rec.totalVacancies,
+  });
+
+  const presentation = getLifecyclePresentation(resolvedLifecycle);
+
+  return {
+    ...rec,
+    applicationStart: appStart,
+    applicationEnd: appEnd,
+    examDate,
+    lifecycleStatus: resolvedLifecycle,
+    resolvedLifecycle,
+    presentation,
+    examStatus: rec.examStatus || (examDate ? 'SCHEDULED' : 'NOT_SCHEDULED'),
+    resultStatus: rec.resultStatus || (resolvedLifecycle === 'RESULT_DECLARED' ? 'DECLARED' : 'NOT_DECLARED'),
+  };
+}
+
+const RAW_FALLBACK_RECRUITMENTS: any[] = [
   {
     id: 'rec_mp_constable_2026',
     postId: 'post_mp_constable',
@@ -1368,6 +1434,8 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
   },
 ];
 
+export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = RAW_FALLBACK_RECRUITMENTS.map(enrichRecruitmentWithLifecycle);
+
 /**
  * Fetch all master sectors
  */
@@ -1591,6 +1659,7 @@ export async function getAllActiveRecruitments(
         post: true,
         organisation: true,
         eligibility: true,
+        importantDates: true,
       },
       orderBy: [desc(schema.recruitments.isFeatured), desc(schema.recruitments.createdAt)],
     };
@@ -1631,7 +1700,11 @@ export async function getAllActiveRecruitments(
         }
       }
 
-      return {
+      const appStartEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_START')?.eventDate;
+      const appEndEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_END')?.eventDate;
+      const examDateEvent = (r.importantDates || []).find((d: any) => d.eventType === 'EXAM_DATE')?.eventDate;
+
+      const rawRec = {
         id: r.id,
         postId: r.postId,
         advtNumber: r.advtNumber,
@@ -1642,6 +1715,11 @@ export async function getAllActiveRecruitments(
         totalVacancies: r.totalVacancies,
         status: r.status,
         lifecycleStatus: r.lifecycleStatus,
+        examStatus: (r as any).examStatus,
+        resultStatus: (r as any).resultStatus,
+        applicationStart: appStartEvent,
+        applicationEnd: appEndEvent,
+        examDate: examDateEvent,
         isFeatured: r.isFeatured,
         // Master record values dynamically propagated via relational join:
         postTitle: r.post?.title || 'State Government Post',
@@ -1669,6 +1747,8 @@ export async function getAllActiveRecruitments(
           additionalSkills,
         },
       };
+
+      return enrichRecruitmentWithLifecycle(rawRec);
     });
   } catch (error) {
     console.warn('Error querying D1 database, using fallback dataset:', error);
@@ -1999,6 +2079,18 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     organisationName: r.post.department?.organisation?.shortName || r.post.department?.organisation?.name,
   } : undefined;
 
+  const resolvedLifecycle = resolveRecruitmentLifecycle({
+    status: r.status,
+    lifecycleStatus: r.lifecycleStatus,
+    applicationStart: appStartEvent?.eventDate,
+    applicationEnd: appEndEvent?.eventDate,
+    examDate: examDateEvent?.eventDate,
+    examStatus: (r as any).examStatus,
+    resultStatus: (r as any).resultStatus,
+    totalVacancies: r.totalVacancies,
+  });
+  const presentation = getLifecyclePresentation(resolvedLifecycle);
+
   return {
     id: r.id,
     postId: r.postId,
@@ -2010,7 +2102,11 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     cycleYear: r.cycleYear,
     totalVacancies: r.totalVacancies,
     status: r.status,
-    lifecycleStatus: r.lifecycleStatus,
+    lifecycleStatus: resolvedLifecycle,
+    examStatus: (r as any).examStatus || (examDateEvent?.eventDate ? 'SCHEDULED' : 'NOT_SCHEDULED'),
+    resultStatus: (r as any).resultStatus || (resolvedLifecycle === 'RESULT_DECLARED' ? 'DECLARED' : 'NOT_DECLARED'),
+    resolvedLifecycle,
+    presentation,
     isFeatured: r.isFeatured,
     postTitle: r.post?.title || 'State Government Post',
     postSlug: r.post?.slug || '',
@@ -2134,6 +2230,8 @@ export interface CreateRecruitmentInput {
   sources?: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }>;
   officialLinks?: Array<{ linkType: string; title: string; url: string }>;
   adminEmail?: string;
+  examStatus?: string;
+  resultStatus?: string;
 }
 
 /**
@@ -2335,7 +2433,13 @@ export async function createRecruitmentAtomic(
     },
   };
 
-  FALLBACK_RECRUITMENTS.unshift(newRecruitment);
+  const enrichedRecruitment = enrichRecruitmentWithLifecycle({
+    ...newRecruitment,
+    examStatus: data.examStatus,
+    resultStatus: data.resultStatus,
+  });
+
+  FALLBACK_RECRUITMENTS.unshift(enrichedRecruitment);
 
   // 3. Write Audit Log
   const adminEmail = data.adminEmail || 'aarav@nirnay.in';
@@ -2373,7 +2477,9 @@ export async function createRecruitmentAtomic(
           cycleYear: newRecruitment.cycleYear,
           totalVacancies: data.totalVacancies,
           status: targetStatus,
-          lifecycleStatus: data.lifecycleStatus || 'OPEN',
+          lifecycleStatus: enrichedRecruitment.resolvedLifecycle,
+          examStatus: enrichedRecruitment.examStatus || 'NOT_SCHEDULED',
+          resultStatus: enrichedRecruitment.resultStatus || 'NOT_DECLARED',
           isFeatured: 0,
           validationStatus: targetValidationStatus,
           validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
@@ -2564,7 +2670,7 @@ export async function updateRecruitmentAtomic(
   const idx = FALLBACK_RECRUITMENTS.findIndex(r => r.id === id || r.slug === id);
   if (idx !== -1) {
     const existing = FALLBACK_RECRUITMENTS[idx];
-    FALLBACK_RECRUITMENTS[idx] = {
+    const rawUpdated = {
       ...existing,
       title: data.title,
       slug,
@@ -2574,6 +2680,8 @@ export async function updateRecruitmentAtomic(
       overviewMarkdown: data.overviewMarkdown !== undefined ? data.overviewMarkdown : existing.overviewMarkdown,
       status: targetStatus,
       lifecycleStatus: data.lifecycleStatus || existing.lifecycleStatus,
+      examStatus: data.examStatus !== undefined ? data.examStatus : existing.examStatus,
+      resultStatus: data.resultStatus !== undefined ? data.resultStatus : existing.resultStatus,
       payScale: data.payScaleOverride || matchedPost?.payScale || existing.payScale,
       payScaleOverride: data.payScaleOverride || null,
       salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
@@ -2629,6 +2737,7 @@ export async function updateRecruitmentAtomic(
         experienceMonths: data.experienceMonths || 0,
       },
     };
+    FALLBACK_RECRUITMENTS[idx] = enrichRecruitmentWithLifecycle(rawUpdated);
   }
 
   // 2. Audit Log
@@ -2653,6 +2762,17 @@ export async function updateRecruitmentAtomic(
       const db = getDb(d1);
       const statements: any[] = [];
 
+      const resolvedLStatus = resolveRecruitmentLifecycle({
+        status: targetStatus,
+        lifecycleStatus: data.lifecycleStatus || 'OPEN',
+        applicationStart: data.applicationStart,
+        applicationEnd: data.applicationEnd,
+        examDate: data.examDate,
+        examStatus: data.examStatus,
+        resultStatus: data.resultStatus,
+        totalVacancies: data.totalVacancies,
+      });
+
       // Update recruitments table
       statements.push(
         db.update(schema.recruitments)
@@ -2664,7 +2784,9 @@ export async function updateRecruitmentAtomic(
             overviewMarkdown: data.overviewMarkdown || null,
             totalVacancies: data.totalVacancies,
             status: targetStatus,
-            lifecycleStatus: data.lifecycleStatus || 'OPEN',
+            lifecycleStatus: resolvedLStatus,
+            examStatus: data.examStatus || (data.examDate ? 'SCHEDULED' : 'NOT_SCHEDULED'),
+            resultStatus: data.resultStatus || (resolvedLStatus === 'RESULT_DECLARED' ? 'DECLARED' : 'NOT_DECLARED'),
             validationStatus: targetValidationStatus,
             validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
             selectionStagesJson,
@@ -2821,6 +2943,10 @@ export interface AdminKPIData {
   sourceExpired: number;
   dataConflicts: number;
   totalVacancies: number;
+  activeDriveCount: number;
+  activeVacancies: number;
+  upcomingDriveCount: number;
+  upcomingVacancies: number;
   recentAuditLogs: Array<{
     id: string;
     adminEmail: string;
@@ -2947,6 +3073,9 @@ export async function getAdminKPIs(providedD1?: D1Database): Promise<AdminKPIDat
     }
   }
 
+  const publishedRecruitments = recruitments.filter(r => r.status === 'PUBLISHED');
+  const metrics = calculateRecruitmentMetrics(publishedRecruitments, now);
+
   return {
     published,
     drafts,
@@ -2956,6 +3085,10 @@ export async function getAdminKPIs(providedD1?: D1Database): Promise<AdminKPIDat
     sourceExpired,
     dataConflicts,
     totalVacancies,
+    activeDriveCount: metrics.activeDriveCount,
+    activeVacancies: metrics.activeVacancyCount,
+    upcomingDriveCount: metrics.upcomingDriveCount,
+    upcomingVacancies: metrics.upcomingVacancyCount,
     recentAuditLogs: FALLBACK_AUDIT_LOGS.slice(0, 10),
     conflictsList,
   };

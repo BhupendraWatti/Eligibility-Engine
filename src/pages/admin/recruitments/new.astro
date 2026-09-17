@@ -31,6 +31,8 @@ if (Astro.request.method === 'POST') {
     const applicationStart = formData.get('applicationStart')?.toString().trim();
     const applicationEnd = formData.get('applicationEnd')?.toString().trim();
     const examDate = formData.get('examDate')?.toString().trim();
+    const examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
+    const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
     const sourceUrl = formData.get('sourceUrl')?.toString().trim();
     const sourceTitle = formData.get('sourceTitle')?.toString().trim();
     const forcePublish = formData.get('forcePublish')?.toString() === 'yes';
@@ -54,6 +56,8 @@ if (Astro.request.method === 'POST') {
         applicationStart,
         applicationEnd,
         examDate,
+        examStatus,
+        resultStatus,
         sourceUrl,
         sourceTitle,
         // forcePublish=true means admin is overriding validation guard → save as PENDING_VERIFICATION
@@ -294,6 +298,31 @@ const postsBySector = sectors.map(sec => ({
                 <div>
                   <label class="block text-xs font-bold text-foreground mb-1">Exam Date (CBT)</label>
                   <input type="date" name="examDate" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground" />
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                Lifecycle Milestones (Factual Overrides)
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-bold text-foreground mb-1">Exam Status (Factual)</label>
+                  <select name="examStatus" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground">
+                    <option value="NOT_SCHEDULED" selected>NOT_SCHEDULED — Date not announced</option>
+                    <option value="SCHEDULED">SCHEDULED — Date announced</option>
+                    <option value="POSTPONED">POSTPONED — Exam delayed</option>
+                    <option value="CANCELLED">CANCELLED — Exam cancelled</option>
+                    <option value="COMPLETED">COMPLETED — Exam conducted</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-foreground mb-1">Result Status (Factual)</label>
+                  <select name="resultStatus" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground">
+                    <option value="NOT_DECLARED" selected>NOT_DECLARED — Result awaited</option>
+                    <option value="DECLARED">DECLARED — Merit list released</option>
+                  </select>
                 </div>
               </div>
             </div>

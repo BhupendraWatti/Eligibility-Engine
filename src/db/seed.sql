@@ -183,31 +183,31 @@ INSERT OR IGNORE INTO posts (id, department_id, sector_id, title, slug, summary,
  'Rs. 15,500 - 49,000/- (Pay Matrix Level 1)', 18, 40, '8TH', 1, unixepoch());
 
 -- 6. Recruitments (Active & Planned Drives)
-INSERT OR IGNORE INTO recruitments (id, post_id, organisation_id, state_id, advt_number, title, slug, short_summary, cycle_year, total_vacancies, status, lifecycle_status, is_featured, validation_status, created_at, updated_at) VALUES
+INSERT OR IGNORE INTO recruitments (id, post_id, organisation_id, state_id, advt_number, title, slug, short_summary, cycle_year, total_vacancies, status, lifecycle_status, exam_status, result_status, is_featured, validation_status, created_at, updated_at) VALUES
 ('rec_mp_constable_2026', 'post_mp_constable', 'org_mpesb', 'st_mp', 'Advt No. 04/2026', 
  'MP Police Constable Recruitment 2026 (7,500 Vacancies)', 'mp-police-constable-recruitment-2026',
  'Official recruitment by MPESB for 7,500 posts of Police Constable (General Duty & Radio) in Madhya Pradesh Police Department. 10th pass candidates eligible.',
- 2026, 7500, 'PUBLISHED', 'OPEN', 1, 'VALID', unixepoch(), unixepoch()),
+ 2026, 7500, 'PUBLISHED', 'NOT_STARTED', 'SCHEDULED', 'NOT_DECLARED', 1, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_patwari_2026', 'post_mp_patwari', 'org_mpesb', 'st_mp', 'Advt No. 06/2026', 
  'MP ESB Patwari & Combined Group-2 Sub-Group-4 Recruitment 2026', 'mp-patwari-recruitment-2026',
  'Recruitment for 3,550 vacancies of Patwari and Revenue Inspectors across all 55 districts of Madhya Pradesh. Graduate with CPCT required.',
- 2026, 3550, 'PUBLISHED', 'UPCOMING', 1, 'VALID', unixepoch(), unixepoch()),
+ 2026, 3550, 'PUBLISHED', 'EXAM_SCHEDULED', 'SCHEDULED', 'NOT_DECLARED', 1, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_forest_guard_2026', 'post_mp_forest_guard', 'org_mpesb', 'st_mp', 'Advt No. 07/2026', 
  'MP Forest Guard & Jail Prahari Combined Recruitment 2026', 'mp-forest-guard-recruitment-2026',
  'Direct recruitment for 2,112 posts of Van Rakshak (Forest Guard) and Kshetra Rakshak in MP Forest Department. 10th pass candidates eligible with physical standards.',
- 2026, 2112, 'PUBLISHED', 'OPEN', 0, 'VALID', unixepoch(), unixepoch()),
+ 2026, 2112, 'PUBLISHED', 'RESULT_DECLARED', 'COMPLETED', 'DECLARED', 0, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_mppsc_sse_2026', 'post_mp_deputy_collector', 'org_mppsc', 'st_mp', 'Advt No. 01/Exam/2026',
  'MPPSC State Services Examination (SSE) 2026', 'mppsc-state-service-2026',
  'Premier state administrative examination conducted by MPPSC for 356 gazetted executive Class II posts including Deputy Collector, DSP, and Commercial Tax Officer.',
- 2026, 356, 'PUBLISHED', 'OPEN', 1, 'VALID', unixepoch(), unixepoch()),
+ 2026, 356, 'PENDING_VERIFICATION', 'APPLICATION_CLOSED', 'NOT_SCHEDULED', 'NOT_DECLARED', 1, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_jja_court_2026', 'post_mp_jja_court', 'org_mphc', 'st_mp', 'Advt No. HC/JJA/2026',
  'Junior Judicial Assistant (JJA) & Court AG-III Examination 2026', 'mp-jja-court-recruitment-2026',
  'Direct judicial ministerial recruitment for 980 vacancies in the High Court Registry of Madhya Pradesh and Subordinate District Courts.',
- 2026, 980, 'PUBLISHED', 'OPEN', 0, 'VALID', unixepoch(), unixepoch());
+ 2026, 980, 'PENDING_VERIFICATION', 'NOT_STARTED', 'NOT_SCHEDULED', 'NOT_DECLARED', 0, 'VALID', unixepoch(), unixepoch());
 
 -- 7. Recruitment Eligibility (Simplified Typed Model)
 INSERT OR IGNORE INTO recruitment_eligibility (

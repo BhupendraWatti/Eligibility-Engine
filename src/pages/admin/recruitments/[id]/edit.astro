@@ -36,6 +36,8 @@ if (Astro.request.method === 'POST') {
     const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
     const lifecycleStatus = formData.get('lifecycleStatus')?.toString().trim() || 'OPEN';
     const status = formData.get('status')?.toString().trim() || 'PUBLISHED';
+    const examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
+    const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
     const shortSummary = formData.get('shortSummary')?.toString().trim();
     const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
 
@@ -169,6 +171,8 @@ if (Astro.request.method === 'POST') {
         totalVacancies,
         status,
         lifecycleStatus,
+        examStatus,
+        resultStatus,
         shortSummary,
         overviewMarkdown,
         minAge,
@@ -400,20 +404,6 @@ const primarySyllabusLink = recruitment.officialLinksList?.find(l => l.linkType 
 
           <div>
             <label class="block text-xs font-bold text-foreground mb-1">
-              Lifecycle Status
-            </label>
-            <select
-              name="lifecycleStatus"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-            >
-              {['UPCOMING', 'OPEN', 'CLOSING_SOON', 'EXAM_SCHEDULED', 'ADMIT_CARD_OUT', 'ANSWER_KEY_ACTIVE', 'RESULT_DECLARED', 'HOLD'].map(st => (
-                <option value={st} selected={recruitment.lifecycleStatus === st}>{st}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
               Catalog Publication Status
             </label>
             <select
@@ -424,6 +414,59 @@ const primarySyllabusLink = recruitment.officialLinksList?.find(l => l.linkType 
                 <option value={s} selected={recruitment.status === s}>{s}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Exam Milestones (Factual)
+            </label>
+            <select
+              name="examStatus"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              {[
+                { value: 'NOT_SCHEDULED', label: 'NOT_SCHEDULED — Exam not announced' },
+                { value: 'SCHEDULED', label: 'SCHEDULED — Date announced' },
+                { value: 'POSTPONED', label: 'POSTPONED — Exam delayed' },
+                { value: 'CANCELLED', label: 'CANCELLED — Exam cancelled' },
+                { value: 'COMPLETED', label: 'COMPLETED — Examination concluded' },
+              ].map(opt => (
+                <option value={opt.value} selected={(recruitment.examStatus || 'NOT_SCHEDULED') === opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-foreground mb-1">
+              Result Milestone (Factual)
+            </label>
+            <select
+              name="resultStatus"
+              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+            >
+              {[
+                { value: 'NOT_DECLARED', label: 'NOT_DECLARED — Result awaited' },
+                { value: 'DECLARED', label: 'DECLARED — Merit list released' },
+              ].map(opt => (
+                <option value={opt.value} selected={(recruitment.resultStatus || 'NOT_DECLARED') === opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Canonical Lifecycle Status Preview -->
+        <div class="p-3.5 rounded-xl bg-muted/60 border border-border flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-muted-foreground">Computed Canonical Lifecycle:</span>
+            <span class="font-mono font-bold text-foreground">{recruitment.resolvedLifecycle}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-muted-foreground">Candidate Badge Preview:</span>
+            <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${recruitment.presentation?.badgeClass}`}>
+              {recruitment.presentation?.label}
+            </span>
           </div>
         </div>
 

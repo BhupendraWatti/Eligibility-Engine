@@ -20,8 +20,8 @@ function formatDate(dateStr?: string): string {
 
 // Derive results dynamically from verified recruitment milestones
 const results = allRecruitments.map((r) => {
-  const isDeclared = r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
-  const isExamDone = r.lifecycleStatus === 'EXAM_COMPLETED';
+  const isDeclared = r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || r.lifecycleStatus === 'RESULT_DECLARED';
+  const isExamDone = r.resolvedLifecycle === 'EXAM_COMPLETED' || r.examStatus === 'COMPLETED' || r.lifecycleStatus === 'EXAM_COMPLETED';
   
   let statusText = 'Pending Exam';
   let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';

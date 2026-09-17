@@ -12,6 +12,7 @@
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates, type ExistingRecruitmentRecord } from '../services/duplicate-detector';
 import { FALLBACK_RECRUITMENTS } from '../db/queries';
+import { isActiveDrive } from '../services/lifecycle';
 
 let testCount = 0;
 let passCount = 0;
@@ -283,7 +284,7 @@ test('Guard: MP Police Constable 2026 dates match official schedule', () => {
   assert(pc!.examDate === '2026-11-19', 'PC examDate must be 2026-11-19');
 });
 
-test('Guard: Unverified gazette records are safely on HOLD', () => {
+test('Guard: Unverified gazette records are safely non-public and pending verification', () => {
   const unverifiedIds = [
     'rec_mp_group4_clerk_2026',
     'rec_mp_jja_court_2026',
@@ -294,7 +295,7 @@ test('Guard: Unverified gazette records are safely on HOLD', () => {
     const rec = FALLBACK_RECRUITMENTS.find(r => r.id === id);
     assert(rec !== undefined, `Record ${id} must exist in catalog`);
     assert(rec!.status === 'PENDING_VERIFICATION', `Record ${id} status must be PENDING_VERIFICATION (got: ${rec!.status})`);
-    assert(rec!.lifecycleStatus === 'HOLD', `Record ${id} lifecycleStatus must be HOLD (got: ${rec!.lifecycleStatus})`);
+    assert(!isActiveDrive(rec!), `Record ${id} must never be an active public drive while unverified`);
   }
 });
 

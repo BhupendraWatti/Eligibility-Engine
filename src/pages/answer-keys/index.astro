@@ -20,7 +20,7 @@ function formatDate(dateStr?: string): string {
 // Derive answer key records dynamically from verified lifecycle events
 const keys = allRecruitments.map((r) => {
   const isKeyActive = r.lifecycleStatus === 'ANSWER_KEY_OUT';
-  const isConcluded = r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
+  const isConcluded = r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || r.lifecycleStatus === 'RESULT_DECLARED';
   
   let statusText = 'Awaited Post Examination';
   let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';

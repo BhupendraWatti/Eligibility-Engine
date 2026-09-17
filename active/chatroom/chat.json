@@ -1,0 +1,67 @@
+{
+  "problem": "NIRNAY — Normalize Recruitment Status & Sector Metrics across Public & Admin Surfaces",
+  "context": "Astro 5 SSR, Cloudflare D1 (SQLite) with dual-mode fallback, 42 passing tests. Current codebase mixes publication status ('PUBLISHED', 'PENDING_VERIFICATION') with lifecycle status ('OPEN', 'UPCOMING', 'HOLD'). Public pages count all vacancies as 'Active Vacancies' (Civil 850, Police 8,350, Forest 2,112), filter by raw strings, and lack a central metrics/lifecycle resolver.",
+  "agents": [
+    {
+      "name": "Architect",
+      "role": "Software Architect",
+      "framing": "Advocates for pure domain modeling, explicit separation of publication vs lifecycle state, single source of truth in a dedicated domain module, and strict schema contracts."
+    },
+    {
+      "name": "Pragmatist",
+      "role": "Senior Engineer (Ponytail mindset)",
+      "framing": "Advocates for minimal diffs, zero runtime overhead, deriving state dynamically from factual dates (YAGNI on redundant DB columns), ensuring fallback and D1 stay 100% in sync without migration friction."
+    },
+    {
+      "name": "Critic",
+      "role": "QA & Reliability Lead",
+      "framing": "Focuses on failure modes: postponed/cancelled exams, result declarations without exams, timezone drift on application cutoff dates, and preserving compatibility with existing tests and eligibility engine."
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "entries": [
+        {
+          "agent": "Architect",
+          "role": "Software Architect",
+          "response": "POSITION: Create a dedicated domain module `src/services/recruitment-lifecycle.ts` and `src/services/recruitment-metrics.ts` that strictly separate PublicationStatus ('DRAFT' | 'PENDING_VERIFICATION' | 'PUBLISHED' | 'ARCHIVED') from CanonicalLifecycle ('NOT_STARTED' | 'APPLICATION_OPEN' | 'APPLICATION_CLOSING' | 'APPLICATION_CLOSED' | 'EXAM_SCHEDULED' | 'EXAM_COMPLETED' | 'RESULT_DECLARED').\nREASONING: 1. Conflating editorial status with lifecycle caused 'HOLD' to be invented as a lifecycle state. 2. Having separate components calculate vacancy totals created the '0 Active Drives · 2,112 Total Vacancies' bug. 3. Presentation labels like 'Closing Soon' should never be stored in the DB. 4. A single metrics service ensures identical counts everywhere.\nPROPOSAL: Implement `resolveRecruitmentLifecycle(rec, referenceDate)` and `getRecruitmentMetrics(recruitments, referenceDate)` and refactor all consumers (home, jobs, sectors, admin, detail).\nCONCERNS: Risk of breaking existing tests if tests assert obsolete string values."
+        },
+        {
+          "agent": "Pragmatist",
+          "role": "Senior Engineer (Ponytail mindset)",
+          "response": "POSITION: Agree with centralizing the resolver and metrics service, but do it with the shortest diff that solves the root cause: do NOT rewrite the DB schema with 10 new columns if existing fields and dates already provide the facts.\nREASONING: 1. We already have `applicationStart`, `applicationEnd`, `examDate` and `status`. 2. Adding `exam_status` and `result_status` can be optional fields defaulting sensibly (`SCHEDULED` if `examDate` exists, `DECLARED` if `RESULT_DECLARED` is marked). 3. Derive `APPLICATION_CLOSING` dynamically (e.g. <= 7 days before applicationEnd) instead of creating cron jobs to update rows. 4. Expose `resolvedLifecycle` and `presentation` on `RecruitmentWithDetails` directly in `queries.ts` so every page gets it for free without extra queries.\nPROPOSAL: Place lifecycle resolver and metrics calculation in `src/services/lifecycle.ts`, attach resolved properties in `mapDbRecruitmentToDetails` and fallback dataset, and update consumers in one sweep.\nCONCERNS: Must ensure local fallback dataset behaves identically to Cloudflare D1."
+        },
+        {
+          "agent": "Critic",
+          "role": "QA & Reliability Lead",
+          "response": "POSITION: Pure date derivation fails for government exams: exams get postponed, results take months, and TET has 0 vacancies. Factual override flags are mandatory.\nREASONING: 1. In MPESB, exams are often held on a date but results are declared months later; if we only use `examDate < today`, we would falsely mark an exam as completed or result declared. 2. Forest Guard exam was in June 2026, results declared in August 2026. If a recruitment has no `result_status = DECLARED`, it must stay `EXAM_SCHEDULED` or `EXAM_COMPLETED`. 3. TET has 0 vacancies — metrics calculations must handle 0 without NaN or division by zero. 4. Publication gate: an unverified record (e.g. `PENDING_VERIFICATION`) must NEVER be counted in public metrics, even if its dates match today.\nPROPOSAL: Resolver must check: (a) publication_status == 'PUBLISHED' for public; (b) if resultStatus === 'DECLARED' -> RESULT_DECLARED; else if examStatus === 'COMPLETED' -> EXAM_COMPLETED; else if examDate and examStatus !== 'CANCELLED' -> EXAM_SCHEDULED; else evaluate application dates against reference date.\nCONCERNS: Timezone issues: use UTC/IST date strings (YYYY-MM-DD comparison) rather than floating local time."
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "entries": [
+        {
+          "agent": "Architect",
+          "role": "Software Architect",
+          "response": "AGREEMENTS: Pragmatist and Critic are spot-on. Pragmatist's idea to attach resolved lifecycle in `queries.ts` is elegant and prevents repetitive per-page function calls. Critic's observation that exam/result states require authoritative signals (not blind date passing) is fundamental to government portals.\nDISAGREEMENTS: We should still formalize the types cleanly in a dedicated module (`src/services/lifecycle.ts`) rather than burying the logic inside `queries.ts`.\nREFINED PROPOSAL: Create `src/services/lifecycle.ts` defining: CanonicalPublicationStatus, CanonicalLifecycleStatus, StatusPresentation, `resolveLifecycle()`, `getRecruitmentPresentation()`, and `calculateRecruitmentMetrics()`. Integrate it into `queries.ts` and update `AdminKPIData`.\nCONFIDENCE: 9"
+        },
+        {
+          "agent": "Pragmatist",
+          "role": "Senior Engineer (Ponytail mindset)",
+          "response": "AGREEMENTS: Architect's separation into `src/services/lifecycle.ts` is clean and follows Ponytail's ladder (rule 2: put domain logic in a reusable service). Critic's hierarchy (Result -> Exam -> Application Dates) avoids false conclusions.\nDISAGREEMENTS: None. We have full convergence on the resolver order.\nREFINED PROPOSAL: Build `src/services/lifecycle.ts`, test it with thorough unit tests, migrate `FALLBACK_RECRUITMENTS`, `seed.sql`, and all Astro pages.\nCONFIDENCE: 10"
+        },
+        {
+          "agent": "Critic",
+          "role": "QA & Reliability Lead",
+          "response": "AGREEMENTS: The proposed lifecycle hierarchy is robust. The 7-day closing window matches existing admin KPI expectations. Active Drive = `APPLICATION_OPEN` or `APPLICATION_CLOSING` on `PUBLISHED` records only.\nDISAGREEMENTS: We must update `src/engine/regression.test.ts` because it currently asserts `teacher!.lifecycleStatus !== 'CLOSED'` and `fg!.lifecycleStatus === 'RESULT_DECLARED'`. As long as the canonical states are consistent, all 15 regression tests plus new lifecycle tests will pass.\nREFINED PROPOSAL: Add a dedicated test suite `src/services/lifecycle.test.ts` testing every transition and edge case.\nCONFIDENCE: 10"
+        }
+      ]
+    }
+  ],
+  "final_output": {
+    "consensus": "Unanimous agreement on a centralized domain module `src/services/lifecycle.ts` handling CanonicalPublicationStatus, CanonicalLifecycleStatus, presentation mapping, and metrics calculation. Active Drive strictly defined as published recruitments with APPLICATION_OPEN or APPLICATION_CLOSING. Vacancy metrics categorized by lifecycle stage.",
+    "recommended_action": "1. Create src/services/lifecycle.ts. 2. Add src/services/lifecycle.test.ts. 3. Integrate with queries.ts and schema. 4. Migrate all public and admin pages. 5. Update regression guards and add domain documentation."
+  }
+}

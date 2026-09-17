@@ -120,11 +120,9 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
                 {recruitment.departmentName || 'Madhya Pradesh Department'}
               </span>
               <span class={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
-                recruitment.lifecycleStatus === 'OPEN'
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+                recruitment.presentation?.badgeClass || 'bg-blue-50 text-blue-700 border border-blue-200'
               }`}>
-                {recruitment.lifecycleStatus === 'OPEN' ? 'Applications Open' : recruitment.lifecycleStatus}
+                {recruitment.presentation?.label || recruitment.lifecycleStatus}
               </span>
               <span class="text-xs font-mono text-muted-foreground">
                 {recruitment.advtNumber}

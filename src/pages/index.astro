@@ -2,16 +2,20 @@
 // src/pages/index.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments, getAllSectors } from '../db/queries';
+import { calculateRecruitmentMetrics, isActiveDrive } from '../services/lifecycle';
 
 const [recruitments, dbSectors] = await Promise.all([
   getAllActiveRecruitments(),
   getAllSectors(),
 ]);
 
-const totalVacancies = recruitments.reduce((sum: number, r: any) => sum + (r.totalVacancies || 0), 0);
+const metrics = calculateRecruitmentMetrics(recruitments);
 
-// Categorize recruitments
-const closingSoon = recruitments.filter(r => r.lifecycleStatus === 'OPEN').slice(0, 3);
+// Categorize recruitments: active drives sorted by urgency (soonest closing date)
+const closingSoon = recruitments
+  .filter(r => isActiveDrive(r))
+  .sort((a, b) => (a.applicationEnd || '9999').localeCompare(b.applicationEnd || '9999'))
+  .slice(0, 3);
 const recentlyReleased = recruitments.slice(0, 3);
 
 // Sectors grid data
@@ -95,7 +99,7 @@ recruitments.forEach((r) => {
             href="#closing-soon"
             class="font-medium rounded-lg text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center gap-2"
           >
-            <span>Explore Jobs ({recruitments.length})</span>
+            <span>Explore Jobs ({metrics.activeDriveCount} Active)</span>
           </a>
         </div>
       </div>
@@ -108,14 +112,14 @@ recruitments.forEach((r) => {
           </span>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
             <span class="size-1.5 rounded-full bg-emerald-600"></span>
-            {recruitments.length} verified drives ready
+            {metrics.activeDriveCount} active {metrics.activeDriveCount === 1 ? 'drive' : 'drives'}
           </span>
         </div>
 
         <div class="space-y-3.5 mb-6">
           <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
             <span class="text-xs text-muted-foreground">Active MP Vacancies</span>
-            <span class="text-sm font-bold text-foreground font-mono">{totalVacancies.toLocaleString()} Posts</span>
+            <span class="text-sm font-bold text-foreground font-mono">{metrics.activeVacancyCount.toLocaleString()} Posts</span>
           </div>
 
           <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
@@ -214,11 +218,11 @@ recruitments.forEach((r) => {
         <div class="bg-card rounded-xl border border-border p-5 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
           <div>
             <div class="flex items-center justify-between gap-2 mb-3">
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                Closing Soon
+              <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                {item.presentation?.label || 'Closing Soon'}
               </span>
               <span class="text-[11px] text-muted-foreground font-medium">
-                {item.authorityCode || 'MPESB'}
+                {item.organisationShortName || item.authorityCode || 'MPESB'}
               </span>
             </div>
 
