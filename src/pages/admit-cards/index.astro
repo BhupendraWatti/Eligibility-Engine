@@ -17,21 +17,35 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive admit card entries from recruitments with scheduled exam dates
+// Derive admit card entries from recruitments with verified exam events
 const admitCards = allRecruitments
-  .filter(r => Boolean(r.examDate) || r.lifecycleStatus === 'OPEN')
+  .filter(r => Boolean(r.examDate) || r.lifecycleStatus === 'APPLICATION_OPEN' || r.lifecycleStatus === 'OPEN')
   .map(r => {
-    const isReleased = r.lifecycleStatus === 'CLOSED';
+    const isReleased = r.lifecycleStatus === 'ADMIT_CARD_RELEASED';
+    const isExamConcluded = r.lifecycleStatus === 'EXAM_COMPLETED' || r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
+    
+    let statusText = 'Not Released';
+    let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
+    let availableDateText = r.examDate ? `Expected prior to CBT (${formatDate(r.examDate)})` : 'Not Announced';
+
+    if (isReleased) {
+      statusText = 'Released';
+      statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      availableDateText = 'Download Active on Official Portal';
+    } else if (isExamConcluded) {
+      statusText = 'Concluded';
+      statusColor = 'bg-muted text-muted-foreground border-border';
+      availableDateText = 'Examination Concluded';
+    }
+
     return {
       title: `${r.title} — Admit Card`,
       exam: `${r.postTitle} Written / CBT Examination`,
       org: `${r.organisationName} (${r.organisationShortName})`,
       examDate: formatDate(r.examDate),
-      availableDate: r.examDate ? `7–10 days before exam` : 'To be announced',
-      status: isReleased ? 'Released' : 'Upcoming',
-      statusColor: isReleased 
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-        : 'bg-blue-50 text-blue-700 border-blue-200',
+      availableDate: availableDateText,
+      status: statusText,
+      statusColor,
       sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
       slug: r.slug,
       advt: r.advtNumber,

@@ -88,12 +88,15 @@ CREATE TABLE IF NOT EXISTS recruitments (
     status TEXT DEFAULT 'DRAFT' NOT NULL,
     lifecycle_status TEXT DEFAULT 'UPCOMING' NOT NULL,
     is_featured INTEGER DEFAULT 0 NOT NULL,
+    validation_status TEXT DEFAULT 'NEEDS_REVIEW' NOT NULL,
+    validation_errors_json TEXT,
     created_at INTEGER DEFAULT (unixepoch()) NOT NULL,
     updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_rec_status_lifecycle ON recruitments(status, lifecycle_status);
 CREATE INDEX IF NOT EXISTS idx_rec_post ON recruitments(post_id);
 CREATE INDEX IF NOT EXISTS idx_rec_state ON recruitments(state_id);
+CREATE INDEX IF NOT EXISTS idx_rec_validation ON recruitments(validation_status);
 
 -- 8. Recruitment Eligibility Criteria
 CREATE TABLE IF NOT EXISTS recruitment_eligibility (
@@ -172,3 +175,21 @@ CREATE TABLE IF NOT EXISTS records (
     updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_records_type ON records(type);
+
+-- 14. Audit Logs (Operational Traceability & Integrity Trail)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id TEXT PRIMARY KEY NOT NULL,
+    admin_email TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    field TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    reason TEXT,
+    source TEXT,
+    created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_admin ON audit_logs(admin_email);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);

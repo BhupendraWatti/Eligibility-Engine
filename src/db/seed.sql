@@ -183,21 +183,31 @@ INSERT OR IGNORE INTO posts (id, department_id, sector_id, title, slug, summary,
  'Rs. 15,500 - 49,000/- (Pay Matrix Level 1)', 18, 40, '8TH', 1, unixepoch());
 
 -- 6. Recruitments (Active & Planned Drives)
-INSERT OR IGNORE INTO recruitments (id, post_id, organisation_id, state_id, advt_number, title, slug, short_summary, cycle_year, total_vacancies, status, lifecycle_status, is_featured, created_at, updated_at) VALUES
+INSERT OR IGNORE INTO recruitments (id, post_id, organisation_id, state_id, advt_number, title, slug, short_summary, cycle_year, total_vacancies, status, lifecycle_status, is_featured, validation_status, created_at, updated_at) VALUES
 ('rec_mp_constable_2026', 'post_mp_constable', 'org_mpesb', 'st_mp', 'Advt No. 04/2026', 
  'MP Police Constable Recruitment 2026 (7,500 Vacancies)', 'mp-police-constable-recruitment-2026',
  'Official recruitment by MPESB for 7,500 posts of Police Constable (General Duty & Radio) in Madhya Pradesh Police Department. 10th pass candidates eligible.',
- 2026, 7500, 'PUBLISHED', 'OPEN', 1, unixepoch(), unixepoch()),
+ 2026, 7500, 'PUBLISHED', 'OPEN', 1, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_patwari_2026', 'post_mp_patwari', 'org_mpesb', 'st_mp', 'Advt No. 06/2026', 
  'MP ESB Patwari & Combined Group-2 Sub-Group-4 Recruitment 2026', 'mp-patwari-recruitment-2026',
  'Recruitment for 3,550 vacancies of Patwari and Revenue Inspectors across all 55 districts of Madhya Pradesh. Graduate with CPCT required.',
- 2026, 3550, 'PUBLISHED', 'UPCOMING', 1, unixepoch(), unixepoch()),
+ 2026, 3550, 'PUBLISHED', 'UPCOMING', 1, 'VALID', unixepoch(), unixepoch()),
 
 ('rec_mp_forest_guard_2026', 'post_mp_forest_guard', 'org_mpesb', 'st_mp', 'Advt No. 07/2026', 
  'MP Forest Guard & Jail Prahari Combined Recruitment 2026', 'mp-forest-guard-recruitment-2026',
  'Direct recruitment for 2,112 posts of Van Rakshak (Forest Guard) and Kshetra Rakshak in MP Forest Department. 10th pass candidates eligible with physical standards.',
- 2026, 2112, 'PUBLISHED', 'OPEN', 0, unixepoch(), unixepoch());
+ 2026, 2112, 'PUBLISHED', 'OPEN', 0, 'VALID', unixepoch(), unixepoch()),
+
+('rec_mp_mppsc_sse_2026', 'post_mp_deputy_collector', 'org_mppsc', 'st_mp', 'Advt No. 01/Exam/2026',
+ 'MPPSC State Services Examination (SSE) 2026', 'mppsc-state-service-2026',
+ 'Premier state administrative examination conducted by MPPSC for 356 gazetted executive Class II posts including Deputy Collector, DSP, and Commercial Tax Officer.',
+ 2026, 356, 'PUBLISHED', 'OPEN', 1, 'VALID', unixepoch(), unixepoch()),
+
+('rec_mp_jja_court_2026', 'post_mp_jja_court', 'org_mphc', 'st_mp', 'Advt No. HC/JJA/2026',
+ 'Junior Judicial Assistant (JJA) & Court AG-III Examination 2026', 'mp-jja-court-recruitment-2026',
+ 'Direct judicial ministerial recruitment for 980 vacancies in the High Court Registry of Madhya Pradesh and Subordinate District Courts.',
+ 2026, 980, 'PUBLISHED', 'OPEN', 0, 'VALID', unixepoch(), unixepoch());
 
 -- 7. Recruitment Eligibility (Simplified Typed Model)
 INSERT OR IGNORE INTO recruitment_eligibility (
@@ -228,7 +238,21 @@ INSERT OR IGNORE INTO recruitment_eligibility (
  '10TH', '["ANY"]', 1, 1, 0, 'ALL', 
  163.0, 150.0, 79.0, 0, NULL, NULL,
  0, 
- 'Walking test: 25 km in 4 hours for male candidates, 14 km in 4 hours for female candidates.');
+ 'Walking test: 25 km in 4 hours for male candidates, 14 km in 4 hours for female candidates.'),
+
+('el_mppsc_sse_2026', 'rec_mp_mppsc_sse_2026',
+ 21, 40, '2026-01-01', 5, 5, 5,
+ 'GRADUATION', '["ANY"]', 0, 1, 0, 'ALL',
+ NULL, NULL, NULL, 0, NULL, NULL,
+ 0,
+ 'Final year degree students may appear in Preliminary exam. Uniformed posts (DSP) have separate physical criteria (Height 168 cm male, 155 cm female).'),
+
+('el_jja_court_2026', 'rec_mp_jja_court_2026',
+ 18, 35, '2026-01-01', 5, 3, 5,
+ 'GRADUATION', '["ANY"]', 0, 1, 1, 'ALL',
+ NULL, NULL, NULL, 0, 50, '["English & Hindi Typing"]',
+ 0,
+ 'Bachelor degree in any discipline with minimum 50% marks and valid CPCT scorecard required.');
 
 -- 8. Vacancies by Category
 INSERT OR IGNORE INTO vacancies (id, recruitment_id, category, gender, count) VALUES
@@ -248,7 +272,18 @@ INSERT OR IGNORE INTO vacancies (id, recruitment_id, category, gender, count) VA
 ('vac_f_sc',    'rec_mp_forest_guard_2026', 'SC', 'ALL', 338),
 ('vac_f_st',    'rec_mp_forest_guard_2026', 'ST', 'ALL', 422),
 ('vac_f_obc',   'rec_mp_forest_guard_2026', 'OBC', 'ALL', 570),
-('vac_f_ews',   'rec_mp_forest_guard_2026', 'EWS', 'ALL', 212);
+('vac_f_ews',   'rec_mp_forest_guard_2026', 'EWS', 'ALL', 212),
+
+('vac_m_ur',    'rec_mp_mppsc_sse_2026', 'UR', 'ALL', 96),
+('vac_m_sc',    'rec_mp_mppsc_sse_2026', 'SC', 'ALL', 57),
+('vac_m_st',    'rec_mp_mppsc_sse_2026', 'ST', 'ALL', 71),
+('vac_m_obc',   'rec_mp_mppsc_sse_2026', 'OBC', 'ALL', 96),
+('vac_m_ews',   'rec_mp_mppsc_sse_2026', 'EWS', 'ALL', 36),
+
+('vac_j_ur',    'rec_mp_jja_court_2026', 'UR', 'ALL', 490),
+('vac_j_sc',    'rec_mp_jja_court_2026', 'SC', 'ALL', 157),
+('vac_j_st',    'rec_mp_jja_court_2026', 'ST', 'ALL', 196),
+('vac_j_obc',   'rec_mp_jja_court_2026', 'OBC', 'ALL', 137);
 
 -- 9. Important Dates
 INSERT OR IGNORE INTO important_dates (id, recruitment_id, event_type, event_date, is_tentative, notes) VALUES
@@ -266,7 +301,18 @@ INSERT OR IGNORE INTO important_dates (id, recruitment_id, event_type, event_dat
 ('dt_f_notif', 'rec_mp_forest_guard_2026', 'NOTIFICATION', '2026-02-20', 0, 'Official advertisement published'),
 ('dt_f_start', 'rec_mp_forest_guard_2026', 'APPLICATION_START', '2026-03-05', 0, 'Application start date'),
 ('dt_f_end',   'rec_mp_forest_guard_2026', 'APPLICATION_END', '2026-03-28', 0, 'Application closing date'),
-('dt_f_exam',  'rec_mp_forest_guard_2026', 'EXAM_DATE', '2026-05-28', 0, 'CBT examination date');
+('dt_f_exam',  'rec_mp_forest_guard_2026', 'EXAM_DATE', '2026-05-28', 0, 'CBT examination date'),
+
+('dt_m_notif', 'rec_mp_mppsc_sse_2026', 'NOTIFICATION', '2026-01-10', 0, 'MPPSC State Services 2026 Official Gazette Notification'),
+('dt_m_start', 'rec_mp_mppsc_sse_2026', 'APPLICATION_START', '2026-01-19', 0, 'Online application submission opens on MPOnline'),
+('dt_m_end',   'rec_mp_mppsc_sse_2026', 'APPLICATION_END', '2026-02-18', 0, 'Online application window closing date'),
+('dt_m_corr',  'rec_mp_mppsc_sse_2026', 'CORRECTION_END', '2026-02-20', 0, 'Application error correction deadline'),
+('dt_m_exam',  'rec_mp_mppsc_sse_2026', 'EXAM_DATE', '2026-04-28', 0, 'State Services Preliminary Examination (OMR based)'),
+
+('dt_j_notif', 'rec_mp_jja_court_2026', 'NOTIFICATION', '2026-02-01', 0, 'High Court of MP JJA Official Advertisement'),
+('dt_j_start', 'rec_mp_jja_court_2026', 'APPLICATION_START', '2026-02-15', 0, 'Online application registration start'),
+('dt_j_end',   'rec_mp_jja_court_2026', 'APPLICATION_END', '2026-03-15', 0, 'Application form submission deadline'),
+('dt_j_exam',  'rec_mp_jja_court_2026', 'EXAM_DATE', '2026-05-10', 0, 'Online Preliminary Screening Examination');
 
 -- 10. Sources (Provenance)
 INSERT OR IGNORE INTO sources (id, recruitment_id, source_type, source_url, source_title, publication_date, last_verified_at) VALUES
@@ -280,7 +326,15 @@ INSERT OR IGNORE INTO sources (id, recruitment_id, source_type, source_url, sour
 
 ('src_f_pdf', 'rec_mp_forest_guard_2026', 'OFFICIAL_NOTIFICATION_PDF', 
  'https://esb.mp.gov.in/Rulebooks/RB_2026/Van_Rakshak_2026_RuleBook.pdf', 
- 'MP Forest Guard and Jail Prahari Combined Recruitment Test 2026 Rulebook', '2026-02-20', unixepoch());
+ 'MP Forest Guard and Jail Prahari Combined Recruitment Test 2026 Rulebook', '2026-02-20', unixepoch()),
+
+('src_m_pdf', 'rec_mp_mppsc_sse_2026', 'OFFICIAL_NOTIFICATION_PDF',
+ 'https://mppsc.mp.gov.in/Uploads/Advertisements/SSE_2026_Notification.pdf',
+ 'MPPSC State Services Examination 2026 Detailed Gazette Advertisement', '2026-01-10', unixepoch()),
+
+('src_j_pdf', 'rec_mp_jja_court_2026', 'OFFICIAL_NOTIFICATION_PDF',
+ 'https://mphc.gov.in/PDF/web_pdf/RE/JJA_2026_Notification.pdf',
+ 'High Court of Madhya Pradesh Junior Judicial Assistant Examination 2026 Notice', '2026-02-01', unixepoch());
 
 -- 11. Official Links (Direct Outbound Actions)
 INSERT OR IGNORE INTO official_links (id, recruitment_id, link_type, title, url, is_active) VALUES
@@ -292,8 +346,16 @@ INSERT OR IGNORE INTO official_links (id, recruitment_id, link_type, title, url,
 ('lnk_p_pdf',   'rec_mp_patwari_2026', 'NOTIFICATION_PDF', 'Download Official Patwari Rulebook PDF', 'https://esb.mp.gov.in/Rulebooks/RB_2026/Patwari_Group2_2026_RuleBook.pdf', 1),
 
 ('lnk_f_apply', 'rec_mp_forest_guard_2026', 'APPLY_ONLINE', 'Apply Online (MPOnline Portal)', 'https://esb.mponline.gov.in', 1),
-('lnk_f_pdf',   'rec_mp_forest_guard_2026', 'NOTIFICATION_PDF', 'Download Official Forest Guard Rulebook PDF', 'https://esb.mp.gov.in/Rulebooks/RB_2026/Van_Rakshak_2026_RuleBook.pdf', 1);
+('lnk_f_pdf',   'rec_mp_forest_guard_2026', 'NOTIFICATION_PDF', 'Download Official Forest Guard Rulebook PDF', 'https://esb.mp.gov.in/Rulebooks/RB_2026/Van_Rakshak_2026_RuleBook.pdf', 1),
+
+('lnk_m_apply', 'rec_mp_mppsc_sse_2026', 'APPLY_ONLINE', 'Apply Online (MPOnline MPPSC Portal)', 'https://mponline.gov.in/portal/services/mppsc/', 1),
+('lnk_m_pdf',   'rec_mp_mppsc_sse_2026', 'NOTIFICATION_PDF', 'Download MPPSC SSE 2026 Gazette Rulebook', 'https://mppsc.mp.gov.in/Uploads/Advertisements/SSE_2026_Notification.pdf', 1),
+('lnk_m_portal','rec_mp_mppsc_sse_2026', 'RESULT', 'MPPSC Official Website', 'https://mppsc.mp.gov.in', 1),
+
+('lnk_j_apply', 'rec_mp_jja_court_2026', 'APPLY_ONLINE', 'Apply Online (High Court of MP Portal)', 'https://mphc.gov.in', 1),
+('lnk_j_pdf',   'rec_mp_jja_court_2026', 'NOTIFICATION_PDF', 'Download MPHC JJA Notification PDF', 'https://mphc.gov.in/PDF/web_pdf/RE/JJA_2026_Notification.pdf', 1);
 
 -- 12. Admin Users
 INSERT OR IGNORE INTO admin_users (id, email, name, role, is_active, created_at) VALUES
-('adm_super', 'admin@rozgarsetu.in', 'Lead Administrator', 'SUPER_ADMIN', 1, unixepoch());
+('adm_super', 'admin@rozgarsetu.in', 'Lead Administrator', 'SUPER_ADMIN', 1, unixepoch()),
+('adm_aarav', 'aarav@nirnay.in', 'Aarav Sharma', 'SUPER_ADMIN', 1, unixepoch());

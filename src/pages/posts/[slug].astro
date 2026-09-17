@@ -1,188 +1,246 @@
 ---
 // src/pages/posts/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { FALLBACK_RECRUITMENTS } from '../../db/queries';
+import { getCanonicalPostBySlug } from '../../db/queries';
 
 const { slug } = Astro.params;
 
-const postGuides: Record<string, any> = {
-  'mp-police-constable': {
-    title: 'MP Police Constable (General Duty) — Complete Career & Eligibility Guide',
-    shortTitle: 'MP Police Constable GD',
-    department: 'Home Department (Madhya Pradesh Police)',
-    organisation: 'MPESB (Madhya Pradesh Employees Selection Board)',
-    payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
-    overview: 'Police Constable (General Duty) is the primary law enforcement and crime-prevention rank within Madhya Pradesh Police. Thousands of candidates are recruited annually through the state-level competitive examination conducted by MPESB.',
-    minQualification: '10th Class (High School) Pass from a recognized board (8th Pass for ST candidates in MP)',
-    ageLimit: '18 to 33 Years (General Category) with statutory relaxations up to 38 years for SC/ST/OBC and female candidates.',
-    selectionStages: [
-      { name: 'Stage 1: Online Computer Based Test (CBT)', desc: '100 Marks objective examination covering General Knowledge, Reasoning, Elementary Mathematics, and Science.' },
-      { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: '800m Race, Shot Put, and Long Jump with qualifying and scoring criteria.' },
-      { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, domicile proof, and standard medical fitness check.' },
-    ],
-    syllabus: [
-      { subject: 'General Knowledge & Current Affairs', marks: '40 Questions' },
-      { subject: 'Logical Reasoning & Intellectual Ability', marks: '30 Questions' },
-      { subject: 'Science & Simple Arithmetic', marks: '30 Questions' },
-    ],
-    activeRecruitmentSlug: 'mp-police-constable-recruitment-2026',
-    activeVacancies: 7500,
-  },
-  'mp-patwari': {
-    title: 'MP Patwari & Revenue Inspector — Eligibility, Selection & Salary Guide',
-    shortTitle: 'MP Patwari (Revenue)',
-    department: 'Revenue Department, Madhya Pradesh',
-    organisation: 'MPESB (Madhya Pradesh Employees Selection Board)',
-    payScale: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 6)',
-    overview: 'Patwari is the foundational revenue and land records administration officer at the Tehsil and village level in Madhya Pradesh. Responsibilities include crop survey (Girdawari), land title mapping, and government welfare scheme enumeration.',
-    minQualification: "Bachelor's Degree (Graduation) in any discipline from a recognized University + Valid CPCT scorecard.",
-    ageLimit: '18 to 40 Years (General Category) with 5 years relaxation for MP reserved categories.',
-    selectionStages: [
-      { name: 'Stage 1: Combined Group-2 Sub-Group-4 CBT Exam', desc: '200 Marks objective examination consisting of 8 sections.' },
-      { name: 'Stage 2: Document Verification & District Allocation', desc: 'Merit-based district preference allotment.' },
-    ],
-    syllabus: [
-      { subject: 'General Knowledge & MP Special GK', marks: '25 Marks' },
-      { subject: 'General Hindi & General English', marks: '50 Marks' },
-      { subject: 'Mathematics & General Reasoning', marks: '50 Marks' },
-      { subject: 'Computer Knowledge & General Management', marks: '75 Marks' },
-    ],
-    activeRecruitmentSlug: 'mp-patwari-recruitment-2026',
-    activeVacancies: 3550,
-  },
-};
+const post = await getCanonicalPostBySlug(slug || '');
 
-const guide = postGuides[slug || 'mp-police-constable'] || postGuides['mp-police-constable'];
+// Derive Selection Stages and Syllabus dynamically based on post and sector
+const defaultSelectionStages = post?.selectionStages || (
+  post?.sectorId === 'sec_civil_services' ? [
+    { name: 'Stage 1: State Services Preliminary Examination (OMR)', desc: 'General Studies Paper I & General Aptitude Paper II (200 marks each) for state-wide screening.' },
+    { name: 'Stage 2: State Services Main Examination (Descriptive)', desc: 'Six descriptive papers covering General Studies, History, Geography, Economics, Hindi, and Essay writing.' },
+    { name: 'Stage 3: Interview & Personality Test', desc: '175 marks viva-voce conducted by MPPSC Commission followed by cadre allocation.' },
+  ] : post?.sectorId === 'sec_police' ? [
+    { name: 'Stage 1: Online Computer Based Test (CBT)', desc: 'Objective examination covering General Knowledge, Reasoning, Elementary Mathematics, and Cadre Knowledge.' },
+    { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: 'Physical standards measurement and physical efficiency tests (running, shot put, long jump).' },
+    { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, MP domicile certificate, and statutory medical fitness test.' },
+  ] : post?.sectorId === 'sec_judiciary' ? [
+    { name: 'Stage 1: Preliminary Online Examination', desc: '150 marks objective test covering Indian Penal Code, CrPC, CPC, Constitution, and MP Land Revenue Code.' },
+    { name: 'Stage 2: Main Written Examination', desc: 'Four descriptive papers covering civil law, criminal law, judgment writing, and translation.' },
+    { name: 'Stage 3: Viva-Voce & Interview', desc: '50 marks interview conducted by High Court judges committee.' },
+  ] : [
+    { name: 'Stage 1: Written Competitive Examination (CBT)', desc: '100–200 marks objective multiple-choice test on subject knowledge, reasoning, and state aptitude.' },
+    { name: 'Stage 2: Document Verification & Biometrics', desc: 'Scrutiny of academic transcripts, caste certificates, and MP employment registration.' },
+    { name: 'Stage 3: Final Medical & Cadre Allotment', desc: 'Medical clearance and appointment order issue by the parent department.' },
+  ]
+);
+
+const defaultSyllabus = post?.syllabus || (
+  post?.sectorId === 'sec_civil_services' ? [
+    { subject: 'Paper I: General Studies (History, Geography, Polity, MP GK)', marks: '200 Marks' },
+    { subject: 'Paper II: General Aptitude & Comprehension', marks: '200 Marks (Qualifying 33%)' },
+    { subject: 'Mains: GS Papers I to IV & General Hindi/Essay', marks: '1400 Marks Total' },
+    { subject: 'Personality Test / Interview', marks: '175 Marks' },
+  ] : post?.sectorId === 'sec_judiciary' ? [
+    { subject: 'Constitutional Law, Civil Law & Procedure (CPC)', marks: '40 Questions' },
+    { subject: 'Criminal Law & Procedure (IPC, CrPC, Evidence Act)', marks: '40 Questions' },
+    { subject: 'MP Specific Acts (Land Revenue, Accommodation Control)', marks: '30 Questions' },
+    { subject: 'General Knowledge, Computer Knowledge & English', marks: '40 Questions' },
+  ] : [
+    { subject: 'General Knowledge & Current Affairs (Madhya Pradesh Focus)', marks: '30 Marks' },
+    { subject: 'Logical Reasoning & Intellectual Ability', marks: '25 Marks' },
+    { subject: 'General Science & Mathematics', marks: '25 Marks' },
+    { subject: 'Language Competence / Trade Domain', marks: '20 Marks' },
+  ]
+);
 ---
 
-<BaseLayout
-  title={`${guide.title}`}
-  description={`Comprehensive guide to ${guide.shortTitle} in Madhya Pradesh. Details on salary, age relaxation, CPCT requirements, exam pattern, and active 2026 recruitments.`}
->
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-6 no-print">
-      <a href="/" class="hover:text-indigo-600">Home</a>
-      <span>&rsaquo;</span>
-      <a href="/jobs/madhya-pradesh" class="hover:text-indigo-600">Madhya Pradesh</a>
-      <span>&rsaquo;</span>
-      <span class="text-slate-800 font-semibold">{guide.shortTitle} Guide</span>
-    </nav>
-
-    <!-- Header Box -->
-    <div class="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-md shadow-slate-200/40 mb-8">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider mb-3">
-        Permanent Canonical Job Guide
+{!post ? (
+  <BaseLayout title="Canonical Post Not Found — NIRNAY MP">
+    <div class="max-w-3xl mx-auto px-4 py-20 text-center">
+      <div class="size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+        !
       </div>
-      <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 font-['Outfit'] mb-4">
-        {guide.title}
-      </h1>
-      <p class="text-sm sm:text-base text-slate-600 leading-relaxed mb-6">
-        {guide.overview}
+      <h1 class="text-2xl font-bold text-foreground mb-2">Canonical Post Not Found</h1>
+      <p class="text-sm text-muted-foreground mb-6">
+        No canonical post definition matches <code class="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{slug}</code>. We never substitute unrelated posts.
       </p>
-
-      <!-- Active Recruitment Callout -->
-      {guide.activeRecruitmentSlug && (
-        <div class="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider inline-block mb-1">
-              Active Recruitment Cycle 2026
-            </span>
-            <h3 class="text-base font-bold text-slate-900 font-['Outfit']">
-              Official Notification Released: {guide.activeVacancies.toLocaleString()} Posts Available
-            </h3>
-            <p class="text-xs text-slate-600 mt-0.5">
-              Applications are currently active on the official MPESB portal.
-            </p>
-          </div>
-          <a
-            href={`/recruitments/${guide.activeRecruitmentSlug}`}
-            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 whitespace-nowrap transition-all"
-          >
-            View Active Recruitment &rarr;
-          </a>
-        </div>
-      )}
+      <div class="flex items-center justify-center gap-3">
+        <a href="/jobs" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-blue-700 transition-colors">
+          Browse All Posts
+        </a>
+        <a href="/" class="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-xs font-semibold hover:bg-muted transition-colors">
+          Home
+        </a>
+      </div>
     </div>
+  </BaseLayout>
+) : (
+  <BaseLayout
+    title={`${post.title} — Career, Eligibility & Pay Guide | NIRNAY MP`}
+    description={`Comprehensive canonical guide to ${post.title} in Madhya Pradesh. Pay scale, statutory qualifications, age relaxation, syllabus, and active recruitment cycles.`}
+  >
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-foreground">Home</a>
+        <span>&rsaquo;</span>
+        <a href="/jobs" class="hover:text-foreground">Opportunities</a>
+        <span>&rsaquo;</span>
+        <span class="text-foreground font-semibold truncate max-w-xs sm:max-w-md">{post.title}</span>
+      </nav>
 
-    <!-- 2-Column Guide Details -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <!-- Main Content -->
-      <div class="md:col-span-2 space-y-8">
-        <!-- Statutory Qualifications -->
-        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
-          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
-            Baseline Eligibility Standards
-          </h2>
-          <div class="space-y-4 text-xs sm:text-sm">
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-              <strong class="text-slate-900 block font-semibold mb-1">Educational Requirement:</strong>
-              <p class="text-slate-600">{guide.minQualification}</p>
+      <!-- Header Box -->
+      <div class="bg-card rounded-3xl p-6 sm:p-10 border border-border shadow-sm mb-8">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+            Canonical State Cadre Guide
+          </span>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
+            {post.sectorName || 'Government of Madhya Pradesh'}
+          </span>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
+            {post.departmentName || 'State Department'}
+          </span>
+        </div>
+
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground font-['Outfit'] mb-4">
+          {post.title}
+        </h1>
+        <p class="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6">
+          {post.summary}
+        </p>
+
+        <!-- Active Recruitment Callout if linked -->
+        {post.activeRecruitments && post.activeRecruitments.length > 0 ? (
+          <div class="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300/80 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider inline-block mb-1">
+                Active Recruitment Cycle {new Date().getFullYear()}
+              </span>
+              <h3 class="text-base font-bold text-foreground font-['Outfit']">
+                {post.activeRecruitments[0].title}
+              </h3>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                {post.activeRecruitments[0].totalVacancies?.toLocaleString()} official vacancies declared in current drive.
+              </p>
             </div>
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-              <strong class="text-slate-900 block font-semibold mb-1">Age Limits & Relaxations:</strong>
-              <p class="text-slate-600">{guide.ageLimit}</p>
-            </div>
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-              <strong class="text-slate-900 block font-semibold mb-1">Pay Scale & Salary:</strong>
-              <p class="text-slate-600">{guide.payScale}</p>
-            </div>
+            <a
+              href={`/recruitments/${post.activeRecruitments[0].slug}`}
+              class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm whitespace-nowrap transition-colors"
+            >
+              View Active Recruitment &rarr;
+            </a>
           </div>
-        </section>
+        ) : (
+          <div class="bg-muted/40 border border-border rounded-2xl p-4 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+            <div class="flex items-center gap-2">
+              <span class="size-2 rounded-full bg-slate-400"></span>
+              <span>No direct recruitment drive currently active. Track notification releases on the calendar.</span>
+            </div>
+            <a href="/calendar" class="font-semibold text-primary hover:underline whitespace-nowrap">
+              Exam Calendar &rarr;
+            </a>
+          </div>
+        )}
+      </div>
 
-        <!-- Selection Stages -->
-        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
-          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
-            Selection Process Stages
-          </h2>
-          <div class="space-y-4">
-            {guide.selectionStages.map((stage: any, idx: number) => (
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
-                <span class="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                  {idx + 1}
-                </span>
-                <div>
-                  <h3 class="font-bold text-slate-900 text-sm">{stage.name}</h3>
-                  <p class="text-xs text-slate-600 mt-1">{stage.desc}</p>
+      <!-- 2-Column Guide Details -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Main Content -->
+        <div class="md:col-span-2 space-y-8">
+          <!-- Statutory Qualifications -->
+          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
+            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
+              Baseline Statutory Standards
+            </h2>
+            <div class="space-y-4 text-xs sm:text-sm">
+              <div class="p-4 rounded-xl bg-muted/40 border border-border">
+                <strong class="text-foreground block font-semibold mb-1">Statutory Educational Qualification:</strong>
+                <p class="text-muted-foreground">
+                  Minimum {post.defaultQualification} Pass from a recognized University or statutory Board of Education.
+                </p>
+              </div>
+              <div class="p-4 rounded-xl bg-muted/40 border border-border">
+                <strong class="text-foreground block font-semibold mb-1">Age Limits & Statutory Relaxations:</strong>
+                <p class="text-muted-foreground">
+                  {post.defaultMinAge} to {post.defaultMaxAge} Years (General / Unreserved). State relaxations apply: +5 years for SC/ST, +3 years for OBC, and up to +5 years for female applicants domiciled in MP.
+                </p>
+              </div>
+              <div class="p-4 rounded-xl bg-muted/40 border border-border">
+                <strong class="text-foreground block font-semibold mb-1">Cadre Pay Scale:</strong>
+                <p class="text-muted-foreground font-mono font-semibold text-primary">
+                  {post.payScale || 'As per Madhya Pradesh 7th Pay Matrix'}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Selection Stages -->
+          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
+            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
+              Selection Process Stages
+            </h2>
+            <div class="space-y-4">
+              {defaultSelectionStages.map((stage: any, idx: number) => (
+                <div class="p-4 rounded-xl bg-muted/40 border border-border flex items-start gap-3">
+                  <span class="size-6 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <h3 class="font-bold text-foreground text-sm">{stage.name}</h3>
+                    <p class="text-xs text-muted-foreground mt-1 leading-relaxed">{stage.desc}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
 
-        <!-- Syllabus Structure -->
-        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
-          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
-            Official Exam Pattern & Syllabus
-          </h2>
-          <div class="divide-y divide-slate-100">
-            {guide.syllabus.map((s: any) => (
-              <div class="py-3 flex items-center justify-between text-xs sm:text-sm">
-                <span class="font-semibold text-slate-800">{s.subject}</span>
-                <span class="font-bold text-indigo-600">{s.marks}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+          <!-- Syllabus Structure -->
+          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
+            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
+              Prescribed Exam Pattern & Syllabus
+            </h2>
+            <div class="divide-y divide-border">
+              {defaultSyllabus.map((s: any) => (
+                <div class="py-3 flex items-center justify-between text-xs sm:text-sm">
+                  <span class="font-medium text-foreground">{s.subject}</span>
+                  <span class="font-mono font-bold text-primary">{s.marks}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
 
-      <!-- Quick Action Sidebar -->
-      <div class="space-y-6">
-        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-          <h3 class="text-base font-bold text-slate-900 font-['Outfit'] mb-3">
-            Check Your Eligibility
-          </h3>
-          <p class="text-xs text-slate-500 leading-relaxed mb-4">
-            Are you eligible for {guide.shortTitle}? Enter your date of birth and category to run our deterministic eligibility check.
-          </p>
-          <a
-            href="/eligibility-checker"
-            class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all"
-          >
-            <span>Run Free Eligibility Check</span> &rarr;
-          </a>
+        <!-- Quick Action Sidebar -->
+        <div class="space-y-6">
+          <div class="bg-card rounded-3xl p-6 border border-border shadow-sm">
+            <h3 class="text-base font-bold text-foreground font-['Outfit'] mb-2">
+              Check Your Eligibility
+            </h3>
+            <p class="text-xs text-muted-foreground leading-relaxed mb-4">
+              Verify if your qualification, age, domicile, and category qualify for {post.title} recruitments in Madhya Pradesh.
+            </p>
+            <a
+              href="/eligibility-checker"
+              class="w-full py-2.5 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors"
+            >
+              <span>Deterministic Eligibility Engine</span> &rarr;
+            </a>
+          </div>
+
+          <div class="bg-muted/40 rounded-3xl p-6 border border-border text-xs text-muted-foreground space-y-3">
+            <h4 class="font-bold uppercase tracking-wider text-[11px] text-foreground">
+              Cadre Provenance
+            </h4>
+            <div class="flex justify-between">
+              <span>Department:</span>
+              <span class="font-semibold text-foreground text-right">{post.departmentName || 'State Cadre'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Sector:</span>
+              <span class="font-semibold text-foreground">{post.sectorName || 'Civil Cadre'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>State:</span>
+              <span class="font-semibold text-foreground">Madhya Pradesh</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</BaseLayout>
+  </BaseLayout>
+)}

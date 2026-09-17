@@ -17,19 +17,36 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive answer key records dynamically
+// Derive answer key records dynamically from verified lifecycle events
 const keys = allRecruitments.map((r) => {
-  const isClosedOrConcluded = r.lifecycleStatus === 'CLOSED';
+  const isKeyActive = r.lifecycleStatus === 'ANSWER_KEY_OUT';
+  const isConcluded = r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
+  
+  let statusText = 'Awaited Post Examination';
+  let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
+  let deadlineText = r.examDate ? `Awaited after CBT (${formatDate(r.examDate)})` : 'Pending Exam Announcement';
+  let publishedDateText = 'Not Yet Published';
+
+  if (isKeyActive) {
+    statusText = 'Provisional Key Active';
+    statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    deadlineText = 'Official Objection Window Active';
+    publishedDateText = r.examDate ? formatDate(r.examDate) : 'Recently Gazetted';
+  } else if (isConcluded) {
+    statusText = 'Objection Window Concluded';
+    statusColor = 'bg-muted text-muted-foreground border-border';
+    deadlineText = 'Archived / Final Key Released';
+    publishedDateText = r.examDate ? formatDate(r.examDate) : 'Concluded';
+  }
+
   return {
     title: `${r.title} — Model Answer Key & Question Paper`,
     exam: `${r.postTitle} Examination (${r.advtNumber})`,
     org: `${r.organisationShortName} · ${r.organisationName}`,
-    publishedDate: r.examDate ? formatDate(r.examDate) : 'Pending Exam',
-    status: isClosedOrConcluded ? 'Objection window concluded' : 'Provisional key active',
-    statusColor: isClosedOrConcluded 
-      ? 'bg-muted text-muted-foreground border-border' 
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    deadline: isClosedOrConcluded ? 'Archived' : 'Within 7 days of exam',
+    publishedDate: publishedDateText,
+    status: statusText,
+    statusColor,
+    deadline: deadlineText,
     sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
     slug: r.slug,
   };

@@ -34,6 +34,7 @@ export interface RecruitmentCriteria {
   minChestMaleCm?: number | null;
   minPercentageRequired?: number | null;
   additionalSkills?: string[] | null;
+  allowedStreams?: string[] | null;
 }
 
 export interface RuleEvaluationItem {
@@ -44,12 +45,25 @@ export interface RuleEvaluationItem {
   message: string;
 }
 
+export interface AgeRelaxationBreakdown {
+  baseMinAge: number;
+  baseMaxAge: number;
+  category: string;
+  categoryRelaxation: number;
+  femaleRelaxation: number;
+  effectiveMaxAge: number;
+  candidateAge: number;
+  cutoffDate: string;
+  isMatch: boolean;
+}
+
 export interface RecruitmentEligibilityResult {
   overallStatus: OverallEligibilityStatus;
   items: RuleEvaluationItem[];
   matchedCount: number;
   failedCount: number;
   unknownCount: number;
+  ageRelaxationBreakdown?: AgeRelaxationBreakdown;
 }
 
 export const QUALIFICATION_RANK: Record<string, number> = {
@@ -66,6 +80,7 @@ export function evaluateEligibility(
   criteria: RecruitmentCriteria
 ): RecruitmentEligibilityResult {
   const items: RuleEvaluationItem[] = [];
+  let ageBreakdown: AgeRelaxationBreakdown | undefined;
 
   // 1. Gender Rule
   if (criteria.genderAllowed !== 'ALL') {
@@ -158,6 +173,26 @@ export function evaluateEligibility(
     const isMatch = ageAtCutoff >= criteria.minAge && ageAtCutoff <= maxAllowed;
     const formattedAge = ageAtCutoff.toFixed(1);
 
+    let categoryRelaxation = 0;
+    if (user.category === 'SC' || user.category === 'ST') categoryRelaxation = criteria.ageRelaxationScSt;
+    else if (user.category === 'OBC') categoryRelaxation = criteria.ageRelaxationObc;
+    else if (user.category === 'EWS') categoryRelaxation = criteria.ageRelaxationEws ?? 0;
+
+    let femaleRelaxation = 0;
+    if (user.gender === 'FEMALE') femaleRelaxation = criteria.ageRelaxationFemale;
+
+    ageBreakdown = {
+      baseMinAge: criteria.minAge,
+      baseMaxAge: criteria.maxAgeGeneral,
+      category: user.category || 'UR',
+      categoryRelaxation,
+      femaleRelaxation,
+      effectiveMaxAge: maxAllowed,
+      candidateAge: ageAtCutoff,
+      cutoffDate: criteria.ageCutoffDate,
+      isMatch,
+    };
+
     items.push({
       ruleName: 'Age Requirement',
       status: isMatch ? 'MATCH' : 'FAIL',
@@ -169,7 +204,7 @@ export function evaluateEligibility(
     });
   }
 
-  // 4. Qualification Level Rule
+  // 4. Qualification Level & Stream / Subject Rule
   if (!user.qualificationLevel) {
     items.push({
       ruleName: 'Educational Qualification',
@@ -192,6 +227,39 @@ export function evaluateEligibility(
         ? `Qualification (${user.qualificationLevel}) satisfies minimum (${criteria.minQualificationLevel}).`
         : `Qualification (${user.qualificationLevel}) is below required (${criteria.minQualificationLevel}).`,
     });
+
+    // Specific degree/stream evaluation if post requires non-generic streams
+    if (
+      criteria.allowedStreams &&
+      criteria.allowedStreams.length > 0 &&
+      !criteria.allowedStreams.some(s => s.toUpperCase() === 'ANY')
+    ) {
+      if (!user.stream) {
+        items.push({
+          ruleName: 'Degree Subject / Stream',
+          status: 'UNKNOWN',
+          userValue: 'Not provided',
+          requirement: `Required Stream: ${criteria.allowedStreams.join(' or ')}`,
+          message: `Notice specifies degree specialization (${criteria.allowedStreams.join(', ')}). Candidate did not provide stream.`,
+        });
+      } else {
+        const streamLower = user.stream.toLowerCase();
+        const hasMatchingStream = criteria.allowedStreams.some(allowed => {
+          const aLower = allowed.toLowerCase();
+          return streamLower.includes(aLower) || aLower.includes(streamLower);
+        });
+
+        items.push({
+          ruleName: 'Degree Subject / Stream',
+          status: hasMatchingStream ? 'MATCH' : 'FAIL',
+          userValue: user.stream,
+          requirement: `Required Stream: ${criteria.allowedStreams.join(' or ')}`,
+          message: hasMatchingStream
+            ? `Specialization (${user.stream}) satisfies requirement (${criteria.allowedStreams.join(', ')}).`
+            : `Specialization (${user.stream}) does not match allowed streams (${criteria.allowedStreams.join(', ')}).`,
+        });
+      }
+    }
   }
 
   // 5. Minimum Percentage Rule (only if the job specifies a threshold)
@@ -389,6 +457,7 @@ export function evaluateEligibility(
     matchedCount,
     failedCount,
     unknownCount,
+    ageRelaxationBreakdown: ageBreakdown,
   };
 }
 

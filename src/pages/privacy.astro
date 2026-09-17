@@ -1,0 +1,64 @@
+---
+// src/pages/privacy.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Privacy Policy — NIRNAY MP"
+  description="Privacy commitments, data retention practices, and client-side processing policies for NIRNAY Madhya Pradesh job eligibility platform."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="bg-card rounded-3xl p-8 sm:p-12 border border-border shadow-sm">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200 uppercase tracking-wider mb-4">
+        Privacy & Data Protection
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground mb-6">
+        Privacy Policy
+      </h1>
+
+      <div class="prose prose-slate max-w-none text-sm text-muted-foreground space-y-6 leading-relaxed">
+        <p class="text-base text-foreground font-medium">
+          NIRNAY is built with a <strong>privacy-by-design</strong> architecture. Our deterministic eligibility calculation occurs in your browser session and edge compute without persisting candidate personal profiles on remote database servers.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          1. Information We Process
+        </h2>
+        <p>
+          When you use the NIRNAY Eligibility Checker, the parameters you enter (such as Date of Birth, Gender, Reservation Category, Domicile status, Educational Qualification, and Physical dimensions) are stored exclusively in your browser's local <code class="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">sessionStorage</code>. 
+        </p>
+        <p>
+          We do NOT require candidate registration, email addresses, phone numbers, Aadhaar numbers, or Government ID uploads to evaluate job eligibility.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          2. Zero Commercial Monetization & Tracking
+        </h2>
+        <p>
+          NIRNAY does not sell, rent, or lease candidate data to coaching institutes, commercial job portals, or third-party advertisers. We do not use third-party behavioral retargeting trackers or advertising pixels.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          3. Analytics & Operational Logs
+        </h2>
+        <p>
+          To maintain system security, detect distributed denial-of-service (DDoS) attempts, and understand public usage patterns, our edge network (Cloudflare) records anonymous network metrics (IP addresses, request headers, and response status codes) in ephemeral operational logs with standard retention schedules.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          4. Links to Official Government Portals
+        </h2>
+        <p>
+          Our platform provides direct hyperlinks to statutory portals (such as MPESB, MPPSC, MPHC, and MPOnline). When you follow an external link, you leave NIRNAY and become subject to the privacy terms and cookies policies of the destination government website.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          5. Contact for Privacy Inquiries
+        </h2>
+        <p>
+          For questions or clarifications regarding NIRNAY's privacy policies or deterministic software, reach out to our team at <a href="mailto:privacy@nirnay.in" class="text-primary hover:underline font-medium">privacy@nirnay.in</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

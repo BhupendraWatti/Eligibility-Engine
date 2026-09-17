@@ -5,7 +5,7 @@ import AdminSidebar from '../../../components/admin/AdminSidebar.astro';
 import { getAllActiveRecruitments } from '../../../db/queries';
 
 // @ts-ignore
-const allRecruitments = await getAllActiveRecruitments();
+const allRecruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
 const q = Astro.url.searchParams.get('q')?.toLowerCase().trim() || '';
 const filterStatus = Astro.url.searchParams.get('status') || 'ALL';
 

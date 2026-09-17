@@ -1,363 +1,480 @@
 ---
 // src/pages/recruitments/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments } from '../../db/queries';
+import { getRecruitmentWithRelations } from '../../db/queries';
 
 const { slug } = Astro.params;
 
-// @ts-ignore
-const recruitments = await getAllActiveRecruitments();
-const recruitment = recruitments.find((r: any) => r.slug === slug) || recruitments[0] || {
-  title: 'MP Police Constable Recruitment 2026',
-  slug: 'mp-police-constable-recruitment-2026',
-  advtNumber: 'MPESB-PC-2026/01',
-  organisationShortName: 'MPESB',
-  department: 'Police Department',
-  totalVacancies: 7500,
-  applicationStart: '2026-09-17',
-  applicationEnd: '2026-10-06',
-  examDate: '2026-11-22',
-  lifecycleStatus: 'OPEN',
-  shortSummary: 'Direct recruitment for Constable (General Duty / Radio) across Madhya Pradesh State Police.',
-  criteria: {
-    minQualificationLevel: '10th',
-    minAge: 18,
-    maxAgeGeneral: 33,
-    ageCutoffDate: '2026-01-01',
-    mpDomicileRequired: true
+const recruitment = await getRecruitmentWithRelations(slug || '');
+
+// Default dates formatter
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return 'Refer Notification';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
   }
+}
+
+// Data Quality & Verification Guard
+const isUnderVerification = recruitment && (recruitment.status !== 'PUBLISHED' || recruitment.validationStatus === 'NEEDS_REVIEW');
+const isInvalid = recruitment && recruitment.validationStatus === 'INVALID';
+
+const vacancies = recruitment?.vacanciesList && recruitment.vacanciesList.length > 0
+  ? recruitment.vacanciesList
+  : recruitment ? [
+      { category: 'General / Unreserved (UR)', code: 'UR', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
+      { category: 'Other Backward Classes (OBC)', code: 'OBC', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
+      { category: 'Scheduled Tribes (ST)', code: 'ST', count: Math.round(recruitment.totalVacancies * 0.20), pct: '20%' },
+      { category: 'Scheduled Castes (SC)', code: 'SC', count: Math.round(recruitment.totalVacancies * 0.16), pct: '16%' },
+      { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: Math.round(recruitment.totalVacancies * 0.10), pct: '10%' },
+    ] : [];
+
+const importantDates = recruitment?.importantDatesList && recruitment.importantDatesList.length > 0
+  ? recruitment.importantDatesList
+  : recruitment ? [
+      { event: 'Notification Released', desc: 'Official Rulebook Gazetted', date: 'Official Gazetted', status: 'Completed' },
+      ...(recruitment.applicationStart ? [{ event: 'Applications Open', desc: 'Online Registration Commenced', date: formatDate(recruitment.applicationStart), status: 'Active' }] : []),
+      ...(recruitment.applicationEnd ? [{ event: 'Last Date to Apply', desc: 'Closing Date for Submission', date: formatDate(recruitment.applicationEnd), status: 'Closing Soon' }] : []),
+      ...(recruitment.examDate ? [{ event: 'Written Examination', desc: 'Statewide Competitive Exam', date: formatDate(recruitment.examDate), status: 'Upcoming' }] : []),
+    ] : [];
+
+// Derive Selection Process
+const selectionStages = recruitment?.canonicalPost?.selectionStages || (
+  recruitment?.organisationShortName === 'MPPSC' ? [
+    { name: 'Stage 1: Preliminary Examination', desc: 'Statewide Objective OMR exam for shortlisting candidates to Main Examination.' },
+    { name: 'Stage 2: Main Examination', desc: 'Comprehensive descriptive written examination testing academic and administrative depth.' },
+    { name: 'Stage 3: Interview & Personality Test', desc: 'Viva-voce conducted by MPPSC board followed by medical examination and merit ranking.' },
+  ] : recruitment?.criteria?.minHeightMaleCm ? [
+    { name: 'Stage 1: Written Examination (CBT)', desc: 'Objective multiple-choice question paper testing general knowledge and aptitude.' },
+    { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: 'Physical standards measurement and outdoor physical endurance test.' },
+    { name: 'Stage 3: Document Verification & Medical', desc: 'Original certificates verification, biometric validation and medical examination.' },
+  ] : [
+    { name: 'Stage 1: Written Competitive Examination', desc: 'Computer-based test or written examination as prescribed in official rulebook.' },
+    { name: 'Stage 2: Document Verification', desc: 'Scrutiny of original educational, caste, domicile certificates and CPCT scorecards.' },
+    { name: 'Stage 3: Medical Fitness & Character Verification', desc: 'Final appointment formalities and district cadre allocation.' },
+  ]
+);
+
+const officialSource = recruitment?.sourcesList?.[0] || {
+  sourceTitle: `${recruitment?.organisationShortName || 'Official'} Rulebook Gazette`,
+  sourceUrl: recruitment?.organisationUrl || 'https://esb.mp.gov.in',
+  publicationDate: recruitment?.applicationStart || null,
 };
 
-const vacancies = [
-  { category: 'General / Unreserved (UR)', code: 'UR', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
-  { category: 'Other Backward Classes (OBC)', code: 'OBC', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
-  { category: 'Scheduled Tribes (ST)', code: 'ST', count: Math.round(recruitment.totalVacancies * 0.20), pct: '20%' },
-  { category: 'Scheduled Castes (SC)', code: 'SC', count: Math.round(recruitment.totalVacancies * 0.16), pct: '16%' },
-  { category: 'Economically Weaker Section (EWS)', code: 'EWS', count: Math.round(recruitment.totalVacancies * 0.10), pct: '10%' },
-];
-
-const importantDates = [
-  { event: 'Notification Released', desc: 'Rulebook Gazetted', date: '15 Sep 2026', status: 'Completed' },
-  { event: 'Applications Open', desc: 'Online Registration Commenced', date: '17 Sep 2026', status: 'Active' },
-  { event: 'Last Date to Apply', desc: 'Closing Date for Submission', date: '06 Oct 2026', status: 'Closing Soon' },
-  { event: 'Correction Window', desc: 'Online Application Corrections', date: '11 Oct 2026', status: 'Upcoming' },
-  { event: 'Written Exam Date', desc: 'Statewide CBT Examination', date: '22 Nov 2026', status: 'Upcoming' },
-];
+const officialLink = recruitment?.officialLinksList?.[0] || {
+  title: `Apply on ${recruitment?.organisationShortName || 'Official'} Portal`,
+  url: recruitment?.organisationUrl || 'https://esb.mp.gov.in',
+};
 ---
 
-<BaseLayout
-  title={`${recruitment.title} — NIRNAY MP`}
-  description={`Official details, eligibility criteria, vacancies, and verified dates for ${recruitment.title}.`}
->
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
-      <a href="/" class="hover:text-foreground">Home</a>
-      <span>/</span>
-      <a href="/#closing-soon" class="hover:text-foreground">Jobs</a>
-      <span>/</span>
-      <span class="text-foreground font-medium truncate max-w-xs sm:max-w-md">{recruitment.title}</span>
-    </nav>
-
-    <!-- Top Grid: Hero Card + Source Provenance Card -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      <!-- Left Hero Card (2 Cols) -->
-      <div class="lg:col-span-2 bg-card rounded-2xl p-6 sm:p-8 border border-border shadow-sm flex flex-col justify-between">
-        <div>
-          <div class="flex flex-wrap items-center gap-2 mb-3">
-            <span class="px-2.5 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground border border-border">
-              {recruitment.department || 'Police Department'}
-            </span>
-            <span class="px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Applications open
-            </span>
-            <span class="text-xs font-mono text-muted-foreground">
-              {recruitment.advtNumber || 'MPESB-2026/01'}
-            </span>
-          </div>
-
-          <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-tight">
-            {recruitment.title}
-          </h1>
-
-          <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-6">
-            {recruitment.shortSummary}
-          </p>
-
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-muted/50 border border-border mb-6">
-            <div>
-              <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Vacancies</span>
-              <span class="text-lg font-bold text-foreground font-mono">{recruitment.totalVacancies?.toLocaleString()}</span>
-            </div>
-            <div>
-              <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Qualification</span>
-              <span class="text-lg font-bold text-primary">{recruitment.criteria?.minQualificationLevel || '10th Pass'}</span>
-            </div>
-            <div>
-              <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Age Range</span>
-              <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria?.minAge || 18}–{recruitment.criteria?.maxAgeGeneral || 33} yrs</span>
-            </div>
-            <div>
-              <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Last Date</span>
-              <span class="text-lg font-bold text-amber-600 font-mono">06 Oct 2026</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="pt-4 border-t border-border flex flex-wrap items-center gap-3">
-          <a
-            href="https://esb.mp.gov.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="font-semibold rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm px-5 py-2.5 shadow-sm hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-          >
-            <span>Apply on official website</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </a>
-
-          <a
-            href="/eligibility-checker"
-            class="font-medium rounded-lg bg-muted hover:bg-muted/80 text-foreground text-xs sm:text-sm px-4 py-2.5 border border-border transition-colors inline-flex items-center gap-2"
-          >
-            <span>Check My Match</span>
-          </a>
-
-          <button
-            type="button"
-            class="font-medium rounded-lg text-muted-foreground hover:text-foreground text-xs sm:text-sm px-3.5 py-2.5 border border-border hover:bg-muted transition-colors inline-flex items-center gap-1.5 ml-auto"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-            <span>Save</span>
-          </button>
-        </div>
+{!recruitment ? (
+  <BaseLayout title="Recruitment Not Found — NIRNAY MP">
+    <div class="max-w-3xl mx-auto px-4 py-20 text-center">
+      <div class="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+        !
       </div>
-
-      <!-- Right Source Provenance Card (1 Col) -->
-      <div class="bg-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between pb-3 border-b border-border mb-4">
-            <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Official source</span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Source verified
-            </span>
-          </div>
-
-          <h3 class="font-bold text-sm text-foreground mb-1">
-            MPESB Official Notification
-          </h3>
-          <p class="text-xs text-muted-foreground mb-4">
-            Rulebook published by Madhya Pradesh Employees Selection Board.
-          </p>
-
-          <div class="space-y-2 text-xs text-muted-foreground mb-6">
-            <div class="flex justify-between">
-              <span>Authority:</span>
-              <span class="font-medium text-foreground">MPESB (Bhopal)</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Verification Date:</span>
-              <span class="font-mono text-foreground font-medium">17 September 2026</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Source URL:</span>
-              <span class="font-mono text-primary truncate max-w-[150px]">esb.mp.gov.in</span>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <a
-            href="https://esb.mp.gov.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="w-full font-medium rounded-lg text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs py-2.5 px-4 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <span>View official notification</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </a>
-          <p class="text-[10px] text-muted-foreground text-center mt-2.5">
-            Our explanation is independent; verify the official rulebook before applying.
-          </p>
-        </div>
+      <h1 class="text-2xl font-bold text-foreground mb-2">Recruitment Notice Not Found</h1>
+      <p class="text-sm text-muted-foreground mb-6">
+        The requested recruitment record does not exist or has not yet been approved for public release.
+      </p>
+      <div class="flex items-center justify-center gap-3">
+        <a href="/" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-blue-700 transition-colors">
+          Browse Opportunities
+        </a>
+        <a href="/calendar" class="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-xs font-semibold hover:bg-muted transition-colors">
+          Exam Calendar
+        </a>
       </div>
     </div>
-
-    <!-- Sticky Horizontal Section Navigation -->
-    <div class="sticky top-16 z-30 bg-card/95 backdrop-blur-md border-y border-border mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar">
-      <nav class="flex items-center gap-6 text-xs font-semibold text-muted-foreground whitespace-nowrap py-3">
-        <a href="#overview" class="text-primary border-b-2 border-primary pb-1 font-bold">Overview</a>
-        <a href="#eligibility" class="hover:text-foreground transition-colors pb-1">Eligibility</a>
-        <a href="#vacancy" class="hover:text-foreground transition-colors pb-1">Vacancy</a>
-        <a href="#dates" class="hover:text-foreground transition-colors pb-1">Important dates</a>
-        <a href="#selection" class="hover:text-foreground transition-colors pb-1">Selection process</a>
-        <a href="#salary" class="hover:text-foreground transition-colors pb-1">Salary</a>
-        <a href="#syllabus" class="hover:text-foreground transition-colors pb-1">Syllabus</a>
-        <a href="#documents" class="hover:text-foreground transition-colors pb-1">Documents</a>
-        <a href="#links" class="hover:text-foreground transition-colors pb-1">Official links</a>
+  </BaseLayout>
+) : (
+  <BaseLayout
+    title={`${recruitment.title} — NIRNAY MP`}
+    description={`Official details, verified eligibility criteria, category vacancies, and gazetted dates for ${recruitment.title}.`}
+  >
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
+        <a href="/" class="hover:text-foreground">Home</a>
+        <span>/</span>
+        <a href="/#closing-soon" class="hover:text-foreground">Jobs</a>
+        <span>/</span>
+        <span class="text-foreground font-medium truncate max-w-xs sm:max-w-md">{recruitment.title}</span>
       </nav>
-    </div>
 
-    <!-- Two-Column Content Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- Left Column: Detailed Sections (2 Cols) -->
-      <div class="lg:col-span-2 space-y-10">
-        <!-- Overview -->
-        <section id="overview" class="scroll-mt-32">
-          <h2 class="text-xl font-bold text-foreground mb-4">Overview</h2>
-          <div class="prose prose-slate text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
-            <p>
-              The Madhya Pradesh Employees Selection Board (MPESB) has officially invited online applications for the recruitment of {recruitment.totalVacancies?.toLocaleString()} Police Constables in the MP State Police Department.
+      {/* Public Data Quality Guard / Verification Alert */}
+      {isUnderVerification && (
+        <div class="mb-6 p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <div class="size-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-700 shrink-0 font-bold">
+              !
+            </div>
+            <div>
+              <h4 class="font-bold text-sm text-amber-900">
+                Official Rulebook Verification in Progress
+              </h4>
+              <p class="text-xs text-amber-800 leading-relaxed mt-0.5">
+                This recruitment record is currently undergoing administrative cross-verification against the official state gazette rulebook. Details shown are provisional and strictly for tracking.
+              </p>
+            </div>
+          </div>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-200/80 text-amber-900 border border-amber-300 whitespace-nowrap self-start sm:self-auto">
+            PROVISIONAL NOTICE
+          </span>
+        </div>
+      )}
+
+      <!-- Top Grid: Hero Card + Source Provenance Card -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Left Hero Card (2 Cols) -->
+        <div class="lg:col-span-2 bg-card rounded-2xl p-6 sm:p-8 border border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <span class="px-2.5 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground border border-border">
+                {recruitment.departmentName || 'Madhya Pradesh Department'}
+              </span>
+              <span class={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+                recruitment.lifecycleStatus === 'OPEN'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+              }`}>
+                {recruitment.lifecycleStatus === 'OPEN' ? 'Applications Open' : recruitment.lifecycleStatus}
+              </span>
+              <span class="text-xs font-mono text-muted-foreground">
+                {recruitment.advtNumber}
+              </span>
+            </div>
+
+            <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-3 leading-tight">
+              {recruitment.title}
+            </h1>
+
+            <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-6">
+              {recruitment.shortSummary}
             </p>
-            <p>
-              Candidates who have completed minimum 10th Pass (Higher Secondary for SC/ST where applicable) and are within the statutory age brackets on the cutoff date of 01 January 2026 are eligible to apply.
-            </p>
-          </div>
-        </section>
 
-        <!-- Eligibility Section -->
-        <section id="eligibility" class="scroll-mt-32 pt-8 border-t border-border">
-          <h2 class="text-xl font-bold text-foreground mb-4">Eligibility Requirements</h2>
-          
-          <div class="bg-card rounded-xl border border-border overflow-hidden mb-4">
-            <table class="w-full text-xs text-left">
-              <tbody class="divide-y divide-border">
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-3 px-4 font-semibold text-muted-foreground w-1/3">Education</td>
-                  <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>10th Class (High School) passed from recognised board</span>
-                  </td>
-                </tr>
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-3 px-4 font-semibold text-muted-foreground">Age Limit</td>
-                  <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>18 to 33 years (Relaxations: +5 yrs for SC/ST/OBC/Women)</span>
-                  </td>
-                </tr>
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-3 px-4 font-semibold text-muted-foreground">State Domicile</td>
-                  <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Madhya Pradesh domicile required for category relaxation</span>
-                  </td>
-                </tr>
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-3 px-4 font-semibold text-muted-foreground">Physical Standards</td>
-                  <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span>Male: Height 168 cm, Chest 81-86 cm; Female: Height 155 cm</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p class="text-[11px] text-muted-foreground">
-            Requirements summarised from MPESB official notification · verified 17 Sep 2026.
-          </p>
-        </section>
-
-        <!-- Vacancy Breakdown -->
-        <section id="vacancy" class="scroll-mt-32 pt-8 border-t border-border">
-          <h2 class="text-xl font-bold text-foreground mb-4">Category-wise Vacancy Breakdown</h2>
-          <div class="bg-card rounded-xl border border-border overflow-hidden">
-            <table class="w-full text-xs text-left">
-              <thead class="bg-muted text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b border-border">
-                <tr>
-                  <th class="py-2.5 px-4">Category</th>
-                  <th class="py-2.5 px-4">Quota (%)</th>
-                  <th class="py-2.5 px-4 text-right">Vacancies</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-border">
-                {vacancies.map((v) => (
-                  <tr class="hover:bg-muted/30 transition-colors">
-                    <td class="py-2.5 px-4 font-medium text-foreground">{v.category}</td>
-                    <td class="py-2.5 px-4 text-muted-foreground">{v.pct}</td>
-                    <td class="py-2.5 px-4 text-right font-mono font-bold text-foreground">{v.count.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Selection Process & Salary -->
-        <section id="selection" class="scroll-mt-32 pt-8 border-t border-border">
-          <h2 class="text-xl font-bold text-foreground mb-4">Selection Process</h2>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="p-4 rounded-xl bg-card border border-border">
-              <span class="text-xs font-bold text-primary block mb-1">Stage 01</span>
-              <h4 class="font-bold text-sm text-foreground mb-1">Written Exam (CBT)</h4>
-              <p class="text-xs text-muted-foreground">100 marks objective multiple choice question paper.</p>
-            </div>
-            <div class="p-4 rounded-xl bg-card border border-border">
-              <span class="text-xs font-bold text-primary block mb-1">Stage 02</span>
-              <h4 class="font-bold text-sm text-foreground mb-1">Physical Efficiency (PET)</h4>
-              <p class="text-xs text-muted-foreground">800m run, shot put, long jump with merit weighting.</p>
-            </div>
-            <div class="p-4 rounded-xl bg-card border border-border">
-              <span class="text-xs font-bold text-primary block mb-1">Stage 03</span>
-              <h4 class="font-bold text-sm text-foreground mb-1">Document Verification</h4>
-              <p class="text-xs text-muted-foreground">Medical examination and character verification.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Salary -->
-        <section id="salary" class="scroll-mt-32 pt-8 border-t border-border">
-          <h2 class="text-xl font-bold text-foreground mb-4">Pay Scale & Allowances</h2>
-          <div class="p-4 rounded-xl bg-card border border-border">
-            <div class="flex items-center justify-between">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-muted/50 border border-border mb-6">
               <div>
-                <span class="text-xs text-muted-foreground block">Pay Level</span>
-                <span class="text-base font-bold text-foreground font-mono">Level 4 (MP 7th Pay Matrix)</span>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Vacancies</span>
+                <span class="text-lg font-bold text-foreground font-mono">{recruitment.totalVacancies?.toLocaleString()}</span>
               </div>
-              <div class="text-right">
-                <span class="text-xs text-muted-foreground block">Basic Pay Range</span>
-                <span class="text-base font-bold text-primary font-mono">₹19,500 – ₹62,000 / month</span>
+              <div>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Qualification</span>
+                <span class="text-lg font-bold text-primary">{recruitment.criteria?.minQualificationLevel || 'Graduation'}</span>
+              </div>
+              <div>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Age Range</span>
+                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria?.minAge || 18}–{recruitment.criteria?.maxAgeGeneral || 33} yrs</span>
+              </div>
+              <div>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Last Date</span>
+                <span class="text-lg font-bold text-amber-600 font-mono">
+                  {formatDate(recruitment.applicationEnd)}
+                </span>
               </div>
             </div>
           </div>
-        </section>
-      </div>
 
-      <!-- Right Column Rail: Important Dates & Explanation (1 Col) -->
-      <div class="space-y-6">
-        <!-- Important Dates Summary Card -->
-        <div id="dates" class="bg-card rounded-2xl p-6 border border-border shadow-sm scroll-mt-32">
-          <h3 class="font-bold text-sm text-foreground uppercase tracking-wider mb-4 pb-3 border-b border-border">
-            Important dates
-          </h3>
+          <div class="pt-4 border-t border-border flex flex-wrap items-center gap-3">
+            <a
+              href={officialLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-semibold rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm px-5 py-2.5 shadow-sm hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+            >
+              <span>Apply on {recruitment.organisationShortName} portal</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
 
-          <div class="space-y-4">
-            {importantDates.map((d) => (
-              <div class="flex items-start justify-between gap-2">
-                <div>
-                  <span class="text-xs font-bold text-foreground block">{d.event}</span>
-                  <span class="text-[11px] text-muted-foreground">{d.desc}</span>
-                </div>
-                <span class="text-xs font-mono font-bold text-foreground whitespace-nowrap">{d.date}</span>
-              </div>
-            ))}
+            <a
+              href={`/eligibility-checker`}
+              class="font-medium rounded-lg bg-muted hover:bg-muted/80 text-foreground text-xs sm:text-sm px-4 py-2.5 border border-border transition-colors inline-flex items-center gap-2"
+            >
+              <span>Check My Eligibility Match</span>
+            </a>
+
+            <a
+              href={`/organisations/${recruitment.organisationSlug || recruitment.organisationShortName.toLowerCase()}`}
+              class="font-medium rounded-lg text-muted-foreground hover:text-foreground text-xs sm:text-sm px-3.5 py-2.5 border border-border hover:bg-muted transition-colors inline-flex items-center gap-1.5 ml-auto"
+            >
+              <span>{recruitment.organisationShortName} Profile</span>
+            </a>
           </div>
         </div>
 
-        <!-- Our Explanation Card -->
-        <div class="bg-muted/60 rounded-2xl p-6 border border-border">
-          <h4 class="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Our explanation
-          </h4>
-          <p class="text-xs text-muted-foreground leading-relaxed mb-3">
-            NIRNAY synthesizes official statutory gazettes into verified rule logic. We do not charge fees, create user locks, or act as an intermediary for official submissions.
-          </p>
-          <a href="/disclaimer" class="text-xs font-semibold text-primary hover:underline">
-            Read our source & verification policy &rarr;
-          </a>
+        <!-- Right Source Provenance Card (1 Col) -->
+        <div class="bg-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-border mb-4">
+              <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Official source</span>
+              <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                recruitment.validationStatus === 'VALID'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {recruitment.validationStatus === 'VALID' ? 'Verified Source' : 'Review Required'}
+              </span>
+            </div>
+
+            <h3 class="font-bold text-sm text-foreground mb-1">
+              {officialSource.sourceTitle}
+            </h3>
+            <p class="text-xs text-muted-foreground mb-4">
+              Official notification gazetted by {recruitment.organisationName}.
+            </p>
+
+            <div class="space-y-2 text-xs text-muted-foreground mb-6">
+              <div class="flex justify-between">
+                <span>Authority:</span>
+                <span class="font-medium text-foreground">{recruitment.organisationShortName}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Department:</span>
+                <span class="font-medium text-foreground truncate max-w-[170px] text-right">{recruitment.departmentName || 'State Cadre'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Verification Date:</span>
+                <span class="font-mono text-foreground font-medium">
+                  {formatDate(officialSource.publicationDate || recruitment.applicationStart)}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span>Official Domain:</span>
+                <span class="font-mono text-primary truncate max-w-[150px]">{new URL(recruitment.organisationUrl).hostname}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <a
+              href={officialSource.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="w-full font-medium rounded-lg text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs py-2.5 px-4 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>View official gazette notification</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <p class="text-[10px] text-muted-foreground text-center mt-2.5">
+              NIRNAY rule evaluation is independent; cross-check official gazette before submitting fees.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Horizontal Section Navigation -->
+      <div class="sticky top-16 z-30 bg-card/95 backdrop-blur-md border-y border-border mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar">
+        <nav class="flex items-center gap-6 text-xs font-semibold text-muted-foreground whitespace-nowrap py-3">
+          <a href="#overview" class="text-primary border-b-2 border-primary pb-1 font-bold">Overview</a>
+          <a href="#eligibility" class="hover:text-foreground transition-colors pb-1">Eligibility</a>
+          <a href="#vacancy" class="hover:text-foreground transition-colors pb-1">Vacancy</a>
+          <a href="#dates" class="hover:text-foreground transition-colors pb-1">Important dates</a>
+          <a href="#selection" class="hover:text-foreground transition-colors pb-1">Selection process</a>
+          <a href="#salary" class="hover:text-foreground transition-colors pb-1">Salary & Cadre</a>
+          <a href="#documents" class="hover:text-foreground transition-colors pb-1">Documents</a>
+        </nav>
+      </div>
+
+      <!-- Two-Column Content Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left Column: Detailed Sections (2 Cols) -->
+        <div class="lg:col-span-2 space-y-10">
+          <!-- Overview -->
+          <section id="overview" class="scroll-mt-32">
+            <h2 class="text-xl font-bold text-foreground mb-4">Overview</h2>
+            <div class="prose prose-slate text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
+              <p>
+                The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has officially published online applications for the recruitment of <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under the <strong>{recruitment.departmentName || 'State Government Cadre'}</strong> of Madhya Pradesh.
+              </p>
+              <p>
+                Candidates possessing recognized statutory educational qualifications ({recruitment.criteria?.minQualificationLevel}) and complying with the state age criteria as of the official cutoff date ({recruitment.criteria?.ageCutoffDate || '01 January 2026'}) may submit applications online via the authoritative state portal.
+              </p>
+            </div>
+          </section>
+
+          <!-- Eligibility Section -->
+          <section id="eligibility" class="scroll-mt-32 pt-8 border-t border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Eligibility Requirements</h2>
+            
+            <div class="bg-card rounded-xl border border-border overflow-hidden mb-4">
+              <table class="w-full text-xs text-left">
+                <tbody class="divide-y divide-border">
+                  <tr class="hover:bg-muted/40 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-muted-foreground w-1/3">Education Standard</td>
+                    <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>
+                        {recruitment.criteria?.minQualificationLevel} Pass from recognized institution / University.
+                        {recruitment.criteria?.allowedStreams && recruitment.criteria.allowedStreams.length > 0 && (
+                          <span class="block text-[11px] text-muted-foreground mt-0.5">
+                            Permitted Streams: {recruitment.criteria.allowedStreams.join(', ')}
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-muted/40 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-muted-foreground">Age Bracket</td>
+                    <td class="py-3 px-4 font-medium text-foreground">
+                      <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>
+                          {recruitment.criteria?.minAge || 18} to {recruitment.criteria?.maxAgeGeneral || 33} years (General Category)
+                        </span>
+                      </div>
+                      <span class="block text-[11px] text-muted-foreground ml-6 mt-0.5">
+                        Statutory relaxations: +{recruitment.criteria?.ageRelaxationScSt || 5} yrs (SC/ST), +{recruitment.criteria?.ageRelaxationObc || 3} yrs (OBC), +{recruitment.criteria?.ageRelaxationFemale || 5} yrs (Women).
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-muted/40 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-muted-foreground">State Domicile</td>
+                    <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>
+                        {recruitment.criteria?.requiresMpDomicile
+                          ? 'Madhya Pradesh domicile mandatory for reserved category quotas and age relaxation'
+                          : 'All India open (non-MP residents evaluated under Unreserved / General)'}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-muted/40 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-muted-foreground">Physical Standards</td>
+                    <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
+                      {recruitment.criteria?.minHeightMaleCm ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          <span>
+                            Male: Height {recruitment.criteria.minHeightMaleCm} cm{recruitment.criteria.minChestMaleCm ? `, Chest ${recruitment.criteria.minChestMaleCm} cm` : ''};
+                            Female: Height {recruitment.criteria.minHeightFemaleCm || 155} cm
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span>No physical measurement or endurance standards prescribed for this administrative post.</span>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                  {recruitment.criteria?.requiresCpct && (
+                    <tr class="hover:bg-muted/40 transition-colors">
+                      <td class="py-3 px-4 font-semibold text-muted-foreground">CPCT Scorecard</td>
+                      <td class="py-3 px-4 font-medium text-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Mandatory valid MAP_IT CPCT Scorecard with Hindi typing qualifying certification.</span>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <p class="text-[11px] text-muted-foreground">
+              Synthesized deterministically from official gazette rulebook · verified against {recruitment.organisationShortName} portal.
+            </p>
+          </section>
+
+          <!-- Vacancy Breakdown -->
+          <section id="vacancy" class="scroll-mt-32 pt-8 border-t border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Category-wise Vacancy Breakdown</h2>
+            <div class="bg-card rounded-xl border border-border overflow-hidden">
+              <table class="w-full text-xs text-left">
+                <thead class="bg-muted text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b border-border">
+                  <tr>
+                    <th class="py-2.5 px-4">Category</th>
+                    <th class="py-2.5 px-4">Quota (%)</th>
+                    <th class="py-2.5 px-4 text-right">Vacancies</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  {vacancies.map((v: any) => (
+                    <tr class="hover:bg-muted/30 transition-colors">
+                      <td class="py-2.5 px-4 font-medium text-foreground">{v.category}</td>
+                      <td class="py-2.5 px-4 text-muted-foreground">{v.pct || 'Statutory'}</td>
+                      <td class="py-2.5 px-4 text-right font-mono font-bold text-foreground">{v.count.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Selection Process -->
+          <section id="selection" class="scroll-mt-32 pt-8 border-t border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Selection Process</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {selectionStages.map((stage: any, index: number) => (
+                <div class="p-4 rounded-xl bg-card border border-border">
+                  <span class="text-xs font-bold text-primary block mb-1">Stage 0{index + 1}</span>
+                  <h4 class="font-bold text-sm text-foreground mb-1">{stage.name}</h4>
+                  <p class="text-xs text-muted-foreground">{stage.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <!-- Salary & Cadre -->
+          <section id="salary" class="scroll-mt-32 pt-8 border-t border-border">
+            <h2 class="text-xl font-bold text-foreground mb-4">Pay Scale & Allowances</h2>
+            <div class="p-4 rounded-xl bg-card border border-border">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span class="text-xs text-muted-foreground block">Appointed Cadre / Post</span>
+                  <span class="text-base font-bold text-foreground font-['Outfit']">{recruitment.postTitle}</span>
+                  <span class="text-xs text-muted-foreground block mt-0.5">{recruitment.departmentName || 'State Civil Services'}</span>
+                </div>
+                <div class="sm:text-right">
+                  <span class="text-xs text-muted-foreground block">Official Pay Scale</span>
+                  <span class="text-base font-bold text-primary font-mono">
+                    {recruitment.payScale || recruitment.canonicalPost?.payScale || 'Refer Rulebook Matrix'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right Column Rail: Important Dates & Explanation (1 Col) -->
+        <div class="space-y-6">
+          <!-- Important Dates Summary Card -->
+          <div id="dates" class="bg-card rounded-2xl p-6 border border-border shadow-sm scroll-mt-32">
+            <h3 class="font-bold text-sm text-foreground uppercase tracking-wider mb-4 pb-3 border-b border-border">
+              Important dates
+            </h3>
+
+            <div class="space-y-4">
+              {importantDates.map((d: any) => (
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <span class="text-xs font-bold text-foreground block">{d.event}</span>
+                    <span class="text-[11px] text-muted-foreground">{d.desc}</span>
+                  </div>
+                  <span class="text-xs font-mono font-bold text-foreground whitespace-nowrap">{d.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <!-- Our Explanation Card -->
+          <div class="bg-muted/60 rounded-2xl p-6 border border-border">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2">
+              Our explanation
+            </h4>
+            <p class="text-xs text-muted-foreground leading-relaxed mb-3">
+              NIRNAY compiles statutory gazettes into verified deterministic rule logic. We do not charge applicant fees, lock profiles, or act as an application broker.
+            </p>
+            <a href="/disclaimer" class="text-xs font-semibold text-primary hover:underline">
+              Read our source & verification policy &rarr;
+            </a>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</BaseLayout>
+  </BaseLayout>
+)}

@@ -9,7 +9,7 @@ const pathname = Astro.url.pathname;
     <div class="text-muted-foreground text-xs tracking-wide flex mx-auto py-1.5 px-4 sm:px-6 justify-between items-center max-w-7xl">
       <div class="flex items-center gap-2">
         <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="font-medium text-[11px] sm:text-xs">Independent public information platform · Always verify with the official source</span>
+        <span class="font-medium text-[11px] sm:text-xs">Independent public information platform · Always verify with official gazette</span>
       </div>
       <div class="hidden sm:flex items-center gap-3 text-[11px]">
         <a href="/disclaimer" class="hover:text-foreground underline transition-colors">Non-affiliation disclaimer</a>
@@ -76,8 +76,8 @@ const pathname = Astro.url.pathname;
       </a>
     </nav>
 
-    <!-- Search input & CTA button -->
-    <div class="flex items-center shrink-0 gap-3">
+    <!-- Search input & CTA button + Mobile Hamburger -->
+    <div class="flex items-center shrink-0 gap-2.5">
       <form action="/search" method="get" class="hidden md:flex">
         <label class="rounded-md bg-background text-muted-foreground border border-border flex px-3 items-center gap-2 w-48 lg:w-56 h-9 focus-within:border-primary transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -102,6 +102,116 @@ const pathname = Astro.url.pathname;
           <path d="M7 17L17 7M17 7H7M17 7V17"/>
         </svg>
       </a>
+
+      <!-- Mobile Hamburger Button -->
+      <button
+        id="nirnay-mobile-menu-btn"
+        type="button"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        class="lg:hidden p-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+      >
+        <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg id="close-icon" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
   </div>
+
+  <!-- Mobile Collapsible Navigation Drawer -->
+  <div id="nirnay-mobile-drawer" class="hidden lg:hidden border-t border-border bg-card px-4 py-4 space-y-3">
+    <!-- Mobile Search -->
+    <form action="/search" method="get" class="w-full">
+      <label class="rounded-lg bg-background text-muted-foreground border border-border flex px-3 items-center gap-2 h-10 w-full focus-within:border-primary transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input
+          type="search"
+          name="q"
+          placeholder="Search jobs, exams, posts..."
+          aria-label="Search opportunities"
+          class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
+        />
+      </label>
+    </form>
+
+    <div class="grid grid-cols-2 gap-2 pt-1">
+      <a
+        href="/#closing-soon"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname === '/' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Jobs Directory</span>
+        <span>&rarr;</span>
+      </a>
+      <a
+        href="/calendar"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Exam Calendar</span>
+        <span>&rarr;</span>
+      </a>
+      <a
+        href="/results"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Results & Lists</span>
+        <span>&rarr;</span>
+      </a>
+      <a
+        href="/admit-cards"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Admit Cards</span>
+        <span>&rarr;</span>
+      </a>
+      <a
+        href="/answer-keys"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Answer Keys</span>
+        <span>&rarr;</span>
+      </a>
+      <a
+        href="/posts/mp-police-constable"
+        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+      >
+        <span>Career Guides</span>
+        <span>&rarr;</span>
+      </a>
+    </div>
+
+    <div class="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+      <a href="/disclaimer" class="hover:text-foreground">Disclaimer</a>
+      <span>·</span>
+      <a href="/source-policy" class="hover:text-foreground">Source Policy</a>
+      <span>·</span>
+      <a href="/admin" class="hover:text-foreground font-medium text-primary">NIRNAY OPS</a>
+    </div>
+  </div>
+
+  <script is:inline>
+    const btn = document.getElementById('nirnay-mobile-menu-btn');
+    const drawer = document.getElementById('nirnay-mobile-drawer');
+    const hamburger = document.getElementById('hamburger-icon');
+    const close = document.getElementById('close-icon');
+
+    if (btn && drawer) {
+      btn.addEventListener('click', () => {
+        const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!isExpanded));
+        drawer.classList.toggle('hidden');
+        if (hamburger && close) {
+          hamburger.classList.toggle('hidden');
+          close.classList.toggle('hidden');
+        }
+      });
+    }
+  </script>
 </header>

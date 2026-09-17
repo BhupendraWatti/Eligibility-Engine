@@ -78,15 +78,18 @@ export const recruitments = sqliteTable('recruitments', {
   shortSummary: text('short_summary').notNull(),
   cycleYear: integer('cycle_year').notNull(),
   totalVacancies: integer('total_vacancies').notNull().default(0),
-  status: text('status').notNull().default('DRAFT'), // 'DRAFT', 'VERIFIED', 'PUBLISHED', 'ARCHIVED'
+  status: text('status').notNull().default('DRAFT'), // 'DRAFT', 'PENDING_VERIFICATION', 'VERIFIED', 'PUBLISHED', 'UPDATE_REQUIRED', 'ARCHIVED'
   lifecycleStatus: text('lifecycle_status').notNull().default('UPCOMING'), // 'UPCOMING', 'OPEN', 'CLOSING_SOON', 'CLOSED', 'EXAM_HELD', 'RESULT_OUT'
   isFeatured: integer('is_featured').notNull().default(0),
+  validationStatus: text('validation_status').notNull().default('NEEDS_REVIEW'), // 'VALID', 'WARNING', 'INVALID', 'NEEDS_REVIEW'
+  validationErrorsJson: text('validation_errors_json'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index('idx_rec_status_lifecycle').on(table.status, table.lifecycleStatus),
   index('idx_rec_post').on(table.postId),
   index('idx_rec_state').on(table.stateId),
+  index('idx_rec_validation').on(table.validationStatus),
 ]);
 
 // 7. Typed Recruitment Eligibility (The Simplified Model)
@@ -168,6 +171,25 @@ export const adminUsers = sqliteTable('admin_users', {
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
+
+// 13. Audit Logs (Operational Traceability & Integrity Trail)
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  adminEmail: text('admin_email').notNull(),
+  entity: text('entity').notNull(), // 'RECRUITMENT', 'ELIGIBILITY', 'SOURCE', 'POST', 'VACANCY'
+  entityId: text('entity_id').notNull(),
+  action: text('action').notNull(), // 'CREATE', 'UPDATE', 'VERIFY', 'PUBLISH', 'UNPUBLISH', 'ARCHIVE'
+  field: text('field'),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
+  reason: text('reason'),
+  source: text('source'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_audit_entity').on(table.entity, table.entityId),
+  index('idx_audit_admin').on(table.adminEmail),
+  index('idx_audit_created').on(table.createdAt),
+]);
 
 // Relationships
 export const statesRelations = relations(states, ({ many }) => ({

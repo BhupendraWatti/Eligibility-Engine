@@ -613,7 +613,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                             title: r.recruitment.title,
                             slug: r.recruitment.slug,
                             org: r.recruitment.organisationName,
-                            reason: r.checks.find(c => c.status === 'UNKNOWN')?.reason || 'Candidate must self-verify physical or council criteria.',
+                            reason: r.items.find(i => i.status === 'UNKNOWN')?.message || 'Candidate must self-verify physical or council criteria.',
                           })),
                       };
                       sessionStorage.setItem('nirnay_eval_report', JSON.stringify(reportData));
@@ -721,17 +721,17 @@ export default function EligibilityWizard({ recruitments }: Props) {
 
                   {/* Checklist rows */}
                   <div className="space-y-1.5 pt-2 pb-4 text-xs">
-                    {r.checks.map((chk, idx) => (
+                    {r.items.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        {chk.status === 'PASS' ? (
+                        {item.status === 'MATCH' ? (
                           <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        ) : chk.status === 'UNKNOWN' ? (
+                        ) : item.status === 'UNKNOWN' ? (
                           <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-amber-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         )}
-                        <span className={chk.status === 'PASS' ? 'text-foreground' : chk.status === 'UNKNOWN' ? 'text-amber-800' : 'text-red-700'}>
-                          {chk.field}: {chk.reason}
+                        <span className={item.status === 'MATCH' ? 'text-foreground' : item.status === 'UNKNOWN' ? 'text-amber-800' : 'text-red-700'}>
+                          <strong className="font-semibold">{item.ruleName}:</strong> {item.message || item.requirement}
                         </span>
                       </div>
                     ))}

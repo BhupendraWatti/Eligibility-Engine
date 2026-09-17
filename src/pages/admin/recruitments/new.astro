@@ -1,12 +1,15 @@
 ---
 // src/pages/admin/recruitments/new.astro
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { getAllCanonicalPosts, getAllSectors, createRecruitment } from '../../../db/queries';
+import { getAllCanonicalPosts, getAllSectors, createRecruitmentAtomic } from '../../../db/queries';
 
 const posts = await getAllCanonicalPosts();
 const sectors = await getAllSectors();
 
 let errorMessage = '';
+let validationErrors: string[] = [];
+let duplicateWarning = '';
+let created = false;
 
 if (Astro.request.method === 'POST') {
   try {
@@ -23,9 +26,12 @@ if (Astro.request.method === 'POST') {
     const applicationStart = formData.get('applicationStart')?.toString().trim();
     const applicationEnd = formData.get('applicationEnd')?.toString().trim();
     const examDate = formData.get('examDate')?.toString().trim();
+    const sourceUrl = formData.get('sourceUrl')?.toString().trim();
+    const sourceTitle = formData.get('sourceTitle')?.toString().trim();
+    const forcePublish = formData.get('forcePublish')?.toString() === 'yes';
 
     if (title && postId && advtNumber && totalVacancies > 0) {
-      await createRecruitment({
+      const result = await createRecruitmentAtomic({
         title,
         postId,
         organisationShortName: organisation,
@@ -38,8 +44,24 @@ if (Astro.request.method === 'POST') {
         applicationStart,
         applicationEnd,
         examDate,
+        sourceUrl,
+        sourceTitle,
+        // forcePublish=true means admin is overriding validation guard → save as PENDING_VERIFICATION
+        // forcePublish=false → let createRecruitmentAtomic decide PUBLISHED vs PENDING_VERIFICATION
+        status: forcePublish ? 'PENDING_VERIFICATION' : undefined,
       });
-      return Astro.redirect('/admin/recruitments?status=OPEN');
+
+
+      if (!result.success) {
+        errorMessage = `Failed to create recruitment: ${(result.errors || []).join('; ')}`;
+      } else if (!result.validation?.publishable && !forcePublish) {
+        // Show validation errors to admin — stay on form
+        validationErrors = result.validation?.blockingErrors || [];
+        duplicateWarning = result.validation?.warnings?.filter((w: string) => w.includes('uplicate')).join('; ') || '';
+        // Surface them without redirect so admin can correct
+      } else {
+        return Astro.redirect('/admin/recruitments?status=OPEN');
+      }
     } else {
       errorMessage = 'Please provide title, canonical post, advertisement number, and valid vacancy count.';
     }
@@ -95,8 +117,32 @@ const postsBySector = sectors.map(sec => ({
     </div>
 
     {errorMessage && (
-      <div class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
-        {errorMessage}
+      <div class="mb-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
+        ⛔ {errorMessage}
+      </div>
+    )}
+
+    {validationErrors.length > 0 && (
+      <div class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
+        <p class="font-bold mb-2">⚠️ Publication Guard — {validationErrors.length} Blocking Error(s)</p>
+        <ul class="list-disc ml-4 space-y-1">
+          {validationErrors.map((e: string) => <li>{e}</li>)}
+        </ul>
+        <p class="mt-3 text-amber-700">Fix the above issues and resubmit, or save as <strong>Pending Verification</strong> for later review.</p>
+        <form method="POST" class="mt-3">
+          <input type="hidden" name="forcePublish" value="yes" />
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors">
+            Save as Pending Verification (bypass guard)
+          </button>
+        </form>
+      </div>
+    )}
+
+    {duplicateWarning && (
+      <div class="mb-4 p-4 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-900">
+        <p class="font-bold mb-1">🔴 Possible Duplicate Detected</p>
+        <p>{duplicateWarning}</p>
+        <p class="mt-2 text-rose-700">If this is a new cycle, verify the Advertisement Number is unique before publishing.</p>
       </div>
     )}
 
@@ -250,6 +296,36 @@ const postsBySector = sectors.map(sec => ({
                 placeholder="Official notification summary..."
                 class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
               ></textarea>
+            </div>
+
+            <!-- Official Source -->
+            <div class="pt-2">
+              <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
+                Verified Official Source
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-bold text-foreground mb-1">
+                    Source URL <span class="text-amber-600">*Recommended</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="sourceUrl"
+                    placeholder="https://mppsc.mp.gov.in/notification.pdf"
+                    class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-foreground mb-1">Source Title</label>
+                  <input
+                    type="text"
+                    name="sourceTitle"
+                    placeholder="e.g. MPPSC SSE 2026 Official Notification PDF"
+                    class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                  />
+                </div>
+              </div>
+              <p class="text-[11px] text-muted-foreground mt-2">⚠️ Recruitments without a verified source URL will be saved as <strong>Pending Verification</strong>, not Published.</p>
             </div>
           </div>
         </form>

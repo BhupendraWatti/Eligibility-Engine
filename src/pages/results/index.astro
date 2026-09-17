@@ -18,19 +18,33 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive results dynamically from all recruitments
+// Derive results dynamically from verified recruitment milestones
 const results = allRecruitments.map((r) => {
-  const isReleased = r.lifecycleStatus === 'CLOSED';
+  const isDeclared = r.lifecycleStatus === 'RESULT_DECLARED' || r.lifecycleStatus === 'FINAL_RESULT';
+  const isExamDone = r.lifecycleStatus === 'EXAM_COMPLETED';
+  
+  let statusText = 'Pending Exam';
+  let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
+  let releaseDateText = r.examDate ? `Post Exam (${formatDate(r.examDate)})` : 'Expected Post Examination';
+
+  if (isDeclared) {
+    statusText = 'Declared';
+    statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    releaseDateText = 'Declared';
+  } else if (isExamDone) {
+    statusText = 'Under Evaluation';
+    statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
+    releaseDateText = 'Evaluation Underway (Merit Roster Processing)';
+  }
+
   return {
     title: `${r.title} — Official Examination Result & Merit List`,
     exam: `${r.postTitle} (${r.advtNumber})`,
     org: `${r.organisationName} (${r.organisationShortName})`,
     orgShort: r.organisationShortName,
-    releaseDate: isReleased ? 'Declared' : 'Expected Post Examination',
-    status: isReleased ? 'Declared' : 'Pending',
-    statusColor: isReleased 
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-      : 'bg-blue-50 text-blue-700 border-blue-200',
+    releaseDate: releaseDateText,
+    status: statusText,
+    statusColor,
     sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
     slug: r.slug,
     vacancies: r.totalVacancies,

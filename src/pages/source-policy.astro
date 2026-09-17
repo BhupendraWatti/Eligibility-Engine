@@ -1,0 +1,75 @@
+---
+// src/pages/source-policy.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Source Policy & Verification Standard — NIRNAY MP"
+  description="NIRNAY 6-stage publication gate, gazette provenance mapping, and official source verification methodology."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="bg-card rounded-3xl p-8 sm:p-12 border border-border shadow-sm">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 uppercase tracking-wider mb-4">
+        Data Provenance & Integrity
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground mb-6">
+        Source Policy & Verification Standard
+      </h1>
+
+      <div class="prose prose-slate max-w-none text-sm text-muted-foreground space-y-6 leading-relaxed">
+        <p class="text-base text-foreground font-medium">
+          At NIRNAY, data integrity is paramount. We reject static rumors, social media speculation, and unauthorized syllabus blogs. Every recruitment claim published on this portal must satisfy our rigorous <strong>6-Stage Publication Gate</strong>.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          1. The 6-Stage Publication Gate
+        </h2>
+        <div class="grid grid-cols-1 gap-3 my-4">
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 1: Primary Gazette Intake</h3>
+            <p class="text-xs text-muted-foreground mt-1">Direct ingest of official notification PDFs, gazettes, and rulebooks directly from authority domains (.gov.in / .nic.in).</p>
+          </div>
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 2: Deterministic Rule Extraction</h3>
+            <p class="text-xs text-muted-foreground mt-1">Rulebook text is parsed for exact advertisement numbers, age cutoff dates, category relaxation provisions, and CPCT/typing standards.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 3: Multi-Signal Duplicate Detection</h3>
+            <p class="text-xs text-muted-foreground mt-1">Every ingested drive is checked against active records across advertisement numbers, official source URLs, and authority post titles.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 4: Mathematical Vacancy Reconcilation</h3>
+            <p class="text-xs text-muted-foreground mt-1">Category vacancy tallies (UR, OBC, SC, ST, EWS) must mathematically sum to the advertised total vacancy claim before release.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 5: Verification & Human Sign-off</h3>
+            <p class="text-xs text-muted-foreground mt-1">A verified data editor checks each criteria against specific rulebook pages before advancing state from PENDING_VERIFICATION to VERIFIED.</p>
+          </div>
+          <div class="p-4 rounded-xl bg-muted/60 border border-border">
+            <h3 class="font-bold text-foreground text-sm">Stage 6: Public Gateway Publication</h3>
+            <p class="text-xs text-muted-foreground mt-1">Only verified records with active official notification links are exposed to public endpoints and the deterministic calculation engine.</p>
+          </div>
+        </div>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          2. Official Board Registers
+        </h2>
+        <p>
+          NIRNAY validates all entries against authoritative state registers:
+        </p>
+        <ul class="list-disc list-inside space-y-2 text-foreground">
+          <li><strong>MPESB Rulebooks & Dashboard:</strong> <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">https://esb.mp.gov.in</a></li>
+          <li><strong>MPPSC Advertisements & Notices:</strong> <a href="https://mppsc.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">https://mppsc.mp.gov.in</a></li>
+          <li><strong>High Court of MP Recruitment Register:</strong> <a href="https://mphc.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">https://mphc.gov.in</a></li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          3. Corrigenda & Lifecycle Tracking
+        </h2>
+        <p>
+          When an official board releases an addendum, extension notice, or revised exam timetable, NIRNAY archives the prior milestone and updates the structured event timeline with source revision notes. Unverified records remain in <code class="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">HOLD</code> or <code class="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground font-mono">PENDING_VERIFICATION</code> until official confirmation is obtained.
+        </p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
