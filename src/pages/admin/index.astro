@@ -4,11 +4,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import AdminSidebar from '../../components/admin/AdminSidebar.astro';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors } from '../../db/queries';
 
+// Step 4: Diagnostic logging
+console.log("[Admin Layout] admin layout rendered");
+
 // @ts-ignore
 const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
-const recruitments = await getAllActiveRecruitments();
-const posts = await getAllCanonicalPosts();
-const sectors = await getAllSectors();
+
+let recruitments: any[] = [];
+let posts: any[] = [];
+let sectors: any[] = [];
+
+try {
+  recruitments = await getAllActiveRecruitments();
+  posts = await getAllCanonicalPosts();
+  sectors = await getAllSectors();
+} catch (err) {
+  console.error("[Admin D1 Query Error]:", err);
+}
 
 const totalVacancies = recruitments.reduce((sum: number, r: any) => sum + (r.totalVacancies || 0), 0);
 ---
