@@ -1,0 +1,22 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"compatibility_date": "2026-09-16",
+	"compatibility_flags": ["nodejs_compat"],
+	"name": "eligibility-engine",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "rozgar_setu_d1",
+			"database_id": "local-rozgar-setu-d1",
+			"migrations_dir": "drizzle"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}

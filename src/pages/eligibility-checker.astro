@@ -1,0 +1,29 @@
+---
+// src/pages/eligibility-checker.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+import EligibilityWizard from '../components/eligibility/EligibilityWizard';
+import { getAllActiveRecruitments } from '../db/queries';
+
+// @ts-ignore
+const recruitments = await getAllActiveRecruitments();
+
+const wizardData = recruitments.map(r => ({
+  id: r.id,
+  title: r.title,
+  slug: r.slug,
+  advtNumber: r.advtNumber,
+  totalVacancies: r.totalVacancies,
+  postTitle: r.postTitle,
+  organisationName: r.organisationName,
+  criteria: r.criteria,
+}));
+---
+
+<BaseLayout
+  title="Madhya Pradesh Govt Jobs Eligibility Calculator"
+  description="Determine your eligibility for MPESB, MPPSC, Police Constable, Patwari, and Forest Guard posts with our free deterministic calculator."
+>
+  <div class="py-10 px-4 sm:px-6 lg:px-8">
+    <EligibilityWizard client:load recruitments={wizardData} />
+  </div>
+</BaseLayout>

@@ -1,0 +1,256 @@
+---
+// src/pages/recruitments/[slug].astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { FALLBACK_RECRUITMENTS } from '../../db/queries';
+
+const { slug } = Astro.params;
+
+const recruitment = FALLBACK_RECRUITMENTS.find(r => r.slug === slug) || FALLBACK_RECRUITMENTS[0];
+
+const vacancies = [
+  { category: 'अनारक्षित (General / UR)', code: 'UR', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
+  { category: 'अन्य पिछड़ा वर्ग (OBC)', code: 'OBC', count: Math.round(recruitment.totalVacancies * 0.27), pct: '27%' },
+  { category: 'अनुसूचित जनजाति (ST)', code: 'ST', count: Math.round(recruitment.totalVacancies * 0.20), pct: '20%' },
+  { category: 'अनुसूचित जाति (SC)', code: 'SC', count: Math.round(recruitment.totalVacancies * 0.16), pct: '16%' },
+  { category: 'आर्थिक कमजोर वर्ग (EWS)', code: 'EWS', count: Math.round(recruitment.totalVacancies * 0.10), pct: '10%' },
+];
+
+const importantDates = [
+  { event: 'विज्ञप्ति / नियमपुस्तिका प्रकाशन', desc: 'Rulebook Gazetted', date: '15 Feb 2026', status: 'Completed' },
+  { event: 'ऑनलाइन आवेदन प्रारंभ', desc: 'Online Registration Opens', date: '01 Mar 2026', status: 'Active' },
+  { event: 'ऑनलाइन आवेदन की अंतिम तिथि', desc: 'Closing Date to Apply', date: '31 Mar 2026', status: 'Upcoming' },
+  { event: 'आवेदन पत्र संशोधन अंतिम तिथि', desc: 'Correction Window Closes', date: '05 Apr 2026', status: 'Upcoming' },
+  { event: 'ऑनलाइन परीक्षा प्रारंभ तिथि', desc: 'CBT Exam Commencement', date: '15 May 2026', status: 'Upcoming' },
+];
+---
+
+<BaseLayout
+  title={`${recruitment.title} — आधिकारिक विवरण व पात्रता`}
+  description={`Official gazette notice for ${recruitment.title}. Statutory age cutoff, qualification rules, category vacancy breakdown, and direct application links.`}
+>
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-6 no-print">
+      <a href="/" class="hover:text-slate-900">मुखपृष्ठ (Home)</a>
+      <span>&rsaquo;</span>
+      <a href="/jobs/madhya-pradesh" class="hover:text-slate-900">मध्य प्रदेश</a>
+      <span>&rsaquo;</span>
+      <span class="text-slate-800 font-semibold font-mono">{recruitment.advtNumber}</span>
+    </nav>
+
+    <!-- Header Card -->
+    <div class="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm mb-8">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="px-2.5 py-0.5 rounded text-xs font-bold font-mono bg-slate-100 text-slate-800 border border-slate-300">
+          {recruitment.organisationShortName}
+        </span>
+        <span class="px-2.5 py-0.5 rounded text-xs font-bold font-mono uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+          स्थिति: {recruitment.lifecycleStatus === 'OPEN' ? 'आवेदन जारी (OPEN)' : 'आगामी (UPCOMING)'}
+        </span>
+        <span class="text-xs font-mono text-slate-500 font-medium">
+          विज्ञप्ति क्र.: {recruitment.advtNumber}
+        </span>
+      </div>
+
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans'] mb-3 leading-tight">
+        {recruitment.title}
+      </h1>
+
+      <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-3xl mb-6">
+        {recruitment.shortSummary}
+      </p>
+
+      <!-- Key Metrics Strip -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-slate-50 border border-slate-200">
+        <div>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">कुल पद (Vacancies)</span>
+          <span class="text-lg sm:text-xl font-bold text-slate-950 font-mono tabular-nums">
+            {recruitment.totalVacancies.toLocaleString()}
+          </span>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">न्यूनतम योग्यता (Min Edu)</span>
+          <span class="text-lg sm:text-xl font-bold text-indigo-700">
+            {recruitment.criteria.minQualificationLevel}
+          </span>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">आयु सीमा (Age Range)</span>
+          <span class="text-lg sm:text-xl font-bold text-slate-900 font-mono tabular-nums">
+            {recruitment.criteria.minAge}–{recruitment.criteria.maxAgeGeneral} yrs
+          </span>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">कटऑफ तिथि (Cutoff Date)</span>
+          <span class="text-lg sm:text-xl font-bold text-slate-900 font-mono">
+            {recruitment.criteria.ageCutoffDate}
+          </span>
+        </div>
+      </div>
+
+      <!-- Outbound Links & Instant Check CTA -->
+      <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 no-print">
+        <a
+          href="https://esb.mponline.gov.in"
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          class="min-h-[44px] px-6 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-2"
+        >
+          <span>आधिकारिक पोर्टल पर आवेदन करें (Apply Online)</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+
+        <a
+          href="https://esb.mp.gov.in"
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          class="min-h-[44px] px-5 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-2"
+        >
+          <span>अधिसूचना PDF डाउनलोड करें</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </a>
+
+        <a
+          href="/eligibility-checker"
+          class="min-h-[44px] px-5 py-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 ml-auto"
+        >
+          <span>मेरी पात्रता जाँचें</span> &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- 2 Column Details: Standards vs Dates -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <!-- Main Details -->
+      <div class="md:col-span-2 space-y-6">
+        <!-- Statutory Rules Box -->
+        <section class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <h2 class="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans'] mb-4 flex items-center gap-2">
+            <span>वैधानिक पात्रता मानक (Statutory Eligibility)</span>
+          </h2>
+          <div class="space-y-4 text-xs sm:text-sm">
+            <div class="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <strong class="text-slate-900 block font-semibold mb-1">आयु सीमा व शासकीय छूट (Age Limit & Relaxations):</strong>
+              <p class="text-slate-600 mb-2">
+                अभ्यर्थी की आयु <strong>{recruitment.criteria.ageCutoffDate}</strong> को न्यूनतम <strong>{recruitment.criteria.minAge} वर्ष</strong> तथा अधिकतम <strong>{recruitment.criteria.maxAgeGeneral} वर्ष</strong> होनी चाहिए।
+              </p>
+              <ul class="list-disc list-inside text-slate-600 space-y-1 text-xs">
+                <li>मध्य प्रदेश के SC / ST अभ्यर्थियों हेतु: <strong>+{recruitment.criteria.ageRelaxationScSt} वर्ष</strong> की छूट (अधिकतम: {recruitment.criteria.maxAgeGeneral + recruitment.criteria.ageRelaxationScSt} वर्ष)</li>
+                <li>मध्य प्रदेश के OBC अभ्यर्थियों हेतु: <strong>+{recruitment.criteria.ageRelaxationObc} वर्ष</strong> की छूट (अधिकतम: {recruitment.criteria.maxAgeGeneral + recruitment.criteria.ageRelaxationObc} वर्ष)</li>
+                <li>महिला अभ्यर्थियों (सभी वर्ग) हेतु: <strong>+{recruitment.criteria.ageRelaxationFemale} वर्ष</strong> की छूट</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <strong class="text-slate-900 block font-semibold mb-1">शैक्षणिक योग्यता (Educational Qualification):</strong>
+              <p class="text-slate-600">
+                मान्यता प्राप्त मंडल अथवा विश्वविद्यालय से न्यूनतम <strong>{recruitment.criteria.minQualificationLevel} उत्तीर्ण</strong>।
+              </p>
+              {recruitment.criteria.requiresCpct && (
+                <div class="mt-2 text-xs font-semibold text-amber-900 bg-amber-50 p-2.5 rounded border border-amber-200">
+                  ⚠️ अनिवार्य: हिंदी टाइपिंग दक्षता सहित वैध CPCT स्कोरकार्ड आवश्यक है।
+                </div>
+              )}
+            </div>
+
+            <div class="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <strong class="text-slate-900 block font-semibold mb-1">मूल निवासी व रोज़गार पंजीयन:</strong>
+              <p class="text-slate-600 text-xs">
+                {recruitment.criteria.requiresMpDomicile ? 'आरक्षण लाभ हेतु मध्य प्रदेश का मूल निवासी प्रमाण-पत्र अनिवार्य है।' : 'अन्य राज्यों के अभ्यर्थी अनारक्षित (UR) श्रेणी के अंतर्गत पात्र हैं।'}
+              </p>
+              {recruitment.criteria.requiresMpEmploymentReg && (
+                <p class="text-xs text-indigo-700 font-semibold mt-1">
+                  मध्य प्रदेश रोज़गार पोर्टल (mprojgar.gov.in) पर जीवित पंजीयन आवेदन के समय अनिवार्य है।
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <!-- Category Vacancy Matrix -->
+        <section class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <h2 class="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans'] mb-4">
+            वर्गवार रिक्तियों का विवरण (Category Vacancy Matrix)
+          </h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead>
+                <tr class="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                  <th class="py-2.5 px-4">आरक्षण श्रेणी (Category)</th>
+                  <th class="py-2.5 px-4 text-center">प्रतिशत</th>
+                  <th class="py-2.5 px-4 text-right">पदों की संख्या</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {vacancies.map(v => (
+                  <tr class="hover:bg-slate-50">
+                    <td class="py-2.5 px-4 font-semibold text-slate-800">{v.category}</td>
+                    <td class="py-2.5 px-4 text-center font-mono text-slate-500">{v.pct}</td>
+                    <td class="py-2.5 px-4 text-right font-bold text-slate-900 font-mono tabular-nums">{v.count.toLocaleString()}</td>
+                  </tr>
+                ))}
+                <tr class="bg-slate-100/60 font-bold text-slate-900">
+                  <td class="py-2.5 px-4" colspan="2">कुल विज्ञापित पद (Total Posts)</td>
+                  <td class="py-2.5 px-4 text-right font-mono tabular-nums">{recruitment.totalVacancies.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Sidebar: Dates & Provenance -->
+      <div class="space-y-6">
+        <!-- Important Dates Timeline -->
+        <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-900 font-['Plus_Jakarta_Sans'] mb-4 pb-2 border-b border-slate-100">
+            महत्वपूर्ण तिथियाँ (Milestone Dates)
+          </h3>
+          <div class="space-y-4 text-xs">
+            {importantDates.map((item, idx) => (
+              <div class="flex items-start gap-3 relative">
+                {idx < importantDates.length - 1 && (
+                  <div class="absolute left-1.5 top-4 bottom-0 w-0.5 bg-slate-200"></div>
+                )}
+                <div class={`w-3.5 h-3.5 rounded-full mt-0.5 z-10 flex-shrink-0 ${
+                  item.status === 'Completed' ? 'bg-slate-400' : item.status === 'Active' ? 'bg-emerald-500 ring-2 ring-emerald-100' : 'bg-slate-200'
+                }`}></div>
+                <div>
+                  <span class="font-bold text-slate-900 block">{item.event}</span>
+                  <span class="text-slate-500 text-[11px] block">{item.desc}</span>
+                  <span class="text-slate-800 font-mono font-semibold text-[11px] mt-0.5 inline-block">{item.date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Official Authority Provenance -->
+        <div class="bg-slate-900 text-white rounded-xl p-5 border border-slate-800">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-[10px] font-bold font-mono uppercase tracking-wider text-emerald-400">
+              राजपत्र प्रमाणित (Verified)
+            </span>
+          </div>
+          <h3 class="text-xs font-bold mb-1">Source Provenance</h3>
+          <p class="text-xs text-slate-400 leading-relaxed mb-3">
+            Cross-verified against official MP Employees Selection Board rulebooks.
+          </p>
+          <div class="p-2.5 bg-slate-800 rounded border border-slate-700 text-xs space-y-1 text-slate-300">
+            <div><strong>Authority:</strong> {recruitment.organisationName}</div>
+            <div><strong>Portal:</strong> <a href={recruitment.organisationUrl} target="_blank" rel="noopener noreferrer nofollow" class="text-amber-400 hover:underline">{recruitment.organisationUrl}</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

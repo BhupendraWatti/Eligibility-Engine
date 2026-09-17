@@ -1,24 +1,78 @@
-# build output
+# ==============================================================================
+# RozgarSetu MP - Production .gitignore (Project Manager Standard)
+# ==============================================================================
+
+# Build & Compiled Output
 dist/
-# generated types
+build/
+out/
 .astro/
 
-# dependencies
-node_modules/
+# Cloudflare Wrangler & Local Edge State (NEVER COMMIT LOCAL D1 STATE)
+.wrangler/
+.mf/
+wrangler.log*
+.cloudflare/
 
-# logs
+# Node Dependencies & Package Manager Artifacts
+node_modules/
+.pnp/
+.pnp.js
+.npm/
+.yarn/
+
+# Debug Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
+*.log
 
-
-# environment variables
+# Environment Variables & Secrets (CRITICAL FOR ZERO TRUST)
 .env
-.env.production
+.env.*
+!.env.example
+.dev.vars
 
-# macOS-specific files
-.DS_Store
+# Local Databases & SQLite Dumps
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
 
-# jetbrains setting folder
+# IDE & Editor Settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.bak
+
+# OS-Specific Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+
+# Temporary files & Caches
+*.tmp
+*.temp
+.cache/
+.parcel-cache/

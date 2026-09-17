@@ -1,0 +1,81 @@
+---
+// src/components/common/Footer.astro
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="bg-slate-900 text-slate-400 text-sm mt-20 border-t border-slate-800 no-print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-slate-800">
+      <!-- Brand & Mission -->
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="font-extrabold text-xl tracking-tight text-white font-['Outfit']">
+            Rozgar<span class="text-indigo-400">Setu</span> MP
+          </span>
+          <span class="text-[10px] font-semibold bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700/50 uppercase">
+            Madhya Pradesh
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed max-w-md">
+          RozgarSetu MP is an open, deterministic information discovery platform for state government job aspirants across Madhya Pradesh. We aggregate, structure, and verify recruitment notifications directly from official state gazettes and authority portals.
+        </p>
+        <div class="mt-4 p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 text-xs text-slate-300">
+          <strong class="text-amber-400">Legal Declaration:</strong> We are NOT affiliated with, sponsored by, or operated by the Government of Madhya Pradesh or any recruitment body (MPESB, MPPSC, MPHC).
+        </div>
+      </div>
+
+      <!-- Official Portals -->
+      <div>
+        <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">Official Authorities</h4>
+        <ul class="space-y-2 text-xs">
+          <li>
+            <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer nofollow" class="hover:text-white transition-colors flex items-center gap-1">
+              <span>MPESB (Vyapam)</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://mppsc.mp.gov.in" target="_blank" rel="noopener noreferrer nofollow" class="hover:text-white transition-colors flex items-center gap-1">
+              <span>MPPSC Official</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://mphc.gov.in" target="_blank" rel="noopener noreferrer nofollow" class="hover:text-white transition-colors flex items-center gap-1">
+              <span>High Court of MP</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </li>
+          <li>
+            <a href="https://mprojgar.gov.in" target="_blank" rel="noopener noreferrer nofollow" class="hover:text-white transition-colors flex items-center gap-1">
+              <span>MP Rojgar Portal</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Quick Links & Trust -->
+      <div>
+        <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">Platform Links</h4>
+        <ul class="space-y-2 text-xs">
+          <li><a href="/eligibility-checker" class="hover:text-white transition-colors">Eligibility Calculator</a></li>
+          <li><a href="/posts/mp-police-constable" class="hover:text-white transition-colors">Police Constable Guide</a></li>
+          <li><a href="/posts/mp-patwari" class="hover:text-white transition-colors">MP Patwari Guide</a></li>
+          <li><a href="/disclaimer" class="hover:text-white transition-colors">Non-Affiliation Disclaimer</a></li>
+          <li><a href="/about" class="hover:text-white transition-colors">About RozgarSetu</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom copyright -->
+    <div class="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+      <p>&copy; {currentYear} RozgarSetu MP. Built for public informational purposes. All official notices property of respective departments.</p>
+      <div class="flex items-center gap-4">
+        <a href="/disclaimer" class="hover:underline">Disclaimer</a>
+        <a href="/privacy" class="hover:underline">Privacy Policy</a>
+        <a href="/admin" class="hover:underline text-indigo-400 hover:text-indigo-300 font-medium">Admin Portal</a>
+      </div>
+    </div>
+  </div>
+</footer>

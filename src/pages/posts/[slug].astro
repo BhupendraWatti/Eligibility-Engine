@@ -1,0 +1,188 @@
+---
+// src/pages/posts/[slug].astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { FALLBACK_RECRUITMENTS } from '../../db/queries';
+
+const { slug } = Astro.params;
+
+const postGuides: Record<string, any> = {
+  'mp-police-constable': {
+    title: 'MP Police Constable (General Duty) — Complete Career & Eligibility Guide',
+    shortTitle: 'MP Police Constable GD',
+    department: 'Home Department (Madhya Pradesh Police)',
+    organisation: 'MPESB (Madhya Pradesh Employees Selection Board)',
+    payScale: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 4)',
+    overview: 'Police Constable (General Duty) is the primary law enforcement and crime-prevention rank within Madhya Pradesh Police. Thousands of candidates are recruited annually through the state-level competitive examination conducted by MPESB.',
+    minQualification: '10th Class (High School) Pass from a recognized board (8th Pass for ST candidates in MP)',
+    ageLimit: '18 to 33 Years (General Category) with statutory relaxations up to 38 years for SC/ST/OBC and female candidates.',
+    selectionStages: [
+      { name: 'Stage 1: Online Computer Based Test (CBT)', desc: '100 Marks objective examination covering General Knowledge, Reasoning, Elementary Mathematics, and Science.' },
+      { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: '800m Race, Shot Put, and Long Jump with qualifying and scoring criteria.' },
+      { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, domicile proof, and standard medical fitness check.' },
+    ],
+    syllabus: [
+      { subject: 'General Knowledge & Current Affairs', marks: '40 Questions' },
+      { subject: 'Logical Reasoning & Intellectual Ability', marks: '30 Questions' },
+      { subject: 'Science & Simple Arithmetic', marks: '30 Questions' },
+    ],
+    activeRecruitmentSlug: 'mp-police-constable-recruitment-2026',
+    activeVacancies: 7500,
+  },
+  'mp-patwari': {
+    title: 'MP Patwari & Revenue Inspector — Eligibility, Selection & Salary Guide',
+    shortTitle: 'MP Patwari (Revenue)',
+    department: 'Revenue Department, Madhya Pradesh',
+    organisation: 'MPESB (Madhya Pradesh Employees Selection Board)',
+    payScale: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 6)',
+    overview: 'Patwari is the foundational revenue and land records administration officer at the Tehsil and village level in Madhya Pradesh. Responsibilities include crop survey (Girdawari), land title mapping, and government welfare scheme enumeration.',
+    minQualification: "Bachelor's Degree (Graduation) in any discipline from a recognized University + Valid CPCT scorecard.",
+    ageLimit: '18 to 40 Years (General Category) with 5 years relaxation for MP reserved categories.',
+    selectionStages: [
+      { name: 'Stage 1: Combined Group-2 Sub-Group-4 CBT Exam', desc: '200 Marks objective examination consisting of 8 sections.' },
+      { name: 'Stage 2: Document Verification & District Allocation', desc: 'Merit-based district preference allotment.' },
+    ],
+    syllabus: [
+      { subject: 'General Knowledge & MP Special GK', marks: '25 Marks' },
+      { subject: 'General Hindi & General English', marks: '50 Marks' },
+      { subject: 'Mathematics & General Reasoning', marks: '50 Marks' },
+      { subject: 'Computer Knowledge & General Management', marks: '75 Marks' },
+    ],
+    activeRecruitmentSlug: 'mp-patwari-recruitment-2026',
+    activeVacancies: 3550,
+  },
+};
+
+const guide = postGuides[slug || 'mp-police-constable'] || postGuides['mp-police-constable'];
+---
+
+<BaseLayout
+  title={`${guide.title}`}
+  description={`Comprehensive guide to ${guide.shortTitle} in Madhya Pradesh. Details on salary, age relaxation, CPCT requirements, exam pattern, and active 2026 recruitments.`}
+>
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-xs text-slate-500 mb-6 no-print">
+      <a href="/" class="hover:text-indigo-600">Home</a>
+      <span>&rsaquo;</span>
+      <a href="/jobs/madhya-pradesh" class="hover:text-indigo-600">Madhya Pradesh</a>
+      <span>&rsaquo;</span>
+      <span class="text-slate-800 font-semibold">{guide.shortTitle} Guide</span>
+    </nav>
+
+    <!-- Header Box -->
+    <div class="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-md shadow-slate-200/40 mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider mb-3">
+        Permanent Canonical Job Guide
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 font-['Outfit'] mb-4">
+        {guide.title}
+      </h1>
+      <p class="text-sm sm:text-base text-slate-600 leading-relaxed mb-6">
+        {guide.overview}
+      </p>
+
+      <!-- Active Recruitment Callout -->
+      {guide.activeRecruitmentSlug && (
+        <div class="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider inline-block mb-1">
+              Active Recruitment Cycle 2026
+            </span>
+            <h3 class="text-base font-bold text-slate-900 font-['Outfit']">
+              Official Notification Released: {guide.activeVacancies.toLocaleString()} Posts Available
+            </h3>
+            <p class="text-xs text-slate-600 mt-0.5">
+              Applications are currently active on the official MPESB portal.
+            </p>
+          </div>
+          <a
+            href={`/recruitments/${guide.activeRecruitmentSlug}`}
+            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 whitespace-nowrap transition-all"
+          >
+            View Active Recruitment &rarr;
+          </a>
+        </div>
+      )}
+    </div>
+
+    <!-- 2-Column Guide Details -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Main Content -->
+      <div class="md:col-span-2 space-y-8">
+        <!-- Statutory Qualifications -->
+        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
+          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
+            Baseline Eligibility Standards
+          </h2>
+          <div class="space-y-4 text-xs sm:text-sm">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+              <strong class="text-slate-900 block font-semibold mb-1">Educational Requirement:</strong>
+              <p class="text-slate-600">{guide.minQualification}</p>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+              <strong class="text-slate-900 block font-semibold mb-1">Age Limits & Relaxations:</strong>
+              <p class="text-slate-600">{guide.ageLimit}</p>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+              <strong class="text-slate-900 block font-semibold mb-1">Pay Scale & Salary:</strong>
+              <p class="text-slate-600">{guide.payScale}</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Selection Stages -->
+        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
+          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
+            Selection Process Stages
+          </h2>
+          <div class="space-y-4">
+            {guide.selectionStages.map((stage: any, idx: number) => (
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                  {idx + 1}
+                </span>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">{stage.name}</h3>
+                  <p class="text-xs text-slate-600 mt-1">{stage.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <!-- Syllabus Structure -->
+        <section class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm">
+          <h2 class="text-xl font-bold text-slate-900 font-['Outfit'] mb-4">
+            Official Exam Pattern & Syllabus
+          </h2>
+          <div class="divide-y divide-slate-100">
+            {guide.syllabus.map((s: any) => (
+              <div class="py-3 flex items-center justify-between text-xs sm:text-sm">
+                <span class="font-semibold text-slate-800">{s.subject}</span>
+                <span class="font-bold text-indigo-600">{s.marks}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <!-- Quick Action Sidebar -->
+      <div class="space-y-6">
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
+          <h3 class="text-base font-bold text-slate-900 font-['Outfit'] mb-3">
+            Check Your Eligibility
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed mb-4">
+            Are you eligible for {guide.shortTitle}? Enter your date of birth and category to run our deterministic eligibility check.
+          </p>
+          <a
+            href="/eligibility-checker"
+            class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all"
+          >
+            <span>Run Free Eligibility Check</span> &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

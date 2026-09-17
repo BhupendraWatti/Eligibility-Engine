@@ -1,0 +1,202 @@
+---
+// src/pages/admin/recruitments/new.astro
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Ingest New Recruitment | Admin">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <a href="/admin" class="text-xs font-semibold text-indigo-600 hover:underline mb-2 inline-block">
+        &larr; Back to Admin Dashboard
+      </a>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Outfit']">
+        Ingest New Government Recruitment
+      </h1>
+      <p class="text-xs text-slate-500 mt-1">
+        Enter verified notification details from the official government rulebook.
+      </p>
+    </div>
+
+    <form class="space-y-8 bg-white p-6 sm:p-10 rounded-3xl border border-slate-200/80 shadow-md shadow-slate-200/40">
+      <!-- Section 1: Canonical Post & Advertisement Info -->
+      <div>
+        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
+          1. Basic Recruitment Details
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Select Canonical Post <span class="text-rose-500">*</span>
+            </label>
+            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="post_mp_constable">Police Constable (General Duty) — Home Dept</option>
+              <option value="post_mp_si">Sub Inspector (Civil Police) — Home Dept</option>
+              <option value="post_mp_patwari">Patwari (Land Records Officer) — Revenue Dept</option>
+              <option value="post_mp_forest_guard">Forest Guard (Van Rakshak) — Forest Dept</option>
+              <option value="post_mp_group4_clerk">Assistant Grade-III / Steno-Typist — GAD</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Advertisement / Notification Number <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Advt No. 09/2026"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Total Advertised Vacancies <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              placeholder="e.g. 5000"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Full Public Title <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. MP Police Constable Recruitment 2026"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Statutory Eligibility Criteria -->
+      <div>
+        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
+          2. Statutory Eligibility Criteria (Deterministic Model)
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Minimum Age
+            </label>
+            <input
+              type="number"
+              value="18"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Max Age (General / UR)
+            </label>
+            <input
+              type="number"
+              value="33"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Age Cutoff Date <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="date"
+              value="2026-01-01"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Minimum Qualification
+            </label>
+            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="10TH">10th Class Pass</option>
+              <option value="12TH">12th Class Pass</option>
+              <option value="DIPLOMA">Polytechnic / Diploma</option>
+              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
+              <option value="POST_GRADUATION">Post Graduate</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              MP Domicile Required?
+            </label>
+            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="1">Yes (MP Residents Only)</option>
+              <option value="0">No (All-India Eligible)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              CPCT Scorecard Required?
+            </label>
+            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="0">No</option>
+              <option value="1">Yes (Mandatory)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Official Provenance & Authority Links -->
+      <div>
+        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
+          3. Source Provenance & Outbound Verification
+        </h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Official Notification PDF URL <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="url"
+              placeholder="https://esb.mp.gov.in/Rulebooks/..."
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Official Application Portal URL <span class="text-rose-500">*</span>
+            </label>
+            <input
+              type="url"
+              placeholder="https://esb.mponline.gov.in"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Actions -->
+      <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
+        <button
+          type="button"
+          class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors"
+        >
+          Save as Draft
+        </button>
+        <button
+          type="submit"
+          class="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all"
+        >
+          Verify & Publish Recruitment ✨
+        </button>
+      </div>
+    </form>
+  </div>
+</BaseLayout>
