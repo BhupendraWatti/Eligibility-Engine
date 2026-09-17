@@ -20,7 +20,7 @@ node_modules/
 .pnp.js
 .npm/
 .yarn/
-
+WEBSITE_AND_BACKEND_AUDIT.md
 # Debug Logs
 npm-debug.log*
 yarn-debug.log*
