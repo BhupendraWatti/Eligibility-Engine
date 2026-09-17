@@ -1,0 +1,156 @@
+---
+// src/components/admin/AdminSidebar.astro
+interface Props {
+  current?: string;
+}
+
+const { current } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const navItems = [
+  {
+    name: 'Dashboard',
+    href: '/admin',
+    key: 'dashboard',
+    active: current === 'dashboard' || pathname === '/admin' || pathname === '/admin/',
+    icon: 'dashboard',
+  },
+  {
+    name: 'Recruitments',
+    href: '/admin/recruitments',
+    key: 'recruitments',
+    active: current === 'recruitments' || pathname.startsWith('/admin/recruitments'),
+    icon: 'briefcase',
+  },
+  {
+    name: 'Organisations',
+    href: '/admin/organisations',
+    key: 'organisations',
+    active: current === 'organisations' || pathname.startsWith('/admin/organisations'),
+    icon: 'building',
+  },
+  {
+    name: 'Departments',
+    href: '/admin/departments',
+    key: 'departments',
+    active: current === 'departments' || pathname.startsWith('/admin/departments'),
+    icon: 'network',
+  },
+  {
+    name: 'Sectors & posts',
+    href: '/admin/taxonomy',
+    key: 'taxonomy',
+    active: current === 'taxonomy' || pathname.startsWith('/admin/taxonomy') || pathname.startsWith('/admin/masters'),
+    icon: 'layers',
+  },
+  {
+    name: 'Eligibility rules',
+    href: '/admin/rules',
+    key: 'rules',
+    active: current === 'rules' || pathname.startsWith('/admin/rules'),
+    icon: 'list-checks',
+  },
+  {
+    name: 'Sources',
+    href: '/admin/sources/verify',
+    key: 'sources',
+    active: current === 'sources' || pathname.startsWith('/admin/sources'),
+    icon: 'link',
+  },
+  {
+    name: 'Documents',
+    href: '/admin/documents',
+    key: 'documents',
+    active: current === 'documents' || pathname.startsWith('/admin/documents'),
+    icon: 'file-text',
+  },
+  {
+    name: 'SEO',
+    href: '/admin/seo',
+    key: 'seo',
+    active: current === 'seo' || pathname.startsWith('/admin/seo'),
+    icon: 'search-check',
+  },
+  {
+    name: 'Audit log',
+    href: '/admin/audit-log',
+    key: 'audit-log',
+    active: current === 'audit-log' || pathname.startsWith('/admin/audit-log'),
+    icon: 'scroll',
+  },
+  {
+    name: 'Team Access',
+    href: '/admin/users',
+    key: 'users',
+    active: current === 'users' || pathname.startsWith('/admin/users'),
+    icon: 'users',
+  },
+];
+---
+
+<aside class="w-64 bg-sidebar border-r border-border shrink-0 hidden md:flex flex-col justify-between p-4 min-h-[calc(100vh-65px)] max-h-[calc(100vh-65px)] sticky top-[65px] overflow-y-auto">
+  <div class="space-y-4">
+    <div class="px-3 py-2 border-b border-border">
+      <div class="font-bold text-xs uppercase tracking-widest text-primary">NIRNAY OPS</div>
+      <div class="text-[11px] text-muted-foreground">Private Workspace Shell</div>
+    </div>
+
+    <nav class="space-y-1 text-xs font-medium" aria-label="Admin navigation">
+      {navItems.map((item) => (
+        <a
+          href={item.href}
+          class={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+            item.active
+              ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+        >
+          {item.icon === 'dashboard' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          )}
+          {item.icon === 'briefcase' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          )}
+          {item.icon === 'building' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          )}
+          {item.icon === 'network' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="6" height="6" x="9" y="2" rx="1"/><rect width="6" height="6" x="2" y="16" rx="1"/><rect width="6" height="6" x="16" y="16" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>
+          )}
+          {item.icon === 'layers' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+          )}
+          {item.icon === 'list-checks' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          )}
+          {item.icon === 'link' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          )}
+          {item.icon === 'file-text' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+          )}
+          {item.icon === 'search-check' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m9 11 2 2 4-4"/></svg>
+          )}
+          {item.icon === 'scroll' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          )}
+          {item.icon === 'users' && (
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          )}
+          <span>{item.name}</span>
+        </a>
+      ))}
+    </nav>
+  </div>
+
+  <div class="pt-4 border-t border-border flex items-center gap-3 px-3">
+    <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+      AM
+    </div>
+    <div class="truncate">
+      <div class="text-xs font-semibold text-foreground">Aarav Mehta</div>
+      <div class="text-[10px] text-muted-foreground truncate">Super Admin</div>
+    </div>
+  </div>
+</aside>

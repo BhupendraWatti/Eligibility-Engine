@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/recruitments/index.astro
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../../components/admin/AdminSidebar.astro';
 import { getAllActiveRecruitments } from '../../../db/queries';
 
 // @ts-ignore
@@ -54,72 +55,7 @@ const rows = [
 
 <BaseLayout title="Recruitment Management — NIRNAY OPS">
   <div class="flex min-h-[calc(100vh-65px)] bg-background">
-    <!-- Admin Sidebar Shell -->
-    <aside class="w-64 bg-sidebar border-r border-border shrink-0 hidden md:flex flex-col justify-between p-4">
-      <div class="space-y-6">
-        <div class="px-3 py-2 border-b border-border">
-          <div class="font-bold text-xs uppercase tracking-widest text-primary">NIRNAY OPS</div>
-          <div class="text-[11px] text-muted-foreground">Private Workspace</div>
-        </div>
-
-        <nav class="space-y-1 text-xs font-medium">
-          <a href="/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-            <span>Dashboard</span>
-          </a>
-          <a href="/admin/recruitments" class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-            <span>Recruitments</span>
-          </a>
-          <a href="/admin/organisations" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/></svg>
-            <span>Organisations</span>
-          </a>
-          <a href="/admin/departments" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="6" height="6" x="9" y="2" rx="1"/></svg>
-            <span>Departments</span>
-          </a>
-          <a href="/admin/taxonomy" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/></svg>
-            <span>Sectors & posts</span>
-          </a>
-          <a href="/admin/rules" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11 3 3L22 4"/></svg>
-            <span>Eligibility rules</span>
-          </a>
-          <a href="/admin/sources/verify" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/></svg>
-            <span>Sources</span>
-          </a>
-          <a href="/admin/documents" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
-            <span>Documents</span>
-          </a>
-          <a href="/admin/seo" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/></svg>
-            <span>SEO</span>
-          </a>
-          <a href="/admin/audit-log" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
-            <span>Audit log</span>
-          </a>
-          <a href="/admin/users" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/></svg>
-            <span>Team Access</span>
-          </a>
-        </nav>
-      </div>
-
-      <div class="pt-4 border-t border-border flex items-center gap-3 px-3">
-        <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-          AM
-        </div>
-        <div class="truncate">
-          <div class="text-xs font-semibold text-foreground">Aarav Mehta</div>
-          <div class="text-[10px] text-muted-foreground">Super Admin</div>
-        </div>
-      </div>
-    </aside>
+    <AdminSidebar current="recruitments" />
 
     <!-- Main Table Content -->
     <main class="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full">
