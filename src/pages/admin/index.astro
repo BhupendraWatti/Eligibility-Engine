@@ -49,129 +49,131 @@ const totalVacancies = recruitments.reduce((sum: number, r: any) => sum + (r.tot
         </div>
       </div>
 
-      <!-- 6 Metrics Cards (Flowstep Screen 20) -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Total Active</span>
-          <span class="text-2xl font-bold text-foreground font-mono">{recruitments.length}</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Drives tracked</span>
+      <!-- 4 Live Metrics Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="p-5 rounded-2xl bg-card border border-border shadow-sm">
+          <span class="text-xs font-semibold text-muted-foreground block mb-1">Active Recruitments</span>
+          <span class="text-3xl font-black text-foreground font-mono">{recruitments.length}</span>
+          <span class="text-[11px] text-muted-foreground block mt-1">Live state drives tracked</span>
         </div>
 
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Open Apps</span>
-          <span class="text-2xl font-bold text-emerald-600 font-mono">42</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Accepting form</span>
+        <div class="p-5 rounded-2xl bg-card border border-border shadow-sm">
+          <span class="text-xs font-semibold text-muted-foreground block mb-1">Total Vacancies</span>
+          <span class="text-3xl font-black text-emerald-600 font-mono">{totalVacancies.toLocaleString()}</span>
+          <span class="text-[11px] text-muted-foreground block mt-1">Government posts in MP</span>
         </div>
 
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Closing Today</span>
-          <span class="text-2xl font-bold text-amber-600 font-mono">3</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Urgent cutoff</span>
+        <div class="p-5 rounded-2xl bg-card border border-border shadow-sm">
+          <span class="text-xs font-semibold text-muted-foreground block mb-1">Canonical Posts</span>
+          <span class="text-3xl font-black text-indigo-600 font-mono">{posts.length}</span>
+          <span class="text-[11px] text-muted-foreground block mt-1">Standardized job profiles</span>
         </div>
 
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Verification</span>
-          <span class="text-2xl font-bold text-indigo-600 font-mono">12</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Needs review</span>
-        </div>
-
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Draft Records</span>
-          <span class="text-2xl font-bold text-slate-500 font-mono">8</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Unpublished</span>
-        </div>
-
-        <div class="p-4 rounded-xl bg-card border border-border">
-          <span class="text-[11px] font-semibold text-muted-foreground block mb-1">Expired</span>
-          <span class="text-2xl font-bold text-red-500 font-mono">2</span>
-          <span class="text-[10px] text-muted-foreground block mt-1">Cycle closed</span>
+        <div class="p-5 rounded-2xl bg-card border border-border shadow-sm">
+          <span class="text-xs font-semibold text-muted-foreground block mb-1">Master Sectors</span>
+          <span class="text-3xl font-black text-foreground font-mono">{sectors.length}</span>
+          <span class="text-[11px] text-muted-foreground block mt-1">Classified state sectors</span>
         </div>
       </div>
 
-      <!-- Two Columns: Recent Activity + Data Quality -->
+      <!-- Two Columns: Active Recruitments Feed + Quick Management Actions -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Recent Activity List -->
+        <!-- Live Recruitments Feed -->
         <div class="bg-card rounded-2xl border border-border p-6 shadow-sm">
           <div class="flex items-center justify-between pb-4 border-b border-border mb-4">
             <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-              Recent Activity
+              Tracked Opportunities
             </h2>
-            <span class="text-xs text-muted-foreground">Today</span>
+            <a href="/admin/recruitments" class="text-xs text-primary font-semibold hover:underline">
+              View all ({recruitments.length}) &rarr;
+            </a>
           </div>
 
           <div class="space-y-4 text-xs">
-            <div class="flex items-start gap-3 pb-3 border-b border-border">
-              <span class="size-2 rounded-full bg-blue-500 mt-1.5 shrink-0"></span>
-              <div class="flex-1">
-                <span class="font-bold text-foreground">MP Police Constable updated</span>
-                <p class="text-muted-foreground mt-0.5">Application deadline corrected to 06 Oct 2026 by Aarav Mehta</p>
-                <span class="text-[10px] text-muted-foreground font-mono mt-1 block">18:32 PM</span>
+            {recruitments.slice(0, 4).map((rec: any) => (
+              <div class="flex items-start justify-between gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {rec.lifecycleStatus}
+                    </span>
+                    <span class="text-muted-foreground font-mono">{rec.organisationShortName}</span>
+                  </div>
+                  <a href={`/recruitments/${rec.slug}`} class="font-bold text-foreground hover:text-primary transition-colors text-sm">
+                    {rec.title}
+                  </a>
+                  <span class="text-[11px] text-muted-foreground block mt-0.5">
+                    {rec.totalVacancies?.toLocaleString()} Vacancies · Minimum {rec.criteria?.minQualificationLevel}
+                  </span>
+                </div>
+                <a
+                  href={`/recruitments/${rec.slug}`}
+                  class="shrink-0 text-xs text-primary hover:underline font-semibold"
+                >
+                  Preview &rarr;
+                </a>
               </div>
-            </div>
-
-            <div class="flex items-start gap-3 pb-3 border-b border-border">
-              <span class="size-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></span>
-              <div class="flex-1">
-                <span class="font-bold text-foreground">Forest Guard published</span>
-                <p class="text-muted-foreground mt-0.5">Recruitment moved from Review to Published status</p>
-                <span class="text-[10px] text-muted-foreground font-mono mt-1 block">11:20 AM</span>
-              </div>
-            </div>
-
-            <div class="flex items-start gap-3">
-              <span class="size-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></span>
-              <div class="flex-1">
-                <span class="font-bold text-foreground">Assistant Grade III source verified</span>
-                <p class="text-muted-foreground mt-0.5">Official High Court gazette verified against D1 rulebook</p>
-                <span class="text-[10px] text-muted-foreground font-mono mt-1 block">09:45 AM</span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        <!-- Data Quality Checklist -->
+        <!-- Management Workflows -->
         <div class="bg-card rounded-2xl border border-border p-6 shadow-sm">
           <div class="flex items-center justify-between pb-4 border-b border-border mb-4">
             <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-              Data Quality & Verification
+              Administration Workflows
             </h2>
-            <span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              Needs Attention
+            <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              System Ready
             </span>
           </div>
 
           <div class="space-y-3 text-xs">
-            <div class="p-3 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
+            <a
+              href="/admin/recruitments/new"
+              class="p-4 rounded-xl bg-muted/40 hover:bg-muted border border-border flex items-center justify-between transition-colors group block"
+            >
               <div>
-                <span class="font-bold text-foreground block">12 records need verification</span>
-                <span class="text-[11px] text-muted-foreground">Extracted claims pending manual cross-check</span>
+                <span class="font-bold text-foreground group-hover:text-primary transition-colors block text-sm">
+                  + Ingest New Recruitment
+                </span>
+                <span class="text-[11px] text-muted-foreground">
+                  Publish a new opportunity with statutory age, qualification and physical standards.
+                </span>
               </div>
-              <a href="/admin/sources/verify" class="text-primary font-semibold hover:underline">Review &rarr;</a>
-            </div>
+              <span class="text-primary font-bold text-base">&rarr;</span>
+            </a>
 
-            <div class="p-3 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
+            <a
+              href="/admin/masters"
+              class="p-4 rounded-xl bg-muted/40 hover:bg-muted border border-border flex items-center justify-between transition-colors group block"
+            >
               <div>
-                <span class="font-bold text-foreground block">3 missing official links</span>
-                <span class="text-[11px] text-muted-foreground">Notification URLs require canonical resolution</span>
+                <span class="font-bold text-foreground group-hover:text-primary transition-colors block text-sm">
+                  Master Records Catalog
+                </span>
+                <span class="text-[11px] text-muted-foreground">
+                  Manage {posts.length} canonical posts, pay matrices, and default eligibility profiles.
+                </span>
               </div>
-              <a href="/admin/documents" class="text-primary font-semibold hover:underline">Fix &rarr;</a>
-            </div>
+              <span class="text-primary font-bold text-base">&rarr;</span>
+            </a>
 
-            <div class="p-3 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
+            <a
+              href="/jobs"
+              target="_blank"
+              class="p-4 rounded-xl bg-muted/40 hover:bg-muted border border-border flex items-center justify-between transition-colors group block"
+            >
               <div>
-                <span class="font-bold text-foreground block">4 missing eligibility rules</span>
-                <span class="text-[11px] text-muted-foreground">Physical standards or CPCT status incomplete</span>
+                <span class="font-bold text-foreground group-hover:text-primary transition-colors block text-sm">
+                  Public Discovery Portal
+                </span>
+                <span class="text-[11px] text-muted-foreground">
+                  View how opportunities, filters, and eligibility calculators appear to citizens.
+                </span>
               </div>
-              <a href="/admin/rules" class="text-primary font-semibold hover:underline">Builder &rarr;</a>
-            </div>
-
-            <div class="p-3 rounded-xl bg-muted/50 border border-border flex items-center justify-between">
-              <div>
-                <span class="font-bold text-foreground block">2 expired recruitments</span>
-                <span class="text-[11px] text-muted-foreground">Archive or move to completed stage</span>
-              </div>
-              <a href="/admin/recruitments" class="text-primary font-semibold hover:underline">Archive &rarr;</a>
-            </div>
+              <span class="text-primary font-bold text-base">&rarr;</span>
+            </a>
           </div>
         </div>
       </div>

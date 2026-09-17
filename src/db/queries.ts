@@ -61,6 +61,9 @@ export interface RecruitmentWithDetails {
   organisationName: string;
   organisationShortName: string;
   organisationUrl: string;
+  applicationStart?: string;
+  applicationEnd?: string;
+  examDate?: string;
   criteria: {
     minAge: number;
     maxAgeGeneral: number;
@@ -664,6 +667,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-09-01',
+    applicationEnd: '2026-10-06',
+    examDate: '2026-11-22',
     criteria: {
       minAge: 18,
       maxAgeGeneral: 33,
@@ -685,40 +691,6 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     },
   },
   {
-    id: 'rec_mp_patwari_2026',
-    postId: 'post_mp_patwari',
-    advtNumber: 'Advt No. 06/2026',
-    title: 'MP ESB Patwari & Combined Group-2 Sub-Group-4 Recruitment 2026',
-    slug: 'mp-patwari-recruitment-2026',
-    shortSummary: 'Recruitment for 3,550 vacancies of Patwari and Revenue Inspectors across all 55 districts of Madhya Pradesh. Graduate with CPCT required.',
-    cycleYear: 2026,
-    totalVacancies: 3550,
-    status: 'PUBLISHED',
-    lifecycleStatus: 'UPCOMING',
-    isFeatured: 1,
-    postTitle: 'Patwari (Land Records Officer)',
-    postSlug: 'mp-patwari',
-    organisationName: 'Madhya Pradesh Employees Selection Board',
-    organisationShortName: 'MPESB',
-    organisationUrl: 'https://esb.mp.gov.in',
-    criteria: {
-      minAge: 18,
-      maxAgeGeneral: 40,
-      ageCutoffDate: '2026-01-01',
-      ageRelaxationScSt: 5,
-      ageRelaxationObc: 5,
-      ageRelaxationFemale: 5,
-      ageRelaxationEws: 0,
-      minQualificationLevel: 'GRADUATION',
-      requiresMpDomicile: true,
-      requiresMpEmploymentReg: true,
-      requiresCpct: true,
-      genderAllowed: 'ALL',
-      minPercentageRequired: null,
-      additionalSkills: ['Hindi Typing'],
-    },
-  },
-  {
     id: 'rec_mp_forest_guard_2026',
     postId: 'post_mp_forest_guard',
     advtNumber: 'Advt No. 07/2026',
@@ -735,6 +707,9 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
     organisationName: 'Madhya Pradesh Employees Selection Board',
     organisationShortName: 'MPESB',
     organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-08-25',
+    applicationEnd: '2026-09-29',
+    examDate: '2026-11-18',
     criteria: {
       minAge: 18,
       maxAgeGeneral: 33,
@@ -753,6 +728,268 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = [
       minChestMaleCm: 79.0,
       minPercentageRequired: null,
       additionalSkills: null,
+    },
+  },
+  {
+    id: 'rec_mp_group4_clerk_2026',
+    postId: 'post_mp_group4_clerk',
+    advtNumber: 'Advt No. 08/2026',
+    title: 'Assistant Grade-III & Steno-Typist Combined Recruitment 2026',
+    slug: 'mp-assistant-grade-3-recruitment-2026',
+    shortSummary: 'Combined clerical cadre recruitment for 1,420 vacancies across MP Civil Secretariat and District Collectorates.',
+    cycleYear: 2026,
+    totalVacancies: 1420,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'OPEN',
+    isFeatured: 1,
+    postTitle: 'Assistant Grade-III / Steno-Typist (State Secretariat)',
+    postSlug: 'mp-assistant-grade-3',
+    organisationName: 'Madhya Pradesh Employees Selection Board',
+    organisationShortName: 'MPESB',
+    organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-09-10',
+    applicationEnd: '2026-10-18',
+    examDate: '2026-12-05',
+    criteria: {
+      minAge: 18,
+      maxAgeGeneral: 40,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 5,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: '12TH',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: true,
+      genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: ['Hindi Typing', 'CPCT Scorecard'],
+    },
+  },
+  {
+    id: 'rec_mp_jja_court_2026',
+    postId: 'post_mp_jja_court',
+    advtNumber: 'Advt No. HC/JJA/2026',
+    title: 'Junior Judicial Assistant (JJA) & Court AG-III Examination 2026',
+    slug: 'mp-jja-court-recruitment-2026',
+    shortSummary: 'Direct ministerial recruitment for 980 vacancies in the High Court Registry of Madhya Pradesh and Subordinate District Courts.',
+    cycleYear: 2026,
+    totalVacancies: 980,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'OPEN',
+    isFeatured: 0,
+    postTitle: 'Junior Judicial Assistant (JJA) / Assistant Grade-III (Courts)',
+    postSlug: 'mp-jja-court',
+    organisationName: 'High Court of Madhya Pradesh',
+    organisationShortName: 'MPHC',
+    organisationUrl: 'https://mphc.gov.in',
+    applicationStart: '2026-09-20',
+    applicationEnd: '2026-11-05',
+    examDate: '2026-12-12',
+    criteria: {
+      minAge: 18,
+      maxAgeGeneral: 35,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 3,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: 'GRADUATION',
+      requiresMpDomicile: false,
+      requiresMpEmploymentReg: true,
+      requiresCpct: true,
+      genderAllowed: 'ALL',
+      minPercentageRequired: 50.0,
+      additionalSkills: ['English & Hindi Typing'],
+    },
+  },
+  {
+    id: 'rec_mp_patwari_2026',
+    postId: 'post_mp_patwari',
+    advtNumber: 'Advt No. 06/2026',
+    title: 'MP ESB Patwari & Combined Group-2 Sub-Group-4 Recruitment 2026',
+    slug: 'mp-patwari-recruitment-2026',
+    shortSummary: 'Recruitment for 3,550 vacancies of Patwari and Revenue Inspectors across all 55 districts of Madhya Pradesh. Graduate with CPCT required.',
+    cycleYear: 2026,
+    totalVacancies: 3550,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'UPCOMING',
+    isFeatured: 1,
+    postTitle: 'Patwari (Land Records Officer)',
+    postSlug: 'mp-patwari',
+    organisationName: 'Madhya Pradesh Employees Selection Board',
+    organisationShortName: 'MPESB',
+    organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-10-15',
+    applicationEnd: '2026-11-10',
+    examDate: '2026-12-15',
+    criteria: {
+      minAge: 18,
+      maxAgeGeneral: 40,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 5,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: 'GRADUATION',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: true,
+      genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: ['Hindi Typing'],
+    },
+  },
+  {
+    id: 'rec_mp_mppsc_sse_2026',
+    postId: 'post_mp_deputy_collector',
+    advtNumber: 'Advt No. 01/Exam/2026',
+    title: 'MPPSC State Services Examination (SSE) 2026',
+    slug: 'mppsc-state-service-2026',
+    shortSummary: 'Prestigious administrative exam for 356 Class II gazetted executive posts including Deputy Collector, DSP, and Commercial Tax Officer.',
+    cycleYear: 2026,
+    totalVacancies: 356,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'OPEN',
+    isFeatured: 1,
+    postTitle: 'Deputy Collector (State Administrative Service)',
+    postSlug: 'mp-deputy-collector',
+    organisationName: 'Madhya Pradesh Public Service Commission',
+    organisationShortName: 'MPPSC',
+    organisationUrl: 'https://mppsc.mp.gov.in',
+    applicationStart: '2026-09-15',
+    applicationEnd: '2026-10-28',
+    examDate: '2026-12-20',
+    criteria: {
+      minAge: 21,
+      maxAgeGeneral: 40,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 5,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: 'GRADUATION',
+      requiresMpDomicile: false,
+      requiresMpEmploymentReg: true,
+      requiresCpct: false,
+      genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: null,
+    },
+  },
+  {
+    id: 'rec_mp_staff_nurse_2026',
+    postId: 'post_mp_staff_nurse',
+    advtNumber: 'Advt No. 09/2026',
+    title: 'Staff Nurse & Paramedical Cadre Recruitment 2026',
+    slug: 'mp-staff-nurse-recruitment-2026',
+    shortSummary: 'Clinical healthcare recruitment by MPESB for 1,240 Nursing Officers across District Hospitals and Medical Colleges.',
+    cycleYear: 2026,
+    totalVacancies: 1240,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'UPCOMING',
+    isFeatured: 0,
+    postTitle: 'Staff Nurse (Nursing Officer)',
+    postSlug: 'mp-staff-nurse',
+    organisationName: 'Madhya Pradesh Employees Selection Board',
+    organisationShortName: 'MPESB',
+    organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-10-05',
+    applicationEnd: '2026-11-02',
+    examDate: '2026-12-22',
+    criteria: {
+      minAge: 21,
+      maxAgeGeneral: 40,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 3,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: 'DIPLOMA',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: false,
+      genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: ['MP Nursing Council Registration'],
+    },
+  },
+  {
+    id: 'rec_mp_si_2026',
+    postId: 'post_mp_si',
+    advtNumber: 'Advt No. 10/2026',
+    title: 'MP Police Sub Inspector (Civil Police) Recruitment 2026',
+    slug: 'mp-police-sub-inspector-recruitment-2026',
+    shortSummary: 'Executive policing recruitment for 850 Sub Inspectors across MP Police. Degree holders eligible.',
+    cycleYear: 2026,
+    totalVacancies: 850,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'UPCOMING',
+    isFeatured: 0,
+    postTitle: 'Sub Inspector (Civil Police)',
+    postSlug: 'mp-police-sub-inspector',
+    organisationName: 'Madhya Pradesh Employees Selection Board',
+    organisationShortName: 'MPESB',
+    organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-10-12',
+    applicationEnd: '2026-11-20',
+    examDate: '2027-01-10',
+    criteria: {
+      minAge: 21,
+      maxAgeGeneral: 33,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 3,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: 'GRADUATION',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: false,
+      genderAllowed: 'ALL',
+      minHeightMaleCm: 168.0,
+      minHeightFemaleCm: 153.0,
+      minChestMaleCm: 81.0,
+      minPercentageRequired: null,
+      additionalSkills: null,
+    },
+  },
+  {
+    id: 'rec_mp_samvida_varg3_2026',
+    postId: 'post_mp_samvida_varg3',
+    advtNumber: 'Advt No. 02/2026',
+    title: 'Primary School Teacher (Prathmik Shikshak / Varg-3) Eligibility Test',
+    slug: 'mp-primary-teacher-varg-3-2026',
+    shortSummary: 'Statewide eligibility examination for 4,200 primary teacher vacancies in MP School Education and Tribal Affairs departments.',
+    cycleYear: 2026,
+    totalVacancies: 4200,
+    status: 'PUBLISHED',
+    lifecycleStatus: 'CLOSED',
+    isFeatured: 0,
+    postTitle: 'Primary School Teacher (Prathmik Shikshak / Varg-3)',
+    postSlug: 'mp-primary-teacher-varg-3',
+    organisationName: 'Madhya Pradesh Employees Selection Board',
+    organisationShortName: 'MPESB',
+    organisationUrl: 'https://esb.mp.gov.in',
+    applicationStart: '2026-07-01',
+    applicationEnd: '2026-08-15',
+    examDate: '2026-09-25',
+    criteria: {
+      minAge: 18,
+      maxAgeGeneral: 40,
+      ageCutoffDate: '2026-01-01',
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 5,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: '12TH',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: false,
+      genderAllowed: 'ALL',
+      minPercentageRequired: 50.0,
+      additionalSkills: ['D.El.Ed / B.Ed'],
     },
   },
 ];
@@ -1047,3 +1284,122 @@ export async function getAllActiveRecruitments(providedD1?: D1Database): Promise
   }
 }
 
+/**
+ * Fetch a single recruitment by its URL slug
+ */
+export async function getRecruitmentBySlug(slug: string, providedD1?: D1Database): Promise<RecruitmentWithDetails | undefined> {
+  const recruitments = await getAllActiveRecruitments(providedD1);
+  return recruitments.find(r => r.slug === slug);
+}
+
+/**
+ * Fetch a single sector by its URL slug
+ */
+export async function getSectorBySlug(slug: string, providedD1?: D1Database): Promise<MasterSector | undefined> {
+  const sectors = await getAllSectors(providedD1);
+  return sectors.find(s => s.slug === slug);
+}
+
+/**
+ * Fetch all canonical posts for a given sector ID
+ */
+export async function getPostsBySectorId(sectorId: string, providedD1?: D1Database): Promise<CanonicalPostWithDetails[]> {
+  const posts = await getAllCanonicalPosts(providedD1);
+  return posts.filter(p => p.sectorId === sectorId);
+}
+
+/**
+ * Ingest and create a new recruitment drive
+ */
+export async function createRecruitment(
+  data: {
+    title: string;
+    postId: string;
+    advtNumber: string;
+    totalVacancies: number;
+    organisationShortName?: string;
+    shortSummary?: string;
+    lifecycleStatus?: string;
+    minAge?: number;
+    maxAgeGeneral?: number;
+    minQualificationLevel?: string;
+    applicationStart?: string;
+    applicationEnd?: string;
+    examDate?: string;
+  },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = providedD1 || cfEnv?.DB;
+  const newId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const matchedPost = FALLBACK_POSTS.find(p => p.id === data.postId);
+  const orgName = data.organisationShortName === 'MPPSC' 
+    ? 'Madhya Pradesh Public Service Commission' 
+    : data.organisationShortName === 'MPHC'
+    ? 'High Court of Madhya Pradesh'
+    : 'Madhya Pradesh Employees Selection Board';
+
+  const newRecruitment: RecruitmentWithDetails = {
+    id: newId,
+    postId: data.postId,
+    advtNumber: data.advtNumber,
+    title: data.title,
+    slug,
+    shortSummary: data.shortSummary || `Direct recruitment for ${data.totalVacancies.toLocaleString()} vacancies of ${matchedPost?.title || 'posts'} in Madhya Pradesh.`,
+    cycleYear: new Date().getFullYear(),
+    totalVacancies: data.totalVacancies,
+    status: 'PUBLISHED',
+    lifecycleStatus: data.lifecycleStatus || 'OPEN',
+    isFeatured: 0,
+    postTitle: matchedPost?.title || 'State Government Post',
+    postSlug: matchedPost?.slug || '',
+    organisationName: orgName,
+    organisationShortName: data.organisationShortName || 'MPESB',
+    organisationUrl: data.organisationShortName === 'MPPSC' ? 'https://mppsc.mp.gov.in' : 'https://esb.mp.gov.in',
+    criteria: {
+      minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+      maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+      ageCutoffDate: `${new Date().getFullYear()}-01-01`,
+      ageRelaxationScSt: 5,
+      ageRelaxationObc: 3,
+      ageRelaxationFemale: 5,
+      ageRelaxationEws: 0,
+      minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
+      requiresMpDomicile: true,
+      requiresMpEmploymentReg: true,
+      requiresCpct: false,
+      genderAllowed: 'ALL',
+      minPercentageRequired: null,
+      additionalSkills: null,
+    },
+  };
+
+  // Add to in-memory fallback list so it appears immediately
+  FALLBACK_RECRUITMENTS.unshift(newRecruitment);
+
+  if (!d1) return newId;
+
+  try {
+    const db = getDb(d1);
+    await db.insert(schema.recruitments).values({
+      id: newId,
+      postId: data.postId,
+      organisationId: data.organisationShortName === 'MPPSC' ? 'org_mppsc' : 'org_mpesb',
+      stateId: 'st_mp',
+      advtNumber: data.advtNumber,
+      title: data.title,
+      slug,
+      shortSummary: newRecruitment.shortSummary,
+      cycleYear: newRecruitment.cycleYear,
+      totalVacancies: data.totalVacancies,
+      status: 'PUBLISHED',
+      lifecycleStatus: newRecruitment.lifecycleStatus,
+      isFeatured: 0,
+    });
+    return newId;
+  } catch (error) {
+    console.error('Error creating recruitment in D1:', error);
+    return newId;
+  }
+}

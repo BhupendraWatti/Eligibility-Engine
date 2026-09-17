@@ -1,50 +1,48 @@
 ---
 // src/pages/sectors/[sector].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllSectors, getPostsBySectorId, getAllActiveRecruitments } from '../../db/queries';
 
-const { sector = 'police' } = Astro.params;
+const sectorParam = (Astro.params.sector || 'police').toLowerCase();
 
-const formattedSector = sector.charAt(0).toUpperCase() + sector.slice(1);
+const [allSectors, allRecruitments] = await Promise.all([
+  getAllSectors(),
+  getAllActiveRecruitments(),
+]);
 
-const posts = [
-  {
-    title: 'Police Constable (General Duty / Radio)',
-    slug: 'mp-police-constable-recruitment-2026',
-    vacancies: 7500,
-    qualification: '10th Pass (Higher Secondary for special cadres)',
-    status: 'Applications Open',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  },
-  {
-    title: 'Sub Inspector (MP Police SI)',
-    slug: 'mp-police-sub-inspector-recruitment-2026',
-    vacancies: 850,
-    qualification: 'Graduation in any discipline',
-    status: 'Upcoming (Oct 2026)',
-    statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
-  },
-  {
-    title: 'Subedar & Platoon Commander',
-    slug: 'mp-subedar-recruitment-2026',
-    vacancies: 210,
-    qualification: 'Graduation + Physical Standard Met',
-    status: 'Upcoming',
-    statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
-  },
-  {
-    title: 'Assistant Sub Inspector (Stenographer / Clerk)',
-    slug: 'mp-police-asi-steno-2026',
-    vacancies: 180,
-    qualification: '12th Pass + CPCT Certificate + Hindi Typing',
-    status: 'Rulebook Gazetted',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-  },
-];
+// Find matching sector by slug or keyword
+const sector = allSectors.find(s => 
+  s.slug === sectorParam || 
+  s.slug.startsWith(sectorParam) || 
+  sectorParam.startsWith(s.slug) ||
+  s.name.toLowerCase().includes(sectorParam)
+) || allSectors[1] || allSectors[0]; // fallback to police or first sector
+
+const posts = await getPostsBySectorId(sector.id);
+const postIds = new Set(posts.map(p => p.id));
+
+// Find recruitments matching this sector
+const sectorRecruitments = allRecruitments.filter(r => 
+  (r.postId && postIds.has(r.postId)) ||
+  r.postTitle?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0]) ||
+  r.title?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0])
+);
+
+const openRecruitments = sectorRecruitments.filter(r => r.lifecycleStatus === 'OPEN');
+const upcomingRecruitments = sectorRecruitments.filter(r => r.lifecycleStatus === 'UPCOMING');
+
+const totalVacancies = sectorRecruitments.reduce((acc, r) => acc + (r.totalVacancies || 0), 0);
+
+// Sector guidelines helper
+const isUniformService = sector.slug.includes('police') || sector.slug.includes('forest');
+const isEducation = sector.slug.includes('teaching');
+const isJudiciary = sector.slug.includes('judiciary');
+const isMedical = sector.slug.includes('health');
 ---
 
 <BaseLayout
-  title={`${formattedSector} Jobs in Madhya Pradesh — NIRNAY MP`}
-  description={`Explore open and upcoming ${formattedSector} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
+  title={`${sector.name} Jobs in Madhya Pradesh — NIRNAY MP`}
+  description={`Explore open and upcoming ${sector.name} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
 >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
@@ -53,7 +51,7 @@ const posts = [
       <span>/</span>
       <a href="/jobs" class="hover:text-foreground">Sectors</a>
       <span>/</span>
-      <span class="text-foreground font-medium">{formattedSector}</span>
+      <span class="text-foreground font-medium">{sector.name}</span>
     </nav>
 
     <!-- Header & Hero Strip -->
@@ -63,77 +61,127 @@ const posts = [
           Sector Discovery Hub
         </span>
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-          {formattedSector} Jobs in Madhya Pradesh
+          {sector.name} in Madhya Pradesh
         </h1>
         <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-          Explore open and upcoming {formattedSector.toLowerCase()} opportunities, eligibility, statutory relaxations, and official recruitment links.
+          Explore open and upcoming opportunities, statutory qualifications, age relaxations, and official government gazette notices.
         </p>
 
         <div class="flex flex-wrap items-center gap-4 mt-4 text-xs font-mono">
-          <span class="text-foreground"><strong>12</strong> Open Positions</span>
+          <span class="text-foreground font-bold">{openRecruitments.length} Active Drives</span>
           <span class="text-muted-foreground">·</span>
-          <span class="text-foreground"><strong>4</strong> Upcoming Drives</span>
+          <span class="text-foreground font-bold">{totalVacancies.toLocaleString()} Total Vacancies</span>
           <span class="text-muted-foreground">·</span>
-          <span class="text-muted-foreground">Updated 21 Sep 2026</span>
+          <span class="text-muted-foreground">{posts.length} Recognized Cadres</span>
         </div>
       </div>
 
-      <div class="shrink-0">
+      <div class="shrink-0 flex items-center gap-3">
         <a
           href="/eligibility-checker"
           class="px-5 py-3 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs sm:text-sm shadow-sm transition-colors inline-flex items-center gap-2"
         >
-          <span>Check {formattedSector} Eligibility</span>
+          <span>Check {sector.name.split(' ')[0]} Eligibility</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
       </div>
     </div>
 
-    <!-- Tabs Strip -->
-    <div class="flex items-center gap-6 border-b border-border mb-8 text-xs font-semibold text-muted-foreground">
-      <span class="text-primary border-b-2 border-primary pb-3 font-bold -mb-px">Open Positions (4)</span>
-      <span class="hover:text-foreground cursor-pointer pb-3">Upcoming Recruitments</span>
-      <span class="hover:text-foreground cursor-pointer pb-3">Completed Recruitments</span>
-      <span class="hover:text-foreground cursor-pointer pb-3">Related Posts</span>
-    </div>
-
-    <!-- Posts Grid (2 Cols) + Sector Info Sidebar (1 Col) -->
+    <!-- Layout: Main Content (2 Cols) + Sidebar (1 Col) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- Main Posts List (2 Cols) -->
-      <div class="lg:col-span-2 space-y-4">
-        {posts.map((p) => (
-          <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${p.statusColor}`}>
-                {p.status}
-              </span>
-              <span class="text-xs text-muted-foreground font-mono font-bold">
-                {p.vacancies.toLocaleString()} Vacancies
-              </span>
+      <!-- Main Content (2 Cols) -->
+      <div class="lg:col-span-2 space-y-8">
+        <!-- Live Recruitment Drives -->
+        <div>
+          <h2 class="text-base font-bold text-foreground uppercase tracking-wider mb-4 flex items-center justify-between">
+            <span>Active & Upcoming Recruitment Drives ({sectorRecruitments.length})</span>
+            <a href="/jobs" class="text-xs text-primary font-medium hover:underline">View all jobs &rarr;</a>
+          </h2>
+
+          {sectorRecruitments.length === 0 ? (
+            <div class="p-8 rounded-2xl bg-card border border-border text-center">
+              <p class="text-xs text-muted-foreground">No active recruitment drives at this exact moment for this sector.</p>
+              <p class="text-xs text-muted-foreground mt-1">Review the permanent canonical cadres below or run an eligibility check.</p>
             </div>
+          ) : (
+            <div class="space-y-4">
+              {sectorRecruitments.map((r) => {
+                const statusColor = r.lifecycleStatus === 'OPEN'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : r.lifecycleStatus === 'UPCOMING'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-muted text-muted-foreground border-border';
 
-            <h2 class="text-base font-bold text-foreground mb-1">
-              <a href={`/recruitments/${p.slug}`} class="hover:text-primary transition-colors">
-                {p.title}
-              </a>
-            </h2>
+                return (
+                  <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                      <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+                        {r.lifecycleStatus}
+                      </span>
+                      <span class="text-xs text-muted-foreground font-mono font-bold">
+                        {r.totalVacancies.toLocaleString()} Vacancies
+                      </span>
+                    </div>
 
-            <p class="text-xs text-muted-foreground mb-4">
-              Qualification: <strong class="text-foreground">{p.qualification}</strong>
-            </p>
+                    <h3 class="text-base font-bold text-foreground mb-1">
+                      <a href={`/recruitments/${r.slug}`} class="hover:text-primary transition-colors">
+                        {r.title}
+                      </a>
+                    </h3>
 
-            <div class="pt-3 border-t border-border flex items-center justify-between">
-              <span class="text-[11px] text-muted-foreground">Conducting Agency: MPESB</span>
+                    <p class="text-xs text-muted-foreground mb-3 line-clamp-2">{r.shortSummary}</p>
+
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mb-4">
+                      <span>Agency: <strong class="text-foreground">{r.organisationShortName}</strong></span>
+                      <span>·</span>
+                      <span>Min Qualification: <strong class="text-foreground">{r.criteria.minQualificationLevel}</strong></span>
+                      <span>·</span>
+                      <span>Age: <strong class="text-foreground">{r.criteria.minAge}–{r.criteria.maxAgeGeneral} yrs</strong></span>
+                    </div>
+
+                    <div class="pt-3 border-t border-border flex items-center justify-between">
+                      <span class="text-[11px] text-muted-foreground font-mono">{r.advtNumber}</span>
+                      <a
+                        href={`/recruitments/${r.slug}`}
+                        class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>View jobs & criteria</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <!-- Canonical Post Profiles for this Sector -->
+        <div>
+          <h2 class="text-base font-bold text-foreground uppercase tracking-wider mb-4">
+            Established Cadres & Posts ({posts.length})
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {posts.map((post) => (
               <a
-                href={`/recruitments/${p.slug}`}
-                class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                href={`/posts/${post.slug}`}
+                class="block p-5 rounded-2xl bg-card border border-border hover:border-primary hover:shadow-xs transition-all group"
               >
-                <span>View jobs & criteria</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <h4 class="text-sm font-bold text-foreground group-hover:text-primary transition-colors mb-1">
+                  {post.title}
+                </h4>
+                <p class="text-xs text-muted-foreground line-clamp-2 mb-3">
+                  {post.summary}
+                </p>
+                <div class="text-[11px] font-mono text-muted-foreground space-y-0.5">
+                  <div>Min Qualification: <strong class="text-foreground">{post.defaultQualification}</strong></div>
+                  <div>Pay Matrix: <strong class="text-foreground">{post.payScale || 'State Cadre Rules'}</strong></div>
+                </div>
               </a>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
       <!-- Right Source Policy Card -->
@@ -143,23 +191,84 @@ const posts = [
             Source & Statutory Policy
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-3">
-            All police recruitment standards in Madhya Pradesh adhere to the MP Police Executive Force (Amended) Rules.
+            All recruitment criteria for {sector.name} adhere strictly to official service rules published in the Madhya Pradesh Gazette.
           </p>
           <p class="text-xs text-muted-foreground leading-relaxed">
-            Relaxations for women and domiciled SC/ST/OBC applicants are statutory and calculated automatically in our engine.
+            Statutory age relaxations for SC/ST (+5 yrs), OBC (+3–5 yrs), and Women (+5 yrs) domiciled in Madhya Pradesh are calculated automatically in our engine.
           </p>
         </div>
 
-        <div class="p-6 rounded-2xl bg-muted/60 border border-border">
+        {isUniformService && (
+          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
+              Physical Measurement Standards
+            </h4>
+            <ul class="text-xs text-muted-foreground space-y-1.5">
+              <li>• Male Height: 168 cm (General/OBC/SC)</li>
+              <li>• Male Height: 160 cm (ST Candidates)</li>
+              <li>• Female Height: 155–158 cm (All categories)</li>
+              <li>• Chest: 81 cm unexpanded, 86 cm expanded</li>
+            </ul>
+          </div>
+        )}
+
+        {isEducation && (
+          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
+              Teaching Credentials Standard
+            </h4>
+            <ul class="text-xs text-muted-foreground space-y-1.5">
+              <li>• Primary (Varg-3): 12th Pass + D.El.Ed / B.Ed</li>
+              <li>• Middle (Varg-2): Graduation + B.Ed / TET</li>
+              <li>• High School (Varg-1): Post Graduation + B.Ed</li>
+            </ul>
+          </div>
+        )}
+
+        {isJudiciary && (
+          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
+              Judicial & Clerical Standard
+            </h4>
+            <ul class="text-xs text-muted-foreground space-y-1.5">
+              <li>• Degree in any discipline from recognized university</li>
+              <li>• CPCT Scorecard with English & Hindi typing</li>
+              <li>• Computer application diploma (DCA/PGDCA)</li>
+            </ul>
+          </div>
+        )}
+
+        {isMedical && (
+          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
+              Healthcare Council Mandate
+            </h4>
+            <ul class="text-xs text-muted-foreground space-y-1.5">
+              <li>• B.Sc Nursing / GNM / DMLT recognized course</li>
+              <li>• Active registration with MP Nursing / Paramedical Council</li>
+              <li>• Active MP Rojgar Portal panjiyan</li>
+            </ul>
+          </div>
+        )}
+
+        <div class="p-5 rounded-2xl bg-card border border-border">
           <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
-            Physical Measurement Standards
+            Explore Other Sectors
           </h4>
-          <ul class="text-xs text-muted-foreground space-y-1.5">
-            <li>• Male Height: 168 cm (General/OBC/SC)</li>
-            <li>• Male Height: 160 cm (ST Candidates)</li>
-            <li>• Female Height: 155 cm (All categories)</li>
-            <li>• Chest: 81 cm unexpanded, 86 cm expanded</li>
-          </ul>
+          <div class="flex flex-wrap gap-1.5">
+            {allSectors.map(s => (
+              <a
+                href={`/sectors/${s.slug}`}
+                class={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  s.id === sector.id
+                    ? 'bg-primary text-primary-foreground font-bold'
+                    : 'bg-muted hover:bg-muted/80 text-foreground'
+                }`}
+              >
+                {s.name.split(' ')[0]}
+              </a>
+            ))}
+          </div>
         </div>
       </aside>
     </div>
@@ -167,10 +276,10 @@ const posts = [
     <!-- Bottom Editorial Section -->
     <div class="mt-12 pt-8 border-t border-border">
       <h3 class="text-lg font-bold text-foreground mb-2">
-        About {formattedSector} Jobs in Madhya Pradesh
+        About {sector.name} Recruitments in Madhya Pradesh
       </h3>
       <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-4xl">
-        The Madhya Pradesh State Police Department recruits through examinations conducted primarily by the Employees Selection Board (MPESB) and Public Service Commission (MPPSC for DSP rank). Candidates are required to maintain active registration with the Madhya Pradesh Rojgar Portal before submitting application forms.
+        Recruitment across {sector.name} is conducted through gazetted examinations notified by statutory agencies including the Madhya Pradesh Employees Selection Board (MPESB) and Madhya Pradesh Public Service Commission (MPPSC). Candidates are mandated to hold an active registration with the Madhya Pradesh Rojgar Portal (MP Rojgar Panjiyan) before the closing date.
       </p>
     </div>
   </div>

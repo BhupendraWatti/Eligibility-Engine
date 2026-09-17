@@ -1,49 +1,77 @@
 ---
 // src/pages/organisations/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllActiveRecruitments } from '../../db/queries';
 
-const { slug = 'mpesb' } = Astro.params;
+const slug = (Astro.params.slug || 'mpesb').toLowerCase();
 
-const org = {
-  name: 'Madhya Pradesh Employees Selection Board',
-  shortName: 'MPESB',
-  initials: 'ESB',
-  domain: 'esb.mp.gov.in',
-  url: 'https://esb.mp.gov.in',
-  tracked: 32,
-  open: 8,
-  description: 'The Madhya Pradesh Employees Selection Board (formerly known as PEB / Vyapam) is the premier statutory recruitment agency of the Government of Madhya Pradesh responsible for direct recruitment to Group 2, Group 3, and Group 4 executive and technical posts.',
+// Catalog of Statutory Authorities in Madhya Pradesh
+const orgsRegistry: Record<string, {
+  name: string;
+  shortName: string;
+  initials: string;
+  domain: string;
+  url: string;
+  description: string;
+}> = {
+  mpesb: {
+    name: 'Madhya Pradesh Employees Selection Board',
+    shortName: 'MPESB',
+    initials: 'ESB',
+    domain: 'esb.mp.gov.in',
+    url: 'https://esb.mp.gov.in',
+    description: 'The Madhya Pradesh Employees Selection Board (formerly known as PEB / Vyapam) is the premier statutory recruitment agency of the Government of Madhya Pradesh responsible for direct recruitment to Group 2, Group 3, and Group 4 executive, clerical, and technical cadre posts.',
+  },
+  mppsc: {
+    name: 'Madhya Pradesh Public Service Commission',
+    shortName: 'MPPSC',
+    initials: 'PSC',
+    domain: 'mppsc.mp.gov.in',
+    url: 'https://mppsc.mp.gov.in',
+    description: 'The Madhya Pradesh Public Service Commission is the constitutional body mandated under Article 315 of the Constitution of India to conduct competitive examinations for appointment to state civil services, police leadership (DSP), and gazetted administrative posts.',
+  },
+  mphc: {
+    name: 'High Court of Madhya Pradesh',
+    shortName: 'MPHC',
+    initials: 'HC',
+    domain: 'mphc.gov.in',
+    url: 'https://mphc.gov.in',
+    description: 'The High Court of Madhya Pradesh (Principal Seat at Jabalpur, with Benches at Indore and Gwalior) conducts independent direct judicial recruitments for District Judges, Civil Judges, Junior Judicial Assistants, and District Court Steno-Typists.',
+  },
+  mpsedc: {
+    name: 'MP State Electronics Development Corporation',
+    shortName: 'MPSEDC',
+    initials: 'EDC',
+    domain: 'mpsedc.mp.gov.in',
+    url: 'https://mpsedc.mp.gov.in',
+    description: 'MPSEDC is the nodal IT agency under the Department of Science & Technology responsible for technical appointments, District e-Governance Managers (DeGM), CPCT assessment, and statewide digital governance systems.',
+  },
 };
 
-const openRecruitments = [
-  {
-    title: 'MP Police Constable Recruitment 2026',
-    slug: 'mp-police-constable-recruitment-2026',
-    status: 'Open',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    vacancies: 7500,
-    qualification: '10th Pass',
-    lastDate: '06 Oct 2026',
-  },
-  {
-    title: 'Forest Guard Recruitment 2026',
-    slug: 'mp-forest-guard-recruitment-2026',
-    status: 'Closing Soon',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    vacancies: 1420,
-    qualification: '12th Pass',
-    lastDate: '29 Sep 2026',
-  },
-  {
-    title: 'Patwari & Revenue Inspector Examination 2026',
-    slug: 'mp-patwari-recruitment-2026',
-    status: 'Open',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    vacancies: 3800,
-    qualification: 'Graduation + CPCT',
-    lastDate: '15 Oct 2026',
-  },
-];
+const org = orgsRegistry[slug] || orgsRegistry['mpesb'];
+
+const allRecruitments = await getAllActiveRecruitments();
+
+// Filter recruitments belonging to this authority
+const orgRecruitments = allRecruitments.filter((r) => {
+  const shortLower = r.organisationShortName?.toLowerCase() || '';
+  const nameLower = r.organisationName?.toLowerCase() || '';
+  const currentShort = org.shortName.toLowerCase();
+  return shortLower === currentShort || nameLower.includes(currentShort) || r.slug.includes(slug);
+});
+
+const openRecruitments = orgRecruitments.filter(r => r.lifecycleStatus === 'OPEN');
+const upcomingRecruitments = orgRecruitments.filter(r => r.lifecycleStatus === 'UPCOMING');
+
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return 'Refer Notification';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
 ---
 
 <BaseLayout
@@ -69,15 +97,15 @@ const openRecruitments = [
         </div>
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
-            Organisation Profile
+            Statutory Organisation Profile
           </span>
           <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
             {org.name}
           </h1>
           <div class="flex flex-wrap items-center gap-3 mt-2 text-xs font-mono">
-            <span class="text-foreground font-bold">{org.tracked} Tracked Opportunities</span>
+            <span class="text-foreground font-bold">{orgRecruitments.length} Tracked Opportunities</span>
             <span class="text-muted-foreground">·</span>
-            <span class="text-emerald-700 font-bold">{org.open} Open Applications</span>
+            <span class="text-emerald-700 font-bold">{openRecruitments.length} Open Applications</span>
             <span class="text-muted-foreground">·</span>
             <span class="text-muted-foreground">{org.domain}</span>
           </div>
@@ -108,47 +136,68 @@ const openRecruitments = [
       <!-- Open Recruitments -->
       <div class="lg:col-span-2 space-y-6">
         <div>
-          <h2 class="text-base font-bold text-foreground uppercase tracking-wider mb-4">
-            Open Recruitments ({openRecruitments.length})
+          <h2 class="text-base font-bold text-foreground uppercase tracking-wider mb-4 flex items-center justify-between">
+            <span>Notified Recruitment Drives ({orgRecruitments.length})</span>
+            <span class="text-xs text-muted-foreground font-mono font-normal">State Authority Verified</span>
           </h2>
 
-          <div class="space-y-4">
-            {openRecruitments.map((job) => (
-              <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${job.statusColor}`}>
-                    {job.status}
-                  </span>
-                  <span class="text-xs font-mono font-bold text-foreground">
-                    Last date: {job.lastDate}
-                  </span>
-                </div>
+          {orgRecruitments.length === 0 ? (
+            <div class="p-8 rounded-2xl bg-card border border-border text-center">
+              <p class="text-xs text-muted-foreground">No active drives published for {org.shortName} at this time.</p>
+            </div>
+          ) : (
+            <div class="space-y-4">
+              {orgRecruitments.map((job) => {
+                const statusColor = job.lifecycleStatus === 'OPEN'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : job.lifecycleStatus === 'UPCOMING'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-muted text-muted-foreground border-border';
 
-                <h3 class="text-base font-bold text-foreground mb-1">
-                  <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
-                    {job.title}
-                  </a>
-                </h3>
+                return (
+                  <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                      <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+                        {job.lifecycleStatus}
+                      </span>
+                      <span class="text-xs font-mono font-bold text-foreground">
+                        Last date: {formatDate(job.applicationEnd)}
+                      </span>
+                    </div>
 
-                <div class="flex items-center gap-4 text-xs text-muted-foreground mb-4">
-                  <span>Vacancies: <strong class="text-foreground font-mono">{job.vacancies.toLocaleString()}</strong></span>
-                  <span>·</span>
-                  <span>Qualification: <strong class="text-foreground">{job.qualification}</strong></span>
-                </div>
+                    <h3 class="text-base font-bold text-foreground mb-1">
+                      <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
+                        {job.title}
+                      </a>
+                    </h3>
 
-                <div class="pt-3 border-t border-border flex items-center justify-between">
-                  <span class="text-[11px] text-muted-foreground">Source: esb.mp.gov.in</span>
-                  <a
-                    href={`/recruitments/${job.slug}`}
-                    class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    <span>View details</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <p class="text-xs text-muted-foreground mb-3 line-clamp-2">
+                      {job.shortSummary}
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mb-4">
+                      <span>Vacancies: <strong class="text-foreground font-mono">{job.totalVacancies.toLocaleString()}</strong></span>
+                      <span>·</span>
+                      <span>Min Qualification: <strong class="text-foreground">{job.criteria.minQualificationLevel}</strong></span>
+                      <span>·</span>
+                      <span>Age: <strong class="text-foreground">{job.criteria.minAge}–{job.criteria.maxAgeGeneral} yrs</strong></span>
+                    </div>
+
+                    <div class="pt-3 border-t border-border flex items-center justify-between">
+                      <span class="text-[11px] text-muted-foreground font-mono">{job.advtNumber}</span>
+                      <a
+                        href={`/recruitments/${job.slug}`}
+                        class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>View details & criteria</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -163,6 +212,23 @@ const openRecruitments = [
           </p>
           <div class="p-3.5 rounded-xl bg-muted/60 border border-border text-[11px] text-muted-foreground">
             <strong>Platform Transparency:</strong> NIRNAY is an independent public discovery portal and is not affiliated with {org.shortName}. All notifications are sourced directly from verified government gazettes.
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-card border border-border">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-3">
+            Other Recruiting Authorities
+          </h4>
+          <div class="space-y-2">
+            {Object.entries(orgsRegistry).filter(([key]) => key !== slug).map(([key, item]) => (
+              <a
+                href={`/organisations/${key}`}
+                class="block p-3 rounded-xl border border-border hover:bg-muted/50 transition-colors"
+              >
+                <span class="text-xs font-bold text-foreground block">{item.shortName}</span>
+                <span class="text-[11px] text-muted-foreground">{item.name}</span>
+              </a>
+            ))}
           </div>
         </div>
       </aside>

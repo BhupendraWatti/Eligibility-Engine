@@ -1,61 +1,102 @@
 ---
 // src/pages/search.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors } from '../db/queries';
 
-const query = Astro.url.searchParams.get('q') || 'Police Constable';
+const query = (Astro.url.searchParams.get('q') || '').trim();
+const activeCategory = Astro.url.searchParams.get('type') || 'all';
+
+const [allRecruitments, allPosts, allSectors] = await Promise.all([
+  getAllActiveRecruitments(),
+  getAllCanonicalPosts(),
+  getAllSectors(),
+]);
+
+// MP Statutory Organisations catalog
+const allOrganisations = [
+  {
+    name: 'Madhya Pradesh Employees Selection Board',
+    shortName: 'MPESB',
+    slug: 'mpesb',
+    snippet: 'Statutory board conducting Group 2, 3, and 4 recruitment tests, Police Constable, and Samvida tests.',
+    domain: 'esb.mp.gov.in',
+  },
+  {
+    name: 'Madhya Pradesh Public Service Commission',
+    shortName: 'MPPSC',
+    slug: 'mppsc',
+    snippet: 'Constitutional recruitment body conducting State Services (Deputy Collector, DSP) and Assistant Professor exams.',
+    domain: 'mppsc.mp.gov.in',
+  },
+  {
+    name: 'High Court of Madhya Pradesh',
+    shortName: 'MPHC',
+    slug: 'mphc',
+    snippet: 'Judicial recruitment registry for Junior Judicial Assistants, District Court Steno-Typists, and Civil Judges.',
+    domain: 'mphc.gov.in',
+  },
+];
+
+// Perform dynamic multi-entity matching
+const qLower = query.toLowerCase();
+
+const jobResults = allRecruitments.filter(r => {
+  if (!query) return true;
+  return (
+    r.title.toLowerCase().includes(qLower) ||
+    r.postTitle.toLowerCase().includes(qLower) ||
+    r.shortSummary.toLowerCase().includes(qLower) ||
+    r.advtNumber.toLowerCase().includes(qLower) ||
+    r.organisationShortName.toLowerCase().includes(qLower) ||
+    r.organisationName.toLowerCase().includes(qLower)
+  );
+});
+
+const postResults = allPosts.filter(p => {
+  if (!query) return true;
+  return (
+    p.title.toLowerCase().includes(qLower) ||
+    p.summary.toLowerCase().includes(qLower) ||
+    p.departmentName?.toLowerCase().includes(qLower) ||
+    p.sectorName?.toLowerCase().includes(qLower)
+  );
+});
+
+const examResults = allRecruitments.filter(r => {
+  if (!query) return Boolean(r.examDate);
+  return (
+    (r.examDate && r.title.toLowerCase().includes(qLower)) ||
+    (r.examDate && qLower.includes('exam')) ||
+    (r.examDate && r.organisationShortName.toLowerCase().includes(qLower))
+  );
+});
+
+const orgResults = allOrganisations.filter(o => {
+  if (!query) return true;
+  return (
+    o.name.toLowerCase().includes(qLower) ||
+    o.shortName.toLowerCase().includes(qLower) ||
+    o.snippet.toLowerCase().includes(qLower)
+  );
+});
+
+const totalMatches = jobResults.length + postResults.length + examResults.length + orgResults.length;
 
 const categories = [
-  { name: 'Jobs', count: 2, active: true },
-  { name: 'Exams', count: 1, active: false },
-  { name: 'Organisations', count: 1, active: false },
-  { name: 'Departments', count: 1, active: false },
-  { name: 'Posts', count: 1, active: false },
-];
-
-const jobResults = [
-  {
-    type: 'Job',
-    title: 'MP Police Constable Recruitment 2026',
-    slug: 'mp-police-constable-recruitment-2026',
-    snippet: 'Direct recruitment for 7,500 Constables across District Police and Special Armed Force.',
-    meta: '7,500 Vacancies · 10th Pass · Last Date 06 Oct 2026 · MPESB',
-  },
-  {
-    type: 'Job',
-    title: 'Police Constable Recruitment 2025 (Special Drive)',
-    slug: 'mp-police-constable-recruitment-2025',
-    snippet: 'Special recruitment drive for backlog vacancies across reserved districts.',
-    meta: '420 Vacancies · 10th Pass · Completed · MPESB',
-  },
-];
-
-const examResults = [
-  {
-    type: 'Exam',
-    title: 'MP Police Constable Written Examination 2026',
-    slug: 'mp-police-constable-exam-2026',
-    snippet: 'Statewide Computer-Based Test (CBT) scheduled across 12 exam cities.',
-    meta: 'Exam Date: 22 Nov 2026 · Admit Card Expected 10 Nov 2026',
-  },
-];
-
-const orgResults = [
-  {
-    type: 'Organisation',
-    title: 'Madhya Pradesh Employees Selection Board (MPESB)',
-    slug: 'mpesb',
-    snippet: 'Primary state agency conducting group 2, 3, and 4 recruitment tests and police hiring.',
-    meta: '32 Active Drives · Official Domain: esb.mp.gov.in',
-  },
+  { id: 'all', name: 'All Categories', count: totalMatches },
+  { id: 'jobs', name: 'Recruitments', count: jobResults.length },
+  { id: 'posts', name: 'Master Posts', count: postResults.length },
+  { id: 'exams', name: 'Exams', count: examResults.length },
+  { id: 'organisations', name: 'Organisations', count: orgResults.length },
 ];
 ---
 
 <BaseLayout
-  title={`Search results for "${query}" — NIRNAY MP`}
-  description={`Find government jobs, exams, departments and organisations matching "${query}".`}
+  title={query ? `Search results for "${query}" — NIRNAY MP` : 'Search Government Jobs & Exams — NIRNAY MP'}
+  description={`Find government jobs, exams, canonical posts and organisations across Madhya Pradesh.`}
 >
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <!-- Centered Search Field with Shortcut Hint -->
+    <!-- Centered Search Field -->
     <div class="max-w-3xl mx-auto mb-10">
       <form action="/search" method="get" class="relative">
         <label class="rounded-2xl bg-card border border-border shadow-sm flex px-4 items-center gap-3 h-14 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
@@ -63,16 +104,13 @@ const orgResults = [
           <input
             type="search"
             name="q"
-            defaultValue={query}
-            placeholder="Search jobs, exams, departments or organisations..."
+            value={query}
+            placeholder="Search jobs, exams, posts or organisations..."
             class="bg-transparent text-foreground text-base outline-none flex-1"
           />
-          <div class="hidden sm:flex items-center gap-1 px-2 py-1 rounded bg-muted border border-border text-[11px] font-mono text-muted-foreground">
-            <span>⌘</span><span>K</span>
-          </div>
           <button
             type="submit"
-            class="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:bg-blue-700 transition-colors"
+            class="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:bg-blue-700 transition-colors shrink-0"
           >
             Search
           </button>
@@ -83,10 +121,10 @@ const orgResults = [
     <!-- Page Title -->
     <div class="mb-8">
       <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Search results for "{query}"
+        {query ? `Search results for "${query}"` : 'Explore Opportunities & State Records'}
       </h1>
       <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Showing the most relevant opportunities, authorities, and references.
+        Found {totalMatches} verified records across Madhya Pradesh state authorities.
       </p>
     </div>
 
@@ -97,130 +135,203 @@ const orgResults = [
         <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider block px-3 py-2">
           Categories
         </span>
-        {categories.map(cat => (
-          <button
-            type="button"
-            class={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
-              cat.active
-                ? 'bg-primary text-primary-foreground font-bold'
-                : 'text-foreground hover:bg-muted'
-            }`}
+        {categories.map(cat => {
+          const isActive = activeCategory === cat.id;
+          return (
+            <a
+              href={`/search?${new URLSearchParams({ ...(query ? { q: query } : {}), ...(cat.id !== 'all' ? { type: cat.id } : {}) })}`}
+              class={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-primary text-primary-foreground font-bold'
+                  : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <span>{cat.name}</span>
+              <span class={`text-[11px] font-mono px-2 py-0.5 rounded-full ${
+                isActive ? 'bg-primary-foreground/20 text-white' : 'bg-muted text-muted-foreground'
+              }`}>
+                {cat.count}
+              </span>
+            </a>
+          );
+        })}
+
+        <div class="pt-4 mt-2 border-t border-border px-2">
+          <a
+            href="/eligibility-checker"
+            class="text-[11px] text-primary font-medium hover:underline block"
           >
-            <span>{cat.name}</span>
-            <span class={`text-[11px] font-mono px-2 py-0.5 rounded-full ${
-              cat.active ? 'bg-primary-foreground/20 text-white' : 'bg-muted text-muted-foreground'
-            }`}>
-              {cat.count}
-            </span>
-          </button>
-        ))}
+            &rarr; Run instant eligibility test
+          </a>
+        </div>
       </aside>
 
       <!-- Main Grouped Results Area -->
       <div class="lg:col-span-3 space-y-8">
-        <!-- Jobs Group -->
-        <div>
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span>Jobs</span>
-            <span class="text-xs text-muted-foreground font-normal">({jobResults.length})</span>
-          </h2>
-          <div class="space-y-3">
-            {jobResults.map(r => (
-              <a
-                href={`/recruitments/${r.slug}`}
-                class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-200 mb-1">
-                      {r.type}
-                    </span>
-                    <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                      {r.title}
-                    </h3>
-                    <p class="text-xs text-muted-foreground mt-1">
-                      {r.snippet}
-                    </p>
-                    <span class="text-[11px] font-mono text-muted-foreground block mt-2">
-                      {r.meta}
-                    </span>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-                </div>
-              </a>
-            ))}
+        <!-- Recruitments Group -->
+        {(activeCategory === 'all' || activeCategory === 'jobs') && (
+          <div>
+            <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>Recruitments</span>
+              <span class="text-xs text-muted-foreground font-normal">({jobResults.length})</span>
+            </h2>
+            {jobResults.length === 0 ? (
+              <p class="text-xs text-muted-foreground p-4 bg-card rounded-xl border border-border">No matching recruitments found.</p>
+            ) : (
+              <div class="space-y-3">
+                {jobResults.map(r => (
+                  <a
+                    href={`/recruitments/${r.slug}`}
+                    class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-200">
+                            Recruitment
+                          </span>
+                          <span class={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                            r.lifecycleStatus === 'OPEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground border-border'
+                          }`}>
+                            {r.lifecycleStatus}
+                          </span>
+                        </div>
+                        <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                          {r.title}
+                        </h3>
+                        <p class="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {r.shortSummary}
+                        </p>
+                        <span class="text-[11px] font-mono text-muted-foreground block mt-2">
+                          {r.totalVacancies.toLocaleString()} Vacancies · {r.criteria.minQualificationLevel} · {r.organisationShortName} · {r.advtNumber}
+                        </span>
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        <!-- Master Canonical Posts Group -->
+        {(activeCategory === 'all' || activeCategory === 'posts') && (
+          <div>
+            <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>Master Posts (Cadre Profiles)</span>
+              <span class="text-xs text-muted-foreground font-normal">({postResults.length})</span>
+            </h2>
+            {postResults.length === 0 ? (
+              <p class="text-xs text-muted-foreground p-4 bg-card rounded-xl border border-border">No matching master posts found.</p>
+            ) : (
+              <div class="space-y-3">
+                {postResults.map(p => (
+                  <a
+                    href={`/posts/${p.slug}`}
+                    class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 mb-1">
+                          Canonical Post
+                        </span>
+                        <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                          {p.title}
+                        </h3>
+                        <p class="text-xs text-muted-foreground mt-1 line-clamp-2">{p.summary}</p>
+                        <span class="text-[11px] font-mono text-muted-foreground block mt-2">
+                          {p.departmentName} · {p.sectorName} · Pay: {p.payScale || 'Refer Rules'}
+                        </span>
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <!-- Exams Group -->
-        <div>
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span>Exams</span>
-            <span class="text-xs text-muted-foreground font-normal">({examResults.length})</span>
-          </h2>
-          <div class="space-y-3">
-            {examResults.map(r => (
-              <a
-                href="/calendar"
-                class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 mb-1">
-                      {r.type}
-                    </span>
-                    <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                      {r.title}
-                    </h3>
-                    <p class="text-xs text-muted-foreground mt-1">{r.snippet}</p>
-                    <span class="text-[11px] font-mono text-muted-foreground block mt-2">{r.meta}</span>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-                </div>
-              </a>
-            ))}
+        {(activeCategory === 'all' || activeCategory === 'exams') && (
+          <div>
+            <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>Exams & Milestones</span>
+              <span class="text-xs text-muted-foreground font-normal">({examResults.length})</span>
+            </h2>
+            {examResults.length === 0 ? (
+              <p class="text-xs text-muted-foreground p-4 bg-card rounded-xl border border-border">No scheduled exams found.</p>
+            ) : (
+              <div class="space-y-3">
+                {examResults.map(r => (
+                  <a
+                    href={`/recruitments/${r.slug}`}
+                    class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 mb-1">
+                          Exam Date
+                        </span>
+                        <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                          {r.title} — Written Examination
+                        </h3>
+                        <p class="text-xs text-muted-foreground mt-1">Conducted by {r.organisationName} ({r.organisationShortName})</p>
+                        <span class="text-[11px] font-mono text-muted-foreground block mt-2">
+                          Scheduled Exam Date: <strong class="text-foreground">{r.examDate}</strong> · Advt: {r.advtNumber}
+                        </span>
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         <!-- Organisations Group -->
-        <div>
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span>Organisations</span>
-            <span class="text-xs text-muted-foreground font-normal">({orgResults.length})</span>
-          </h2>
-          <div class="space-y-3">
-            {orgResults.map(r => (
-              <a
-                href={`/organisations/${r.slug}`}
-                class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 mb-1">
-                      {r.type}
-                    </span>
-                    <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                      {r.title}
-                    </h3>
-                    <p class="text-xs text-muted-foreground mt-1">{r.snippet}</p>
-                    <span class="text-[11px] font-mono text-muted-foreground block mt-2">{r.meta}</span>
+        {(activeCategory === 'all' || activeCategory === 'organisations') && (
+          <div>
+            <h2 class="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span>Organisations</span>
+              <span class="text-xs text-muted-foreground font-normal">({orgResults.length})</span>
+            </h2>
+            <div class="space-y-3">
+              {orgResults.map(o => (
+                <a
+                  href={`/organisations/${o.slug}`}
+                  class="block p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-xs transition-all group"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300 mb-1">
+                        Organisation
+                      </span>
+                      <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                        {o.name} ({o.shortName})
+                      </h3>
+                      <p class="text-xs text-muted-foreground mt-1">{o.snippet}</p>
+                      <span class="text-[11px] font-mono text-muted-foreground block mt-2">Official Portal: {o.domain}</span>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
                   </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-                </div>
-              </a>
-            ))}
+                </a>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <!-- Can't find what you need panel -->
         <div class="p-6 rounded-2xl bg-muted/60 border border-border text-center">
           <h3 class="font-bold text-sm text-foreground mb-1">Can’t find what you need?</h3>
           <p class="text-xs text-muted-foreground mb-4">Try checking all active notifications or run an instant eligibility calculation.</p>
           <div class="flex items-center justify-center gap-3">
-            <a href="/jobs" class="px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold">
+            <a href="/jobs" class="px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors">
               Browse all jobs
             </a>
-            <a href="/eligibility-checker" class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold">
+            <a href="/eligibility-checker" class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold transition-colors">
               Check eligibility
             </a>
           </div>

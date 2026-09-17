@@ -20,12 +20,10 @@
     "@types/react-dom": "^19.3.0",
     "astro": "^7.3.3",
     "drizzle-orm": "^0.45.2",
-    "lucide-react": "^1.47.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
-    "wrangler": "^4.133.0",
-    "zod": "^4.6.5"
+    "wrangler": "^4.133.0"
   },
   "allowScripts": {
     "esbuild": true

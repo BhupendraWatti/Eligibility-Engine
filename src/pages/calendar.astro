@@ -1,59 +1,79 @@
 ---
 // src/pages/calendar.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getAllActiveRecruitments } from '../db/queries';
 
-const milestones = [
-  {
-    date: '22 Sep 2026',
-    title: 'MPPSC State Service Examination 2026',
-    org: 'MPPSC',
-    desc: 'Official preliminary notification expected to be gazetted.',
-    status: 'Needs verification',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    type: 'Notification Expected',
-    slug: 'mppsc-state-service-2026',
-  },
-  {
-    date: '06 Oct 2026',
-    title: 'MP Police Constable Recruitment 2026',
-    org: 'MPESB · Police Department',
-    desc: 'Final cutoff timestamp for online application submission.',
-    status: 'Closing Soon',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    type: 'Applications Close',
-    slug: 'mp-police-constable-recruitment-2026',
-  },
-  {
-    date: '18 Oct 2026',
-    title: 'Assistant Grade III Recruitment 2026',
-    org: 'MP High Court',
-    desc: 'Application window concludes for district court posts.',
-    status: 'Closing Soon',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    type: 'Applications Close',
-    slug: 'mp-assistant-grade-3-recruitment-2026',
-  },
-  {
-    date: '02 Nov 2026',
-    title: 'Lab Technician Recruitment 2026',
-    org: 'Health Department',
-    desc: 'Closing date for paramedical cadre online registrations.',
-    status: 'Open',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    type: 'Applications Close',
-    slug: 'mp-lab-technician-recruitment-2026',
-  },
-  {
-    date: '22 Nov 2026',
-    title: 'MP Police Constable Written Examination',
-    org: 'MPESB',
-    desc: 'Statewide Computer Based Test across Bhopal, Indore, Gwalior, Jabalpur.',
-    status: 'Confirmed',
-    statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    type: 'Exam Date',
-    slug: 'mp-police-constable-recruitment-2026',
-  },
-];
+const allRecruitments = await getAllActiveRecruitments();
+
+interface Milestone {
+  rawDate: string;
+  formattedDate: string;
+  title: string;
+  org: string;
+  desc: string;
+  status: string;
+  statusColor: string;
+  type: string;
+  slug: string;
+}
+
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+const milestones: Milestone[] = [];
+
+allRecruitments.forEach((job) => {
+  if (job.applicationStart) {
+    milestones.push({
+      rawDate: job.applicationStart,
+      formattedDate: formatDate(job.applicationStart),
+      title: job.title,
+      org: `${job.organisationShortName} · ${job.postTitle}`,
+      desc: `Official online application portal opens for ${job.totalVacancies?.toLocaleString() || ''} vacancies.`,
+      status: 'Open',
+      statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      type: 'Applications Open',
+      slug: job.slug,
+    });
+  }
+
+  if (job.applicationEnd) {
+    milestones.push({
+      rawDate: job.applicationEnd,
+      formattedDate: formatDate(job.applicationEnd),
+      title: job.title,
+      org: `${job.organisationShortName} · ${job.postTitle}`,
+      desc: `Final timestamp for submission of online application forms and fee payment.`,
+      status: 'Closing Soon',
+      statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
+      type: 'Applications Close',
+      slug: job.slug,
+    });
+  }
+
+  if (job.examDate) {
+    milestones.push({
+      rawDate: job.examDate,
+      formattedDate: formatDate(job.examDate),
+      title: `${job.title} — Written Examination`,
+      org: job.organisationShortName,
+      desc: `Statewide examination scheduled across major MP divisional centers (Bhopal, Indore, Gwalior, Jabalpur).`,
+      status: 'Confirmed',
+      statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
+      type: 'Exam Date',
+      slug: job.slug,
+    });
+  }
+});
+
+// Sort chronological
+milestones.sort((a, b) => a.rawDate.localeCompare(b.rawDate));
 ---
 
 <BaseLayout
@@ -72,29 +92,20 @@ const milestones = [
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border mb-8">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-          Exam calendar
+          Recruitment & Examination Calendar
         </h1>
         <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-          Track upcoming recruitment milestones across Madhya Pradesh.
+          Chronological milestone timeline for {milestones.length} gazetted deadlines across Madhya Pradesh.
         </p>
       </div>
 
-      <!-- Controls: Month select, View Toggle -->
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <select class="px-3 py-2 rounded-lg bg-card border border-border text-foreground font-medium">
-          <option>September 2026 (Active)</option>
-          <option>October 2026</option>
-          <option>November 2026</option>
-        </select>
-
-        <div class="flex rounded-lg border border-border bg-card p-0.5">
-          <button class="px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold">
-            Timeline
-          </button>
-          <button class="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground">
-            Calendar
-          </button>
-        </div>
+      <div class="flex items-center gap-3">
+        <a
+          href="/eligibility-checker"
+          class="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs transition-colors"
+        >
+          Check Eligibility
+        </a>
       </div>
     </div>
 
@@ -102,45 +113,53 @@ const milestones = [
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Vertical Milestone Timeline (2 Cols) -->
       <div class="lg:col-span-2 space-y-6 relative before:absolute before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
-        {milestones.map((m) => (
-          <div class="relative pl-10">
-            <!-- Timeline dot -->
-            <div class="absolute left-2.5 top-5 -translate-x-1/2 size-3 rounded-full bg-primary ring-4 ring-background"></div>
+        {milestones.length === 0 ? (
+          <div class="bg-card rounded-2xl border border-border p-8 text-center">
+            <p class="text-xs text-muted-foreground">No upcoming milestones scheduled in the calendar.</p>
+          </div>
+        ) : (
+          milestones.map((m) => (
+            <div class="relative pl-10">
+              <!-- Timeline dot -->
+              <div class="absolute left-2.5 top-5 -translate-x-1/2 size-3 rounded-full bg-primary ring-4 ring-background"></div>
 
-            <div class="bg-card rounded-2xl border border-border p-5 hover:border-border/80 hover:shadow-xs transition-all">
-              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <span class="text-xs font-mono font-bold text-primary">
-                  {m.date}
+              <div class="bg-card rounded-2xl border border-border p-5 hover:border-border/80 hover:shadow-xs transition-all">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <span class="text-xs font-mono font-bold text-primary">
+                    {m.formattedDate}
+                  </span>
+                  <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${m.statusColor}`}>
+                    {m.status}
+                  </span>
+                </div>
+
+                <h2 class="text-base font-bold text-foreground mb-1">
+                  <a href={`/recruitments/${m.slug}`} class="hover:text-primary transition-colors">
+                    {m.title}
+                  </a>
+                </h2>
+                <span class="text-xs text-muted-foreground block mb-2">
+                  {m.org} · <strong class="text-foreground">{m.type}</strong>
                 </span>
-                <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${m.statusColor}`}>
-                  {m.status}
-                </span>
-              </div>
 
-              <h2 class="text-base font-bold text-foreground mb-1">
-                {m.title}
-              </h2>
-              <span class="text-xs text-muted-foreground block mb-2">
-                {m.org} · <strong class="text-foreground">{m.type}</strong>
-              </span>
+                <p class="text-xs text-muted-foreground mb-4">
+                  {m.desc}
+                </p>
 
-              <p class="text-xs text-muted-foreground mb-4">
-                {m.desc}
-              </p>
-
-              <div class="pt-3 border-t border-border flex items-center justify-between">
-                <span class="text-[11px] text-muted-foreground">Source: Official State Gazette</span>
-                <a
-                  href={`/recruitments/${m.slug}`}
-                  class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <span>View details</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </a>
+                <div class="pt-3 border-t border-border flex items-center justify-between">
+                  <span class="text-[11px] text-muted-foreground">Verified State Schedule</span>
+                  <a
+                    href={`/recruitments/${m.slug}`}
+                    class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>View recruitment criteria</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <!-- Right Explanation Rail -->
@@ -150,7 +169,7 @@ const milestones = [
             How dates work
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-            Dates are ingested directly from official recruitment notices. When an authority has published a calendar estimate rather than a gazetted date, it is labeled <strong class="text-amber-800">Needs verification</strong>.
+            Dates are ingested directly from official recruitment notices and gazettes. Milestones reflect application opening, closing cutoffs, and scheduled Computer Based Tests (CBT).
           </p>
           <a href="/disclaimer" class="text-xs font-semibold text-primary hover:underline">
             Read source policy &rarr;

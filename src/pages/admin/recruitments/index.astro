@@ -5,52 +5,22 @@ import AdminSidebar from '../../../components/admin/AdminSidebar.astro';
 import { getAllActiveRecruitments } from '../../../db/queries';
 
 // @ts-ignore
-const recruitments = await getAllActiveRecruitments();
+const allRecruitments = await getAllActiveRecruitments();
+const q = Astro.url.searchParams.get('q')?.toLowerCase().trim() || '';
+const filterStatus = Astro.url.searchParams.get('status') || 'ALL';
 
-const rows = [
-  {
-    title: 'MP Police Constable Recruitment 2026',
-    slug: 'mp-police-constable-recruitment-2026',
-    org: 'MPESB',
-    dept: 'Police',
-    status: 'Published',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    vacancies: '7,500',
-    lastDate: '06 Oct 2026',
-    source: 'Official link',
-    verification: 'Verified',
-    verifColor: 'text-emerald-700 font-semibold',
-    updated: 'Today, 18:32',
-  },
-  {
-    title: 'Forest Guard Recruitment 2026',
-    slug: 'mp-forest-guard-recruitment-2026',
-    org: 'MPESB',
-    dept: 'Forest',
-    status: 'Review',
-    statusColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    vacancies: '1,420',
-    lastDate: '29 Sep 2026',
-    source: 'Official link',
-    verification: 'Needs verification',
-    verifColor: 'text-amber-700 font-semibold',
-    updated: 'Yesterday',
-  },
-  {
-    title: 'Assistant Grade III Recruitment 2026',
-    slug: 'mp-assistant-grade-3-recruitment-2026',
-    org: 'MP High Court',
-    dept: 'Judiciary',
-    status: 'Draft',
-    statusColor: 'bg-muted text-muted-foreground border-border',
-    vacancies: '980',
-    lastDate: '18 Oct 2026',
-    source: 'Gazette PDF',
-    verification: 'Verified',
-    verifColor: 'text-emerald-700 font-semibold',
-    updated: '16 Sep 2026',
-  },
-];
+let recruitments = allRecruitments;
+if (q) {
+  recruitments = recruitments.filter(r => 
+    r.title.toLowerCase().includes(q) || 
+    r.postTitle.toLowerCase().includes(q) ||
+    r.organisationShortName.toLowerCase().includes(q) ||
+    r.advtNumber.toLowerCase().includes(q)
+  );
+}
+if (filterStatus !== 'ALL') {
+  recruitments = recruitments.filter(r => r.lifecycleStatus === filterStatus || r.status === filterStatus);
+}
 ---
 
 <BaseLayout title="Recruitment Management — NIRNAY OPS">
@@ -65,7 +35,7 @@ const rows = [
             Recruitments
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Manage, verify and publish opportunity records.
+            Manage, verify and publish state opportunity records.
           </p>
         </div>
 
@@ -74,34 +44,42 @@ const rows = [
           class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          <span>Add recruitment</span>
+          <span>+ Ingest recruitment</span>
         </a>
       </div>
 
       <!-- Filters & Search Toolbar -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div class="flex flex-wrap items-center gap-2 text-xs">
-          {['All', 'Draft', 'Review', 'Verified', 'Published', 'Archived'].map((f, i) => (
-            <button
-              type="button"
+          {[
+            { label: 'All', value: 'ALL' },
+            { label: 'Open', value: 'OPEN' },
+            { label: 'Upcoming', value: 'UPCOMING' },
+            { label: 'Closing Soon', value: 'CLOSING_SOON' },
+            { label: 'Published', value: 'PUBLISHED' },
+          ].map((f) => (
+            <a
+              href={`/admin/recruitments?status=${f.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
               class={`px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-                i === 0
+                filterStatus === f.value
                   ? 'bg-primary text-primary-foreground border-primary font-bold'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted'
               }`}
             >
-              {f}
-            </button>
+              {f.label}
+            </a>
           ))}
         </div>
 
-        <div class="max-w-xs w-full">
+        <form method="get" action="/admin/recruitments" class="max-w-xs w-full">
           <input
             type="search"
+            name="q"
+            defaultValue={q}
             placeholder="Search recruitments..."
             class="w-full px-3.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:border-primary outline-none"
           />
-        </div>
+        </form>
       </div>
 
       <!-- Dense Operational Table -->
@@ -110,58 +88,69 @@ const rows = [
           <table class="w-full text-xs text-left">
             <thead class="bg-muted text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b border-border">
               <tr>
-                <th class="py-3 px-4 w-6"><input type="checkbox" class="size-3.5 rounded text-primary" /></th>
-                <th class="py-3 px-4">Recruitment</th>
+                <th class="py-3 px-4">Recruitment Title</th>
+                <th class="py-3 px-4">Advt No.</th>
                 <th class="py-3 px-4">Organisation</th>
-                <th class="py-3 px-4">Department</th>
+                <th class="py-3 px-4">Canonical Post</th>
                 <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4">Vacancies</th>
-                <th class="py-3 px-4">Last Date</th>
-                <th class="py-3 px-4">Source</th>
-                <th class="py-3 px-4">Verification</th>
-                <th class="py-3 px-4">Updated</th>
+                <th class="py-3 px-4">Qualification</th>
+                <th class="py-3 px-4">Age Limit</th>
                 <th class="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-border">
-              {rows.map((row) => (
-                <tr class="hover:bg-muted/40 transition-colors">
-                  <td class="py-3.5 px-4"><input type="checkbox" class="size-3.5 rounded text-primary" /></td>
-                  <td class="py-3.5 px-4 font-bold text-foreground">
-                    <a href={`/recruitments/${row.slug}`} class="hover:underline">
-                      {row.title}
-                    </a>
-                  </td>
-                  <td class="py-3.5 px-4 text-muted-foreground">{row.org}</td>
-                  <td class="py-3.5 px-4 text-muted-foreground">{row.dept}</td>
-                  <td class="py-3.5 px-4">
-                    <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${row.statusColor}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td class="py-3.5 px-4 font-mono font-bold text-foreground">{row.vacancies}</td>
-                  <td class="py-3.5 px-4 font-mono text-muted-foreground">{row.lastDate}</td>
-                  <td class="py-3.5 px-4 text-primary font-medium">{row.source}</td>
-                  <td class={`py-3.5 px-4 ${row.verifColor}`}>{row.verification}</td>
-                  <td class="py-3.5 px-4 text-muted-foreground">{row.updated}</td>
-                  <td class="py-3.5 px-4 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                      <a href="/admin/recruitments/new" class="text-primary hover:underline font-semibold">Edit</a>
-                      <span>·</span>
-                      <a href={`/recruitments/${row.slug}`} class="text-muted-foreground hover:underline">Preview</a>
-                    </div>
+              {recruitments.length === 0 ? (
+                <tr>
+                  <td colspan="9" class="p-8 text-center text-xs text-muted-foreground">
+                    No recruitments match your filter criteria. <a href="/admin/recruitments" class="text-primary underline">Clear filters</a>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recruitments.map((r: any) => (
+                  <tr class="hover:bg-muted/40 transition-colors">
+                    <td class="py-3.5 px-4 font-bold text-foreground">
+                      <a href={`/recruitments/${r.slug}`} class="hover:underline hover:text-primary">
+                        {r.title}
+                      </a>
+                    </td>
+                    <td class="py-3.5 px-4 font-mono text-muted-foreground">{r.advtNumber}</td>
+                    <td class="py-3.5 px-4 text-foreground font-medium">{r.organisationShortName}</td>
+                    <td class="py-3.5 px-4 text-muted-foreground">{r.postTitle}</td>
+                    <td class="py-3.5 px-4">
+                      <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                        r.lifecycleStatus === 'OPEN' 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : r.lifecycleStatus === 'CLOSING_SOON'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {r.lifecycleStatus}
+                      </span>
+                    </td>
+                    <td class="py-3.5 px-4 font-mono font-bold text-foreground">{r.totalVacancies?.toLocaleString()}</td>
+                    <td class="py-3.5 px-4 text-foreground font-medium">{r.criteria?.minQualificationLevel}</td>
+                    <td class="py-3.5 px-4 font-mono text-muted-foreground">{r.criteria?.minAge}–{r.criteria?.maxAgeGeneral} yrs</td>
+                    <td class="py-3.5 px-4 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <a href={`/recruitments/${r.slug}`} target="_blank" class="text-primary hover:underline font-semibold">
+                          Preview &rarr;
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <div class="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span>Showing 3 of 128 recruitments</span>
+          <span>Showing {recruitments.length} of {allRecruitments.length} state recruitments</span>
           <div class="flex items-center gap-2">
-            <button class="px-2.5 py-1 rounded border border-border disabled:opacity-40" disabled>Previous</button>
-            <button class="px-2.5 py-1 rounded border border-border hover:bg-muted">Next</button>
+            <a href="/admin/recruitments/new" class="font-semibold text-primary hover:underline">
+              + Ingest New
+            </a>
           </div>
         </div>
       </div>

@@ -575,6 +575,52 @@ export default function EligibilityWizard({ recruitments }: Props) {
               <div className="flex items-center gap-3">
                 <a
                   href="/eligibility/report"
+                  onClick={() => {
+                    try {
+                      const reportData = {
+                        evaluatedAt: new Date().toISOString(),
+                        reportId: `NIR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        profile: {
+                          ...profile,
+                          age,
+                          degree,
+                          stream,
+                          passingYear,
+                          meetsPhysical,
+                          hasTechCert,
+                        },
+                        counts: {
+                          eligible: eligibleCount,
+                          verification: verificationCount,
+                          ineligible: ineligibleCount,
+                        },
+                        eligibleOpportunities: results
+                          .filter(r => r.overallStatus === 'ELIGIBLE')
+                          .map(r => ({
+                            id: r.recruitment.id,
+                            title: r.recruitment.title,
+                            slug: r.recruitment.slug,
+                            org: r.recruitment.organisationName,
+                            vacancies: r.recruitment.totalVacancies,
+                            minAge: r.recruitment.criteria?.minAge,
+                            maxAge: r.recruitment.criteria?.maxAgeGeneral,
+                            url: r.recruitment.organisationUrl || 'https://esb.mp.gov.in',
+                          })),
+                        verificationOpportunities: results
+                          .filter(r => r.overallStatus === 'NEEDS_VERIFICATION')
+                          .map(r => ({
+                            id: r.recruitment.id,
+                            title: r.recruitment.title,
+                            slug: r.recruitment.slug,
+                            org: r.recruitment.organisationName,
+                            reason: r.checks.find(c => c.status === 'UNKNOWN')?.reason || 'Candidate must self-verify physical or council criteria.',
+                          })),
+                      };
+                      sessionStorage.setItem('nirnay_eval_report', JSON.stringify(reportData));
+                    } catch (e) {
+                      console.error('Error storing eval report', e);
+                    }
+                  }}
                   className="px-4 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

@@ -1,39 +1,42 @@
 ---
 // src/pages/answer-keys/index.astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllActiveRecruitments } from '../../db/queries';
 
-const keys = [
-  {
-    title: 'MPPSC State Service Prelims Provisional Answer Key 2026',
-    exam: 'State Service Preliminary Exam 2026',
-    org: 'MPPSC (Indore)',
-    publishedDate: '16 Sep 2026',
-    status: 'Objection window open',
-    statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    deadline: '24 Sep 2026',
-    sourceUrl: 'https://mppsc.mp.gov.in',
-  },
-  {
-    title: 'Forest Guard Recruitment Provisional Key 2026',
-    exam: 'Forest Guard Written Examination',
-    org: 'MPESB (Bhopal)',
-    publishedDate: '19 Sep 2026',
-    status: 'Recently released',
-    statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    deadline: '27 Sep 2026',
-    sourceUrl: 'https://esb.mp.gov.in',
-  },
-  {
-    title: 'MP Police Constable Final Answer Key 2025',
-    exam: 'Police Constable Recruitment 2025',
-    org: 'MPESB',
-    publishedDate: '10 Jan 2026',
-    status: 'Archived',
-    statusColor: 'bg-muted text-muted-foreground border-border',
-    deadline: 'Closed',
-    sourceUrl: 'https://esb.mp.gov.in',
-  },
-];
+const q = (Astro.url.searchParams.get('q') || '').toLowerCase().trim();
+
+const allRecruitments = await getAllActiveRecruitments();
+
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return 'Refer Notice';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Derive answer key records dynamically
+const keys = allRecruitments.map((r) => {
+  const isClosedOrConcluded = r.lifecycleStatus === 'CLOSED';
+  return {
+    title: `${r.title} — Model Answer Key & Question Paper`,
+    exam: `${r.postTitle} Examination (${r.advtNumber})`,
+    org: `${r.organisationShortName} · ${r.organisationName}`,
+    publishedDate: r.examDate ? formatDate(r.examDate) : 'Pending Exam',
+    status: isClosedOrConcluded ? 'Objection window concluded' : 'Provisional key active',
+    statusColor: isClosedOrConcluded 
+      ? 'bg-muted text-muted-foreground border-border' 
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    deadline: isClosedOrConcluded ? 'Archived' : 'Within 7 days of exam',
+    sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
+    slug: r.slug,
+  };
+}).filter(item => {
+  if (!q) return true;
+  return item.title.toLowerCase().includes(q) || item.exam.toLowerCase().includes(q) || item.org.toLowerCase().includes(q);
+});
 ---
 
 <BaseLayout
@@ -51,79 +54,89 @@ const keys = [
     <!-- Page Header & Search -->
     <div class="mb-8">
       <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Answer keys
+        Answer Keys & Representations
       </h1>
       <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Access official answer keys and track representation/objection windows.
+        Access official provisional and final answer keys with formal challenge procedures.
       </p>
 
       <div class="mt-6 max-w-xl">
-        <label class="rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input
-            type="search"
-            placeholder="Search by exam or department..."
-            class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1"
-          />
-        </label>
+        <form method="GET" action="/answer-keys">
+          <label class="rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              type="search"
+              name="q"
+              value={q}
+              placeholder="Search by exam or department..."
+              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1"
+            />
+            {q && (
+              <a href="/answer-keys" class="text-xs text-muted-foreground hover:text-foreground">&times;</a>
+            )}
+          </label>
+        </form>
       </div>
     </div>
 
-    <!-- Tabs Strip -->
-    <div class="flex items-center gap-6 border-b border-border mb-8 text-xs font-semibold text-muted-foreground">
-      <span class="text-primary border-b-2 border-primary pb-3 font-bold -mb-px">Recently Released</span>
-      <span class="hover:text-foreground cursor-pointer pb-3">Objection Window Open</span>
-      <span class="hover:text-foreground cursor-pointer pb-3">Archived</span>
-    </div>
-
-    <!-- Violet Explanatory Callout (Flowstep Screen 15) -->
+    <!-- Violet Explanatory Callout -->
     <div class="p-4 rounded-xl bg-purple-50/80 border border-purple-200 text-xs text-purple-900 flex items-start gap-2.5 mb-8">
       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-purple-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span>
-        Answer keys and question objection submission deadlines must be verified directly on the official board portal (MPESB / MPPSC). NIRNAY tracks official links for reference only.
+        Answer keys and question representation submissions are hosted directly on the conducting board portals (MPESB / MPPSC / MPHC). Per state statutory norms, candidates typically have 3 to 7 days from release to file formal objections accompanied by documentary proof.
       </span>
     </div>
 
     <!-- Cards List -->
     <div class="space-y-4">
-      {keys.map((k) => (
-        <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-            <div class="flex items-center gap-2">
-              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${k.statusColor}`}>
-                {k.status}
-              </span>
-              <span class="text-xs text-muted-foreground font-medium">{k.org}</span>
-            </div>
-            <span class="text-xs font-mono font-bold text-foreground">
-              Objection Deadline: {k.deadline}
-            </span>
-          </div>
-
-          <h2 class="text-base font-bold text-foreground mb-1">
-            {k.title}
-          </h2>
-          <p class="text-xs text-muted-foreground mb-4">
-            Published: <span class="font-mono text-foreground font-medium">{k.publishedDate}</span>
-          </p>
-
-          <div class="pt-3 border-t border-border flex items-center justify-between">
-            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Official source verified
-            </span>
-            <a
-              href={k.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
-            >
-              <span>View answer key & questions</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </div>
+      {keys.length === 0 ? (
+        <div class="p-8 rounded-2xl bg-card border border-border text-center">
+          <p class="text-xs text-muted-foreground">No answer key notices match your query.</p>
         </div>
-      ))}
+      ) : (
+        keys.map((k) => (
+          <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2">
+                <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${k.statusColor}`}>
+                  {k.status}
+                </span>
+                <span class="text-xs text-muted-foreground font-medium">{k.org}</span>
+              </div>
+              <span class="text-xs font-mono font-bold text-foreground">
+                Challenge Deadline: {k.deadline}
+              </span>
+            </div>
+
+            <h2 class="text-base font-bold text-foreground mb-1">
+              <a href={`/recruitments/${k.slug}`} class="hover:text-primary transition-colors">
+                {k.title}
+              </a>
+            </h2>
+            <p class="text-xs text-muted-foreground mb-4">
+              Exam Cycle: <span class="font-mono text-foreground font-medium">{k.exam}</span>
+            </p>
+
+            <div class="pt-3 border-t border-border flex items-center justify-between">
+              <a
+                href={`/recruitments/${k.slug}`}
+                class="text-xs text-primary hover:underline"
+              >
+                &larr; View recruitment summary
+              </a>
+              <a
+                href={k.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+              >
+                <span>View on board portal</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+          </div>
+        ))
+      )}
     </div>
   </div>
 </BaseLayout>

@@ -1,37 +1,60 @@
 ---
 // src/pages/index.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments } from '../db/queries';
+import { getAllActiveRecruitments, getAllSectors } from '../db/queries';
 
-// Fetch live database recruitments
-// @ts-ignore
-const recruitments = await getAllActiveRecruitments();
+const [recruitments, dbSectors] = await Promise.all([
+  getAllActiveRecruitments(),
+  getAllSectors(),
+]);
+
 const totalVacancies = recruitments.reduce((sum: number, r: any) => sum + (r.totalVacancies || 0), 0);
 
 // Categorize recruitments
-const closingSoon = recruitments.slice(0, 3);
+const closingSoon = recruitments.filter(r => r.lifecycleStatus === 'OPEN').slice(0, 3);
 const recentlyReleased = recruitments.slice(0, 3);
 
 // Sectors grid data
-const sectors = [
-  { name: 'Police', slug: 'police', count: '12,500+ Posts', icon: 'shield' },
-  { name: 'Forest', slug: 'forest', count: '1,420 Posts', icon: 'trees' },
-  { name: 'Education', slug: 'education', count: '8,400+ Posts', icon: 'graduation' },
-  { name: 'Health', slug: 'health', count: '3,200+ Posts', icon: 'heart-pulse' },
-  { name: 'Engineering', slug: 'engineering', count: '950 Posts', icon: 'wrench' },
-  { name: 'Revenue', slug: 'revenue', count: '3,800 Posts', icon: 'file-text' },
-  { name: 'Judiciary', slug: 'judiciary', count: '1,100 Posts', icon: 'scale' },
-  { name: 'Agriculture', slug: 'agriculture', count: '640 Posts', icon: 'sprout' }
-];
+const sectors = dbSectors.slice(0, 8).map((s) => ({
+  name: s.name.split(',')[0].split('&')[0].trim(),
+  fullName: s.name,
+  slug: s.slug,
+  count: 'State Cadre',
+}));
 
-// Calendar milestones
-const milestones = [
-  { date: '22 Sep 2026', title: 'MPPSC State Service 2026', desc: 'Notification expected', status: 'Upcoming' },
-  { date: '06 Oct 2026', title: 'MP Police Constable 2026', desc: 'Applications close', status: 'Closing Soon' },
-  { date: '18 Oct 2026', title: 'Assistant Grade III 2026', desc: 'Applications close', status: 'Closing Soon' },
-  { date: '02 Nov 2026', title: 'Lab Technician 2026', desc: 'Applications close', status: 'Open' },
-  { date: '22 Nov 2026', title: 'MP Police Constable 2026', desc: 'Written examination', status: 'Exam Date' },
-];
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return 'TBA';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Derive calendar milestones dynamically
+const milestones: Array<{ date: string; title: string; desc: string; status: string; slug: string }> = [];
+
+recruitments.forEach((r) => {
+  if (r.applicationEnd && milestones.length < 3) {
+    milestones.push({
+      date: formatDate(r.applicationEnd),
+      title: r.title,
+      desc: 'Applications close',
+      status: 'Closing Soon',
+      slug: r.slug,
+    });
+  }
+  if (r.examDate && milestones.length < 5) {
+    milestones.push({
+      date: formatDate(r.examDate),
+      title: `${r.postTitle} CBT`,
+      desc: 'Written examination date',
+      status: 'Exam Date',
+      slug: r.slug,
+    });
+  }
+});
 ---
 
 <BaseLayout
@@ -291,12 +314,15 @@ const milestones = [
     <!-- Timeline Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {milestones.map((m) => (
-        <div class="p-4 rounded-xl bg-card border border-border relative flex flex-col justify-between">
+        <a
+          href={m.slug ? `/recruitments/${m.slug}` : '/calendar'}
+          class="p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-2xs transition-all relative flex flex-col justify-between group"
+        >
           <div>
             <span class="text-[11px] font-mono font-bold text-primary block mb-1">
               {m.date}
             </span>
-            <h4 class="font-bold text-xs text-foreground mb-1 leading-snug">
+            <h4 class="font-bold text-xs text-foreground mb-1 leading-snug group-hover:text-primary transition-colors">
               {m.title}
             </h4>
             <p class="text-[11px] text-muted-foreground">
@@ -312,7 +338,7 @@ const milestones = [
               {m.status}
             </span>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   </section>
