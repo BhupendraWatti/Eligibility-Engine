@@ -102,10 +102,12 @@ const departments = await getAllDepartments();
         <div class="flex items-center gap-3">
           <button
             type="button"
-            onclick="document.getElementById('addPostModal').showModal()"
+            id="toggleCreateStudioBtn"
+            onclick="toggleCreateStudio()"
             class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
           >
-            <span>+ Add Canonical Post</span>
+            <span id="createBtnIcon" class="text-sm font-black">+</span>
+            <span id="createBtnText">Add Canonical Post</span>
           </button>
           <a
             href="/admin/recruitments/new"
@@ -188,6 +190,203 @@ const departments = await getAllDepartments();
       </div>
     </div>
 
+    <!-- Collapsible Top Staged Creation Studio (In-Place / No Modal / No Blur) -->
+    <div id="createPostStudio" class="hidden mb-8 transition-all duration-300">
+      <div class="rounded-3xl border-2 border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-slate-50/90 p-6 sm:p-8 shadow-xl shadow-indigo-100/50 relative overflow-hidden">
+        <!-- Top Accent Bar -->
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+
+        <!-- Studio Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 mb-6 border-b border-indigo-100/80 gap-4">
+          <div class="flex items-start sm:items-center gap-3.5">
+            <div class="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md shadow-indigo-600/30 shrink-0">
+              +
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200">
+                  New Master Taxonomy Entry
+                </span>
+                <span class="text-xs text-slate-400 font-medium hidden sm:inline">&bull; Propagates immediately to all catalogs</span>
+              </div>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 font-['Outfit'] mt-1">
+                Standardize New Canonical Government Post
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Define canonical post title, ministerial department, pay scale, and base educational eligibility bounds.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="toggleCreateStudio(false)"
+            class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs shadow-sm transition-all cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
+          >
+            <span>✕ Close Studio</span>
+          </button>
+        </div>
+
+        <!-- Create Form -->
+        <form method="POST" class="space-y-5">
+          <input type="hidden" name="_action" value="create_post" />
+
+          <!-- Row 1: Sector, Department & Title -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Government Sector <span class="text-rose-500">*</span>
+              </label>
+              <select
+                name="sectorId"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              >
+                {sectors.map(sec => (
+                  <option value={sec.id}>{sec.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                State Department <span class="text-rose-500">*</span>
+              </label>
+              <select
+                name="departmentId"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              >
+                {departments.map(dept => (
+                  <option value={dept.id}>{dept.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Canonical Post Title <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="title"
+                placeholder="e.g. Legal Officer / Public Prosecutor"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Row 2: Pay Scale, Qualification, Min Age, Max Age -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Pay Scale / Band
+              </label>
+              <input
+                type="text"
+                name="payScale"
+                placeholder="e.g. Rs. 36,200 - 1,14,800/- (Level 9)"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Default Qualification
+              </label>
+              <select
+                name="defaultQualification"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              >
+                <option value="8TH">8th Pass (Primary Cadre)</option>
+                <option value="10TH" selected>10th Class Pass (Matriculation)</option>
+                <option value="12TH">12th Class Pass (Higher Secondary)</option>
+                <option value="DIPLOMA">Polytechnic / Technical Diploma</option>
+                <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
+                <option value="POST_GRADUATION">Post Graduate (Master's Degree)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Default Min Age (Years)
+              </label>
+              <input
+                type="number"
+                id="create_minAge"
+                name="defaultMinAge"
+                value="18"
+                min="14"
+                max="65"
+                oninput="updateCreateAgeWindowBadge()"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Default Max Age (Years)
+              </label>
+              <input
+                type="number"
+                id="create_maxAge"
+                name="defaultMaxAge"
+                value="33"
+                min="14"
+                max="65"
+                oninput="updateCreateAgeWindowBadge()"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Row 3: Summary -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+                Standard Job Role Summary & Public Scope
+              </label>
+              <span id="createAgeSpanBadge" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                Eligibility Span: 18 - 33 Years (15-Year Window)
+              </span>
+            </div>
+            <textarea
+              name="summary"
+              rows="3"
+              placeholder="Key responsibilities, statutory duties, and official scope of this post..."
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm leading-relaxed"
+            ></textarea>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="pt-4 border-t border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <span class="text-[11px] text-slate-500 flex items-center gap-2">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Immediately available in recruitment ingestion wizards and candidate assessment engines.</span>
+            </span>
+
+            <div class="flex items-center gap-3 self-end sm:self-auto">
+              <button
+                type="button"
+                onclick="toggleCreateStudio(false)"
+                class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all cursor-pointer flex items-center gap-2"
+              >
+                <span>Create Canonical Post</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Master Posts Directory Table -->
     <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
       <div class="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -196,7 +395,7 @@ const departments = await getAllDepartments();
             Master Canonical Government Posts Directory
           </h2>
           <p class="text-xs text-slate-500 mt-0.5">
-            Single source of truth for post titles, pay bands, and standard qualifications.
+            Single source of truth for post titles, pay bands, and standard qualifications. Click any post's studio button to edit in-place.
           </p>
         </div>
         <span id="postCountBadge" class="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full">
@@ -219,7 +418,9 @@ const departments = await getAllDepartments();
           <tbody class="divide-y divide-slate-100" id="postsTableBody">
             {posts.map(post => (
               <tr
-                class="post-row hover:bg-slate-50/60 transition-colors"
+                class="post-row hover:bg-slate-50/60 transition-all cursor-default"
+                id={`post-row-${post.id}`}
+                data-post-id={post.id}
                 data-sector-id={post.sectorId}
                 data-title={post.title.toLowerCase()}
                 data-payscale={(post.payScale || '').toLowerCase()}
@@ -251,282 +452,258 @@ const departments = await getAllDepartments();
                 <td class="py-4 px-6 text-right">
                   <button
                     type="button"
-                    class="px-3 py-1.5 rounded-lg border border-slate-300 hover:border-indigo-500 hover:text-indigo-600 font-semibold text-[11px] transition-colors cursor-pointer"
-                    onclick={`openEditModal(${JSON.stringify(post)})`}
+                    id={`btn-edit-${post.id}`}
+                    class="action-edit-btn px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50/40 font-bold text-[11px] shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                    onclick={`toggleInlineEdit(${JSON.stringify(post)})`}
                   >
-                    Edit Master &rarr;
+                    <span class="btn-text">Edit Master</span>
+                    <span class="btn-arrow text-slate-400 font-bold">&rarr;</span>
                   </button>
                 </td>
               </tr>
             ))}
+
+            <!-- Reusable Inline Sub-Row Workbench Studio (Directly in table flow, No Modal/Blur/Drawer) -->
+            <tr id="inlineEditWorkbenchRow" class="hidden edit-workbench-row bg-slate-900/[0.02]">
+              <td colspan="6" class="p-0 border-y-2 border-indigo-500 shadow-inner">
+                <div class="p-6 sm:p-8 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50/90 relative">
+                  
+                  <!-- Studio Header Ribbon -->
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-indigo-100/80 gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-600 text-white shadow-sm shadow-indigo-600/20">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Inline Master Studio
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <span id="studioPostIdBadge" class="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200"></span>
+                        <span id="studioSectorDeptBadge" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60"></span>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 self-end sm:self-auto">
+                      <span class="text-[11px] text-emerald-700 font-bold hidden md:inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                        Relational cascading sync active
+                      </span>
+                      <button
+                        type="button"
+                        onclick="closeInlineEdit()"
+                        class="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <span>✕ Collapse</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Studio Form -->
+                  <form method="POST" class="space-y-5" id="inlineEditForm">
+                    <input type="hidden" name="_action" value="update_post" />
+                    <input type="hidden" id="edit_id" name="id" />
+
+                    <!-- Title & Pay Scale Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div class="lg:col-span-2">
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                          <span>Canonical Post Title <span class="text-rose-500">*</span></span>
+                          <span class="text-[10px] text-slate-400 font-normal normal-case">Official gazetted cadre nomenclature</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="edit_title"
+                          name="title"
+                          required
+                          placeholder="e.g. Naib Tehsildar (Executive Magistrate)"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                          <span>Pay Scale / Band</span>
+                          <span class="text-[10px] text-slate-400 font-normal normal-case">Level / Grade pay</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="edit_payScale"
+                          name="payScale"
+                          placeholder="e.g. Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Qualifications & Age Bracket Row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div class="sm:col-span-2 lg:col-span-2">
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                          <span>Default Base Qualification</span>
+                          <span class="text-[10px] text-slate-400 font-normal normal-case">Baseline educational benchmark</span>
+                        </label>
+                        <select
+                          id="edit_defaultQualification"
+                          name="defaultQualification"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        >
+                          <option value="8TH">8th Pass (Primary Cadre)</option>
+                          <option value="10TH">10th Class Pass (Matriculation)</option>
+                          <option value="12TH">12th Class Pass (Higher Secondary)</option>
+                          <option value="DIPLOMA">Polytechnic / Technical Diploma</option>
+                          <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
+                          <option value="POST_GRADUATION">Post Graduate (Master's Degree)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                          Default Min Age (Years)
+                        </label>
+                        <input
+                          type="number"
+                          id="edit_defaultMinAge"
+                          name="defaultMinAge"
+                          min="14"
+                          max="65"
+                          oninput="updateAgeWindowBadge()"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                          Default Max Age (Years)
+                        </label>
+                        <input
+                          type="number"
+                          id="edit_defaultMaxAge"
+                          name="defaultMaxAge"
+                          min="14"
+                          max="65"
+                          oninput="updateAgeWindowBadge()"
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Live Age Span Info & Summary Row -->
+                    <div>
+                      <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+                          Standard Job Role Summary & Official Duties
+                        </label>
+                        <span id="liveAgeSpanBadge" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+                          Eligibility Span: 21 - 33 Years
+                        </span>
+                      </div>
+                      <textarea
+                        id="edit_summary"
+                        name="summary"
+                        rows="3"
+                        placeholder="Official cadre responsibilities, statutory duties, departmental authority..."
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm leading-relaxed"
+                      ></textarea>
+                    </div>
+
+                    <!-- Studio Action Footer -->
+                    <div class="pt-4 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span>Saving immediately cascades updates to candidate eligibility calculators and notifications.</span>
+                      </div>
+
+                      <div class="flex items-center gap-3 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onclick="closeInlineEdit()"
+                          class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          Discard Changes
+                        </button>
+                        <button
+                          type="submit"
+                          class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 transition-all cursor-pointer flex items-center gap-2"
+                        >
+                          <span>Save Master Changes</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
-
-  <!-- Edit Post Modal -->
-  <dialog id="editPostModal" class="rounded-3xl p-0 border border-slate-200 shadow-2xl backdrop:bg-slate-900/40 max-w-lg w-full">
-    <div class="p-6 bg-white">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-        <div>
-          <h3 class="text-base font-bold text-slate-900 font-['Outfit']">Edit Master Canonical Post</h3>
-          <p class="text-xs text-slate-500">Updating this master record immediately updates all linked recruitments.</p>
-        </div>
-        <button type="button" onclick="document.getElementById('editPostModal').close()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">×</button>
-      </div>
-
-      <form method="POST" class="space-y-4">
-        <input type="hidden" name="_action" value="update_post" />
-        <input type="hidden" id="edit_id" name="id" />
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            Canonical Post Title <span class="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="edit_title"
-            name="title"
-            required
-            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Pay Scale / Band
-            </label>
-            <input
-              type="text"
-              id="edit_payScale"
-              name="payScale"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Qualification
-            </label>
-            <select
-              id="edit_defaultQualification"
-              name="defaultQualification"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              <option value="8TH">8th Pass</option>
-              <option value="10TH">10th Class Pass</option>
-              <option value="12TH">12th Class Pass</option>
-              <option value="DIPLOMA">Polytechnic / Diploma</option>
-              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
-              <option value="POST_GRADUATION">Post Graduate (Master's)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Min Age
-            </label>
-            <input
-              type="number"
-              id="edit_defaultMinAge"
-              name="defaultMinAge"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Max Age
-            </label>
-            <input
-              type="number"
-              id="edit_defaultMaxAge"
-              name="defaultMaxAge"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            Standard Job Role Summary
-          </label>
-          <textarea
-            id="edit_summary"
-            name="summary"
-            rows="3"
-            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-          ></textarea>
-        </div>
-
-        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onclick="document.getElementById('editPostModal').close()"
-            class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 cursor-pointer"
-          >
-            Save Master Changes &rarr;
-          </button>
-        </div>
-      </form>
-    </div>
-  </dialog>
-
-  <!-- Add New Post Modal -->
-  <dialog id="addPostModal" class="rounded-3xl p-0 border border-slate-200 shadow-2xl backdrop:bg-slate-900/40 max-w-lg w-full">
-    <div class="p-6 bg-white">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-        <div>
-          <h3 class="text-base font-bold text-slate-900 font-['Outfit']">+ Add New Canonical Post</h3>
-          <p class="text-xs text-slate-500">Add a standardized post to the state government master catalog.</p>
-        </div>
-        <button type="button" onclick="document.getElementById('addPostModal').close()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">×</button>
-      </div>
-
-      <form method="POST" class="space-y-4">
-        <input type="hidden" name="_action" value="create_post" />
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            Canonical Post Title <span class="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="title"
-            placeholder="e.g. Legal Officer / Assistant Public Prosecutor"
-            required
-            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Sector <span class="text-rose-500">*</span>
-            </label>
-            <select
-              name="sectorId"
-              required
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              {sectors.map(sec => (
-                <option value={sec.id}>{sec.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Department <span class="text-rose-500">*</span>
-            </label>
-            <select
-              name="departmentId"
-              required
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              {departments.map(dept => (
-                <option value={dept.id}>{dept.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Pay Scale / Band
-            </label>
-            <input
-              type="text"
-              name="payScale"
-              placeholder="e.g. Rs. 36,200 - 1,14,800/- (Level 9)"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Qualification
-            </label>
-            <select
-              name="defaultQualification"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              <option value="8TH">8th Pass</option>
-              <option value="10TH" selected>10th Class Pass</option>
-              <option value="12TH">12th Class Pass</option>
-              <option value="DIPLOMA">Polytechnic / Diploma</option>
-              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
-              <option value="POST_GRADUATION">Post Graduate (Master's)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Min Age
-            </label>
-            <input
-              type="number"
-              name="defaultMinAge"
-              value="18"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Default Max Age
-            </label>
-            <input
-              type="number"
-              name="defaultMaxAge"
-              value="33"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            Standard Job Role Summary
-          </label>
-          <textarea
-            name="summary"
-            rows="3"
-            placeholder="Key responsibilities and official duties of this post..."
-            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-          ></textarea>
-        </div>
-
-        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onclick="document.getElementById('addPostModal').close()"
-            class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
-          >
-            Create Canonical Post &rarr;
-          </button>
-        </div>
-      </form>
-    </div>
-  </dialog>
 </BaseLayout>
 
 <script is:inline>
-  function openEditModal(post) {
+  let currentEditingPostId = null;
+
+  function toggleCreateStudio(forceState) {
+    const studio = document.getElementById('createPostStudio');
+    const btnText = document.getElementById('createBtnText');
+    const btnIcon = document.getElementById('createBtnIcon');
+    const btn = document.getElementById('toggleCreateStudioBtn');
+
+    const shouldOpen = forceState !== undefined ? forceState : studio.classList.contains('hidden');
+
+    if (shouldOpen) {
+      studio.classList.remove('hidden');
+      btnText.textContent = 'Close Creation Studio';
+      btnIcon.textContent = '✕';
+      btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+      btn.classList.add('bg-slate-700', 'hover:bg-slate-800');
+      updateCreateAgeWindowBadge();
+      studio.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      studio.classList.add('hidden');
+      btnText.textContent = 'Add Canonical Post';
+      btnIcon.textContent = '+';
+      btn.classList.remove('bg-slate-700', 'hover:bg-slate-800');
+      btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+    }
+  }
+
+  function updateCreateAgeWindowBadge() {
+    const minVal = parseInt(document.getElementById('create_minAge')?.value || '18', 10);
+    const maxVal = parseInt(document.getElementById('create_maxAge')?.value || '33', 10);
+    const badge = document.getElementById('createAgeSpanBadge');
+    if (badge) {
+      const span = maxVal >= minVal ? `${maxVal - minVal}-Year Window` : 'Invalid Age Bounds';
+      badge.textContent = `Eligibility Span: ${minVal} - ${maxVal} Years (${span})`;
+    }
+  }
+
+  function updateAgeWindowBadge() {
+    const minVal = parseInt(document.getElementById('edit_defaultMinAge')?.value || '18', 10);
+    const maxVal = parseInt(document.getElementById('edit_defaultMaxAge')?.value || '33', 10);
+    const badge = document.getElementById('liveAgeSpanBadge');
+    if (badge) {
+      const span = maxVal >= minVal ? `${maxVal - minVal}-Year Window` : 'Invalid Range';
+      badge.textContent = `Eligibility Span: ${minVal} - ${maxVal} Years (${span})`;
+    }
+  }
+
+  function toggleInlineEdit(post) {
+    const targetRow = document.getElementById(`post-row-${post.id}`);
+    const workbenchRow = document.getElementById('inlineEditWorkbenchRow');
+    if (!targetRow || !workbenchRow) return;
+
+    // If already editing this post, toggle it closed
+    if (currentEditingPostId === post.id && !workbenchRow.classList.contains('hidden')) {
+      closeInlineEdit();
+      return;
+    }
+
+    // Reset previous row if any was open
+    if (currentEditingPostId && currentEditingPostId !== post.id) {
+      resetRowStyles(currentEditingPostId);
+    }
+
+    // Populate the form fields with post data
     document.getElementById('edit_id').value = post.id;
     document.getElementById('edit_title').value = post.title;
     document.getElementById('edit_payScale').value = post.payScale || '';
@@ -534,7 +711,73 @@ const departments = await getAllDepartments();
     document.getElementById('edit_defaultMinAge').value = post.defaultMinAge || 18;
     document.getElementById('edit_defaultMaxAge').value = post.defaultMaxAge || 33;
     document.getElementById('edit_summary').value = post.summary || '';
-    document.getElementById('editPostModal').showModal();
+
+    // Update studio badges
+    const idBadge = document.getElementById('studioPostIdBadge');
+    if (idBadge) idBadge.textContent = `${post.id} • ${post.slug}`;
+
+    const sectorBadge = document.getElementById('studioSectorDeptBadge');
+    if (sectorBadge) {
+      sectorBadge.textContent = `${post.sectorName || 'State Government'} • ${post.departmentName || 'Department'}`;
+    }
+
+    updateAgeWindowBadge();
+
+    // Reposition the workbench directly beneath targetRow
+    targetRow.insertAdjacentElement('afterend', workbenchRow);
+    workbenchRow.classList.remove('hidden');
+
+    // Highlight target row
+    targetRow.classList.add('bg-indigo-50/80', 'border-l-4', 'border-indigo-600', 'font-medium');
+    const actionBtn = document.getElementById(`btn-edit-${post.id}`);
+    if (actionBtn) {
+      actionBtn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+      actionBtn.classList.add('border-indigo-600', 'bg-indigo-600', 'text-white');
+      const textSpan = actionBtn.querySelector('.btn-text');
+      const arrowSpan = actionBtn.querySelector('.btn-arrow');
+      if (textSpan) textSpan.textContent = 'Editing';
+      if (arrowSpan) {
+        arrowSpan.textContent = '✕';
+        arrowSpan.classList.remove('text-slate-400');
+        arrowSpan.classList.add('text-white');
+      }
+    }
+
+    currentEditingPostId = post.id;
+
+    // Smoothly scroll target row into view
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function closeInlineEdit() {
+    const workbenchRow = document.getElementById('inlineEditWorkbenchRow');
+    if (workbenchRow) {
+      workbenchRow.classList.add('hidden');
+    }
+    if (currentEditingPostId) {
+      resetRowStyles(currentEditingPostId);
+      currentEditingPostId = null;
+    }
+  }
+
+  function resetRowStyles(postId) {
+    const row = document.getElementById(`post-row-${postId}`);
+    if (row) {
+      row.classList.remove('bg-indigo-50/80', 'border-l-4', 'border-indigo-600', 'font-medium');
+    }
+    const btn = document.getElementById(`btn-edit-${postId}`);
+    if (btn) {
+      btn.classList.remove('border-indigo-600', 'bg-indigo-600', 'text-white');
+      btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+      const textSpan = btn.querySelector('.btn-text');
+      const arrowSpan = btn.querySelector('.btn-arrow');
+      if (textSpan) textSpan.textContent = 'Edit Master';
+      if (arrowSpan) {
+        arrowSpan.textContent = '→';
+        arrowSpan.classList.remove('text-white');
+        arrowSpan.classList.add('text-slate-400');
+      }
+    }
   }
 
   function filterPosts() {
@@ -557,6 +800,11 @@ const departments = await getAllDepartments();
         visibleCount++;
       } else {
         row.style.display = 'none';
+        // If the active row is hidden by filter, hide workbench too
+        if (currentEditingPostId && row.getAttribute('data-post-id') === currentEditingPostId) {
+          const workbenchRow = document.getElementById('inlineEditWorkbenchRow');
+          if (workbenchRow) workbenchRow.classList.add('hidden');
+        }
       }
     });
 
