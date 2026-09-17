@@ -1,0 +1,568 @@
+---
+// src/pages/admin/masters/index.astro
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import {
+  getAllCanonicalPosts,
+  getAllSectors,
+  getAllDepartments,
+  updateCanonicalPost,
+  createCanonicalPost,
+} from '../../../db/queries';
+
+let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('_action');
+
+    if (action === 'update_post') {
+      const id = formData.get('id')?.toString();
+      const title = formData.get('title')?.toString();
+      const payScale = formData.get('payScale')?.toString();
+      const defaultMinAge = parseInt(formData.get('defaultMinAge')?.toString() || '18', 10);
+      const defaultMaxAge = parseInt(formData.get('defaultMaxAge')?.toString() || '33', 10);
+      const defaultQualification = formData.get('defaultQualification')?.toString() || '10TH';
+      const summary = formData.get('summary')?.toString() || '';
+
+      if (id && title) {
+        await updateCanonicalPost({
+          id,
+          title,
+          payScale: payScale || null,
+          defaultMinAge,
+          defaultMaxAge,
+          defaultQualification,
+          summary,
+        });
+        statusMessage = {
+          type: 'success',
+          text: `Updated master post "${title}". Changes are now active across all linked recruitments and eligibility rules!`,
+        };
+      }
+    } else if (action === 'create_post') {
+      const title = formData.get('title')?.toString();
+      const sectorId = formData.get('sectorId')?.toString();
+      const departmentId = formData.get('departmentId')?.toString();
+      const payScale = formData.get('payScale')?.toString();
+      const defaultMinAge = parseInt(formData.get('defaultMinAge')?.toString() || '18', 10);
+      const defaultMaxAge = parseInt(formData.get('defaultMaxAge')?.toString() || '33', 10);
+      const defaultQualification = formData.get('defaultQualification')?.toString() || '10TH';
+      const summary = formData.get('summary')?.toString() || '';
+
+      if (title && sectorId && departmentId) {
+        const newId = await createCanonicalPost({
+          title,
+          sectorId,
+          departmentId,
+          payScale: payScale || null,
+          defaultMinAge,
+          defaultMaxAge,
+          defaultQualification,
+          summary,
+        });
+        statusMessage = {
+          type: 'success',
+          text: `Successfully created new canonical post "${title}" with ID ${newId}!`,
+        };
+      }
+    }
+  } catch (err: any) {
+    statusMessage = { type: 'error', text: `Failed to process master action: ${err.message}` };
+  }
+}
+
+const posts = await getAllCanonicalPosts();
+const sectors = await getAllSectors();
+const departments = await getAllDepartments();
+---
+
+<BaseLayout title="Master Records & Taxonomies | Admin">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <!-- Header & Breadcrumbs -->
+    <div class="mb-8">
+      <div class="flex items-center gap-2 mb-2">
+        <a href="/admin" class="text-xs font-semibold text-indigo-600 hover:underline inline-block">
+          &larr; Back to Admin Dashboard
+        </a>
+        <span class="text-slate-300">/</span>
+        <span class="text-xs text-slate-500 font-medium">Master Records Management</span>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Outfit']">
+            Master Data & Reference Taxonomies
+          </h1>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+            Central catalog for Canonical Posts, Government Sectors, and Departments. Editing any master record immediately propagates to all recruitment catalogs and eligibility evaluations.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            onclick="document.getElementById('addPostModal').showModal()"
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <span>+ Add Canonical Post</span>
+          </button>
+          <a
+            href="/admin/recruitments/new"
+            class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-sm transition-all"
+          >
+            Ingest Recruitment &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {statusMessage && (
+      <div class={`mb-6 p-4 rounded-2xl border text-xs font-medium flex items-center justify-between ${
+        statusMessage.type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          : 'bg-rose-50 border-rose-200 text-rose-800'
+      }`}>
+        <div class="flex items-center gap-2">
+          <span class="font-bold">{statusMessage.type === 'success' ? '✓ Master Synced:' : '✗ Error:'}</span>
+          <span>{statusMessage.text}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">×</button>
+      </div>
+    )}
+
+    <!-- Master Statistics Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div class="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Canonical Posts</span>
+        <span class="text-2xl font-black text-slate-900 font-['Outfit']">{posts.length}</span>
+        <span class="text-[11px] text-slate-500 block mt-1">Class 1 to Class 4 Cadres</span>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Master Sectors</span>
+        <span class="text-2xl font-black text-indigo-600 font-['Outfit']">{sectors.length}</span>
+        <span class="text-[11px] text-slate-500 block mt-1">Police, Court, IT, Civil, etc.</span>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Departments</span>
+        <span class="text-2xl font-black text-slate-900 font-['Outfit']">{departments.length}</span>
+        <span class="text-[11px] text-slate-500 block mt-1">State Ministries & Secretariats</span>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Propagation Mode</span>
+        <span class="text-2xl font-black text-emerald-600 font-['Outfit']">Relational</span>
+        <span class="text-[11px] text-slate-500 block mt-1">Instant Zero-Desync FK Sync</span>
+      </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            Search Canonical Posts or Keywords
+          </label>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search by post title, pay scale, or summary..."
+            class="w-full px-4 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            oninput="filterPosts()"
+          />
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            Filter by Sector
+          </label>
+          <select
+            id="sectorFilter"
+            class="w-full px-4 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            onchange="filterPosts()"
+          >
+            <option value="ALL">All Sectors ({posts.length} Posts)</option>
+            {sectors.map(sec => (
+              <option value={sec.id}>{sec.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Master Posts Directory Table -->
+    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 font-['Outfit']">
+            Master Canonical Government Posts Directory
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Single source of truth for post titles, pay bands, and standard qualifications.
+          </p>
+        </div>
+        <span id="postCountBadge" class="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full">
+          Showing {posts.length} of {posts.length} Posts
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left" id="postsTable">
+          <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+            <tr>
+              <th class="py-3 px-6">Post Title & Code</th>
+              <th class="py-3 px-6">Sector & Department</th>
+              <th class="py-3 px-6">Pay Scale / Band</th>
+              <th class="py-3 px-6">Default Qualification</th>
+              <th class="py-3 px-6">Age Bracket</th>
+              <th class="py-3 px-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100" id="postsTableBody">
+            {posts.map(post => (
+              <tr
+                class="post-row hover:bg-slate-50/60 transition-colors"
+                data-sector-id={post.sectorId}
+                data-title={post.title.toLowerCase()}
+                data-payscale={(post.payScale || '').toLowerCase()}
+                data-dept={(post.departmentName || '').toLowerCase()}
+              >
+                <td class="py-4 px-6">
+                  <div class="font-bold text-slate-900 text-sm post-title">{post.title}</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">{post.id} &bull; {post.slug}</div>
+                </td>
+                <td class="py-4 px-6">
+                  <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 mb-1">
+                    {post.sectorName || 'State Government'}
+                  </span>
+                  <div class="text-slate-600 text-[11px] font-medium">
+                    {post.departmentName || 'Department'}
+                  </div>
+                </td>
+                <td class="py-4 px-6 font-semibold text-slate-800 post-payscale">
+                  {post.payScale || 'As per Govt Rules'}
+                </td>
+                <td class="py-4 px-6">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                    {post.defaultQualification}
+                  </span>
+                </td>
+                <td class="py-4 px-6 font-medium text-slate-700">
+                  {post.defaultMinAge} - {post.defaultMaxAge} Years
+                </td>
+                <td class="py-4 px-6 text-right">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg border border-slate-300 hover:border-indigo-500 hover:text-indigo-600 font-semibold text-[11px] transition-colors cursor-pointer"
+                    onclick={`openEditModal(${JSON.stringify(post)})`}
+                  >
+                    Edit Master &rarr;
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Post Modal -->
+  <dialog id="editPostModal" class="rounded-3xl p-0 border border-slate-200 shadow-2xl backdrop:bg-slate-900/40 max-w-lg w-full">
+    <div class="p-6 bg-white">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 font-['Outfit']">Edit Master Canonical Post</h3>
+          <p class="text-xs text-slate-500">Updating this master record immediately updates all linked recruitments.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('editPostModal').close()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">×</button>
+      </div>
+
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="_action" value="update_post" />
+        <input type="hidden" id="edit_id" name="id" />
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Canonical Post Title <span class="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="edit_title"
+            name="title"
+            required
+            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Pay Scale / Band
+            </label>
+            <input
+              type="text"
+              id="edit_payScale"
+              name="payScale"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Qualification
+            </label>
+            <select
+              id="edit_defaultQualification"
+              name="defaultQualification"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              <option value="8TH">8th Pass</option>
+              <option value="10TH">10th Class Pass</option>
+              <option value="12TH">12th Class Pass</option>
+              <option value="DIPLOMA">Polytechnic / Diploma</option>
+              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
+              <option value="POST_GRADUATION">Post Graduate (Master's)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Min Age
+            </label>
+            <input
+              type="number"
+              id="edit_defaultMinAge"
+              name="defaultMinAge"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Max Age
+            </label>
+            <input
+              type="number"
+              id="edit_defaultMaxAge"
+              name="defaultMaxAge"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Standard Job Role Summary
+          </label>
+          <textarea
+            id="edit_summary"
+            name="summary"
+            rows="3"
+            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+          ></textarea>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onclick="document.getElementById('editPostModal').close()"
+            class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 cursor-pointer"
+          >
+            Save Master Changes &rarr;
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Add New Post Modal -->
+  <dialog id="addPostModal" class="rounded-3xl p-0 border border-slate-200 shadow-2xl backdrop:bg-slate-900/40 max-w-lg w-full">
+    <div class="p-6 bg-white">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 font-['Outfit']">+ Add New Canonical Post</h3>
+          <p class="text-xs text-slate-500">Add a standardized post to the state government master catalog.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('addPostModal').close()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">×</button>
+      </div>
+
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="_action" value="create_post" />
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Canonical Post Title <span class="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="title"
+            placeholder="e.g. Legal Officer / Assistant Public Prosecutor"
+            required
+            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Sector <span class="text-rose-500">*</span>
+            </label>
+            <select
+              name="sectorId"
+              required
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              {sectors.map(sec => (
+                <option value={sec.id}>{sec.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Department <span class="text-rose-500">*</span>
+            </label>
+            <select
+              name="departmentId"
+              required
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              {departments.map(dept => (
+                <option value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Pay Scale / Band
+            </label>
+            <input
+              type="text"
+              name="payScale"
+              placeholder="e.g. Rs. 36,200 - 1,14,800/- (Level 9)"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Qualification
+            </label>
+            <select
+              name="defaultQualification"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            >
+              <option value="8TH">8th Pass</option>
+              <option value="10TH" selected>10th Class Pass</option>
+              <option value="12TH">12th Class Pass</option>
+              <option value="DIPLOMA">Polytechnic / Diploma</option>
+              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
+              <option value="POST_GRADUATION">Post Graduate (Master's)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Min Age
+            </label>
+            <input
+              type="number"
+              name="defaultMinAge"
+              value="18"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Default Max Age
+            </label>
+            <input
+              type="number"
+              name="defaultMaxAge"
+              value="33"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Standard Job Role Summary
+          </label>
+          <textarea
+            name="summary"
+            rows="3"
+            placeholder="Key responsibilities and official duties of this post..."
+            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+          ></textarea>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onclick="document.getElementById('addPostModal').close()"
+            class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
+          >
+            Create Canonical Post &rarr;
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+</BaseLayout>
+
+<script is:inline>
+  function openEditModal(post) {
+    document.getElementById('edit_id').value = post.id;
+    document.getElementById('edit_title').value = post.title;
+    document.getElementById('edit_payScale').value = post.payScale || '';
+    document.getElementById('edit_defaultQualification').value = post.defaultQualification || '10TH';
+    document.getElementById('edit_defaultMinAge').value = post.defaultMinAge || 18;
+    document.getElementById('edit_defaultMaxAge').value = post.defaultMaxAge || 33;
+    document.getElementById('edit_summary').value = post.summary || '';
+    document.getElementById('editPostModal').showModal();
+  }
+
+  function filterPosts() {
+    const searchVal = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+    const sectorVal = document.getElementById('sectorFilter').value;
+    const rows = document.querySelectorAll('.post-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const rowSector = row.getAttribute('data-sector-id');
+      const title = row.getAttribute('data-title') || '';
+      const payScale = row.getAttribute('data-payscale') || '';
+      const dept = row.getAttribute('data-dept') || '';
+
+      const matchesSector = sectorVal === 'ALL' || rowSector === sectorVal;
+      const matchesSearch = !searchVal || title.includes(searchVal) || payScale.includes(searchVal) || dept.includes(searchVal);
+
+      if (matchesSector && matchesSearch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    const badge = document.getElementById('postCountBadge');
+    if (badge) {
+      badge.textContent = `Showing ${visibleCount} of ${rows.length} Posts`;
+    }
+  }
+</script>

@@ -1,202 +1,237 @@
 ---
 // src/pages/admin/recruitments/new.astro
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getAllCanonicalPosts, getAllSectors } from '../../../db/queries';
+
+const posts = await getAllCanonicalPosts();
+const sectors = await getAllSectors();
+
+// Group posts by sector for clean optgroup dropdown rendering
+const postsBySector = sectors.map(sec => ({
+  sector: sec,
+  posts: posts.filter(p => p.sectorId === sec.id),
+})).filter(group => group.posts.length > 0);
 ---
 
-<BaseLayout title="Ingest New Recruitment | Admin">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <div class="mb-8">
-      <a href="/admin" class="text-xs font-semibold text-indigo-600 hover:underline mb-2 inline-block">
-        &larr; Back to Admin Dashboard
-      </a>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Outfit']">
-        Ingest New Government Recruitment
-      </h1>
-      <p class="text-xs text-slate-500 mt-1">
-        Enter verified notification details from the official government rulebook.
-      </p>
-    </div>
+<BaseLayout title="Create Recruitment — NIRNAY OPS">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb & Top Bar -->
+    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
+      <a href="/admin" class="hover:text-foreground">Operations</a>
+      <span>/</span>
+      <a href="/admin/recruitments" class="hover:text-foreground">Recruitments</a>
+      <span>/</span>
+      <span class="text-foreground font-medium">New recruitment</span>
+    </nav>
 
-    <form class="space-y-8 bg-white p-6 sm:p-10 rounded-3xl border border-slate-200/80 shadow-md shadow-slate-200/40">
-      <!-- Section 1: Canonical Post & Advertisement Info -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-8">
       <div>
-        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
-          1. Basic Recruitment Details
-        </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Select Canonical Post <span class="text-rose-500">*</span>
-            </label>
-            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="post_mp_constable">Police Constable (General Duty) — Home Dept</option>
-              <option value="post_mp_si">Sub Inspector (Civil Police) — Home Dept</option>
-              <option value="post_mp_patwari">Patwari (Land Records Officer) — Revenue Dept</option>
-              <option value="post_mp_forest_guard">Forest Guard (Van Rakshak) — Forest Dept</option>
-              <option value="post_mp_group4_clerk">Assistant Grade-III / Steno-Typist — GAD</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Advertisement / Notification Number <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Advt No. 09/2026"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Total Advertised Vacancies <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 5000"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Full Public Title <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. MP Police Constable Recruitment 2026"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
+        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+          <span class="size-2 rounded-full bg-amber-500"></span>
+          <span>Draft autosaved 2 minutes ago</span>
         </div>
+        <h1 class="text-2xl font-bold text-foreground">
+          Create recruitment
+        </h1>
       </div>
 
-      <!-- Section 2: Statutory Eligibility Criteria -->
-      <div>
-        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
-          2. Statutory Eligibility Criteria (Deterministic Model)
-        </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Minimum Age
-            </label>
-            <input
-              type="number"
-              value="18"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Max Age (General / UR)
-            </label>
-            <input
-              type="number"
-              value="33"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Age Cutoff Date <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="date"
-              value="2026-01-01"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Minimum Qualification
-            </label>
-            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="10TH">10th Class Pass</option>
-              <option value="12TH">12th Class Pass</option>
-              <option value="DIPLOMA">Polytechnic / Diploma</option>
-              <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
-              <option value="POST_GRADUATION">Post Graduate</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              MP Domicile Required?
-            </label>
-            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="1">Yes (MP Residents Only)</option>
-              <option value="0">No (All-India Eligible)</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              CPCT Scorecard Required?
-            </label>
-            <select class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-              <option value="0">No</option>
-              <option value="1">Yes (Mandatory)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 3: Official Provenance & Authority Links -->
-      <div>
-        <h2 class="text-base font-bold text-slate-900 font-['Outfit'] mb-4 pb-2 border-b border-slate-100">
-          3. Source Provenance & Outbound Verification
-        </h2>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Official Notification PDF URL <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="url"
-              placeholder="https://esb.mp.gov.in/Rulebooks/..."
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Official Application Portal URL <span class="text-rose-500">*</span>
-            </label>
-            <input
-              type="url"
-              placeholder="https://esb.mponline.gov.in"
-              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              required
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Submit Actions -->
-      <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-3">
         <button
           type="button"
-          class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors"
+          class="px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors"
         >
-          Save as Draft
+          Save draft
         </button>
         <button
           type="submit"
-          class="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all"
+          form="recruitmentForm"
+          class="px-5 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm transition-colors"
         >
-          Verify & Publish Recruitment ✨
+          Publish recruitment
         </button>
       </div>
-    </form>
+    </div>
+
+    <!-- Main Grid: Form (2 Cols) + Checklist (1 Col) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Form Area -->
+      <div class="lg:col-span-2">
+        <form id="recruitmentForm" class="space-y-8 bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm">
+          <!-- Form Tabs Strip -->
+          <div class="flex items-center gap-4 border-b border-border pb-3 text-xs font-semibold text-muted-foreground">
+            <span class="text-primary border-b-2 border-primary pb-3 font-bold -mb-3">Basic Information</span>
+            <span class="hover:text-foreground cursor-pointer">Vacancy</span>
+            <span class="hover:text-foreground cursor-pointer">Eligibility</span>
+            <span class="hover:text-foreground cursor-pointer">Dates</span>
+            <span class="hover:text-foreground cursor-pointer">Sources</span>
+            <span class="hover:text-foreground cursor-pointer">SEO</span>
+          </div>
+
+          <!-- Basic Information -->
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-foreground mb-1">
+                Recruitment Title <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="title"
+                required
+                placeholder="e.g. MP Police Constable Recruitment 2026"
+                class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+              />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">
+                  Canonical Post <span class="text-red-500">*</span>
+                </label>
+                <select
+                  name="postId"
+                  required
+                  class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs sm:text-sm text-foreground focus:border-primary outline-none"
+                >
+                  <option value="">-- Choose Canonical Post ({posts.length}) --</option>
+                  {postsBySector.map(group => (
+                    <optgroup label={group.sector.name}>
+                      {group.posts.map(post => (
+                        <option value={post.id}>{post.title}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">
+                  Organisation <span class="text-red-500">*</span>
+                </label>
+                <select
+                  name="organisation"
+                  required
+                  class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs sm:text-sm text-foreground focus:border-primary outline-none"
+                >
+                  <option value="MPESB">MPESB (Employees Selection Board)</option>
+                  <option value="MPPSC">MPPSC (Public Service Commission)</option>
+                  <option value="MPHC">High Court of Madhya Pradesh</option>
+                  <option value="OTHER">Other State Board</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">
+                  Advertisement / Rulebook Number <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="advtNumber"
+                  required
+                  placeholder="e.g. MPESB-PC-2026/01"
+                  class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">
+                  Total Vacancies <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="totalVacancies"
+                  required
+                  placeholder="e.g. 7500"
+                  class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">Applications Open</label>
+                <input type="date" name="applicationStart" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">Application Deadline</label>
+                <input type="date" name="applicationEnd" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-foreground mb-1">Exam Date (CBT)</label>
+                <input type="date" name="examDate" class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-foreground mb-1">Official Notification URL</label>
+              <input
+                type="url"
+                name="sourceUrl"
+                placeholder="https://esb.mp.gov.in/Rulebooks/..."
+                class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs sm:text-sm text-foreground focus:border-primary outline-none"
+              />
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right Rail: Completeness Checklist (Flowstep Screen 22) -->
+      <div class="space-y-6">
+        <div class="bg-card rounded-2xl p-6 border border-border shadow-sm">
+          <h3 class="text-xs font-bold text-foreground uppercase tracking-wider mb-4 pb-3 border-b border-border">
+            Completeness Checklist
+          </h3>
+
+          <div class="space-y-3.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-foreground font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Basic details
+              </span>
+              <span class="text-emerald-700 font-semibold">Ready</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-foreground font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Dates & vacancies
+              </span>
+              <span class="text-emerald-700 font-semibold">Ready</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Source verification
+              </span>
+              <span class="text-amber-700 font-semibold">Pending</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Eligibility rules
+              </span>
+              <span class="text-amber-700 font-semibold">Incomplete</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                SEO Metadata
+              </span>
+              <span class="text-muted-foreground">Not started</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-muted/60 border border-border text-xs text-muted-foreground">
+          <h4 class="font-bold text-foreground mb-1">Publishing Policy</h4>
+          <p class="leading-relaxed">
+            All recruitments require at least one verified source link and statutory cutoff dates before they can appear on the public discovery homepage.
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 </BaseLayout>

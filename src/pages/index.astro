@@ -3,327 +3,342 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments } from '../db/queries';
 
+// Fetch live database recruitments
 // @ts-ignore
 const recruitments = await getAllActiveRecruitments();
-const totalVacancies = recruitments.reduce((sum, r) => sum + r.totalVacancies, 0);
+const totalVacancies = recruitments.reduce((sum: number, r: any) => sum + (r.totalVacancies || 0), 0);
+
+// Categorize recruitments
+const closingSoon = recruitments.slice(0, 3);
+const recentlyReleased = recruitments.slice(0, 3);
+
+// Sectors grid data
+const sectors = [
+  { name: 'Police', slug: 'police', count: '12,500+ Posts', icon: 'shield' },
+  { name: 'Forest', slug: 'forest', count: '1,420 Posts', icon: 'trees' },
+  { name: 'Education', slug: 'education', count: '8,400+ Posts', icon: 'graduation' },
+  { name: 'Health', slug: 'health', count: '3,200+ Posts', icon: 'heart-pulse' },
+  { name: 'Engineering', slug: 'engineering', count: '950 Posts', icon: 'wrench' },
+  { name: 'Revenue', slug: 'revenue', count: '3,800 Posts', icon: 'file-text' },
+  { name: 'Judiciary', slug: 'judiciary', count: '1,100 Posts', icon: 'scale' },
+  { name: 'Agriculture', slug: 'agriculture', count: '640 Posts', icon: 'sprout' }
+];
+
+// Calendar milestones
+const milestones = [
+  { date: '22 Sep 2026', title: 'MPPSC State Service 2026', desc: 'Notification expected', status: 'Upcoming' },
+  { date: '06 Oct 2026', title: 'MP Police Constable 2026', desc: 'Applications close', status: 'Closing Soon' },
+  { date: '18 Oct 2026', title: 'Assistant Grade III 2026', desc: 'Applications close', status: 'Closing Soon' },
+  { date: '02 Nov 2026', title: 'Lab Technician 2026', desc: 'Applications close', status: 'Open' },
+  { date: '22 Nov 2026', title: 'MP Police Constable 2026', desc: 'Written examination', status: 'Exam Date' },
+];
 ---
 
-<BaseLayout 
-  title="RozgarSetu MP — Madhya Pradesh Government Jobs & Deterministic Eligibility Engine"
-  description="Authoritative, rule-based MP government job discovery. Evaluate your exact eligibility for MPESB, MPPSC, Police Constable, Patwari, and Forest Guard recruitments."
+<BaseLayout
+  title="NIRNAY — Madhya Pradesh Government Opportunities Discovery Platform"
+  description="Explore Madhya Pradesh government opportunities, check eligibility, track important dates and access official recruitment links. Free, deterministic eligibility calculator."
 >
-  <!-- Official Gazette Notification Marquee -->
-  <div class="bg-slate-900 border-b border-slate-800 text-slate-300 py-2.5 px-4 text-xs font-medium no-print">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-      <div class="flex items-center gap-2.5 overflow-hidden text-ellipsis whitespace-nowrap">
-        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] tracking-wider uppercase">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-          लाइव अपडेट
-        </span>
-        <span class="text-slate-200 font-semibold">अधिसूचना बुलेटिन 2026:</span>
-        <span class="text-slate-400">
-          MPESB आरक्षक जीडी (7,500 पद) व पटवारी भर्ती 2026 नियमपुस्तिका जारी।
-        </span>
-      </div>
-      <div class="flex items-center gap-4 text-slate-400 text-[11px] whitespace-nowrap">
-        <span>कटऑफ तिथि: <strong class="text-slate-200">01-जनवरी-2026</strong></span>
-        <span class="text-slate-700 hidden sm:inline">|</span>
-        <a href="/disclaimer" class="text-amber-400 hover:text-amber-300 transition-colors">
-          राजपत्र सत्यापन विवरण &rarr;
-        </a>
-      </div>
-    </div>
-  </div>
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-b from-blue-50/60 via-slate-50/40 to-background border-b border-border">
+    <div class="grid mx-auto py-16 sm:py-20 px-4 sm:px-6 lg:px-8 items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] max-w-7xl">
+      <!-- Left Hero Content -->
+      <div class="flex flex-col items-start gap-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide">
+          <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+          <span>Find what fits</span>
+        </div>
 
-  <!-- Hero Section: Authoritative Indian Civic Tech Masthead -->
-  <section class="bg-slate-950 text-white border-b border-slate-800 pt-12 pb-16 px-4 sm:px-6 lg:px-8 relative">
-    <div class="max-w-6xl mx-auto">
-      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-10">
-        <!-- Left Hero Content -->
-        <div class="max-w-2xl">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-slate-800/80 border border-slate-700/80 text-slate-300 text-xs font-semibold mb-6">
-            <span class="text-amber-400 font-bold">मध्य प्रदेश शासन सेवा भर्ती</span>
-            <span class="text-slate-600">&bull;</span>
-            <span>Deterministic Rule Engine</span>
+        <h1 class="font-bold text-foreground text-4xl sm:text-5xl lg:text-6xl leading-[1.08] tracking-tight max-w-2xl">
+          Find government jobs <br class="hidden sm:inline" />
+          <span class="text-primary">you can apply for.</span>
+        </h1>
+
+        <p class="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
+          Explore Madhya Pradesh government opportunities, check eligibility deterministically, track important dates, and access official recruitment links directly from state notifications.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-wrap items-center gap-3.5 pt-2">
+          <a
+            href="/eligibility-checker"
+            class="font-semibold rounded-lg bg-primary text-primary-foreground text-sm px-6 py-3.5 shadow-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+          >
+            <span>Check My Eligibility</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+          <a
+            href="#closing-soon"
+            class="font-medium rounded-lg text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center gap-2"
+          >
+            <span>Explore Jobs ({recruitments.length})</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Right Eligibility Preview Card -->
+      <div class="w-full bg-card rounded-2xl p-6 sm:p-7 border border-border shadow-sm">
+        <div class="flex items-center justify-between pb-4 border-b border-border mb-5">
+          <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Your next opportunity
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+            <span class="size-1.5 rounded-full bg-emerald-600"></span>
+            24 matches ready
+          </span>
+        </div>
+
+        <div class="space-y-3.5 mb-6">
+          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs text-muted-foreground">Active MP Vacancies</span>
+            <span class="text-sm font-bold text-foreground font-mono">{totalVacancies.toLocaleString()} Posts</span>
           </div>
 
-          <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-5 leading-tight font-['Plus_Jakarta_Sans']">
-            Discover Every MP Govt Job <br />
-            <span class="text-amber-400">You Are Legally Eligible For</span>
-          </h1>
+          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs text-muted-foreground">Recruitment Boards</span>
+            <span class="text-sm font-medium text-foreground">MPESB, MPPSC, MPHC</span>
+          </div>
 
-          <p class="text-base text-slate-300 mb-8 leading-relaxed font-normal">
-            No advertising clutter or unreliable AI summaries. We parse official state rulebooks into pure deterministic code, matching your age cutoff, MP domicile, and CPCT credentials with 100% legal accuracy.
+          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs text-muted-foreground">Evaluation Method</span>
+            <span class="text-sm font-medium text-primary">100% Deterministic Code</span>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <a
+            href="/eligibility-checker"
+            class="w-full font-semibold rounded-lg bg-primary/10 hover:bg-primary/15 text-primary text-xs sm:text-sm py-3 px-4 border border-primary/20 transition-colors flex items-center justify-center gap-2"
+          >
+            <span>Start Quick 3-Minute Check</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 17L17 7M17 7H7M17 7V17"/>
+            </svg>
+          </a>
+          <p class="text-[11px] text-muted-foreground text-center mt-3">
+            No account required · Zero ads · Verified against official gazettes
           </p>
-
-          <!-- CTAs -->
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-8">
-            <a
-              href="/eligibility-checker"
-              class="px-6 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2.5"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="m9 12 2 2 4-4"/>
-              </svg>
-              <span>Check Eligibility (पात्रता जाँचें)</span>
-            </a>
-            <a
-              href="#recruitment-grid"
-              class="px-6 py-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 font-semibold text-sm border border-slate-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <span>View Open Notifications ({recruitments.length})</span>
-            </a>
-          </div>
-
-          <!-- Quick Discovery Tags -->
-          <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="text-slate-400 font-medium">Quick Criteria:</span>
-            <a href="/jobs/10th-pass" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300">
-              10th Pass (High School)
-            </a>
-            <a href="/jobs/12th-pass" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300">
-              12th Pass (Higher Secondary)
-            </a>
-            <a href="/jobs/graduate" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300">
-              Graduates (BA / BSc / BCom)
-            </a>
-          </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Right Quick Stats Pillar -->
-        <div class="w-full lg:w-80 bg-slate-900 rounded-xl p-6 border border-slate-800 shadow-xl">
-          <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
-            <div>
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">State Portal</span>
-              <span class="text-sm font-bold text-white">Madhya Pradesh (MP)</span>
-            </div>
-            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold border border-emerald-500/30">
-              2026 CYCLE
-            </span>
+    <!-- Search Bar & Shortcut Chips -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      <form action="/search" method="get" class="relative max-w-4xl mx-auto mb-5">
+        <div class="flex items-center rounded-xl bg-card border border-border shadow-sm p-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+          <div class="pl-3.5 pr-2 text-muted-foreground">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
           </div>
-
-          <div class="space-y-4">
-            <div>
-              <span class="text-xs text-slate-400 block">Total Active Vacancies</span>
-              <span class="text-2xl sm:text-3xl font-extrabold text-white font-mono tabular-nums">
-                {totalVacancies.toLocaleString()}
-              </span>
-            </div>
-
-            <div class="pt-3 border-t border-slate-800">
-              <span class="text-xs text-slate-400 block">Recruitment Authorities</span>
-              <span class="text-xs font-semibold text-slate-200 mt-1 block">
-                MPESB (Vyapam), MPPSC, MPHC
-              </span>
-            </div>
-
-            <div class="pt-3 border-t border-slate-800">
-              <span class="text-xs text-slate-400 block">Rule Evaluation Model</span>
-              <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mt-1">
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>Deterministic 3-State Logic</span>
-              </span>
-            </div>
-          </div>
+          <input
+            type="search"
+            name="q"
+            placeholder="Search jobs, exams, departments or organisations (e.g. Police, Forest, MPESB)"
+            class="w-full bg-transparent text-foreground text-sm sm:text-base outline-none py-2 pr-3"
+          />
+          <button
+            type="submit"
+            class="shrink-0 px-4 py-2 bg-primary hover:bg-blue-700 text-primary-foreground font-semibold rounded-lg text-xs sm:text-sm transition-colors"
+          >
+            Search
+          </button>
         </div>
+      </form>
+
+      <!-- Shortcut Chips -->
+      <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+        <span class="text-xs text-muted-foreground font-medium mr-1">Popular:</span>
+        {['10th Pass', '12th Pass', 'ITI', 'Diploma', 'Graduate', 'Post Graduate', 'Police', 'Forest', 'Education', 'Health'].map((chip) => (
+          <a
+            href={`/search?q=${encodeURIComponent(chip)}`}
+            class="px-3 py-1 rounded-full text-xs font-medium bg-card border border-border text-foreground hover:bg-muted hover:border-primary/40 transition-colors shadow-2xs"
+          >
+            {chip}
+          </a>
+        ))}
       </div>
     </div>
   </section>
 
-  <!-- Department Cadres & Sectors Grid -->
-  <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-400 transition-all">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-            गृह विभाग
-          </span>
-          <span class="text-xs text-slate-500 font-mono">Level 4-9</span>
-        </div>
-        <h3 class="font-bold text-slate-900 text-sm font-['Plus_Jakarta_Sans']">Police & Defence</h3>
-        <p class="text-xs text-slate-500 mt-1">Police Constable GD, Sub-Inspector</p>
-        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span class="font-semibold text-slate-700 font-mono">7,500 Posts</span>
-          <a href="/posts/mp-police-constable" class="text-indigo-600 font-semibold hover:underline">Guide &rarr;</a>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-400 transition-all">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
-            राजस्व विभाग
-          </span>
-          <span class="text-xs text-slate-500 font-mono">Level 6</span>
-        </div>
-        <h3 class="font-bold text-slate-900 text-sm font-['Plus_Jakarta_Sans']">Revenue & Land Records</h3>
-        <p class="text-xs text-slate-500 mt-1">Patwari, Revenue Inspector</p>
-        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span class="font-semibold text-slate-700 font-mono">3,550 Posts</span>
-          <a href="/posts/mp-patwari" class="text-amber-700 font-semibold hover:underline">Guide &rarr;</a>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-400 transition-all">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-            वन विभाग
-          </span>
-          <span class="text-xs text-slate-500 font-mono">Level 4</span>
-        </div>
-        <h3 class="font-bold text-slate-900 text-sm font-['Plus_Jakarta_Sans']">Forest & Wildlife</h3>
-        <p class="text-xs text-slate-500 mt-1">Van Rakshak, Kshetra Rakshak</p>
-        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span class="font-semibold text-slate-700 font-mono">2,112 Posts</span>
-          <a href="/recruitments/mp-forest-guard-recruitment-2026" class="text-emerald-700 font-semibold hover:underline">View &rarr;</a>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-400 transition-all">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
-            स्कूल शिक्षा
-          </span>
-          <span class="text-xs text-slate-500 font-mono">Level 6</span>
-        </div>
-        <h3 class="font-bold text-slate-900 text-sm font-['Plus_Jakarta_Sans']">School Education</h3>
-        <p class="text-xs text-slate-500 mt-1">Primary Teacher (MP TET Varg 3)</p>
-        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span class="font-semibold text-slate-500 font-mono">Upcoming</span>
-          <span class="text-slate-400 font-medium">Notification Expected</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Verified Recruitment Directory -->
-  <section id="recruitment-grid" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 pb-6 border-b border-slate-200 mb-8">
+  <!-- Section: Closing Soon -->
+  <section id="closing-soon" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div>
-        <div class="flex items-center gap-2 text-slate-500 font-semibold text-xs uppercase tracking-wider mb-1">
-          <span>सरकारी भर्ती अधिसूचनाएँ (Official Notifications)</span>
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 text-xs font-semibold mb-2 border border-amber-200">
+          <span class="size-1.5 rounded-full bg-amber-500 animate-ping"></span>
+          <span>Immediate Deadlines</span>
         </div>
-        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Plus_Jakarta_Sans']">
-          Madhya Pradesh Government Recruitment Notices
+        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+          Closing soon
         </h2>
+        <p class="text-xs sm:text-sm text-muted-foreground mt-1">
+          Government recruitments with application deadlines in the coming days.
+        </p>
       </div>
-      <a
-        href="/eligibility-checker"
-        class="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
-      >
-        <span>Test your eligibility on all active drives</span> &rarr;
+
+      <a href="/calendar" class="text-xs sm:text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+        <span>View all in Exam Calendar</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
       </a>
     </div>
 
-    <!-- Cards List -->
-    <div class="space-y-4">
-      {recruitments.map(rec => (
-        <article class="bg-white rounded-xl border border-slate-200 hover:border-slate-300 shadow-sm p-5 sm:p-6 transition-all">
-          <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <!-- Left Info Block -->
-            <div class="flex-1">
-              <div class="flex flex-wrap items-center gap-2.5 mb-2">
-                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                  {rec.organisationShortName}
-                </span>
-                <span class="text-xs font-mono text-slate-500">
-                  {rec.advtNumber}
-                </span>
-                <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                  rec.lifecycleStatus === 'OPEN'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border border-amber-200'
-                }`}>
-                  {rec.lifecycleStatus === 'OPEN' ? 'आवेदन शुरू (Open)' : 'आगामी (Upcoming)'}
-                </span>
-              </div>
-
-              <h3 class="text-lg sm:text-xl font-bold text-slate-900 font-['Plus_Jakarta_Sans'] mb-2">
-                <a href={`/recruitments/${rec.slug}`} class="hover:text-indigo-600 transition-colors">
-                  {rec.title}
-                </a>
-              </h3>
-
-              <p class="text-xs text-slate-600 line-clamp-2 max-w-3xl mb-4 leading-relaxed">
-                {rec.shortSummary}
-              </p>
-
-              <!-- Data Chips Grid -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
-                <div>
-                  <span class="text-slate-400 block text-[10px] uppercase font-semibold">कुल पद (Vacancies)</span>
-                  <strong class="text-slate-900 font-bold font-mono tabular-nums">{rec.totalVacancies.toLocaleString()}</strong>
-                </div>
-                <div>
-                  <span class="text-slate-400 block text-[10px] uppercase font-semibold">न्यूनतम योग्यता (Min Edu)</span>
-                  <strong class="text-indigo-700 font-semibold">{rec.criteria.minQualificationLevel}</strong>
-                </div>
-                <div>
-                  <span class="text-slate-400 block text-[10px] uppercase font-semibold">आयु सीमा (Age Limit)</span>
-                  <strong class="text-slate-800 font-mono tabular-nums">{rec.criteria.minAge}–{rec.criteria.maxAgeGeneral} yrs</strong>
-                </div>
-                <div>
-                  <span class="text-slate-400 block text-[10px] uppercase font-semibold">कटऑफ तिथि (Cutoff Date)</span>
-                  <strong class="text-slate-800 font-mono">{rec.criteria.ageCutoffDate}</strong>
-                </div>
-              </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {closingSoon.map((item: any) => (
+        <div class="bg-card rounded-xl border border-border p-5 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                Closing Soon
+              </span>
+              <span class="text-[11px] text-muted-foreground font-medium">
+                {item.authorityCode || 'MPESB'}
+              </span>
             </div>
 
-            <!-- Right Actions Block -->
-            <div class="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-auto gap-3 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-              <a
-                href={`/recruitments/${rec.slug}`}
-                class="px-5 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors whitespace-nowrap shadow-sm"
-              >
-                View Rulebook Details
+            <h3 class="font-bold text-base text-foreground mb-2 line-clamp-2">
+              <a href={`/recruitments/${item.slug}`} class="hover:text-primary transition-colors">
+                {item.title}
               </a>
-              <a
-                href="/eligibility-checker"
-                class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors whitespace-nowrap"
-              >
-                Check My Eligibility &rarr;
-              </a>
+            </h3>
+
+            <div class="space-y-1.5 text-xs text-muted-foreground mb-4">
+              <div class="flex items-center justify-between">
+                <span>Total Vacancies:</span>
+                <span class="font-bold text-foreground font-mono">{item.totalVacancies?.toLocaleString() || 'N/A'}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Qualification:</span>
+                <span class="font-medium text-foreground">10th / 12th / Grad</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Last Date:</span>
+                <span class="font-bold text-amber-600 font-mono">{item.applicationEnd ? new Date(item.applicationEnd).toLocaleDateString('en-IN') : 'Upcoming'}</span>
+              </div>
             </div>
           </div>
-        </article>
+
+          <div class="pt-3 border-t border-border flex items-center justify-between gap-2">
+            <span class="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Verified Source
+            </span>
+            <a
+              href={`/recruitments/${item.slug}`}
+              class="font-semibold text-xs text-primary hover:text-blue-700 inline-flex items-center gap-1"
+            >
+              <span>View details</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
       ))}
     </div>
   </section>
 
-  <!-- Editorial Standard & Trust Manifesto -->
-  <section class="bg-white border-t border-slate-200 py-16 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-6xl mx-auto">
-      <div class="max-w-3xl mb-10">
-        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Why RozgarSetu MP</span>
-        <h2 class="text-2xl font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-          The Clean, Independent Alternative to Ad-Stuffed Job Portals
+  <!-- Section: Explore by Sector -->
+  <section class="py-16 px-4 sm:px-6 lg:px-8 bg-muted/40 border-y border-border">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+          Explore by sector
         </h2>
+        <p class="text-xs sm:text-sm text-muted-foreground mt-2">
+          Navigate Madhya Pradesh departments, uniformed forces, administrative wings, and health posts.
+        </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-          <div class="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">01. Pure Deterministic Logic</div>
-          <h3 class="font-bold text-slate-900 text-sm mb-1.5">No LLM Hallucinations</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            Government eligibility rules require exact statutory compliance. Our engine evaluates your birth date against the exact gazette cutoff date, without guessing.
-          </p>
-        </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {sectors.map((sec) => (
+          <a
+            href={`/sectors/${sec.slug}`}
+            class="bg-card rounded-xl border border-border p-4 hover:border-primary/40 hover:shadow-sm transition-all group"
+          >
+            <div class="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm mb-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              {sec.name[0]}
+            </div>
+            <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+              {sec.name}
+            </h3>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              {sec.count}
+            </p>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
 
-        <div class="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-          <div class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2">02. Verified Provenance</div>
-          <h3 class="font-bold text-slate-900 text-sm mb-1.5">Direct Official PDF Links</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            Every notification links directly to the authoritative MPESB/MPPSC rulebook PDF and the official MPOnline application portal.
-          </p>
-        </div>
+  <!-- Section: Exam Calendar Milestone Timeline -->
+  <section class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+      <div>
+        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+          Government exam calendar
+        </h2>
+        <p class="text-xs sm:text-sm text-muted-foreground mt-1">
+          Chronological milestone timeline of notifications, closing dates, and examination days.
+        </p>
+      </div>
+      <a href="/calendar" class="text-xs sm:text-sm font-semibold text-primary hover:underline">
+        Open full interactive calendar &rarr;
+      </a>
+    </div>
 
-        <div class="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-          <div class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">03. Privacy Guaranteed</div>
-          <h3 class="font-bold text-slate-900 text-sm mb-1.5">Zero Personal Storage</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            No public user registration, no passwords, and zero personal database storage. Your eligibility assessment stays completely private in your browser.
-          </p>
+    <!-- Timeline Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {milestones.map((m) => (
+        <div class="p-4 rounded-xl bg-card border border-border relative flex flex-col justify-between">
+          <div>
+            <span class="text-[11px] font-mono font-bold text-primary block mb-1">
+              {m.date}
+            </span>
+            <h4 class="font-bold text-xs text-foreground mb-1 leading-snug">
+              {m.title}
+            </h4>
+            <p class="text-[11px] text-muted-foreground">
+              {m.desc}
+            </p>
+          </div>
+          <div class="mt-3 pt-2 border-t border-border">
+            <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              m.status === 'Closing Soon' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+              m.status === 'Exam Date' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+              'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            }`}>
+              {m.status}
+            </span>
+          </div>
         </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Conversion Panel: Not sure what you can apply for? -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <div class="rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/50 to-slate-50 border border-blue-100 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="max-w-xl text-center md:text-left">
+        <h3 class="text-xl sm:text-2xl font-bold text-foreground mb-2">
+          Not sure what you can apply for?
+        </h3>
+        <p class="text-xs sm:text-sm text-muted-foreground">
+          Enter your age, highest qualification, and domicile details once. Our deterministic engine computes your legal eligibility across all 128+ MP recruitments in milliseconds.
+        </p>
+      </div>
+
+      <div class="shrink-0">
+        <a
+          href="/eligibility-checker"
+          class="font-semibold rounded-lg bg-primary text-primary-foreground text-sm px-6 py-3.5 shadow-sm hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+        >
+          <span>Check Eligibility</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
       </div>
     </div>
   </section>

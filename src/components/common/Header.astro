@@ -3,67 +3,104 @@
 const pathname = Astro.url.pathname;
 ---
 
-<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-    <!-- Brand Logo -->
-    <a href="/" class="flex items-center gap-3 group">
-      <div class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 font-bold text-base shadow-sm">
-        <span>म.प्र.</span>
+<header class="bg-card text-foreground border-b border-border w-full sticky top-0 z-40 backdrop-blur-md bg-white/95 no-print">
+  <!-- Top ticker bar -->
+  <div class="bg-muted border-b border-border">
+    <div class="text-muted-foreground text-xs tracking-wide flex mx-auto py-1.5 px-4 sm:px-6 justify-between items-center max-w-7xl">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="font-medium text-[11px] sm:text-xs">Independent public information platform · Always verify with the official source</span>
       </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-extrabold text-lg tracking-tight text-slate-900 font-['Plus_Jakarta_Sans']">
-            Rozgar<span class="text-indigo-700">Setu</span>
-          </span>
-          <span class="text-[10px] font-bold font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-300">
-            MP
-          </span>
-        </div>
-        <p class="text-[10px] text-slate-500 font-medium tracking-wide">
-          म.प्र. शासकीय भर्ती व पात्रता परामर्श
-        </p>
+      <div class="hidden sm:flex items-center gap-3 text-[11px]">
+        <a href="/disclaimer" class="hover:text-foreground underline transition-colors">Non-affiliation disclaimer</a>
+        <span>·</span>
+        <a href="/admin" class="hover:text-foreground transition-colors font-medium">NIRNAY OPS</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main header -->
+  <div class="flex mx-auto py-3.5 px-4 sm:px-6 items-center justify-between gap-4 max-w-7xl">
+    <!-- Brand -->
+    <a href="/" class="flex items-baseline shrink-0 gap-2.5 group" aria-label="NIRNAY home">
+      <div class="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shadow-sm group-hover:bg-blue-700 transition-colors">
+        N
+      </div>
+      <div class="flex flex-col">
+        <span class="font-bold text-foreground text-xl tracking-[0.18em] leading-none">
+          NIRNAY
+        </span>
+        <span class="font-medium text-muted-foreground text-[10px] tracking-wider uppercase">
+          MP Opportunities
+        </span>
       </div>
     </a>
 
-    <!-- Desktop Navigation -->
-    <nav class="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600">
+    <!-- Desktop nav links -->
+    <nav class="hidden lg:flex justify-center items-center flex-1 gap-1 min-w-0" aria-label="Primary navigation">
       <a
-        href="/"
-        class={`hover:text-slate-900 transition-colors py-1 ${pathname === '/' ? 'text-slate-950 font-bold border-b-2 border-slate-900' : ''}`}
+        href="/#closing-soon"
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname === '/' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
       >
-        भर्तियाँ (Jobs)
+        Jobs
+      </a>
+      <a
+        href="/calendar"
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+      >
+        Exams
+      </a>
+      <a
+        href="/results"
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+      >
+        Results
+      </a>
+      <a
+        href="/admit-cards"
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+      >
+        Admit Cards
+      </a>
+      <a
+        href="/answer-keys"
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+      >
+        Answer Keys
       </a>
       <a
         href="/posts/mp-police-constable"
-        class={`hover:text-slate-900 transition-colors py-1 ${pathname.startsWith('/posts') ? 'text-slate-950 font-bold border-b-2 border-slate-900' : ''}`}
+        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
       >
-        मार्गदर्शिका (Guides)
-      </a>
-      <a
-        href="/disclaimer"
-        class={`hover:text-slate-900 transition-colors py-1 ${pathname === '/disclaimer' ? 'text-slate-950 font-bold border-b-2 border-slate-900' : ''}`}
-      >
-        आधिकारिक पोर्टल (Portals)
-      </a>
-      <a
-        href="/admin"
-        class={`hover:text-slate-900 transition-colors py-1 ${pathname.startsWith('/admin') ? 'text-slate-950 font-bold border-b-2 border-slate-900' : ''}`}
-      >
-        व्यवस्थापक (Admin)
+        Guides
       </a>
     </nav>
 
-    <!-- Action Button -->
-    <div class="flex items-center gap-2">
+    <!-- Search input & CTA button -->
+    <div class="flex items-center shrink-0 gap-3">
+      <form action="/search" method="get" class="hidden md:flex">
+        <label class="rounded-md bg-background text-muted-foreground border border-border flex px-3 items-center gap-2 w-48 lg:w-56 h-9 focus-within:border-primary transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input
+            type="search"
+            name="q"
+            placeholder="Search opportunities..."
+            aria-label="Search opportunities"
+            class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
+          />
+        </label>
+      </form>
+
       <a
         href="/eligibility-checker"
-        class="min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 transition-colors shadow-sm flex items-center gap-1.5"
+        class="font-semibold rounded-md bg-primary text-primary-foreground text-xs sm:text-sm inline-flex px-3.5 py-2 items-center gap-1.5 h-9 shadow-sm hover:bg-blue-700 transition-colors"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="m9 12 2 2 4-4"/>
+        <span>Check eligibility</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M7 17L17 7M17 7H7M17 7V17"/>
         </svg>
-        <span>पात्रता जाँचें</span>
       </a>
     </div>
   </div>

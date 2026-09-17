@@ -1,7 +1,6 @@
 ---
 // src/layouts/BaseLayout.astro
 import '../styles/global.css';
-import DisclaimerBanner from '../components/common/DisclaimerBanner.astro';
 import Header from '../components/common/Header.astro';
 import Footer from '../components/common/Footer.astro';
 
@@ -14,7 +13,7 @@ interface Props {
 
 const {
   title,
-  description = 'Discover Madhya Pradesh government job recruitments, exam dates, eligibility criteria, syllabus, and official links. Free, deterministic eligibility calculator.',
+  description = 'Explore Madhya Pradesh government opportunities, check eligibility, track important dates and access official recruitment links.',
   canonicalUrl = Astro.url.href,
   ogType = 'website',
 } = Astro.props;
@@ -26,7 +25,7 @@ const {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | RozgarSetu MP</title>
+    <title>{title} | NIRNAY MP</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
 
@@ -36,27 +35,26 @@ const {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
 
     <!-- OpenGraph / Social -->
-    <meta property="og:title" content={`${title} | RozgarSetu MP`} />
+    <meta property="og:title" content={`${title} | NIRNAY MP`} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={ogType} />
-    <meta property="og:site_name" content="RozgarSetu MP" />
+    <meta property="og:site_name" content="NIRNAY" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={`${title} | RozgarSetu MP`} />
+    <meta name="twitter:title" content={`${title} | NIRNAY`} />
     <meta name="twitter:description" content={description} />
 
-    <!-- SEO & Performance -->
+    <!-- SEO & Indexing -->
     <meta name="robots" content="index, follow" />
-    <meta name="author" content="RozgarSetu MP" />
+    <meta name="author" content="NIRNAY" />
   </head>
-  <body class="min-h-screen flex flex-col bg-slate-50 selection:bg-indigo-500 selection:text-white">
+  <body class="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white">
     <!-- Print Only Header -->
     <div class="print-only p-4 border-b-2 border-slate-900 mb-6 text-center">
-      <h1 class="text-2xl font-bold text-slate-900">RozgarSetu MP — Eligibility Assessment Report</h1>
-      <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory service.</p>
+      <h1 class="text-2xl font-bold text-slate-900">NIRNAY — Eligibility Assessment Report</h1>
+      <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory platform.</p>
     </div>
 
-    <DisclaimerBanner />
     <Header />
 
     <main class="flex-1">

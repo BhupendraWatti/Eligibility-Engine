@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #090d16;
+  --color-card: #ffffff;
+  --color-card-foreground: #090d16;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #090d16;
+  --color-primary: #1d4ed8;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+  --color-muted: #f8fafc;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #2563eb;
+  --color-sidebar: #f8fafc;
+  --color-sidebar-foreground: #0f172a;
+  --color-sidebar-border: #e2e8f0;
+}
+
 @layer base {
   :root {
     --font-heading: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -13,7 +38,7 @@
 
   body {
     font-family: var(--font-sans);
-    color: #0f172a;
+    color: #090d16;
     background-color: #f8fafc;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -26,7 +51,6 @@
     font-weight: 700;
   }
 
-  /* Ensure tabular numbers for dates, ages, vacancies */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
@@ -59,7 +83,7 @@
   box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.05), 0 4px 6px -4px rgb(15 23 42 / 0.02);
 }
 
-/* Print Stylesheet for Zero-JS Official Report */
+/* Print Stylesheet */
 @media print {
   header, footer, nav, .no-print, button, .ad-slot, .search-container, .wizard-nav {
     display: none !important;
