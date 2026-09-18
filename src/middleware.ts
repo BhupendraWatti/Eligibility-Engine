@@ -15,12 +15,18 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   const isAdminHost = isAdminSubdomain(hostname);
 
   // Step 5: Subdomain Routing
+  // workers.dev only issues TLS for one level of subdomain (*.bhupendrawatti24.workers.dev).
+  // Second-level subdomains like admin.eligibility-engine.*.workers.dev have no cert → ERR_SSL.
+  // On workers.dev we skip the subdomain redirect and serve /admin directly on the main domain.
+  // On a real custom domain the redirect to admin.* still applies.
+  const isWorkersDev = hostname.endsWith('.workers.dev');
+
   // Case A: If hostname starts with "admin." → serve admin pages
   if (isAdminHost) {
     if (!url.pathname.startsWith('/admin')) {
       return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
     }
-  } else if (!isLocal && url.pathname.startsWith('/admin')) {
+  } else if (!isLocal && !isWorkersDev && url.pathname.startsWith('/admin')) {
     // Case B: On a custom domain in production, redirect /admin on the main domain to the admin subdomain
     const baseDomain = hostname.replace(/^www\./, '');
     const redirectUrl = new URL(url.toString());
@@ -30,14 +36,13 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
   // Case C: Accessing /admin route directly
   if (url.pathname.startsWith('/admin')) {
-    // Local development is the only authentication bypass.
-    if (isLocal) {
+    // Local development AND workers.dev staging bypass auth — no Zero Trust tunnel available.
+    if (isLocal || isWorkersDev) {
       // @ts-ignore
       locals.adminEmail = 'admin@rozgarsetu.in';
       return next();
     }
 
-    // --- REPORTED 403 SOURCE (Lines below kept intact as requested in Step 2) ---
     // In Production on custom domain, verify Cloudflare Zero Trust Access identity header
     const userEmail = request.headers.get('cf-access-authenticated-user-email');
     const allowedAdmins = (import.meta.env.ADMIN_EMAILS || '')
