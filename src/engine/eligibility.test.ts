@@ -323,4 +323,20 @@ test('Qualification hierarchy — DIPLOMA satisfies GRADUATION? No.', () => {
   assert(eduItem?.status === 'FAIL', 'DIPLOMA (rank 4) should fail against GRADUATION (rank 5)');
 });
 
+test('Required experience is evaluated instead of ignored', () => {
+  const result = evaluateEligibility({
+    dob: '2000-05-10', gender: 'MALE', category: 'UR', isMpDomicile: true,
+    hasMpRojgarPanjiyan: true, qualificationLevel: '10TH', experienceMonths: 6,
+  }, { ...sampleConstableCriteria, minHeightMaleCm: null, minChestMaleCm: null, experienceMonths: 12 });
+  assert(result.items.find(item => item.ruleName === 'Experience')?.status === 'FAIL', '6 months must fail a 12-month requirement');
+});
+
+test('Invalid date of birth yields verification, not a false eligibility decision', () => {
+  const result = evaluateEligibility({
+    dob: 'not-a-date', gender: 'MALE', category: 'UR', isMpDomicile: true,
+    hasMpRojgarPanjiyan: true, qualificationLevel: '10TH', heightCm: 170, chestCm: 82,
+  }, sampleConstableCriteria);
+  assert(result.items.find(item => item.ruleName === 'Age Requirement')?.status === 'UNKNOWN', 'Invalid DOB must remain unknown');
+});
+
 console.log(`\n🎉 ALL ${testCount} ELIGIBILITY ENGINE TESTS PASSED!\n`);

@@ -129,7 +129,7 @@ test('Hindi Patwari notification — CPCT detection', () => {
 test('Hindi Patwari notification — skills extraction', () => {
   const result = extractNotification(patwariNotification);
   assert(result.additionalSkills !== null, 'Should extract additional skills');
-  assert(result.additionalSkills?.value.includes('Hindi Typing'), 'Should detect Hindi Typing skill');
+  assert(Boolean(result.additionalSkills?.value.includes('Hindi Typing')), 'Should detect Hindi Typing skill');
 });
 
 test('Hindi Patwari notification — age range', () => {

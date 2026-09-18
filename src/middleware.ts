@@ -1,11 +1,8 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getHostname, isAdminSubdomain, isWorkersDev } from './lib/hostname';
+import { getHostname, isAdminSubdomain } from './lib/hostname';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
   const hostname = getHostname(request) || url.hostname;
-
-  // Step 4: Temporary diagnostic logging for path & hostname
-  console.log(`[Middleware] Path: ${url.pathname}, Hostname: ${hostname}`);
 
   const isLocal =
     import.meta.env.DEV ||
@@ -15,7 +12,6 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     url.port === '4321' ||
     url.port === '3000';
 
-  const isWorkers = isWorkersDev(hostname);
   const isAdminHost = isAdminSubdomain(hostname);
 
   // Step 5: Subdomain Routing
@@ -24,7 +20,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     if (!url.pathname.startsWith('/admin')) {
       return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
     }
-  } else if (!isLocal && !isWorkers && url.pathname.startsWith('/admin')) {
+  } else if (!isLocal && url.pathname.startsWith('/admin')) {
     // Case B: On a custom domain in production, redirect /admin on the main domain to the admin subdomain
     const baseDomain = hostname.replace(/^www\./, '');
     const redirectUrl = new URL(url.toString());
@@ -34,8 +30,8 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
   // Case C: Accessing /admin route directly
   if (url.pathname.startsWith('/admin')) {
-    // On localhost and on *.workers.dev, ALLOW /admin path access as a fallback for testing
-    if (isLocal || isWorkers) {
+    // Local development is the only authentication bypass.
+    if (isLocal) {
       // @ts-ignore
       locals.adminEmail = 'admin@rozgarsetu.in';
       return next();
@@ -44,9 +40,12 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     // --- REPORTED 403 SOURCE (Lines below kept intact as requested in Step 2) ---
     // In Production on custom domain, verify Cloudflare Zero Trust Access identity header
     const userEmail = request.headers.get('cf-access-authenticated-user-email');
-    const allowedAdmins = (import.meta.env.ADMIN_EMAILS || '').split(',').map((e: string) => e.trim());
+    const allowedAdmins = (import.meta.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((e: string) => e.trim().toLowerCase())
+      .filter(Boolean);
 
-    if (!userEmail || (allowedAdmins.length > 0 && !allowedAdmins.includes(userEmail))) {
+    if (!userEmail || allowedAdmins.length === 0 || !allowedAdmins.includes(userEmail.toLowerCase())) {
       return new Response(
         `<!DOCTYPE html>
         <html>
@@ -61,6 +60,25 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         }
       );
+    }
+
+    const db = (locals as any).runtime?.env?.DB as D1Database | undefined;
+    if (!db) return new Response('Admin database unavailable.', { status: 503 });
+
+    try {
+      const admin = await db
+        .prepare('SELECT is_active FROM admin_users WHERE lower(email) = lower(?) LIMIT 1')
+        .bind(userEmail)
+        .first<{ is_active: number }>();
+      if (!admin || admin.is_active !== 1) return new Response('Admin account is inactive or not provisioned.', { status: 403 });
+    } catch (error) {
+      console.error('[Middleware] Admin authorization lookup failed:', error);
+      return new Response('Admin authorization unavailable.', { status: 503 });
+    }
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+      const origin = request.headers.get('origin');
+      if (!origin || new URL(origin).host !== url.host) return new Response('Invalid request origin.', { status: 403 });
     }
 
     // @ts-ignore

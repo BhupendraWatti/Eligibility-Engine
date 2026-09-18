@@ -1,5 +1,5 @@
 import { getDb, schema } from './client';
-import { eq, desc, asc, sql } from 'drizzle-orm';
+import { eq, desc, asc, sql, and } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates } from '../services/duplicate-detector';
 import {
@@ -41,6 +41,14 @@ try {
   cfEnv = cf.env;
 } catch {
   // Fallback for environments outside Cloudflare Workers runtime
+}
+
+const demoFallbackEnabled = import.meta.env?.DEV === true;
+
+function resolveD1(providedD1: D1Database | undefined, operation: string): D1Database | undefined {
+  const d1 = providedD1 || cfEnv?.DB;
+  if (!d1 && !demoFallbackEnabled) throw new Error(`D1 binding unavailable while ${operation}.`);
+  return d1;
 }
 
 export interface MasterSector {
@@ -137,7 +145,7 @@ export interface RecruitmentWithDetails {
   selectionStagesJson?: string | null;
   vacanciesList?: Array<{ category: string; count: number; gender?: string; pct?: string; code?: string; quotaPct?: string; subPostName?: string }>;
   importantDatesList?: Array<{ event: string; desc: string; date: string; status: string; eventType?: string; isTentative?: number; notes?: string | null }>;
-  sourcesList?: Array<{ sourceType: string; sourceUrl: string; sourceTitle: string; publicationDate: string | null; lastVerifiedAt: Date | string | null; status?: string }>;
+  sourcesList?: Array<{ id?: string; sourceType: string; sourceUrl: string; sourceTitle: string; publicationDate: string | null; lastVerifiedAt: Date | string | null; status?: string }>;
   officialLinksList?: Array<{ linkType: string; title: string; url: string; isActive: number }>;
   canonicalPost?: CanonicalPostWithDetails;
   criteria: {
@@ -151,7 +159,9 @@ export interface RecruitmentWithDetails {
     minQualificationLevel: string;
     allowedStreams?: string[] | null;
     requiresMpDomicile: boolean;
+    domicileStateCode?: string | null;
     requiresMpEmploymentReg: boolean;
+    employmentRegistrationLabel?: string | null;
     requiresCpct: boolean;
     genderAllowed: 'ALL' | 'MALE' | 'FEMALE';
     minHeightMaleCm?: number | null;
@@ -1440,7 +1450,7 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = RAW_FALLBACK_RECR
  * Fetch all master sectors
  */
 export async function getAllSectors(providedD1?: D1Database): Promise<MasterSector[]> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading sectors');
   if (!d1) return FALLBACK_SECTORS;
 
   try {
@@ -1448,10 +1458,10 @@ export async function getAllSectors(providedD1?: D1Database): Promise<MasterSect
     const rows = await db.query.sectors.findMany({
       orderBy: [asc(schema.sectors.displayOrder), asc(schema.sectors.name)],
     });
-    return rows.length > 0 ? rows : FALLBACK_SECTORS;
+    return rows;
   } catch (error) {
-    console.warn('Error fetching sectors from D1:', error);
-    return FALLBACK_SECTORS;
+    console.error('Error fetching sectors from D1:', error);
+    throw error;
   }
 }
 
@@ -1459,7 +1469,7 @@ export async function getAllSectors(providedD1?: D1Database): Promise<MasterSect
  * Fetch all master departments
  */
 export async function getAllDepartments(providedD1?: D1Database): Promise<MasterDepartment[]> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading departments');
   if (!d1) return FALLBACK_DEPARTMENTS;
 
   try {
@@ -1468,10 +1478,10 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
       where: eq(schema.departments.isActive, 1),
       orderBy: [asc(schema.departments.name)],
     });
-    return rows.length > 0 ? rows : FALLBACK_DEPARTMENTS;
+    return rows;
   } catch (error) {
-    console.warn('Error fetching departments from D1:', error);
-    return FALLBACK_DEPARTMENTS;
+    console.error('Error fetching departments from D1:', error);
+    throw error;
   }
 }
 
@@ -1479,7 +1489,7 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
  * Fetch all canonical posts joined with department and sector
  */
 export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<CanonicalPostWithDetails[]> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading canonical posts');
   if (!d1) return FALLBACK_POSTS;
 
   try {
@@ -1496,9 +1506,7 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       orderBy: [asc(schema.posts.title)],
     });
 
-    if (!rows || rows.length === 0) return FALLBACK_POSTS;
-
-    return rows.map(p => ({
+    return rows.map((p: any) => ({
       id: p.id,
       departmentId: p.departmentId,
       sectorId: p.sectorId,
@@ -1515,8 +1523,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
-    console.warn('Error fetching canonical posts from D1:', error);
-    return FALLBACK_POSTS;
+    console.error('Error fetching canonical posts from D1:', error);
+    throw error;
   }
 }
 
@@ -1528,11 +1536,11 @@ export async function updateCanonicalPost(
   data: Partial<CanonicalPostWithDetails> & { id: string },
   providedD1?: D1Database
 ): Promise<boolean> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'updating a canonical post');
 
-  // Always update in-memory fallback so local changes propagate immediately
-  const fallbackIndex = FALLBACK_POSTS.findIndex(p => p.id === data.id);
-  if (fallbackIndex !== -1) {
+  if (!d1) {
+    const fallbackIndex = FALLBACK_POSTS.findIndex(p => p.id === data.id);
+    if (fallbackIndex === -1) return false;
     FALLBACK_POSTS[fallbackIndex] = {
       ...FALLBACK_POSTS[fallbackIndex],
       ...data,
@@ -1546,9 +1554,8 @@ export async function updateCanonicalPost(
         }
       }
     }
+    return true;
   }
-
-  if (!d1) return true;
 
   try {
     const db = getDb(d1);
@@ -1565,7 +1572,7 @@ export async function updateCanonicalPost(
     return true;
   } catch (error) {
     console.error('Error updating canonical post in D1:', error);
-    return false;
+    throw error;
   }
 }
 
@@ -1576,8 +1583,8 @@ export async function createCanonicalPost(
   data: Omit<CanonicalPostWithDetails, 'id'> & { id?: string },
   providedD1?: D1Database
 ): Promise<string> {
-  const d1 = providedD1 || cfEnv?.DB;
-  const newId = data.id || `post_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const d1 = resolveD1(providedD1, 'creating a canonical post');
+  const newId = data.id || `post_${crypto.randomUUID()}`;
   const slug = data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const newPost: CanonicalPostWithDetails = {
@@ -1594,10 +1601,10 @@ export async function createCanonicalPost(
     isActive: data.isActive ?? 1,
   };
 
-  // Add to in-memory fallback
-  FALLBACK_POSTS.unshift(newPost);
-
-  if (!d1) return newId;
+  if (!d1) {
+    FALLBACK_POSTS.unshift(newPost);
+    return newId;
+  }
 
   try {
     const db = getDb(d1);
@@ -1617,7 +1624,7 @@ export async function createCanonicalPost(
     return newId;
   } catch (error) {
     console.error('Error creating canonical post in D1:', error);
-    return newId;
+    throw error;
   }
 }
 
@@ -1626,9 +1633,9 @@ export async function createCanonicalPost(
  */
 export async function getAllActiveRecruitments(
   providedD1?: D1Database,
-  options: { includeUnpublished?: boolean } = {}
+  options: { includeUnpublished?: boolean; stateId?: string; limit?: number } = {}
 ): Promise<RecruitmentWithDetails[]> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading recruitments');
   const includeUnpublished = options.includeUnpublished ?? false;
 
   if (!d1) {
@@ -1656,103 +1663,29 @@ export async function getAllActiveRecruitments(
     const db = getDb(d1);
     const queryOpts: any = {
       with: {
-        post: true,
+        post: { with: { department: { with: { organisation: true } }, sector: true } },
         organisation: true,
         eligibility: true,
         importantDates: true,
+        vacancies: true,
+        sources: true,
+        officialLinks: true,
       },
       orderBy: [desc(schema.recruitments.isFeatured), desc(schema.recruitments.createdAt)],
+      limit: Math.min(Math.max(options.limit ?? 100, 1), 250),
     };
 
-    if (!includeUnpublished) {
-      queryOpts.where = eq(schema.recruitments.status, 'PUBLISHED');
-    }
+    const filters = [];
+    if (!includeUnpublished) filters.push(eq(schema.recruitments.status, 'PUBLISHED'));
+    if (options.stateId) filters.push(eq(schema.recruitments.stateId, options.stateId));
+    if (filters.length === 1) queryOpts.where = filters[0];
+    if (filters.length > 1) queryOpts.where = and(...filters);
 
-    const rows = await db.query.recruitments.findMany(queryOpts);
-
-    if (!rows || rows.length === 0) {
-      const records = includeUnpublished
-        ? FALLBACK_RECRUITMENTS
-        : FALLBACK_RECRUITMENTS.filter(r => r.status === 'PUBLISHED');
-
-      return records.map(rec => {
-        if (rec.postId) {
-          const matchedPost = FALLBACK_POSTS.find(p => p.id === rec.postId);
-          if (matchedPost) {
-            return {
-              ...rec,
-              postTitle: matchedPost.title,
-              postSlug: matchedPost.slug,
-            };
-          }
-        }
-        return rec;
-      });
-    }
-
-    return rows.map(r => {
-      let additionalSkills: string[] | null = null;
-      if (r.eligibility?.additionalSkillsJson) {
-        try {
-          additionalSkills = JSON.parse(r.eligibility.additionalSkillsJson);
-        } catch {
-          additionalSkills = null;
-        }
-      }
-
-      const appStartEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_START')?.eventDate;
-      const appEndEvent = (r.importantDates || []).find((d: any) => d.eventType === 'APPLICATION_END')?.eventDate;
-      const examDateEvent = (r.importantDates || []).find((d: any) => d.eventType === 'EXAM_DATE')?.eventDate;
-
-      const rawRec = {
-        id: r.id,
-        postId: r.postId,
-        advtNumber: r.advtNumber,
-        title: r.title,
-        slug: r.slug,
-        shortSummary: r.shortSummary,
-        cycleYear: r.cycleYear,
-        totalVacancies: r.totalVacancies,
-        status: r.status,
-        lifecycleStatus: r.lifecycleStatus,
-        examStatus: (r as any).examStatus,
-        resultStatus: (r as any).resultStatus,
-        applicationStart: appStartEvent,
-        applicationEnd: appEndEvent,
-        examDate: examDateEvent,
-        isFeatured: r.isFeatured,
-        // Master record values dynamically propagated via relational join:
-        postTitle: r.post?.title || 'State Government Post',
-        postSlug: r.post?.slug || '',
-        organisationName: r.organisation?.name || 'Madhya Pradesh Authority',
-        organisationShortName: r.organisation?.shortName || 'MP Govt',
-        organisationUrl: r.organisation?.websiteUrl || 'https://esb.mp.gov.in',
-        criteria: {
-          minAge: r.eligibility?.minAge ?? 18,
-          maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
-          ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
-          ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
-          ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
-          ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
-          ageRelaxationEws: r.eligibility?.ageRelaxationEws ?? 0,
-          minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
-          requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
-          requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
-          requiresCpct: r.eligibility?.requiresCpct === 1,
-          genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
-          minHeightMaleCm: r.eligibility?.minHeightMaleCm,
-          minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
-          minChestMaleCm: r.eligibility?.minChestMaleCm,
-          minPercentageRequired: r.eligibility?.minPercentageRequired ?? null,
-          additionalSkills,
-        },
-      };
-
-      return enrichRecruitmentWithLifecycle(rawRec);
-    });
+    const rows = await db.query.recruitments.findMany(queryOpts) as any[];
+    return rows.map(mapDbRecruitmentToDetails);
   } catch (error) {
-    console.warn('Error querying D1 database, using fallback dataset:', error);
-    return FALLBACK_RECRUITMENTS;
+    console.error('Error querying D1 recruitments:', error);
+    throw error;
   }
 }
 
@@ -1802,7 +1735,7 @@ export const FALLBACK_AUDIT_LOGS: Array<{
  * Fetch all active statutory organisations
  */
 export async function getAllOrganisations(providedD1?: D1Database): Promise<MasterOrganisation[]> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading organisations');
   if (!d1) return FALLBACK_ORGANISATIONS;
   try {
     const db = getDb(d1);
@@ -1810,9 +1743,7 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       where: eq(schema.organisations.isActive, 1),
       orderBy: [asc(schema.organisations.name)],
     });
-    if (!orgs || orgs.length === 0) return FALLBACK_ORGANISATIONS;
-    return orgs.map(o => {
-      const fallback = FALLBACK_ORGANISATIONS.find(f => f.id === o.id || f.slug === o.slug);
+    return orgs.map((o: any) => {
       return {
         id: o.id,
         stateId: o.stateId,
@@ -1821,15 +1752,75 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
         slug: o.slug,
         websiteUrl: o.websiteUrl,
         isActive: o.isActive,
-        initials: fallback?.initials || o.shortName.slice(0, 3).toUpperCase(),
-        domain: fallback?.domain || new URL(o.websiteUrl).hostname,
-        description: fallback?.description || `${o.name} is an authorized statutory recruitment agency of the Government of Madhya Pradesh.`,
+        initials: o.shortName.slice(0, 3).toUpperCase(),
+        domain: new URL(o.websiteUrl).hostname,
+        description: `${o.name} is an official recruitment organisation.`,
       };
     });
   } catch (err) {
-    console.warn('Error querying organisations from D1:', err);
-    return FALLBACK_ORGANISATIONS;
+    console.error('Error querying organisations from D1:', err);
+    throw err;
   }
+}
+
+export async function createOrganisation(
+  data: { stateId: string; name: string; shortName: string; slug: string; websiteUrl: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = resolveD1(providedD1, 'creating an organisation');
+  const id = `org_${crypto.randomUUID()}`;
+  if (!d1) {
+    FALLBACK_ORGANISATIONS.push({ id, ...data, isActive: data.isActive ?? 1 });
+    return id;
+  }
+  const db = getDb(d1);
+  await db.batch([
+    db.insert(schema.organisations).values({ id, stateId: data.stateId, name: data.name, shortName: data.shortName, slug: data.slug, websiteUrl: data.websiteUrl, isActive: data.isActive ?? 1 }),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ORGANISATION', entityId: id, action: 'CREATE', newValue: data.name, source: data.websiteUrl }),
+  ]);
+  return id;
+}
+
+export async function createDepartment(
+  data: { organisationId: string; name: string; slug: string; description?: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = resolveD1(providedD1, 'creating a department');
+  const id = `dept_${crypto.randomUUID()}`;
+  if (!d1) {
+    FALLBACK_DEPARTMENTS.push({ id, organisationId: data.organisationId, name: data.name, slug: data.slug, description: data.description || null, isActive: data.isActive ?? 1 });
+    return id;
+  }
+  const db = getDb(d1);
+  await db.batch([
+    db.insert(schema.departments).values({ id, organisationId: data.organisationId, name: data.name, slug: data.slug, description: data.description || null, isActive: data.isActive ?? 1 }),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'DEPARTMENT', entityId: id, action: 'CREATE', newValue: data.name }),
+  ]);
+  return id;
+}
+
+export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string }>> {
+  const d1 = resolveD1(providedD1, 'loading states');
+  if (!d1) return [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
+  const db = getDb(d1);
+  return db.select({ id: schema.states.id, name: schema.states.name, code: schema.states.code, slug: schema.states.slug }).from(schema.states).orderBy(asc(schema.states.name));
+}
+
+export async function getAuditLogs(providedD1?: D1Database, limit = 100): Promise<typeof FALLBACK_AUDIT_LOGS> {
+  const d1 = resolveD1(providedD1, 'loading audit logs');
+  if (!d1) return FALLBACK_AUDIT_LOGS.slice(0, limit);
+  const db = getDb(d1);
+  return db.query.auditLogs.findMany({ orderBy: [desc(schema.auditLogs.createdAt)], limit: Math.min(Math.max(limit, 1), 500) }) as any;
+}
+
+export async function verifySource(sourceId: string, adminEmail: string, note: string, providedD1?: D1Database): Promise<void> {
+  const d1 = resolveD1(providedD1, 'verifying a source');
+  if (!d1) return;
+  const db = getDb(d1);
+  await db.batch([
+    db.update(schema.sources).set({ lastVerifiedAt: sql`(unixepoch())` }).where(eq(schema.sources.id, sourceId)),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail, entity: 'SOURCE', entityId: sourceId, action: 'VERIFY', reason: note || 'Official source re-verified by an administrator.' }),
+  ]);
 }
 
 /**
@@ -1839,6 +1830,27 @@ export async function getOrganisationBySlug(
   slug: string,
   providedD1?: D1Database
 ): Promise<(MasterOrganisation & { recruitments: RecruitmentWithDetails[]; departments: MasterDepartment[] }) | undefined> {
+  const d1 = resolveD1(providedD1, 'loading an organisation');
+  if (d1) {
+    const db = getDb(d1);
+    const org = await db.query.organisations.findFirst({ where: eq(schema.organisations.slug, slug) }) as any;
+    if (!org || org.isActive !== 1) return undefined;
+    const [departments, recruitmentRows] = await Promise.all([
+      db.query.departments.findMany({ where: and(eq(schema.departments.organisationId, org.id), eq(schema.departments.isActive, 1)), orderBy: [asc(schema.departments.name)] }),
+      db.query.recruitments.findMany({
+        where: and(eq(schema.recruitments.organisationId, org.id), eq(schema.recruitments.status, 'PUBLISHED')),
+        with: { post: { with: { department: { with: { organisation: true } }, sector: true } }, organisation: true, eligibility: true, vacancies: true, importantDates: true, sources: true, officialLinks: true },
+        orderBy: [desc(schema.recruitments.isFeatured), desc(schema.recruitments.createdAt)],
+        limit: 100,
+      }) as any,
+    ]);
+    return {
+      id: org.id, stateId: org.stateId, name: org.name, shortName: org.shortName, slug: org.slug,
+      websiteUrl: org.websiteUrl, isActive: org.isActive, initials: org.shortName.slice(0, 3).toUpperCase(),
+      domain: new URL(org.websiteUrl).hostname, description: `${org.name} is an official recruitment organisation.`,
+      departments: departments as MasterDepartment[], recruitments: (recruitmentRows as any[]).map(mapDbRecruitmentToDetails),
+    };
+  }
   const organisations = await getAllOrganisations(providedD1);
   const org = organisations.find(o => o.slug.toLowerCase() === slug.toLowerCase() || o.shortName.toLowerCase() === slug.toLowerCase());
   if (!org) return undefined; // STRICT: Never fallback to MPESB!
@@ -1870,6 +1882,28 @@ export async function getCanonicalPostBySlug(
   slug: string,
   providedD1?: D1Database
 ): Promise<CanonicalPostWithDetails | undefined> {
+  const d1 = resolveD1(providedD1, 'loading a canonical post');
+  if (d1) {
+    const db = getDb(d1);
+    const post = await db.query.posts.findFirst({
+      where: eq(schema.posts.slug, slug),
+      with: { department: { with: { organisation: true } }, sector: true },
+    }) as any;
+    if (!post || post.isActive !== 1) return undefined;
+    const rows = await db.query.recruitments.findMany({
+      where: and(eq(schema.recruitments.postId, post.id), eq(schema.recruitments.status, 'PUBLISHED')),
+      with: { post: { with: { department: { with: { organisation: true } }, sector: true } }, organisation: true, eligibility: true, vacancies: true, importantDates: true, sources: true, officialLinks: true },
+      orderBy: [desc(schema.recruitments.createdAt)],
+      limit: 100,
+    }) as any[];
+    return {
+      id: post.id, departmentId: post.departmentId, sectorId: post.sectorId, title: post.title, slug: post.slug,
+      summary: post.summary, payScale: post.payScale, defaultMinAge: post.defaultMinAge, defaultMaxAge: post.defaultMaxAge,
+      defaultQualification: post.defaultQualification, isActive: post.isActive, departmentName: post.department?.name,
+      sectorName: post.sector?.name, organisationName: post.department?.organisation?.name,
+      activeRecruitments: rows.map(mapDbRecruitmentToDetails).map(r => ({ id: r.id, title: r.title, slug: r.slug, totalVacancies: r.totalVacancies, lifecycleStatus: r.lifecycleStatus })),
+    };
+  }
   const posts = await getAllCanonicalPosts(providedD1);
   const post = posts.find(p => p.slug.toLowerCase() === slug.toLowerCase());
   if (!post) return undefined; // STRICT: NEVER fall back to Police Constable!
@@ -1897,17 +1931,20 @@ export async function getCanonicalPostBySlug(
  */
 export async function getRecruitmentWithRelations(
   slug: string,
-  providedD1?: D1Database
+  providedD1?: D1Database,
+  options: { includeUnpublished?: boolean } = {}
 ): Promise<RecruitmentWithDetails | undefined> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading recruitment detail');
   if (!d1) {
-    return FALLBACK_RECRUITMENTS.find(r => r.slug === slug);
+    return FALLBACK_RECRUITMENTS.find(r => r.slug === slug && (options.includeUnpublished || r.status === 'PUBLISHED'));
   }
 
   try {
     const db = getDb(d1);
     const r = await db.query.recruitments.findFirst({
-      where: eq(schema.recruitments.slug, slug),
+      where: options.includeUnpublished
+        ? eq(schema.recruitments.slug, slug)
+        : and(eq(schema.recruitments.slug, slug), eq(schema.recruitments.status, 'PUBLISHED')),
       with: {
         post: {
           with: {
@@ -1928,27 +1965,10 @@ export async function getRecruitmentWithRelations(
       },
     });
 
-    if (!r) {
-      return FALLBACK_RECRUITMENTS.find(rec => rec.slug === slug);
-    }
-
-    let additionalSkills: string[] | null = null;
-    let allowedStreams: string[] | null = null;
-    if (r.eligibility?.additionalSkillsJson) {
-      try {
-        additionalSkills = JSON.parse(r.eligibility.additionalSkillsJson);
-      } catch {}
-    }
-    if (r.eligibility?.allowedStreamsJson) {
-      try {
-        allowedStreams = JSON.parse(r.eligibility.allowedStreamsJson);
-      } catch {}
-    }
-
-    return mapDbRecruitmentToDetails(r);
+    return r ? mapDbRecruitmentToDetails(r) : undefined;
   } catch (err) {
-    console.warn('Error fetching recruitment with relations from D1:', err);
-    return FALLBACK_RECRUITMENTS.find(r => r.slug === slug);
+    console.error('Error fetching recruitment with relations from D1:', err);
+    throw err;
   }
 }
 
@@ -1959,7 +1979,7 @@ export async function getRecruitmentById(
   id: string,
   providedD1?: D1Database
 ): Promise<RecruitmentWithDetails | undefined> {
-  const d1 = providedD1 || cfEnv?.DB;
+  const d1 = resolveD1(providedD1, 'loading recruitment for administration');
   if (!d1) {
     return FALLBACK_RECRUITMENTS.find(r => r.id === id || r.slug === id);
   }
@@ -1988,14 +2008,10 @@ export async function getRecruitmentById(
       },
     });
 
-    if (!r) {
-      return FALLBACK_RECRUITMENTS.find(rec => rec.id === id || rec.slug === id);
-    }
-
-    return mapDbRecruitmentToDetails(r);
+    return r ? mapDbRecruitmentToDetails(r) : undefined;
   } catch (err) {
-    console.warn('Error fetching recruitment by id from D1:', err);
-    return FALLBACK_RECRUITMENTS.find(r => r.id === id || r.slug === id);
+    console.error('Error fetching recruitment by id from D1:', err);
+    throw err;
   }
 }
 
@@ -2003,6 +2019,7 @@ export async function getRecruitmentById(
  * Helper to map a D1 query recruitment result with relations into RecruitmentWithDetails
  */
 function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
+  if (!r.eligibility) throw new Error(`Recruitment ${r.id} has no eligibility record.`);
   let additionalSkills: string[] | null = null;
   let allowedStreams: string[] | null = null;
   if (r.eligibility?.additionalSkillsJson) {
@@ -2048,6 +2065,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
   const examDateEvent = (r.importantDates || []).find((d: any) => d.eventType === 'EXAM_DATE');
 
   const sourcesList = (r.sources || []).map((s: any) => ({
+    id: s.id,
     sourceType: s.sourceType,
     sourceUrl: s.sourceUrl,
     sourceTitle: s.sourceTitle,
@@ -2135,19 +2153,19 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     officialLinksList: officialLinksList.length > 0 ? officialLinksList : undefined,
     canonicalPost,
     criteria: {
-      minAge: r.eligibility?.minAge ?? 18,
-      maxAgeGeneral: r.eligibility?.maxAgeGeneral ?? 33,
-      ageCutoffDate: r.eligibility?.ageCutoffDate ?? '2026-01-01',
-      ageRelaxationScSt: r.eligibility?.ageRelaxationScSt ?? 5,
-      ageRelaxationObc: r.eligibility?.ageRelaxationObc ?? 3,
-      ageRelaxationFemale: r.eligibility?.ageRelaxationFemale ?? 5,
-      ageRelaxationEws: r.eligibility?.ageRelaxationEws ?? 0,
-      minQualificationLevel: r.eligibility?.minQualificationLevel ?? '10TH',
+      minAge: r.eligibility.minAge,
+      maxAgeGeneral: r.eligibility.maxAgeGeneral,
+      ageCutoffDate: r.eligibility.ageCutoffDate,
+      ageRelaxationScSt: r.eligibility.ageRelaxationScSt,
+      ageRelaxationObc: r.eligibility.ageRelaxationObc,
+      ageRelaxationFemale: r.eligibility.ageRelaxationFemale,
+      ageRelaxationEws: r.eligibility.ageRelaxationEws,
+      minQualificationLevel: r.eligibility.minQualificationLevel,
       allowedStreams,
       requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
       requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
       requiresCpct: r.eligibility?.requiresCpct === 1,
-      genderAllowed: (r.eligibility?.genderAllowed as any) ?? 'ALL',
+      genderAllowed: r.eligibility.genderAllowed as any,
       minHeightMaleCm: r.eligibility?.minHeightMaleCm,
       minHeightFemaleCm: r.eligibility?.minHeightFemaleCm,
       minChestMaleCm: r.eligibility?.minChestMaleCm,
@@ -2187,6 +2205,8 @@ export async function getPostsBySectorId(sectorId: string, providedD1?: D1Databa
 export interface CreateRecruitmentInput {
   title: string;
   postId: string;
+  stateId?: string;
+  organisationId?: string;
   organisationShortName?: string;
   advtNumber: string;
   totalVacancies: number;
@@ -2212,12 +2232,16 @@ export interface CreateRecruitmentInput {
   experienceMonths?: number;
   allowedStreams?: string[];
   requiresMpDomicile?: boolean;
+  domicileStateCode?: string | null;
   requiresMpEmploymentReg?: boolean;
+  employmentRegistrationLabel?: string | null;
   requiresCpct?: boolean;
   genderAllowed?: 'ALL' | 'MALE' | 'FEMALE';
   minHeightMaleCm?: number | null;
   minHeightFemaleCm?: number | null;
   minChestMaleCm?: number | null;
+  minPercentageRequired?: number | null;
+  additionalSkills?: string[];
   applicationStart?: string;
   applicationEnd?: string;
   examDate?: string;
@@ -2232,6 +2256,33 @@ export interface CreateRecruitmentInput {
   adminEmail?: string;
   examStatus?: string;
   resultStatus?: string;
+  isFeatured?: number;
+}
+
+async function resolveRecruitmentMasters(data: CreateRecruitmentInput, d1?: D1Database): Promise<{ post: any; organisation: any; stateId: string }> {
+  if (!d1) {
+    const post = FALLBACK_POSTS.find(p => p.id === data.postId);
+    const organisation = FALLBACK_ORGANISATIONS.find(o =>
+      data.organisationId ? o.id === data.organisationId : o.shortName === data.organisationShortName
+    );
+    if (!post) throw new Error(`Unknown canonical post: ${data.postId}`);
+    if (!organisation) throw new Error('A valid recruiting organisation is required.');
+    return { post, organisation, stateId: data.stateId || organisation.stateId };
+  }
+
+  const db = getDb(d1);
+  const post = await db.query.posts.findFirst({
+    where: eq(schema.posts.id, data.postId),
+    with: { department: true, sector: true },
+  }) as any;
+  const organisation = await db.query.organisations.findFirst({
+    where: data.organisationId
+      ? eq(schema.organisations.id, data.organisationId)
+      : eq(schema.organisations.shortName, data.organisationShortName || ''),
+  }) as any;
+  if (!post) throw new Error(`Unknown canonical post: ${data.postId}`);
+  if (!organisation) throw new Error('A valid recruiting organisation is required.');
+  return { post, organisation, stateId: data.stateId || organisation.stateId };
 }
 
 /**
@@ -2241,35 +2292,39 @@ export interface CreateRecruitmentInput {
 export async function createRecruitmentAtomic(
   data: CreateRecruitmentInput,
   providedD1?: D1Database
-): Promise<{ success: boolean; id: string; validation: any; errors?: string[] }> {
-  const d1 = providedD1 || cfEnv?.DB;
-  const newId = `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+): Promise<{ success: boolean; id: string; validation: any; errors?: string[]; message?: string }> {
+  const d1 = resolveD1(providedD1, 'creating a recruitment');
+  const newId = `rec_${crypto.randomUUID()}`;
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-  const matchedPost = FALLBACK_POSTS.find(p => p.id === data.postId);
-  const orgShort = data.organisationShortName || (data.postId.includes('mppsc') ? 'MPPSC' : data.postId.includes('judge') ? 'MPHC' : 'MPESB');
-  const org = FALLBACK_ORGANISATIONS.find(o => o.shortName === orgShort) || FALLBACK_ORGANISATIONS[0];
+  const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
 
   // 1. Validation & Duplicate Detection
-  const existingRecruitments = await getAllActiveRecruitments(providedD1);
+  const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
   const duplicateCheck = detectDuplicates(
     {
       id: newId,
       title: data.title,
       advtNumber: data.advtNumber,
       organisationShortName: org.shortName,
-      sourceUrl: data.sourceUrl,
+      sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
       postId: data.postId,
+      cycleYear: data.cycleYear || new Date().getFullYear(),
     },
     existingRecruitments.map(r => ({
       id: r.id,
       title: r.title,
       advtNumber: r.advtNumber,
       organisationShortName: r.organisationShortName,
-      sourceUrl: r.sourcesList?.[0]?.sourceUrl || r.organisationUrl,
+      sourceUrl: r.sourcesList?.[0]?.sourceUrl,
       postId: r.postId,
+      cycleYear: r.cycleYear,
     }))
   );
+
+  if (duplicateCheck.status === 'CONFIRMED_DUPLICATE') {
+    return { success: false, id: newId, validation: null, errors: [duplicateCheck.summary], message: duplicateCheck.summary };
+  }
 
   const validationInput = {
     id: newId,
@@ -2287,7 +2342,7 @@ export async function createRecruitmentAtomic(
     applicationStart: data.applicationStart,
     applicationEnd: data.applicationEnd,
     examDate: data.examDate,
-    sources: data.sourceUrl ? [{
+    sources: data.sources?.length ? data.sources.map(source => ({ ...source, status: 'VALID' as const })) : data.sourceUrl ? [{
       sourceType: 'OFFICIAL_NOTIFICATION_PDF',
       sourceUrl: data.sourceUrl,
       sourceTitle: data.sourceTitle || `${org.shortName} Official Notification`,
@@ -2311,7 +2366,13 @@ export async function createRecruitmentAtomic(
   let targetValidationStatus = validationResult.publishable ? 'VALID' : 'NEEDS_REVIEW';
 
   if (!validationResult.publishable && targetStatus === 'PUBLISHED') {
-    targetStatus = 'PENDING_VERIFICATION';
+    return {
+      success: false,
+      id: newId,
+      validation: validationResult,
+      errors: validationResult.blockingErrors,
+      message: 'Publication validation failed. Save as draft or correct the blocking errors.',
+    };
   }
 
   const selectionStagesJson = data.selectionStages && data.selectionStages.length > 0
@@ -2319,7 +2380,7 @@ export async function createRecruitmentAtomic(
     : null;
 
   // 2. Prepare in-memory representation
-  const newRecruitment: RecruitmentWithDetails = {
+  const newRecruitment = {
     id: newId,
     postId: data.postId,
     advtNumber: data.advtNumber,
@@ -2331,7 +2392,7 @@ export async function createRecruitmentAtomic(
     totalVacancies: data.totalVacancies,
     status: targetStatus,
     lifecycleStatus: data.lifecycleStatus || 'OPEN',
-    isFeatured: 0,
+    isFeatured: data.isFeatured ?? 0,
     postTitle: matchedPost?.title || 'State Government Post',
     postSlug: matchedPost?.slug || '',
     departmentName: matchedPost?.departmentName,
@@ -2352,13 +2413,7 @@ export async function createRecruitmentAtomic(
     canonicalPost: matchedPost,
     selectionStages: data.selectionStages || undefined,
     selectionStagesJson,
-    vacanciesList: data.vacanciesBreakdown || [
-      { category: 'UR', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'UR', quotaPct: '27%' },
-      { category: 'OBC', count: Math.round(data.totalVacancies * 0.27), pct: '27%', code: 'OBC', quotaPct: '27%' },
-      { category: 'ST', count: Math.round(data.totalVacancies * 0.20), pct: '20%', code: 'ST', quotaPct: '20%' },
-      { category: 'SC', count: Math.round(data.totalVacancies * 0.16), pct: '16%', code: 'SC', quotaPct: '16%' },
-      { category: 'EWS', count: Math.round(data.totalVacancies * 0.10), pct: '10%', code: 'EWS', quotaPct: '10%' },
-    ],
+    vacanciesList: data.vacanciesBreakdown || [],
     importantDatesList: data.importantDates && data.importantDates.length > 0
       ? data.importantDates.map(d => ({
           event: d.eventType.replace(/_/g, ' '),
@@ -2370,10 +2425,9 @@ export async function createRecruitmentAtomic(
           notes: d.notes,
         }))
       : [
-          { event: 'Notification Released', desc: 'Rulebook Gazetted', date: data.applicationStart || `${new Date().getFullYear()}-01-01`, status: 'Completed', eventType: 'NOTIFICATION' },
-          ...(data.applicationStart ? [{ event: 'Applications Open', desc: 'Online Registration Commenced', date: data.applicationStart, status: 'Active', eventType: 'APPLICATION_START' }] : []),
-          ...(data.applicationEnd ? [{ event: 'Last Date to Apply', desc: 'Online Form Submission Deadline', date: data.applicationEnd, status: 'Closing Soon', eventType: 'APPLICATION_END' }] : []),
-          ...(data.examDate ? [{ event: 'Examination Date', desc: 'Statewide Competitive Examination', date: data.examDate, status: 'Upcoming', eventType: 'EXAM_DATE' }] : []),
+          ...(data.applicationStart ? [{ event: 'Applications Open', desc: 'Online registration begins', date: data.applicationStart, status: 'Active', eventType: 'APPLICATION_START', isTentative: 0, notes: undefined }] : []),
+          ...(data.applicationEnd ? [{ event: 'Last Date to Apply', desc: 'Application deadline', date: data.applicationEnd, status: 'Active', eventType: 'APPLICATION_END', isTentative: 0, notes: undefined }] : []),
+          ...(data.examDate ? [{ event: 'Examination Date', desc: 'Scheduled examination', date: data.examDate, status: 'Active', eventType: 'EXAM_DATE', isTentative: 0, notes: undefined }] : []),
         ],
     sourcesList: data.sources && data.sources.length > 0
       ? data.sources.map(s => ({
@@ -2383,15 +2437,13 @@ export async function createRecruitmentAtomic(
           publicationDate: s.publicationDate || data.applicationStart || null,
           lastVerifiedAt: new Date(),
         }))
-      : [
-          {
-            sourceType: 'OFFICIAL_NOTIFICATION_PDF',
-            sourceUrl: data.sourceUrl || org.websiteUrl,
-            sourceTitle: data.sourceTitle || `${org.shortName} Official Rulebook Notification`,
-            publicationDate: data.applicationStart || `${new Date().getFullYear()}-01-01`,
-            lastVerifiedAt: new Date(),
-          },
-        ],
+      : data.sourceUrl ? [{
+          sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+          sourceUrl: data.sourceUrl,
+          sourceTitle: data.sourceTitle || `${org.shortName} official notification`,
+          publicationDate: data.applicationStart || null,
+          lastVerifiedAt: new Date(),
+        }] : [],
     officialLinksList: data.officialLinks && data.officialLinks.length > 0
       ? data.officialLinks.map(l => ({
           linkType: l.linkType,
@@ -2399,14 +2451,12 @@ export async function createRecruitmentAtomic(
           url: l.url,
           isActive: 1,
         }))
-      : [
-          {
-            linkType: 'APPLY_ONLINE',
-            title: `Apply on ${org.shortName} Portal`,
-            url: data.officialApplyUrl || org.websiteUrl,
-            isActive: 1,
-          },
-        ],
+      : data.officialApplyUrl ? [{
+          linkType: 'APPLY_ONLINE',
+          title: `Apply on ${org.shortName} portal`,
+          url: data.officialApplyUrl,
+          isActive: 1,
+        }] : [],
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
@@ -2424,8 +2474,8 @@ export async function createRecruitmentAtomic(
       minHeightMaleCm: data.minHeightMaleCm ?? null,
       minHeightFemaleCm: data.minHeightFemaleCm ?? null,
       minChestMaleCm: data.minChestMaleCm ?? null,
-      minPercentageRequired: null,
-      additionalSkills: null,
+      minPercentageRequired: data.minPercentageRequired ?? null,
+      additionalSkills: data.additionalSkills || null,
       qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
       relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
       specialConditionsNotes: data.specialConditionsNotes || null,
@@ -2439,23 +2489,8 @@ export async function createRecruitmentAtomic(
     resultStatus: data.resultStatus,
   });
 
-  FALLBACK_RECRUITMENTS.unshift(enrichedRecruitment);
-
-  // 3. Write Audit Log
-  const adminEmail = data.adminEmail || 'aarav@nirnay.in';
-  FALLBACK_AUDIT_LOGS.unshift({
-    id: `audit_${Date.now()}`,
-    adminEmail,
-    entity: 'RECRUITMENT',
-    entityId: newId,
-    action: targetStatus === 'PUBLISHED' ? 'PUBLISH' : 'CREATE',
-    field: 'status',
-    oldValue: null,
-    newValue: targetStatus,
-    reason: `Recruitment created via Admin Ingest with validation status: ${targetValidationStatus}`,
-    source: data.sourceUrl || org.websiteUrl,
-    createdAt: new Date(),
-  });
+  const adminEmail = data.adminEmail || (demoFallbackEnabled ? 'local-admin@localhost' : '');
+  if (!adminEmail) throw new Error('Authenticated admin identity is required.');
 
   // 4. Atomic D1 Batch Persistence
   if (d1) {
@@ -2468,7 +2503,7 @@ export async function createRecruitmentAtomic(
           id: newId,
           postId: data.postId,
           organisationId: org.id,
-          stateId: 'st_mp',
+          stateId,
           advtNumber: data.advtNumber,
           title: data.title,
           slug,
@@ -2480,7 +2515,7 @@ export async function createRecruitmentAtomic(
           lifecycleStatus: enrichedRecruitment.resolvedLifecycle,
           examStatus: enrichedRecruitment.examStatus || 'NOT_SCHEDULED',
           resultStatus: enrichedRecruitment.resultStatus || 'NOT_DECLARED',
-          isFeatured: 0,
+          isFeatured: data.isFeatured ?? 0,
           validationStatus: targetValidationStatus,
           validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
           selectionStagesJson,
@@ -2503,9 +2538,11 @@ export async function createRecruitmentAtomic(
           ageRelaxationEws: data.ageRelaxationEws ?? 0,
           minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
           allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
-          requiresMpDomicile: data.requiresMpDomicile ? 1 : 0,
-          requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 0,
-          requiresCpct: data.requiresCpct ? 1 : 0,
+          minPercentageRequired: data.minPercentageRequired ?? null,
+          additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
+          requiresMpDomicile: (data.requiresMpDomicile ?? true) ? 1 : 0,
+          requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? true) ? 1 : 0,
+          requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,
           genderAllowed: data.genderAllowed || 'ALL',
           minHeightMaleCm: data.minHeightMaleCm ?? null,
           minHeightFemaleCm: data.minHeightFemaleCm ?? null,
@@ -2521,7 +2558,7 @@ export async function createRecruitmentAtomic(
       for (const v of newRecruitment.vacanciesList || []) {
         statements.push(
           db.insert(schema.vacancies).values({
-            id: `vac_${newId}_${v.category.toLowerCase()}_${Math.random().toString(36).substring(2, 6)}`,
+          id: `vac_${crypto.randomUUID()}`,
             recruitmentId: newId,
             category: v.category,
             gender: v.gender || 'ALL',
@@ -2536,7 +2573,7 @@ export async function createRecruitmentAtomic(
       for (const d of newRecruitment.importantDatesList || []) {
         statements.push(
           db.insert(schema.importantDates).values({
-            id: `date_${newId}_${d.eventType?.toLowerCase() || Math.random().toString(36).substring(2, 6)}`,
+            id: `date_${crypto.randomUUID()}`,
             recruitmentId: newId,
             eventType: d.eventType || 'NOTIFICATION',
             eventDate: d.date,
@@ -2550,7 +2587,7 @@ export async function createRecruitmentAtomic(
       for (const s of newRecruitment.sourcesList || []) {
         statements.push(
           db.insert(schema.sources).values({
-            id: `src_${newId}_${Math.random().toString(36).substring(2, 6)}`,
+            id: `src_${crypto.randomUUID()}`,
             recruitmentId: newId,
             sourceType: s.sourceType || 'OFFICIAL_NOTIFICATION_PDF',
             sourceUrl: s.sourceUrl,
@@ -2564,7 +2601,7 @@ export async function createRecruitmentAtomic(
       for (const l of newRecruitment.officialLinksList || []) {
         statements.push(
           db.insert(schema.officialLinks).values({
-            id: `link_${newId}_${Math.random().toString(36).substring(2, 6)}`,
+            id: `link_${crypto.randomUUID()}`,
             recruitmentId: newId,
             linkType: l.linkType || 'APPLY_ONLINE',
             title: l.title,
@@ -2577,7 +2614,7 @@ export async function createRecruitmentAtomic(
       // Audit Log
       statements.push(
         db.insert(schema.auditLogs).values({
-          id: `audit_${Date.now()}`,
+          id: `audit_${crypto.randomUUID()}`,
           adminEmail,
           entity: 'RECRUITMENT',
           entityId: newId,
@@ -2595,7 +2632,29 @@ export async function createRecruitmentAtomic(
       await db.batch(statements);
     } catch (error) {
       console.error('Error in atomic recruitment creation in D1:', error);
+      return {
+        success: false,
+        id: newId,
+        validation: validationResult,
+        errors: ['The database transaction failed. No recruitment was created.'],
+        message: 'The database transaction failed. No recruitment was created.',
+      };
     }
+  } else {
+    FALLBACK_RECRUITMENTS.unshift(enrichedRecruitment);
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail,
+      entity: 'RECRUITMENT',
+      entityId: newId,
+      action: targetStatus === 'PUBLISHED' ? 'PUBLISH' : 'CREATE',
+      field: 'status',
+      oldValue: null,
+      newValue: targetStatus,
+      reason: `Recruitment created with validation status: ${targetValidationStatus}`,
+      source: data.sourceUrl || null,
+      createdAt: new Date(),
+    });
   }
 
   return {
@@ -2613,12 +2672,33 @@ export async function updateRecruitmentAtomic(
   id: string,
   data: CreateRecruitmentInput,
   providedD1?: D1Database
-): Promise<{ success: boolean; id: string; validation: any; errors?: string[] }> {
-  const d1 = providedD1 || cfEnv?.DB;
-  const matchedPost = FALLBACK_POSTS.find(p => p.id === data.postId);
-  const orgShort = data.organisationShortName || (data.postId?.includes('mppsc') ? 'MPPSC' : data.postId?.includes('judge') ? 'MPHC' : 'MPESB');
-  const org = FALLBACK_ORGANISATIONS.find(o => o.shortName === orgShort) || FALLBACK_ORGANISATIONS[0];
+): Promise<{ success: boolean; id: string; validation: any; errors?: string[]; message?: string }> {
+  const d1 = resolveD1(providedD1, 'updating a recruitment');
+  const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
+  const duplicateCheck = detectDuplicates({
+    id,
+    title: data.title,
+    advtNumber: data.advtNumber,
+    organisationShortName: org.shortName,
+    organisationId: org.id,
+    sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
+    postId: data.postId,
+    cycleYear: data.cycleYear,
+  }, existingRecruitments.map(r => ({
+    id: r.id,
+    title: r.title,
+    advtNumber: r.advtNumber,
+    organisationShortName: r.organisationShortName,
+    sourceUrl: r.sourcesList?.[0]?.sourceUrl,
+    postId: r.postId,
+    cycleYear: r.cycleYear,
+  })));
+  if (duplicateCheck.status === 'CONFIRMED_DUPLICATE') {
+    return { success: false, id, validation: null, errors: [duplicateCheck.summary], message: duplicateCheck.summary };
+  }
 
   const validationInput = {
     id,
@@ -2636,7 +2716,7 @@ export async function updateRecruitmentAtomic(
     applicationStart: data.applicationStart,
     applicationEnd: data.applicationEnd,
     examDate: data.examDate,
-    sources: data.sourceUrl ? [{
+    sources: data.sources?.length ? data.sources.map(source => ({ ...source, status: 'VALID' as const })) : data.sourceUrl ? [{
       sourceType: 'OFFICIAL_NOTIFICATION_PDF',
       sourceUrl: data.sourceUrl,
       sourceTitle: data.sourceTitle || `${org.shortName} Official Notification`,
@@ -2659,7 +2739,13 @@ export async function updateRecruitmentAtomic(
   let targetValidationStatus = validationResult.publishable ? 'VALID' : 'NEEDS_REVIEW';
 
   if (!validationResult.publishable && targetStatus === 'PUBLISHED') {
-    targetStatus = 'PENDING_VERIFICATION';
+    return {
+      success: false,
+      id,
+      validation: validationResult,
+      errors: validationResult.blockingErrors,
+      message: 'Publication validation failed. Save as draft or correct the blocking errors.',
+    };
   }
 
   const selectionStagesJson = data.selectionStages && data.selectionStages.length > 0
@@ -2668,7 +2754,7 @@ export async function updateRecruitmentAtomic(
 
   // 1. Update in-memory fallback representation
   const idx = FALLBACK_RECRUITMENTS.findIndex(r => r.id === id || r.slug === id);
-  if (idx !== -1) {
+  if (!d1 && idx !== -1) {
     const existing = FALLBACK_RECRUITMENTS[idx];
     const rawUpdated = {
       ...existing,
@@ -2693,8 +2779,8 @@ export async function updateRecruitmentAtomic(
       validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
       selectionStages: data.selectionStages || existing.selectionStages,
       selectionStagesJson,
-      vacanciesList: data.vacanciesBreakdown || existing.vacanciesList,
-      importantDatesList: data.importantDates && data.importantDates.length > 0
+      vacanciesList: data.vacanciesBreakdown !== undefined ? data.vacanciesBreakdown : existing.vacanciesList,
+      importantDatesList: data.importantDates !== undefined
         ? data.importantDates.map(d => ({
             event: d.eventType.replace(/_/g, ' '),
             desc: d.notes || d.eventType,
@@ -2705,7 +2791,7 @@ export async function updateRecruitmentAtomic(
             notes: d.notes,
           }))
         : existing.importantDatesList,
-      sourcesList: data.sources && data.sources.length > 0
+      sourcesList: data.sources !== undefined
         ? data.sources.map(s => ({
             sourceType: s.sourceType,
             sourceUrl: s.sourceUrl,
@@ -2714,7 +2800,7 @@ export async function updateRecruitmentAtomic(
             lastVerifiedAt: new Date(),
           }))
         : existing.sourcesList,
-      officialLinksList: data.officialLinks && data.officialLinks.length > 0
+      officialLinksList: data.officialLinks !== undefined
         ? data.officialLinks.map(l => ({
             linkType: l.linkType,
             title: l.title,
@@ -2728,6 +2814,10 @@ export async function updateRecruitmentAtomic(
         maxAgeGeneral: data.maxAgeGeneral ?? existing.criteria.maxAgeGeneral,
         ageCutoffDate: data.ageCutoffDate || existing.criteria.ageCutoffDate,
         minQualificationLevel: data.minQualificationLevel ?? existing.criteria.minQualificationLevel,
+        ageRelaxationScSt: data.ageRelaxationScSt ?? existing.criteria.ageRelaxationScSt,
+        ageRelaxationObc: data.ageRelaxationObc ?? existing.criteria.ageRelaxationObc,
+        ageRelaxationFemale: data.ageRelaxationFemale ?? existing.criteria.ageRelaxationFemale,
+        ageRelaxationEws: data.ageRelaxationEws ?? existing.criteria.ageRelaxationEws,
         requiresMpDomicile: data.requiresMpDomicile !== undefined ? data.requiresMpDomicile : existing.criteria.requiresMpDomicile,
         requiresMpEmploymentReg: data.requiresMpEmploymentReg !== undefined ? data.requiresMpEmploymentReg : existing.criteria.requiresMpEmploymentReg,
         requiresCpct: data.requiresCpct !== undefined ? data.requiresCpct : existing.criteria.requiresCpct,
@@ -2735,15 +2825,18 @@ export async function updateRecruitmentAtomic(
         relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
         specialConditionsNotes: data.specialConditionsNotes || null,
         experienceMonths: data.experienceMonths || 0,
+        minPercentageRequired: data.minPercentageRequired ?? null,
+        additionalSkills: data.additionalSkills || null,
       },
     };
     FALLBACK_RECRUITMENTS[idx] = enrichRecruitmentWithLifecycle(rawUpdated);
   }
 
   // 2. Audit Log
-  const adminEmail = data.adminEmail || 'aarav@nirnay.in';
-  FALLBACK_AUDIT_LOGS.unshift({
-    id: `audit_${Date.now()}`,
+  const adminEmail = data.adminEmail || (demoFallbackEnabled ? 'local-admin@localhost' : '');
+  if (!adminEmail) throw new Error('Authenticated admin identity is required.');
+  if (!d1) FALLBACK_AUDIT_LOGS.unshift({
+    id: `audit_${crypto.randomUUID()}`,
     adminEmail,
     entity: 'RECRUITMENT',
     entityId: id,
@@ -2752,7 +2845,7 @@ export async function updateRecruitmentAtomic(
     oldValue: null,
     newValue: targetStatus,
     reason: `Recruitment updated via Admin Editor with validation: ${targetValidationStatus}`,
-    source: data.sourceUrl || org.websiteUrl,
+    source: data.sourceUrl || null,
     createdAt: new Date(),
   });
 
@@ -2777,16 +2870,21 @@ export async function updateRecruitmentAtomic(
       statements.push(
         db.update(schema.recruitments)
           .set({
+            postId: data.postId,
+            organisationId: org.id,
+            stateId,
             title: data.title,
             slug,
             advtNumber: data.advtNumber,
             shortSummary: data.shortSummary || '',
             overviewMarkdown: data.overviewMarkdown || null,
             totalVacancies: data.totalVacancies,
+            cycleYear: data.cycleYear || new Date().getFullYear(),
             status: targetStatus,
             lifecycleStatus: resolvedLStatus,
             examStatus: data.examStatus || (data.examDate ? 'SCHEDULED' : 'NOT_SCHEDULED'),
             resultStatus: data.resultStatus || (resolvedLStatus === 'RESULT_DECLARED' ? 'DECLARED' : 'NOT_DECLARED'),
+            isFeatured: data.isFeatured ?? 0,
             validationStatus: targetValidationStatus,
             validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
             selectionStagesJson,
@@ -2798,37 +2896,71 @@ export async function updateRecruitmentAtomic(
           .where(eq(schema.recruitments.id, id))
       );
 
-      // Update recruitmentEligibility table
+      // Upsert recruitmentEligibility so legacy/incomplete rows can be repaired atomically.
       statements.push(
-        db.update(schema.recruitmentEligibility)
-          .set({
+        db.insert(schema.recruitmentEligibility)
+          .values({
+            id: `elig_${id}`,
+            recruitmentId: id,
             minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
             maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
             ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+            ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
+            ageRelaxationObc: data.ageRelaxationObc ?? 3,
+            ageRelaxationFemale: data.ageRelaxationFemale ?? 5,
+            ageRelaxationEws: data.ageRelaxationEws ?? 0,
             minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
             allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
-            requiresMpDomicile: data.requiresMpDomicile ? 1 : 0,
-            requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 0,
-            requiresCpct: data.requiresCpct ? 1 : 0,
+            requiresMpDomicile: (data.requiresMpDomicile ?? true) ? 1 : 0,
+            requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? true) ? 1 : 0,
+            requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,
             genderAllowed: data.genderAllowed || 'ALL',
             minHeightMaleCm: data.minHeightMaleCm ?? null,
             minHeightFemaleCm: data.minHeightFemaleCm ?? null,
             minChestMaleCm: data.minChestMaleCm ?? null,
+            minPercentageRequired: data.minPercentageRequired ?? null,
+            additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
             experienceMonths: data.experienceMonths || 0,
             specialConditionsNotes: data.specialConditionsNotes || null,
             qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
             relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
           })
-          .where(eq(schema.recruitmentEligibility.recruitmentId, id))
+          .onConflictDoUpdate({
+            target: schema.recruitmentEligibility.recruitmentId,
+            set: {
+              minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+              maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+              ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
+              ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
+              ageRelaxationObc: data.ageRelaxationObc ?? 3,
+              ageRelaxationFemale: data.ageRelaxationFemale ?? 5,
+              ageRelaxationEws: data.ageRelaxationEws ?? 0,
+              minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
+              allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
+              requiresMpDomicile: (data.requiresMpDomicile ?? true) ? 1 : 0,
+              requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? true) ? 1 : 0,
+              requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,
+              genderAllowed: data.genderAllowed || 'ALL',
+              minHeightMaleCm: data.minHeightMaleCm ?? null,
+              minHeightFemaleCm: data.minHeightFemaleCm ?? null,
+              minChestMaleCm: data.minChestMaleCm ?? null,
+              minPercentageRequired: data.minPercentageRequired ?? null,
+              additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
+              experienceMonths: data.experienceMonths || 0,
+              specialConditionsNotes: data.specialConditionsNotes || null,
+              qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
+              relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
+            },
+          })
       );
 
       // Recreate child vacancies if specified
-      if (data.vacanciesBreakdown && data.vacanciesBreakdown.length > 0) {
+      if (data.vacanciesBreakdown !== undefined) {
         statements.push(db.delete(schema.vacancies).where(eq(schema.vacancies.recruitmentId, id)));
         for (const v of data.vacanciesBreakdown) {
           statements.push(
             db.insert(schema.vacancies).values({
-              id: `vac_${id}_${v.category.toLowerCase()}_${Math.random().toString(36).substring(2, 6)}`,
+              id: `vac_${crypto.randomUUID()}`,
               recruitmentId: id,
               category: v.category,
               gender: v.gender || 'ALL',
@@ -2841,12 +2973,12 @@ export async function updateRecruitmentAtomic(
       }
 
       // Recreate important dates if specified
-      if (data.importantDates && data.importantDates.length > 0) {
+      if (data.importantDates !== undefined) {
         statements.push(db.delete(schema.importantDates).where(eq(schema.importantDates.recruitmentId, id)));
         for (const d of data.importantDates) {
           statements.push(
             db.insert(schema.importantDates).values({
-              id: `date_${id}_${d.eventType?.toLowerCase() || Math.random().toString(36).substring(2, 6)}`,
+              id: `date_${crypto.randomUUID()}`,
               recruitmentId: id,
               eventType: d.eventType,
               eventDate: d.eventDate,
@@ -2858,12 +2990,12 @@ export async function updateRecruitmentAtomic(
       }
 
       // Recreate sources if specified
-      if (data.sources && data.sources.length > 0) {
+      if (data.sources !== undefined) {
         statements.push(db.delete(schema.sources).where(eq(schema.sources.recruitmentId, id)));
         for (const s of data.sources) {
           statements.push(
             db.insert(schema.sources).values({
-              id: `src_${id}_${Math.random().toString(36).substring(2, 6)}`,
+              id: `src_${crypto.randomUUID()}`,
               recruitmentId: id,
               sourceType: s.sourceType,
               sourceUrl: s.sourceUrl,
@@ -2875,12 +3007,12 @@ export async function updateRecruitmentAtomic(
       }
 
       // Recreate official links if specified
-      if (data.officialLinks && data.officialLinks.length > 0) {
+      if (data.officialLinks !== undefined) {
         statements.push(db.delete(schema.officialLinks).where(eq(schema.officialLinks.recruitmentId, id)));
         for (const l of data.officialLinks) {
           statements.push(
             db.insert(schema.officialLinks).values({
-              id: `link_${id}_${Math.random().toString(36).substring(2, 6)}`,
+              id: `link_${crypto.randomUUID()}`,
               recruitmentId: id,
               linkType: l.linkType,
               title: l.title,
@@ -2894,7 +3026,7 @@ export async function updateRecruitmentAtomic(
       // Audit Log
       statements.push(
         db.insert(schema.auditLogs).values({
-          id: `audit_${Date.now()}`,
+          id: `audit_${crypto.randomUUID()}`,
           adminEmail,
           entity: 'RECRUITMENT',
           entityId: id,
@@ -2903,7 +3035,7 @@ export async function updateRecruitmentAtomic(
           oldValue: null,
           newValue: targetStatus,
           reason: `Recruitment updated via Admin Editor with validation: ${targetValidationStatus}`,
-          source: data.sourceUrl || org.websiteUrl,
+          source: data.sourceUrl || null,
         })
       );
 
@@ -2912,6 +3044,13 @@ export async function updateRecruitmentAtomic(
       await db.batch(statements);
     } catch (error) {
       console.error('Error in atomic recruitment update in D1:', error);
+      return {
+        success: false,
+        id,
+        validation: validationResult,
+        errors: ['The database transaction failed. No changes were saved.'],
+        message: 'The database transaction failed. No changes were saved.',
+      };
     }
   }
 
@@ -2931,6 +3070,7 @@ export async function createRecruitment(
   providedD1?: D1Database
 ): Promise<string> {
   const res = await createRecruitmentAtomic(data, providedD1);
+  if (!res.success) throw new Error(res.message || 'Recruitment creation failed.');
   return res.id;
 }
 
@@ -3075,6 +3215,7 @@ export async function getAdminKPIs(providedD1?: D1Database): Promise<AdminKPIDat
 
   const publishedRecruitments = recruitments.filter(r => r.status === 'PUBLISHED');
   const metrics = calculateRecruitmentMetrics(publishedRecruitments, now);
+  const recentAuditLogs = await getAuditLogs(providedD1, 10);
 
   return {
     published,
@@ -3089,8 +3230,7 @@ export async function getAdminKPIs(providedD1?: D1Database): Promise<AdminKPIDat
     activeVacancies: metrics.activeVacancyCount,
     upcomingDriveCount: metrics.upcomingDriveCount,
     upcomingVacancies: metrics.upcomingVacancyCount,
-    recentAuditLogs: FALLBACK_AUDIT_LOGS.slice(0, 10),
+    recentAuditLogs,
     conflictsList,
   };
 }
-

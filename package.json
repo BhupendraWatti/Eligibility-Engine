@@ -9,6 +9,8 @@
     "dev": "astro dev",
     "dev:vinext": "vinext dev --port 3001",
     "build": "astro build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/engine/eligibility.test.ts && tsx src/engine/batch-eligibility.test.ts && tsx src/engine/regression.test.ts && tsx src/engine/extract-notification.test.ts && tsx src/services/lifecycle.test.ts",
     "build:vinext": "vinext build",
     "preview": "astro preview",
     "preview:workers": "wrangler dev --config dist/server/wrangler.json",
@@ -38,6 +40,7 @@
     "@cloudflare/workers-types": "^5.20260917.1",
     "@vitejs/plugin-react": "^5.2.0",
     "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
     "vite": "^8.3.0",
     "wrangler": "^4.133.0"
   },

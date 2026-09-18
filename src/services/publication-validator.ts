@@ -64,7 +64,7 @@ export interface RecruitmentValidationInput {
     sourceUrl: string;
     sourceTitle: string;
     publicationDate?: string;
-    status?: 'VALID' | 'EXPIRED' | 'MISSING' | 'NEEDS_REVIEW';
+    status?: 'VALID' | 'EXPIRED' | 'INVALID' | 'MISSING' | 'NEEDS_REVIEW';
   }>;
   vacancies?: Array<{
     category: string;
@@ -76,6 +76,7 @@ const VALID_QUALIFICATIONS = new Set([
   '8TH',
   '10TH',
   '12TH',
+  'ITI',
   'DIPLOMA',
   'GRADUATION',
   'POST_GRADUATION',
@@ -122,8 +123,8 @@ export function validateRecruitmentForPublication(
     checks.recruitment = 'FAIL';
   }
 
-  if (typeof record.totalVacancies !== 'number' || record.totalVacancies <= 0) {
-    blockingErrors.push('Total vacancies count must be greater than zero.');
+  if (typeof record.totalVacancies !== 'number' || record.totalVacancies < 0) {
+    blockingErrors.push('Total vacancies count cannot be negative.');
     checks.recruitment = 'FAIL';
   }
 

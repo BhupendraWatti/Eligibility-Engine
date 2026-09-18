@@ -22,7 +22,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
   const [step, setStep] = useState<number>(1);
 
   // Pure empty starting states — no silent defaults
-  const [ageInput, setAgeInput] = useState<string>('');
+  const [dobInput, setDobInput] = useState<string>('');
   const [selectedGender, setSelectedGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('');
   const [selectedQualification, setSelectedQualification] = useState<UserEligibilityProfile['qualificationLevel'] | ''>('');
   const [degree, setDegree] = useState<string>('B.Tech');
@@ -33,8 +33,11 @@ export default function EligibilityWizard({ recruitments }: Props) {
   const [hasMpRojgarPanjiyan, setHasMpRojgarPanjiyan] = useState<boolean | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<UserEligibilityProfile['category'] | ''>('');
 
-  const [experience, setExperience] = useState<string>('none');
-  const [meetsPhysical, setMeetsPhysical] = useState<boolean>(false);
+  const [experienceMonths, setExperienceMonths] = useState<string>('');
+  const [percentage, setPercentage] = useState<string>('');
+  const [heightCm, setHeightCm] = useState<string>('');
+  const [chestCm, setChestCm] = useState<string>('');
+  const [skills, setSkills] = useState<string>('');
   const [hasTechCert, setHasTechCert] = useState<boolean>(false);
 
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -43,19 +46,22 @@ export default function EligibilityWizard({ recruitments }: Props) {
 
   // Construct user profile from candidate answers
   const profile: UserEligibilityProfile = useMemo(() => {
-    const numericAge = parseInt(ageInput) || 21;
-    const targetYear = new Date().getFullYear() - numericAge;
     return {
-      dob: `${targetYear}-01-01`,
+      dob: dobInput || undefined,
       gender: (selectedGender || 'MALE') as any,
       category: (selectedCategory || 'UR') as any,
       isMpDomicile: isMpDomicile ?? false,
       hasMpRojgarPanjiyan: hasMpRojgarPanjiyan ?? false,
       hasCpct: hasTechCert,
       qualificationLevel: (selectedQualification || 'GRADUATION') as any,
-      heightCm: undefined,
+      stream: stream || undefined,
+      percentage: percentage ? Number(percentage) : undefined,
+      heightCm: heightCm ? Number(heightCm) : undefined,
+      chestCm: chestCm ? Number(chestCm) : undefined,
+      experienceMonths: experienceMonths ? Number(experienceMonths) : undefined,
+      additionalSkills: skills.split(',').map(value => value.trim()).filter(Boolean),
     };
-  }, [ageInput, selectedGender, selectedCategory, isMpDomicile, hasMpRojgarPanjiyan, hasTechCert, selectedQualification]);
+  }, [dobInput, selectedGender, selectedCategory, isMpDomicile, hasMpRojgarPanjiyan, hasTechCert, selectedQualification, stream, percentage, heightCm, chestCm, experienceMonths, skills]);
 
   // Evaluate candidate results across all recruitments
   const results = useMemo(() => {
@@ -95,9 +101,9 @@ export default function EligibilityWizard({ recruitments }: Props) {
     setValidationError(null);
 
     if (step === 1) {
-      const ageNum = parseInt(ageInput);
-      if (isNaN(ageNum) || ageNum < 16 || ageNum > 65) {
-        setValidationError('Please enter a valid age between 16 and 65 years.');
+      const dob = new Date(dobInput);
+      if (!dobInput || !Number.isFinite(dob.getTime()) || dob >= new Date()) {
+        setValidationError('Please enter a valid date of birth.');
         return;
       }
       if (!selectedGender) {
@@ -200,20 +206,17 @@ export default function EligibilityWizard({ recruitments }: Props) {
               <div className="space-y-6 max-w-2xl">
                 <div>
                   <label className="text-base sm:text-lg font-bold text-foreground block mb-1">
-                    How old are you? <span className="text-red-500">*</span>
+                    What is your date of birth? <span className="text-red-500">*</span>
                   </label>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Enter your age in completed years as of current date.
+                    We calculate your exact age separately for each notification’s cutoff date.
                   </p>
                   <div className="max-w-xs">
                     <input
-                      type="number"
-                      min="16"
-                      max="65"
-                      placeholder="e.g. 21"
-                      value={ageInput}
+                      type="date"
+                      value={dobInput}
                       onChange={e => {
-                        setAgeInput(e.target.value);
+                        setDobInput(e.target.value);
                         setValidationError(null);
                       }}
                       className="w-full text-xl font-bold font-mono px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
@@ -349,6 +352,19 @@ export default function EligibilityWizard({ recruitments }: Props) {
                       </div>
                     </div>
                   )}
+
+                  <div className="max-w-xs mb-4">
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">Qualifying percentage (if known)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={percentage}
+                      onChange={e => setPercentage(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
+                    />
+                  </div>
 
                   {/* Inline "Why We Ask" Box */}
                   <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
@@ -517,27 +533,19 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   </p>
 
                   <div className="space-y-4 mb-6">
-                    {/* Physical Standards Check */}
                     <div className="p-4 rounded-xl bg-card border border-border">
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={meetsPhysical}
-                          onChange={e => setMeetsPhysical(e.target.checked)}
-                          className="size-4 rounded text-primary focus:ring-primary mt-0.5"
-                        />
-                        <div>
-                          <span className="text-xs font-semibold text-foreground block">
-                            I meet uniform post physical standards
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            E.g. Male height 168 cm, Female height 158 cm for MP Police Constable & Sub-Inspector.
-                          </span>
-                        </div>
-                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-semibold text-foreground">
+                          Height (cm, if measured)
+                          <input type="number" min="100" max="250" value={heightCm} onChange={e => setHeightCm(e.target.value)} className="mt-1 w-full p-2.5 rounded-lg bg-card border border-border" />
+                        </label>
+                        <label className="text-xs font-semibold text-foreground">
+                          Chest (cm, if applicable)
+                          <input type="number" min="50" max="200" value={chestCm} onChange={e => setChestCm(e.target.value)} className="mt-1 w-full p-2.5 rounded-lg bg-card border border-border" />
+                        </label>
+                      </div>
                     </div>
 
-                    {/* Technical Certs */}
                     <div className="p-4 rounded-xl bg-card border border-border">
                       <label className="flex items-start gap-3 cursor-pointer">
                         <input
@@ -548,13 +556,26 @@ export default function EligibilityWizard({ recruitments }: Props) {
                         />
                         <div>
                           <span className="text-xs font-semibold text-foreground block">
-                            I hold a CPCT scorecard / ITI / Hindi Typing certificate
+                            I hold a valid CPCT scorecard
                           </span>
                           <span className="text-[11px] text-muted-foreground">
-                            Required for Patwari, Assistant Grade-III, and Computer Operator posts.
+                            Select only for CPCT; enter other certificates separately below.
                           </span>
                         </div>
                       </label>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-card border border-border">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-xs font-semibold text-foreground">
+                          Experience (months)
+                          <input type="number" min="0" value={experienceMonths} onChange={e => setExperienceMonths(e.target.value)} className="mt-1 w-full p-2.5 rounded-lg bg-card border border-border" />
+                        </label>
+                        <label className="text-xs font-semibold text-foreground">
+                          Other certificates (comma-separated)
+                          <input type="text" value={skills} onChange={e => setSkills(e.target.value)} placeholder="Hindi Typing, ITI" className="mt-1 w-full p-2.5 rounded-lg bg-card border border-border" />
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -564,7 +585,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                       Profile ready for evaluation:
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-foreground font-mono">
-                      <div>Age: <strong>{ageInput || '21'} yrs</strong></div>
+                      <div>DOB: <strong>{dobInput || 'Not provided'}</strong></div>
                       <div>Gender: <strong>{selectedGender}</strong></div>
                       <div>Category: <strong>{selectedCategory}</strong></div>
                       <div>Domicile: <strong>{isMpDomicile ? 'MP Resident' : 'Other State'}</strong></div>
@@ -637,12 +658,17 @@ export default function EligibilityWizard({ recruitments }: Props) {
                     try {
                       const reportData = {
                         profile: {
-                          age: parseInt(ageInput) || 21,
+                          dob: dobInput,
                           gender: selectedGender,
                           qualification: selectedQualification,
                           domicile: isMpDomicile ? 'Madhya Pradesh' : 'Other State',
                           category: selectedCategory,
-                          hasRojgarPanjiyan: hasMpRojgarPanjiyan,
+                          hasMpRojgarPanjiyan,
+                          hasCpct: hasTechCert,
+                          percentage: percentage ? Number(percentage) : undefined,
+                          heightCm: heightCm ? Number(heightCm) : undefined,
+                          chestCm: chestCm ? Number(chestCm) : undefined,
+                          experienceMonths: experienceMonths ? Number(experienceMonths) : undefined,
                         },
                         timestamp: new Date().toISOString(),
                         eligibleOpportunities: results
@@ -797,7 +823,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                     </span>
                     <a
                       href={`/recruitments/${r.recruitment.slug}`}
-                      class="font-semibold text-xs text-primary hover:underline inline-flex items-center gap-1.5"
+                      className="font-semibold text-xs text-primary hover:underline inline-flex items-center gap-1.5"
                     >
                       <span>View Official Gazette Details</span>
                       <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

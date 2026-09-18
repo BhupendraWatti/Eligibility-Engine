@@ -1,10 +1,11 @@
 ---
 // src/pages/admin/recruitments/new.astro (FlowStep Screen 22)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { getAllCanonicalPosts, getAllSectors, createRecruitmentAtomic } from '../../../db/queries';
+import { getAllCanonicalPosts, getAllSectors, getAllOrganisations, createRecruitmentAtomic } from '../../../db/queries';
 
 const posts = await getAllCanonicalPosts();
 const sectors = await getAllSectors();
+const organisations = await getAllOrganisations();
 
 let errorMessage = '';
 let validationErrors: string[] = [];
@@ -15,7 +16,8 @@ if (Astro.request.method === 'POST') {
     const formData = await Astro.request.formData();
     const title = formData.get('title')?.toString().trim();
     const postId = formData.get('postId')?.toString().trim();
-    const organisation = formData.get('organisation')?.toString().trim() || 'MPESB';
+    const organisationId = formData.get('organisationId')?.toString().trim();
+    const organisation = organisations.find(o => o.id === organisationId);
     const advtNumber = formData.get('advtNumber')?.toString().trim();
     const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
     const shortSummary = formData.get('shortSummary')?.toString().trim();
@@ -26,6 +28,22 @@ if (Astro.request.method === 'POST') {
     const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
     const minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
     const maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
+    const ageCutoffDate = formData.get('ageCutoffDate')?.toString().trim();
+    const ageRelaxationScSt = parseInt(formData.get('ageRelaxationScSt')?.toString() || '0', 10);
+    const ageRelaxationObc = parseInt(formData.get('ageRelaxationObc')?.toString() || '0', 10);
+    const ageRelaxationFemale = parseInt(formData.get('ageRelaxationFemale')?.toString() || '0', 10);
+    const ageRelaxationEws = parseInt(formData.get('ageRelaxationEws')?.toString() || '0', 10);
+    const minPercentageRequired = formData.get('minPercentageRequired') ? Number(formData.get('minPercentageRequired')) : null;
+    const experienceMonths = parseInt(formData.get('experienceMonths')?.toString() || '0', 10);
+    const allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean);
+    const additionalSkills = formData.get('additionalSkills')?.toString().split(',').map(v => v.trim()).filter(Boolean);
+    const requiresMpDomicile = formData.get('requiresMpDomicile') === '1';
+    const requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1';
+    const requiresCpct = formData.get('requiresCpct') === '1';
+    const genderAllowed = (formData.get('genderAllowed')?.toString() || 'ALL') as 'ALL' | 'MALE' | 'FEMALE';
+    const minHeightMaleCm = formData.get('minHeightMaleCm') ? Number(formData.get('minHeightMaleCm')) : null;
+    const minHeightFemaleCm = formData.get('minHeightFemaleCm') ? Number(formData.get('minHeightFemaleCm')) : null;
+    const minChestMaleCm = formData.get('minChestMaleCm') ? Number(formData.get('minChestMaleCm')) : null;
     const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
     const applicationStart = formData.get('applicationStart')?.toString().trim();
     const applicationEnd = formData.get('applicationEnd')?.toString().trim();
@@ -34,13 +52,25 @@ if (Astro.request.method === 'POST') {
     const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
     const sourceUrl = formData.get('sourceUrl')?.toString().trim();
     const sourceTitle = formData.get('sourceTitle')?.toString().trim();
-    const forcePublish = formData.get('forcePublish')?.toString() === 'yes';
+    const officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim();
+    const admitCardUrl = formData.get('admitCardUrl')?.toString().trim();
+    const answerKeyUrl = formData.get('answerKeyUrl')?.toString().trim();
+    const resultUrl = formData.get('resultUrl')?.toString().trim();
+    const officialLinks = [
+      ...(officialApplyUrl ? [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: officialApplyUrl }] : []),
+      ...(admitCardUrl ? [{ linkType: 'ADMIT_CARD', title: 'Download admit card', url: admitCardUrl }] : []),
+      ...(answerKeyUrl ? [{ linkType: 'ANSWER_KEY', title: 'View answer key', url: answerKeyUrl }] : []),
+      ...(resultUrl ? [{ linkType: 'RESULT', title: 'View result', url: resultUrl }] : []),
+    ];
+    const status = formData.get('saveDraft') === 'true' ? 'DRAFT' : 'PUBLISHED';
 
-    if (title && postId && advtNumber && totalVacancies > 0) {
+    if (title && postId && organisation && advtNumber && totalVacancies >= 0) {
       const result = await createRecruitmentAtomic({
         title,
         postId,
-        organisationShortName: organisation,
+        organisationId: organisation.id,
+        organisationShortName: organisation.shortName,
+        stateId: organisation.stateId,
         advtNumber,
         totalVacancies,
         shortSummary,
@@ -51,6 +81,22 @@ if (Astro.request.method === 'POST') {
         qualificationDetailsMarkdown,
         minAge,
         maxAgeGeneral,
+        ageCutoffDate,
+        ageRelaxationScSt,
+        ageRelaxationObc,
+        ageRelaxationFemale,
+        ageRelaxationEws,
+        minPercentageRequired,
+        experienceMonths,
+        allowedStreams,
+        additionalSkills,
+        requiresMpDomicile,
+        requiresMpEmploymentReg,
+        requiresCpct,
+        genderAllowed,
+        minHeightMaleCm,
+        minHeightFemaleCm,
+        minChestMaleCm,
         minQualificationLevel,
         applicationStart,
         applicationEnd,
@@ -59,11 +105,14 @@ if (Astro.request.method === 'POST') {
         resultStatus,
         sourceUrl,
         sourceTitle,
-        forcePublish,
+        officialApplyUrl,
+        officialLinks,
+        status,
+        adminEmail: Astro.locals.adminEmail,
       });
 
       if (result.success) {
-        return Astro.redirect(`/admin/recruitments?status=PUBLISHED`);
+        return Astro.redirect(`/admin/recruitments?status=${status}`);
       } else {
         errorMessage = result.message || 'Failed to create recruitment.';
         validationErrors = result.errors || [];
@@ -193,14 +242,14 @@ const postsBySector = sectors.map(sec => ({
 
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
-                <input
-                  type="text"
-                  name="organisation"
+                <select
+                  name="organisationId"
                   required
-                  defaultValue="MPESB"
-                  placeholder="MPESB / MP High Court / MPPSC"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none"
-                />
+                >
+                  <option value="">-- Select organisation --</option>
+                  {organisations.map(org => <option value={org.id}>{org.name} ({org.shortName})</option>)}
+                </select>
               </div>
 
               <div class="space-y-1.5">
@@ -267,7 +316,7 @@ const postsBySector = sectors.map(sec => ({
                 <input
                   type="number"
                   name="totalVacancies"
-                  min="1"
+                  min="0"
                   required
                   placeholder="e.g. 7500"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none"
@@ -353,6 +402,16 @@ const postsBySector = sectors.map(sec => ({
                 />
               </div>
 
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Age Cutoff Date *</label>
+                <input
+                  type="date"
+                  name="ageCutoffDate"
+                  required
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
               <div class="sm:col-span-3 space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Qualification Detailed Requirements</label>
                 <textarea
@@ -362,6 +421,29 @@ const postsBySector = sectors.map(sec => ({
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
                 ></textarea>
               </div>
+              <div class="sm:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ['ageRelaxationScSt', 'SC/ST relaxation'],
+                  ['ageRelaxationObc', 'OBC relaxation'],
+                  ['ageRelaxationFemale', 'Female relaxation'],
+                  ['ageRelaxationEws', 'EWS relaxation'],
+                ].map(([name, label]) => (
+                  <label class="text-xs font-semibold text-zinc-800">{label}<input type="number" min="0" name={name} defaultValue="0" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
+                ))}
+              </div>
+              <div class="space-y-1.5"><label class="block text-xs font-semibold text-zinc-800">Minimum percentage</label><input type="number" min="0" max="100" step="0.01" name="minPercentageRequired" class="w-full px-3 py-2 rounded-lg border border-zinc-200" /></div>
+              <div class="space-y-1.5"><label class="block text-xs font-semibold text-zinc-800">Required experience (months)</label><input type="number" min="0" name="experienceMonths" defaultValue="0" class="w-full px-3 py-2 rounded-lg border border-zinc-200" /></div>
+              <div class="space-y-1.5"><label class="block text-xs font-semibold text-zinc-800">Allowed streams (comma-separated)</label><input type="text" name="allowedStreams" class="w-full px-3 py-2 rounded-lg border border-zinc-200" /></div>
+              <div class="space-y-1.5"><label class="block text-xs font-semibold text-zinc-800">Required certificates (comma-separated)</label><input type="text" name="additionalSkills" class="w-full px-3 py-2 rounded-lg border border-zinc-200" /></div>
+              <div class="sm:col-span-3 flex flex-wrap gap-4 text-xs">
+                <label><input type="checkbox" name="requiresMpDomicile" value="1" checked /> MP domicile required</label>
+                <label><input type="checkbox" name="requiresMpEmploymentReg" value="1" checked /> MP employment registration required</label>
+                <label><input type="checkbox" name="requiresCpct" value="1" /> CPCT required</label>
+              </div>
+              <label class="text-xs font-semibold text-zinc-800">Allowed gender<select name="genderAllowed" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200"><option value="ALL">All</option><option value="MALE">Male only</option><option value="FEMALE">Female only</option></select></label>
+              <label class="text-xs font-semibold text-zinc-800">Male height (cm)<input type="number" step="0.1" name="minHeightMaleCm" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Female height (cm)<input type="number" step="0.1" name="minHeightFemaleCm" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Male chest (cm)<input type="number" step="0.1" name="minChestMaleCm" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
             </div>
           </div>
 
@@ -429,6 +511,17 @@ const postsBySector = sectors.map(sec => ({
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
                 />
               </div>
+              {[
+                ['officialApplyUrl', 'Official application URL'],
+                ['admitCardUrl', 'Admit card URL'],
+                ['answerKeyUrl', 'Answer key URL'],
+                ['resultUrl', 'Result / merit list URL'],
+              ].map(([name, label]) => (
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-zinc-800">{label}</label>
+                  <input type="url" name={name} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+                </div>
+              ))}
             </div>
           </div>
 

@@ -19,9 +19,11 @@ function formatDate(dateStr?: string): string {
 
 // Derive admit card entries from recruitments with verified exam events
 const admitCards = allRecruitments
-  .filter(r => Boolean(r.examDate) || r.resolvedLifecycle === 'APPLICATION_OPEN' || r.resolvedLifecycle === 'APPLICATION_CLOSING' || r.lifecycleStatus === 'OPEN')
+  .filter(r => Boolean(r.examDate) || r.importantDatesList?.some(d => d.eventType === 'ADMIT_CARD') || r.officialLinksList?.some(l => l.linkType === 'ADMIT_CARD' && l.isActive === 1))
   .map(r => {
-    const isReleased = r.lifecycleStatus === 'ADMIT_CARD_RELEASED';
+    const admitLink = r.officialLinksList?.find(l => l.linkType === 'ADMIT_CARD' && l.isActive === 1);
+    const admitDate = r.importantDatesList?.find(d => d.eventType === 'ADMIT_CARD')?.date;
+    const isReleased = Boolean(admitLink);
     const isExamConcluded = r.resolvedLifecycle === 'EXAM_COMPLETED' || r.resolvedLifecycle === 'RESULT_DECLARED' || r.examStatus === 'COMPLETED';
     
     let statusText = 'Not Released';
@@ -31,7 +33,7 @@ const admitCards = allRecruitments
     if (isReleased) {
       statusText = 'Released';
       statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      availableDateText = 'Download Active on Official Portal';
+      availableDateText = admitDate ? `Released ${formatDate(admitDate)}` : 'Download active on official portal';
     } else if (isExamConcluded) {
       statusText = 'Concluded';
       statusColor = 'bg-muted text-muted-foreground border-border';
@@ -46,7 +48,7 @@ const admitCards = allRecruitments
       availableDate: availableDateText,
       status: statusText,
       statusColor,
-      sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
+      sourceUrl: admitLink?.url,
       slug: r.slug,
       advt: r.advtNumber,
     };
@@ -137,7 +139,7 @@ const admitCards = allRecruitments
                 &larr; View recruitment syllabus & pattern
               </a>
               <div class="flex items-center gap-2">
-                <a
+                {card.sourceUrl && <a
                   href={card.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -145,7 +147,7 @@ const admitCards = allRecruitments
                 >
                   <span>Official Download Portal</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
+                </a>}
               </div>
             </div>
           </div>

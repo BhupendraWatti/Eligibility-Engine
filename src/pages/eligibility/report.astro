@@ -244,7 +244,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             document.getElementById('report-date').textContent = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
           }
 
-          if (data.profile.age) document.getElementById('profile-age').textContent = `${data.profile.age} years`;
+          if (data.profile.dob) document.getElementById('profile-age').textContent = data.profile.dob;
           if (data.profile.qualificationLevel) {
             const qualText = data.profile.degree ? `${data.profile.qualificationLevel} (${data.profile.degree})` : data.profile.qualificationLevel;
             document.getElementById('profile-qualification').textContent = qualText;
@@ -270,20 +270,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           if (data.eligibleOpportunities && data.eligibleOpportunities.length > 0) {
             const eligibleContainer = document.getElementById('eligible-list');
             if (eligibleContainer) {
-              eligibleContainer.innerHTML = data.eligibleOpportunities.map(opp => `
-                <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
-                  <div>
-                    <a href="/recruitments/${opp.slug}" class="font-bold text-foreground hover:text-primary block">
-                      ${opp.title}
-                    </a>
-                    <span class="text-muted-foreground">${opp.org || 'MP Authority'} · ${opp.vacancies ? opp.vacancies.toLocaleString() + ' Vacancies' : ''} · Age ${opp.minAge || 18}–${opp.maxAge || 40}</span>
-                  </div>
-                  <a href="${opp.url || 'https://esb.mp.gov.in'}" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
-                    <span>Official Notice</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                  </a>
-                </div>
-              `).join('');
+              eligibleContainer.replaceChildren();
+              for (const opp of data.eligibleOpportunities) {
+                const row = document.createElement('div');
+                row.className = 'p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs';
+                const details = document.createElement('div');
+                const title = document.createElement('a');
+                title.href = `/recruitments/${encodeURIComponent(opp.slug)}`;
+                title.className = 'font-bold text-foreground hover:text-primary block';
+                title.textContent = opp.title;
+                const meta = document.createElement('span');
+                meta.className = 'text-muted-foreground';
+                meta.textContent = `${opp.org || 'Government authority'} · ${opp.vacancies ? `${Number(opp.vacancies).toLocaleString()} Vacancies` : ''} · Age ${opp.minAge || 18}–${opp.maxAge || 40}`;
+                const official = document.createElement('a');
+                official.href = opp.url || '#';
+                official.target = '_blank';
+                official.rel = 'noopener noreferrer';
+                official.className = 'text-primary font-semibold hover:underline';
+                official.textContent = 'Official Notice';
+                details.append(title, meta);
+                row.append(details, official);
+                eligibleContainer.append(row);
+              }
             }
           }
 
@@ -291,17 +299,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           if (data.verificationOpportunities && data.verificationOpportunities.length > 0) {
             const verifContainer = document.getElementById('verification-list');
             if (verifContainer) {
-              verifContainer.innerHTML = data.verificationOpportunities.map(opp => `
-                <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 text-xs">
-                  <div class="flex items-center justify-between mb-1">
-                    <a href="/recruitments/${opp.slug}" class="font-bold text-foreground hover:text-primary">
-                      ${opp.title}
-                    </a>
-                    <span class="text-[11px] font-semibold text-amber-800">Verification Required</span>
-                  </div>
-                  <p class="text-muted-foreground">${opp.reason || 'Candidate must self-verify eligibility clause in official notification.'}</p>
-                </div>
-              `).join('');
+              verifContainer.replaceChildren();
+              for (const opp of data.verificationOpportunities) {
+                const row = document.createElement('div');
+                row.className = 'p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 text-xs';
+                const title = document.createElement('a');
+                title.href = `/recruitments/${encodeURIComponent(opp.slug)}`;
+                title.className = 'font-bold text-foreground hover:text-primary';
+                title.textContent = opp.title;
+                const reason = document.createElement('p');
+                reason.className = 'text-muted-foreground';
+                reason.textContent = opp.reason || 'Candidate must self-verify eligibility in the official notification.';
+                row.append(title, reason);
+                verifContainer.append(row);
+              }
             }
           }
         }

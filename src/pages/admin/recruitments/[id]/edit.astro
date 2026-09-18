@@ -5,6 +5,7 @@ import {
   getRecruitmentById,
   getAllCanonicalPosts,
   getAllSectors,
+  getAllOrganisations,
   updateRecruitmentAtomic,
 } from '../../../../db/queries';
 
@@ -20,6 +21,7 @@ if (!recruitment) {
 
 const posts = await getAllCanonicalPosts();
 const sectors = await getAllSectors();
+const organisations = await getAllOrganisations();
 
 let errorMessage = '';
 let validationErrors: string[] = [];
@@ -30,7 +32,9 @@ if (Astro.request.method === 'POST') {
     const formData = await Astro.request.formData();
     const title = formData.get('title')?.toString().trim();
     const postId = formData.get('postId')?.toString().trim();
-    const organisationShortName = formData.get('organisationShortName')?.toString().trim() || recruitment.organisationShortName;
+    const organisationId = formData.get('organisationId')?.toString().trim();
+    const organisation = organisations.find(o => o.id === organisationId);
+    const organisationShortName = organisation?.shortName || recruitment.organisationShortName;
     const advtNumber = formData.get('advtNumber')?.toString().trim();
     const cycleYear = parseInt(formData.get('cycleYear')?.toString() || String(recruitment.cycleYear || 2026), 10);
     const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
@@ -38,6 +42,7 @@ if (Astro.request.method === 'POST') {
     const status = formData.get('status')?.toString().trim() || 'PUBLISHED';
     const examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
     const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
+    const isFeatured = formData.get('isFeatured') === '1' ? 1 : 0;
     const shortSummary = formData.get('shortSummary')?.toString().trim();
     const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
 
@@ -53,6 +58,10 @@ if (Astro.request.method === 'POST') {
     const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
     const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
     const relaxationNotesMarkdown = formData.get('relaxationNotesMarkdown')?.toString().trim();
+    const minPercentageRequired = formData.get('minPercentageRequired') ? Number(formData.get('minPercentageRequired')) : null;
+    const experienceMonths = parseInt(formData.get('experienceMonths')?.toString() || '0', 10);
+    const allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean);
+    const additionalSkills = formData.get('additionalSkills')?.toString().split(',').map(v => v.trim()).filter(Boolean);
 
     const requiresMpDomicile = formData.get('requiresMpDomicile') === '1';
     const requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1';
@@ -103,6 +112,9 @@ if (Astro.request.method === 'POST') {
     const sourceTitle = formData.get('sourceTitle')?.toString().trim();
     const sourceUrl = formData.get('sourceUrl')?.toString().trim();
     const officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim();
+    const admitCardUrl = formData.get('admitCardUrl')?.toString().trim();
+    const answerKeyUrl = formData.get('answerKeyUrl')?.toString().trim();
+    const resultUrl = formData.get('resultUrl')?.toString().trim();
 
     const sources: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }> = [];
     if (sourceUrl) {
@@ -113,7 +125,6 @@ if (Astro.request.method === 'POST') {
         publicationDate: notificationDate || applicationStart || undefined,
       });
     }
-
     const officialLinks: Array<{ linkType: string; title: string; url: string }> = [];
     if (officialApplyUrl) {
       officialLinks.push({
@@ -129,12 +140,17 @@ if (Astro.request.method === 'POST') {
         url: sourceUrl,
       });
     }
+    if (admitCardUrl) officialLinks.push({ linkType: 'ADMIT_CARD', title: 'Download admit card', url: admitCardUrl });
+    if (answerKeyUrl) officialLinks.push({ linkType: 'ANSWER_KEY', title: 'View answer key', url: answerKeyUrl });
+    if (resultUrl) officialLinks.push({ linkType: 'RESULT', title: 'View result', url: resultUrl });
 
     if (title && postId && advtNumber && totalVacancies >= 0) {
       const updateResult = await updateRecruitmentAtomic(id, {
         title,
         postId,
         organisationShortName,
+        organisationId: organisation?.id,
+        stateId: organisation?.stateId,
         advtNumber,
         cycleYear,
         totalVacancies,
@@ -142,6 +158,7 @@ if (Astro.request.method === 'POST') {
         lifecycleStatus,
         examStatus,
         resultStatus,
+        isFeatured,
         shortSummary,
         overviewMarkdown,
         minAge,
@@ -154,6 +171,10 @@ if (Astro.request.method === 'POST') {
         minQualificationLevel,
         qualificationDetailsMarkdown,
         relaxationNotesMarkdown,
+        minPercentageRequired,
+        experienceMonths,
+        allowedStreams,
+        additionalSkills,
         requiresMpDomicile,
         requiresMpEmploymentReg,
         requiresCpct,
@@ -171,6 +192,7 @@ if (Astro.request.method === 'POST') {
         importantDates,
         sources,
         officialLinks,
+        adminEmail: Astro.locals.adminEmail,
       });
 
       if (updateResult.success) {
@@ -211,6 +233,9 @@ const examDateObj = datesList.find((d: any) => d.eventType === 'EXAM_DATE');
 
 const primarySource = recruitment.sourcesList?.[0];
 const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkType === 'APPLY_ONLINE');
+const admitCardLink = recruitment.officialLinksList?.find((l: any) => l.linkType === 'ADMIT_CARD');
+const answerKeyLink = recruitment.officialLinksList?.find((l: any) => ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'].includes(l.linkType));
+const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType));
 ---
 
 <AdminLayout
@@ -343,13 +368,13 @@ const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkT
 
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
-                <input
-                  type="text"
-                  name="organisationShortName"
+                <select
+                  name="organisationId"
                   required
-                  value={recruitment.organisationShortName}
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
-                />
+                >
+                  {organisations.map(org => <option value={org.id} selected={org.shortName === recruitment.organisationShortName}>{org.name} ({org.shortName})</option>)}
+                </select>
               </div>
 
               <div class="space-y-1.5">
@@ -374,6 +399,13 @@ const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkT
                   ))}
                 </select>
               </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Cycle Year</label>
+                <input type="number" name="cycleYear" value={recruitment.cycleYear} min="2020" max="2035" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono" />
+              </div>
+              <label class="flex items-center gap-2 text-xs font-medium text-zinc-800">
+                <input type="checkbox" name="isFeatured" value="1" checked={recruitment.isFeatured === 1} /> Featured recruitment
+              </label>
 
               <div class="sm:col-span-2 space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Short Summary</label>
@@ -497,7 +529,7 @@ const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkT
               <div>
                 <label class="block text-xs font-semibold text-zinc-800 mb-1">Min Qualification</label>
                 <select name="minQualificationLevel" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none bg-white font-mono">
-                  {['8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION', 'DOCTORATE'].map(q => (
+                  {['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'].map(q => (
                     <option value={q} selected={recruitment.criteria?.minQualificationLevel === q}>{q}</option>
                   ))}
                 </select>
@@ -517,6 +549,28 @@ const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkT
                 <input type="checkbox" name="requiresCpct" value="1" checked={recruitment.criteria?.requiresCpct} class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
                 <span>CPCT Scorecard</span>
               </label>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              {[
+                ['ageRelaxationScSt', 'SC/ST relaxation', recruitment.criteria?.ageRelaxationScSt],
+                ['ageRelaxationObc', 'OBC relaxation', recruitment.criteria?.ageRelaxationObc],
+                ['ageRelaxationFemale', 'Female relaxation', recruitment.criteria?.ageRelaxationFemale],
+                ['ageRelaxationEws', 'EWS relaxation', recruitment.criteria?.ageRelaxationEws],
+              ].map(([name, label, value]) => (
+                <label class="text-xs font-semibold text-zinc-800">{label}<input type="number" min="0" name={String(name)} value={Number(value ?? 0)} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              ))}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <label class="text-xs font-semibold text-zinc-800">Minimum percentage<input type="number" min="0" max="100" step="0.01" name="minPercentageRequired" value={recruitment.criteria?.minPercentageRequired ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Experience months<input type="number" min="0" name="experienceMonths" value={recruitment.criteria?.experienceMonths ?? 0} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Allowed streams<input type="text" name="allowedStreams" value={recruitment.criteria?.allowedStreams?.join(', ') || ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Required certificates<input type="text" name="additionalSkills" value={recruitment.criteria?.additionalSkills?.join(', ') || ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Male height (cm)<input type="number" step="0.1" name="minHeightMaleCm" value={recruitment.criteria?.minHeightMaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Female height (cm)<input type="number" step="0.1" name="minHeightFemaleCm" value={recruitment.criteria?.minHeightFemaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Male chest (cm)<input type="number" step="0.1" name="minChestMaleCm" value={recruitment.criteria?.minChestMaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Allowed gender<select name="genderAllowed" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200"><option value="ALL" selected={recruitment.criteria?.genderAllowed === 'ALL'}>All</option><option value="MALE" selected={recruitment.criteria?.genderAllowed === 'MALE'}>Male only</option><option value="FEMALE" selected={recruitment.criteria?.genderAllowed === 'FEMALE'}>Female only</option></select></label>
             </div>
 
             <div class="space-y-1.5 pt-2">
@@ -586,6 +640,18 @@ const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkT
                   value={primaryApplyLink?.url || ''}
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none"
                 />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Admit Card URL</label>
+                <input type="url" name="admitCardUrl" value={admitCardLink?.url || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Answer Key URL</label>
+                <input type="url" name="answerKeyUrl" value={answerKeyLink?.url || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Result / Merit List URL</label>
+                <input type="url" name="resultUrl" value={resultLink?.url || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
             </div>
           </div>

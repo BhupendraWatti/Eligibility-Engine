@@ -2,54 +2,25 @@
 // src/pages/admin/organisations.astro (FlowStep Screen 25)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
+import { createOrganisation, getAllOrganisations, getAllStates } from '../../db/queries';
 
-const organisations = [
-  {
-    name: 'Madhya Pradesh Employees Selection Board',
-    shortName: 'MPESB',
-    slug: 'mpesb',
-    activeRecruitments: 32,
-    domain: 'esb.mp.gov.in',
-    status: 'Active',
-    updated: '18 Sep 2026',
-  },
-  {
-    name: 'High Court of Madhya Pradesh',
-    shortName: 'MP High Court',
-    slug: 'mp-high-court',
-    activeRecruitments: 8,
-    domain: 'mphc.gov.in',
-    status: 'Active',
-    updated: '16 Sep 2026',
-  },
-  {
-    name: 'Madhya Pradesh Public Service Commission',
-    shortName: 'MPPSC',
-    slug: 'mppsc',
-    activeRecruitments: 14,
-    domain: 'mppsc.mp.gov.in',
-    status: 'Active',
-    updated: '15 Sep 2026',
-  },
-  {
-    name: 'Department of Public Health & Family Welfare',
-    shortName: 'Health Department',
-    slug: 'health-dept',
-    activeRecruitments: 6,
-    domain: 'health.mp.gov.in',
-    status: 'Needs review',
-    updated: '12 Sep 2026',
-  },
-  {
-    name: 'Madhya Pradesh State Forest Department',
-    shortName: 'Forest Dept',
-    slug: 'mp-forest',
-    activeRecruitments: 4,
-    domain: 'mpforest.gov.in',
-    status: 'Active',
-    updated: '10 Sep 2026',
-  },
-];
+const states = await getAllStates();
+let errorMessage = '';
+if (Astro.request.method === 'POST') {
+  try {
+    const form = await Astro.request.formData();
+    const name = form.get('name')?.toString().trim();
+    const shortName = form.get('shortName')?.toString().trim();
+    const slug = form.get('slug')?.toString().trim();
+    const stateId = form.get('stateId')?.toString().trim();
+    const websiteUrl = form.get('websiteUrl')?.toString().trim();
+    if (!name || !shortName || !slug || !stateId || !websiteUrl) throw new Error('All required organisation fields must be provided.');
+    new URL(websiteUrl);
+    await createOrganisation({ name, shortName, slug, stateId, websiteUrl, isActive: form.get('isActive') === '1' ? 1 : 0, adminEmail: Astro.locals.adminEmail });
+    return Astro.redirect('/admin/organisations');
+  } catch (error: any) { errorMessage = error.message; }
+}
+const organisations = (await getAllOrganisations()).map(org => ({ ...org, activeRecruitments: '—', domain: new URL(org.websiteUrl).hostname, status: org.isActive ? 'Active' : 'Inactive', updated: 'Database' }));
 ---
 
 <AdminLayout
@@ -60,6 +31,7 @@ const organisations = [
   ]}
 >
   <div class="mx-auto max-w-6xl space-y-6">
+    {errorMessage && <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900">{errorMessage}</div>}
     <!-- Header with Action (FlowStep Screen 25) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
@@ -146,7 +118,7 @@ const organisations = [
 
   <!-- Add Organisation Slide-over Drawer (FlowStep Screen 25) -->
   <div id="addOrgDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
-    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
@@ -161,17 +133,20 @@ const organisations = [
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Organisation Name *</label>
-            <input type="text" placeholder="e.g. Madhya Pradesh Revenue Board" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
-            <label class="block font-semibold text-zinc-800">URL Slug *</label>
-            <input type="text" placeholder="e.g. mp-revenue-board" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <label class="block font-semibold text-zinc-800">Short Name *</label>
+            <input type="text" name="shortName" required placeholder="Short name" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
+
+          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">URL Slug *</label><input type="text" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono" /></div>
+          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">State *</label><select name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs">{states.map(state => <option value={state.id}>{state.name}</option>)}</select></div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Official Website Domain *</label>
-            <input type="text" placeholder="e.g. revenue.mp.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="url" name="websiteUrl" required placeholder="https://revenue.example.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
@@ -180,7 +155,7 @@ const organisations = [
           </div>
 
           <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
-            <input type="checkbox" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <input type="checkbox" name="isActive" value="1" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <span>Mark organisation active in discovery portal</span>
           </label>
         </div>
@@ -190,11 +165,11 @@ const organisations = [
         <button type="button" id="cancelAddOrgDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
           Cancel
         </button>
-        <button type="button" id="saveOrgBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
           Save Organisation
         </button>
       </div>
-    </div>
+    </form>
   </div>
 
   <script is:inline>
@@ -202,10 +177,6 @@ const organisations = [
     document.getElementById('openAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
     document.getElementById('closeAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
     document.getElementById('cancelAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('saveOrgBtn')?.addEventListener('click', () => {
-      alert('Organisation record staged successfully!');
-      drawer?.classList.add('hidden');
-    });
   </script>
 
   <AdminDataTable tableId="organisationsDataTable" perPage={10} columns={[{ select: 6, sortable: false }]} />

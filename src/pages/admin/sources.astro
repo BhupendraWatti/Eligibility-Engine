@@ -1,11 +1,20 @@
 ---
 // src/pages/admin/sources.astro (FlowStep Screen 24)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAllActiveRecruitments } from '../../db/queries';
+import { getAllActiveRecruitments, verifySource } from '../../db/queries';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
-const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || 'MP Police Constable Recruitment 2026';
+const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
 const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
+const currentSource = currentRec?.sourcesList?.[0];
+let message = '';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const sourceId = form.get('sourceId')?.toString();
+  if (!sourceId) throw new Error('No persisted source selected.');
+  await verifySource(sourceId, Astro.locals.adminEmail, form.get('note')?.toString().trim() || 'Verified against the official document.');
+  message = 'Source verification recorded.';
+}
 ---
 
 <AdminLayout
@@ -17,6 +26,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
   ]}
 >
   <div class="mx-auto max-w-5xl space-y-6">
+    {message && <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">{message}</div>}
     <!-- Header with Action (FlowStep Screen 24) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div class="space-y-1">
@@ -41,7 +51,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
 
       <div class="flex items-center gap-2.5">
         <a
-          href={currentRec?.sourceUrl || 'https://esb.mp.gov.in'}
+          href={currentSource?.sourceUrl || '#'}
           target="_blank"
           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
         >
@@ -49,14 +59,17 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
           <span>Open official source</span>
         </a>
 
+        <form method="POST" id="sourceVerificationForm">
+          <input type="hidden" name="sourceId" value={currentSource?.id || ''} />
         <button
-          type="button"
-          id="markVerifiedBtn"
+          type="submit"
+          disabled={!currentSource?.id}
           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
           <span>Mark verified</span>
         </button>
+        </form>
       </div>
     </div>
 
@@ -68,7 +81,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
         </div>
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Recruitment record</span>
-          <div class="text-sm font-bold text-zinc-950">{currentRec?.title || 'MP Police Constable Recruitment 2026'}</div>
+          <div class="text-sm font-bold text-zinc-950">{currentRec?.title || 'No recruitment selected'}</div>
         </div>
       </div>
 
@@ -95,27 +108,29 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
 
           <div>
             <span class="text-zinc-500 block mb-1">Source URL:</span>
-            <input type="text" readonly value={currentRec?.sourceUrl || 'https://esb.mp.gov.in/notifications/2026/police_constable.pdf'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono text-xs" />
+            <input type="text" readonly value={currentSource?.sourceUrl || 'No persisted source'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono text-xs" />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
               <span class="text-zinc-500 block mb-1">Source Type:</span>
-              <input type="text" readonly value="Official notification gazette" class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs" />
+              <input type="text" readonly value={currentSource?.sourceType || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs" />
             </div>
             <div>
               <span class="text-zinc-500 block mb-1">Published Date:</span>
-              <input type="text" readonly value="15 Sep 2026" class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-mono" />
+              <input type="text" readonly value={currentSource?.publicationDate || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-mono" />
             </div>
           </div>
 
           <div>
             <span class="text-zinc-500 block mb-1">Audit Verification Note:</span>
             <textarea
+              name="note"
+              form="sourceVerificationForm"
               rows="3"
               placeholder="Add audit notes comparing official PDF clauses with structured record..."
               class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none focus:ring-2 focus:ring-zinc-900"
-            >Verified official rulebook against gazette notification published on 15 Sep 2026. Deadlines, age parameters, and quota criteria confirmed.</textarea>
+            ></textarea>
           </div>
         </div>
       </div>
@@ -131,7 +146,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
           <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
             <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <div>
-              <span class="font-semibold text-zinc-900 block">Application Deadline: 06 Oct 2026</span>
+              <span class="font-semibold text-zinc-900 block">Application Deadline: {currentRec?.applicationEnd || 'Not recorded'}</span>
               <span class="text-[11px] text-zinc-500">Confirmed in Section 1.2 of official gazette.</span>
             </div>
           </label>
@@ -139,7 +154,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
           <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
             <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <div>
-              <span class="font-semibold text-zinc-900 block">7,500 Total Vacancies</span>
+              <span class="font-semibold text-zinc-900 block">{currentRec?.totalVacancies ?? 'Not recorded'} Total Vacancies</span>
               <span class="text-[11px] text-zinc-500">Confirmed in Quota Reservation Matrix Table 4.</span>
             </div>
           </label>
@@ -147,7 +162,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
           <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
             <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <div>
-              <span class="font-semibold text-zinc-900 block">Minimum Qualification: 10th Pass</span>
+              <span class="font-semibold text-zinc-900 block">Minimum Qualification: {currentRec?.criteria.minQualificationLevel || 'Not recorded'}</span>
               <span class="text-[11px] text-zinc-500">Statutory minimum educational criterion verified.</span>
             </div>
           </label>
@@ -155,7 +170,7 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
           <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
             <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <div>
-              <span class="font-semibold text-zinc-900 block">Age Limit: 18–33 Years (General)</span>
+              <span class="font-semibold text-zinc-900 block">Age Limit: {currentRec?.criteria.minAge ?? '—'}–{currentRec?.criteria.maxAgeGeneral ?? '—'} Years (General)</span>
               <span class="text-[11px] text-zinc-500">Age calculated as of statutory cutoff date 01-Jan-2026.</span>
             </div>
           </label>
@@ -174,9 +189,4 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
     </div>
   </div>
 
-  <script is:inline>
-    document.getElementById('markVerifiedBtn')?.addEventListener('click', () => {
-      alert('Source verified successfully! Record is now certified.');
-    });
-  </script>
 </AdminLayout>

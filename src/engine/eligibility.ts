@@ -6,14 +6,17 @@ export interface UserEligibilityProfile {
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
   category?: 'UR' | 'SC' | 'ST' | 'OBC' | 'EWS';
   isMpDomicile?: boolean;
+  domicileStateCode?: string;
   hasMpRojgarPanjiyan?: boolean;
+  registrations?: string[];
   hasCpct?: boolean;
-  qualificationLevel?: '8TH' | '10TH' | '12TH' | 'DIPLOMA' | 'GRADUATION' | 'POST_GRADUATION';
+  qualificationLevel?: '8TH' | '10TH' | '12TH' | 'ITI' | 'DIPLOMA' | 'GRADUATION' | 'POST_GRADUATION';
   stream?: string;
   percentage?: number;
   heightCm?: number;
   chestCm?: number;
   additionalSkills?: string[];
+  experienceMonths?: number;
 }
 
 export interface RecruitmentCriteria {
@@ -26,7 +29,9 @@ export interface RecruitmentCriteria {
   ageRelaxationEws: number;
   minQualificationLevel: string;
   requiresMpDomicile: boolean;
+  domicileStateCode?: string | null;
   requiresMpEmploymentReg: boolean;
+  employmentRegistrationLabel?: string | null;
   requiresCpct: boolean;
   genderAllowed: 'ALL' | 'MALE' | 'FEMALE';
   minHeightMaleCm?: number | null;
@@ -35,6 +40,7 @@ export interface RecruitmentCriteria {
   minPercentageRequired?: number | null;
   additionalSkills?: string[] | null;
   allowedStreams?: string[] | null;
+  experienceMonths?: number;
 }
 
 export interface RuleEvaluationItem {
@@ -70,6 +76,7 @@ export const QUALIFICATION_RANK: Record<string, number> = {
   '8TH': 1,
   '10TH': 2,
   '12TH': 3,
+  'ITI': 3,
   'DIPLOMA': 4,
   'GRADUATION': 5,
   'POST_GRADUATION': 6,
@@ -112,30 +119,32 @@ export function evaluateEligibility(
   }
 
   // 2. MP Domicile Rule
-  if (criteria.requiresMpDomicile) {
-    if (user.isMpDomicile === undefined) {
+  if (criteria.requiresMpDomicile || criteria.domicileStateCode) {
+    const requiredState = (criteria.domicileStateCode || 'MP').toUpperCase();
+    const candidateState = user.domicileStateCode?.toUpperCase() || (user.isMpDomicile === true ? 'MP' : user.isMpDomicile === false ? 'OTHER' : undefined);
+    if (!candidateState) {
       items.push({
         ruleName: 'MP Domicile',
         status: 'UNKNOWN',
         userValue: 'Not provided',
-        requirement: 'Must be MP Resident (Mool Niwasi)',
-        message: 'MP Domicile status not provided. Verification required.',
+        requirement: `Must hold ${requiredState} domicile`,
+        message: 'Domicile state was not provided. Verification required.',
       });
-    } else if (!user.isMpDomicile) {
+    } else if (candidateState !== requiredState) {
       items.push({
         ruleName: 'MP Domicile',
         status: 'FAIL',
         userValue: 'No',
-        requirement: 'Must be MP Resident (Mool Niwasi)',
-        message: 'This post is reserved exclusively for MP residents.',
+        requirement: `Must hold ${requiredState} domicile`,
+        message: `This recruitment requires ${requiredState} domicile.`,
       });
     } else {
       items.push({
         ruleName: 'MP Domicile',
         status: 'MATCH',
         userValue: 'Yes',
-        requirement: 'Must be MP Resident',
-        message: 'MP Domicile criteria satisfied.',
+        requirement: `Must hold ${requiredState} domicile`,
+        message: 'Domicile requirement satisfied.',
       });
     }
   }
@@ -151,6 +160,15 @@ export function evaluateEligibility(
     });
   } else {
     const ageAtCutoff = calculateAgeAtCutoff(user.dob, criteria.ageCutoffDate);
+    if (!Number.isFinite(ageAtCutoff)) {
+      items.push({
+        ruleName: 'Age Requirement',
+        status: 'UNKNOWN',
+        userValue: user.dob,
+        requirement: `Valid date of birth and cutoff date ${criteria.ageCutoffDate}`,
+        message: 'Date of birth or age cutoff date is invalid.',
+      });
+    } else {
     let maxAllowed = criteria.maxAgeGeneral;
 
     // Category-specific age relaxation
@@ -202,6 +220,7 @@ export function evaluateEligibility(
         ? `Age (${formattedAge} yrs) is within eligible limits.`
         : `Age (${formattedAge} yrs) falls outside the allowed limit (${criteria.minAge}-${maxAllowed} yrs).`,
     });
+    }
   }
 
   // 4. Qualification Level & Stream / Subject Rule
@@ -216,7 +235,9 @@ export function evaluateEligibility(
   } else {
     const userRank = QUALIFICATION_RANK[user.qualificationLevel] || 0;
     const requiredRank = QUALIFICATION_RANK[criteria.minQualificationLevel] || 0;
-    const isMatch = userRank >= requiredRank;
+    const isMatch = criteria.minQualificationLevel === 'ITI'
+      ? user.qualificationLevel === 'ITI'
+      : userRank >= requiredRank;
 
     items.push({
       ruleName: 'Educational Qualification',
@@ -288,15 +309,19 @@ export function evaluateEligibility(
 
   // 6. MP Rojgar Panjiyan Rule
   if (criteria.requiresMpEmploymentReg) {
-    if (user.hasMpRojgarPanjiyan === undefined) {
+    const registration = criteria.employmentRegistrationLabel || 'MP_ROJGAR';
+    const hasRegistration = user.registrations
+      ? user.registrations.some(value => value.toUpperCase() === registration.toUpperCase())
+      : user.hasMpRojgarPanjiyan;
+    if (hasRegistration === undefined) {
       items.push({
         ruleName: 'MP Rojgar Panjiyan',
         status: 'UNKNOWN',
         userValue: 'Not provided',
-        requirement: 'Active registration on mprojgar.gov.in',
-        message: 'Must have active registration on MP Employment Exchange portal.',
+        requirement: `Active ${registration} registration`,
+        message: 'Required employment registration was not provided.',
       });
-    } else if (!user.hasMpRojgarPanjiyan) {
+    } else if (!hasRegistration) {
       items.push({
         ruleName: 'MP Rojgar Panjiyan',
         status: 'FAIL',
@@ -439,6 +464,27 @@ export function evaluateEligibility(
     }
   }
 
+  if ((criteria.experienceMonths ?? 0) > 0) {
+    if (user.experienceMonths === undefined) {
+      items.push({
+        ruleName: 'Experience',
+        status: 'UNKNOWN',
+        userValue: 'Not provided',
+        requirement: `${criteria.experienceMonths} months`,
+        message: 'Required experience cannot be verified without the candidate’s experience duration.',
+      });
+    } else {
+      const meetsExperience = user.experienceMonths >= (criteria.experienceMonths ?? 0);
+      items.push({
+        ruleName: 'Experience',
+        status: meetsExperience ? 'MATCH' : 'FAIL',
+        userValue: `${user.experienceMonths} months`,
+        requirement: `${criteria.experienceMonths} months`,
+        message: meetsExperience ? 'Experience requirement satisfied.' : 'Candidate experience is below the required duration.',
+      });
+    }
+  }
+
   // Composite Calculation
   const failedCount = items.filter((i) => i.status === 'FAIL').length;
   const unknownCount = items.filter((i) => i.status === 'UNKNOWN').length;
@@ -464,6 +510,7 @@ export function evaluateEligibility(
 export function calculateAgeAtCutoff(dobStr: string, cutoffStr: string): number {
   const dob = new Date(dobStr);
   const cutoff = new Date(cutoffStr);
+  if (!Number.isFinite(dob.getTime()) || !Number.isFinite(cutoff.getTime()) || dob > cutoff) return Number.NaN;
 
   let years = cutoff.getFullYear() - dob.getFullYear();
   const monthDiff = cutoff.getMonth() - dob.getMonth();

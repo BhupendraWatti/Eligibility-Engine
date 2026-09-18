@@ -2,8 +2,9 @@
 // src/pages/admin/audit-log.astro (FlowStep Screen 30)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
+import { getAuditLogs } from '../../db/queries';
 
-const auditEntries = [
+const unusedDemoAuditEntries = [
   {
     id: 'LOG-8941',
     timestamp: '17 Sep 2026 18:32',
@@ -65,6 +66,18 @@ const auditEntries = [
     reason: 'Cabinet decision granting 3-year uniform age relaxation.',
   },
 ];
+const auditEntries = (await getAuditLogs()).map(log => ({
+  id: log.id,
+  timestamp: new Date(log.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+  user: log.adminEmail,
+  role: 'Admin',
+  action: log.action.charAt(0) + log.action.slice(1).toLowerCase(),
+  record: `${log.entity}: ${log.entityId}`,
+  field: log.field || 'record',
+  oldVal: log.oldValue || '—',
+  newVal: log.newValue || '—',
+  reason: log.reason || 'No reason recorded.',
+}));
 ---
 
 <AdminLayout

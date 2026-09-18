@@ -18,8 +18,14 @@ function formatDate(dateStr?: string): string {
 }
 
 // Derive answer key records dynamically from verified lifecycle events
-const keys = allRecruitments.map((r) => {
-  const isKeyActive = r.lifecycleStatus === 'ANSWER_KEY_OUT';
+const keys = allRecruitments.filter(r =>
+  r.officialLinksList?.some(l => ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'].includes(l.linkType) && l.isActive === 1) ||
+  r.importantDatesList?.some(d => ['ANSWER_KEY', 'ANSWER_KEY_OBJECTION_END'].includes(d.eventType))
+).map((r) => {
+  const keyLink = r.officialLinksList?.find(l => ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'].includes(l.linkType) && l.isActive === 1);
+  const keyDate = r.importantDatesList?.find(d => d.eventType === 'ANSWER_KEY')?.date;
+  const objectionEnd = r.importantDatesList?.find(d => d.eventType === 'ANSWER_KEY_OBJECTION_END')?.date;
+  const isKeyActive = Boolean(keyLink);
   const isConcluded = r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || r.lifecycleStatus === 'RESULT_DECLARED';
   
   let statusText = 'Awaited Post Examination';
@@ -30,8 +36,8 @@ const keys = allRecruitments.map((r) => {
   if (isKeyActive) {
     statusText = 'Provisional Key Active';
     statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    deadlineText = 'Official Objection Window Active';
-    publishedDateText = r.examDate ? formatDate(r.examDate) : 'Recently Gazetted';
+    deadlineText = objectionEnd ? formatDate(objectionEnd) : 'See official notice';
+    publishedDateText = keyDate ? formatDate(keyDate) : 'Published';
   } else if (isConcluded) {
     statusText = 'Objection Window Concluded';
     statusColor = 'bg-muted text-muted-foreground border-border';
@@ -47,7 +53,7 @@ const keys = allRecruitments.map((r) => {
     status: statusText,
     statusColor,
     deadline: deadlineText,
-    sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
+    sourceUrl: keyLink?.url,
     slug: r.slug,
   };
 }).filter(item => {
@@ -141,7 +147,7 @@ const keys = allRecruitments.map((r) => {
               >
                 &larr; View recruitment summary
               </a>
-              <a
+              {k.sourceUrl && <a
                 href={k.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -149,7 +155,7 @@ const keys = allRecruitments.map((r) => {
               >
                 <span>View on board portal</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
+              </a>}
             </div>
           </div>
         ))

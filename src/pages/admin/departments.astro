@@ -2,30 +2,23 @@
 // src/pages/admin/departments.astro (FlowStep Screen 26)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
-import { getAllDepartments, getAllSectors } from '../../db/queries';
+import { createDepartment, getAllDepartments, getAllOrganisations } from '../../db/queries';
 
-let departments: any[] = [];
-let sectors: any[] = [];
-
-try {
-  [departments, sectors] = await Promise.all([
-    getAllDepartments(),
-    getAllSectors(),
-  ]);
-} catch (err) {
-  console.error("Departments fetch error:", err);
+const organisations = await getAllOrganisations();
+let errorMessage = '';
+if (Astro.request.method === 'POST') {
+  try {
+    const form = await Astro.request.formData();
+    const name = form.get('name')?.toString().trim();
+    const slug = form.get('slug')?.toString().trim();
+    const organisationId = form.get('organisationId')?.toString().trim();
+    if (!name || !slug || !organisationId) throw new Error('Department name, slug, and organisation are required.');
+    await createDepartment({ name, slug, organisationId, description: form.get('description')?.toString().trim(), isActive: form.get('isActive') === '1' ? 1 : 0, adminEmail: Astro.locals.adminEmail });
+    return Astro.redirect('/admin/departments');
+  } catch (error: any) { errorMessage = error.message; }
 }
-
-// Fallback departments if DB empty
-if (!departments || departments.length === 0) {
-  departments = [
-    { id: '1', name: 'Police Department', sector: 'Police', openRecruitments: 12, publishedPages: 'Yes', status: 'Active', updated: '18 Sep 2026' },
-    { id: '2', name: 'Forest Department', sector: 'Forest', openRecruitments: 7, publishedPages: 'Yes', status: 'Active', updated: '17 Sep 2026' },
-    { id: '3', name: 'Women & Child Development', sector: 'Social Development', openRecruitments: 3, publishedPages: 'Yes', status: 'Draft', updated: '16 Sep 2026' },
-    { id: '4', name: 'Public Works Department (PWD)', sector: 'Engineering', openRecruitments: 5, publishedPages: 'Yes', status: 'Active', updated: '14 Sep 2026' },
-    { id: '5', name: 'Department of School Education', sector: 'Education', openRecruitments: 18, publishedPages: 'Yes', status: 'Active', updated: '12 Sep 2026' },
-  ];
-}
+const orgNames = new Map(organisations.map(org => [org.id, org.shortName]));
+const departments = (await getAllDepartments()).map(dept => ({ ...dept, sector: orgNames.get(dept.organisationId) || 'Unknown organisation', openRecruitments: 0, status: dept.isActive ? 'Active' : 'Inactive', updated: 'Database' }));
 ---
 
 <AdminLayout
@@ -36,6 +29,7 @@ if (!departments || departments.length === 0) {
   ]}
 >
   <div class="mx-auto max-w-6xl space-y-6">
+    {errorMessage && <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900">{errorMessage}</div>}
     <!-- Header with Action (FlowStep Screen 26) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
@@ -118,7 +112,7 @@ if (!departments || departments.length === 0) {
 
   <!-- Add Department Drawer (FlowStep Screen 26) -->
   <div id="addDeptDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
-    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
@@ -133,27 +127,22 @@ if (!departments || departments.length === 0) {
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Department Title *</label>
-            <input type="text" placeholder="e.g. Commercial Tax Department" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
-            <label class="block font-semibold text-zinc-800">Assign Sector *</label>
-            <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
-              <option>Revenue & Finance</option>
-              <option>Police & Law Enforcement</option>
-              <option>Forest & Environment</option>
-              <option>Education</option>
-              <option>Health & Medical</option>
-            </select>
+            <label class="block font-semibold text-zinc-800">Organisation *</label>
+            <select name="organisationId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">{organisations.map(org => <option value={org.id}>{org.name}</option>)}</select>
           </div>
 
           <div class="space-y-1.5">
-            <label class="block font-semibold text-zinc-800">Administrative Headquarters</label>
-            <input type="text" defaultValue="Vallabh Bhawan, Bhopal, MP" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 outline-none" />
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 outline-none" />
           </div>
+          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">Description</label><textarea name="description" rows="3" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs"></textarea></div>
 
           <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
-            <input type="checkbox" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <input type="checkbox" name="isActive" value="1" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
             <span>Enable department in public sector filters</span>
           </label>
         </div>
@@ -163,11 +152,11 @@ if (!departments || departments.length === 0) {
         <button type="button" id="cancelAddDeptDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
           Cancel
         </button>
-        <button type="button" id="saveDeptBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
           Save Department
         </button>
       </div>
-    </div>
+    </form>
   </div>
 
   <script is:inline>
@@ -175,10 +164,6 @@ if (!departments || departments.length === 0) {
     document.getElementById('openAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
     document.getElementById('closeAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
     document.getElementById('cancelAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('saveDeptBtn')?.addEventListener('click', () => {
-      alert('Department registered successfully!');
-      drawer?.classList.add('hidden');
-    });
   </script>
 
   <AdminDataTable tableId="departmentsDataTable" perPage={10} columns={[{ select: 5, sortable: false }]} />

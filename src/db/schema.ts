@@ -98,6 +98,7 @@ export const recruitments = sqliteTable('recruitments', {
   index('idx_rec_post').on(table.postId),
   index('idx_rec_state').on(table.stateId),
   index('idx_rec_validation').on(table.validationStatus),
+  unique('unq_rec_org_advt_cycle').on(table.organisationId, table.advtNumber, table.cycleYear),
 ]);
 
 // 7. Typed Recruitment Eligibility (The Simplified Model)
@@ -113,7 +114,9 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   minQualificationLevel: text('min_qualification_level').notNull(), // '8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'
   allowedStreamsJson: text('allowed_streams_json'), // JSON array e.g. ["ANY"] or ["SCIENCE"]
   requiresMpDomicile: integer('requires_mp_domicile').notNull().default(0),
+  domicileStateCode: text('domicile_state_code'),
   requiresMpEmploymentReg: integer('requires_mp_employment_reg').notNull().default(1),
+  employmentRegistrationLabel: text('employment_registration_label'),
   requiresCpct: integer('requires_cpct').notNull().default(0),
   genderAllowed: text('gender_allowed').notNull().default('ALL'), // 'ALL', 'MALE', 'FEMALE'
   minHeightMaleCm: real('min_height_male_cm'),
@@ -162,7 +165,9 @@ export const sources = sqliteTable('sources', {
   sourceTitle: text('source_title').notNull(),
   publicationDate: text('publication_date'),
   lastVerifiedAt: integer('last_verified_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index('idx_sources_rec').on(table.recruitmentId),
+]);
 
 // 11. Official Links
 export const officialLinks = sqliteTable('official_links', {
@@ -172,7 +177,9 @@ export const officialLinks = sqliteTable('official_links', {
   title: text('title').notNull(),
   url: text('url').notNull(),
   isActive: integer('is_active').notNull().default(1),
-});
+}, (table) => [
+  index('idx_links_rec').on(table.recruitmentId),
+]);
 
 // 12. Admin Users
 export const adminUsers = sqliteTable('admin_users', {

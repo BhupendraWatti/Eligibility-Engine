@@ -1,41 +1,17 @@
 ---
 // src/pages/search.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors } from '../db/queries';
+import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors, getAllOrganisations } from '../db/queries';
 
 const query = (Astro.url.searchParams.get('q') || '').trim();
 const activeCategory = Astro.url.searchParams.get('type') || 'all';
 
-const [allRecruitments, allPosts, allSectors] = await Promise.all([
+const [allRecruitments, allPosts, allSectors, allOrganisations] = await Promise.all([
   getAllActiveRecruitments(),
   getAllCanonicalPosts(),
   getAllSectors(),
+  getAllOrganisations(),
 ]);
-
-// MP Statutory Organisations catalog
-const allOrganisations = [
-  {
-    name: 'Madhya Pradesh Employees Selection Board',
-    shortName: 'MPESB',
-    slug: 'mpesb',
-    snippet: 'Statutory board conducting Group 2, 3, and 4 recruitment tests, Police Constable, and Samvida tests.',
-    domain: 'esb.mp.gov.in',
-  },
-  {
-    name: 'Madhya Pradesh Public Service Commission',
-    shortName: 'MPPSC',
-    slug: 'mppsc',
-    snippet: 'Constitutional recruitment body conducting State Services (Deputy Collector, DSP) and Assistant Professor exams.',
-    domain: 'mppsc.mp.gov.in',
-  },
-  {
-    name: 'High Court of Madhya Pradesh',
-    shortName: 'MPHC',
-    slug: 'mphc',
-    snippet: 'Judicial recruitment registry for Junior Judicial Assistants, District Court Steno-Typists, and Civil Judges.',
-    domain: 'mphc.gov.in',
-  },
-];
 
 // Perform dynamic multi-entity matching
 const qLower = query.toLowerCase();
@@ -76,7 +52,7 @@ const orgResults = allOrganisations.filter(o => {
   return (
     o.name.toLowerCase().includes(qLower) ||
     o.shortName.toLowerCase().includes(qLower) ||
-    o.snippet.toLowerCase().includes(qLower)
+    (o.description || '').toLowerCase().includes(qLower)
   );
 });
 

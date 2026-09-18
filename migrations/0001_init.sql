@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS recruitments (
     cycle_year INTEGER NOT NULL,
     total_vacancies INTEGER DEFAULT 0 NOT NULL,
     status TEXT DEFAULT 'DRAFT' NOT NULL,
-    lifecycle_status TEXT DEFAULT 'UPCOMING' NOT NULL,
+    lifecycle_status TEXT DEFAULT 'NOT_STARTED' NOT NULL,
     is_featured INTEGER DEFAULT 0 NOT NULL,
     validation_status TEXT DEFAULT 'NEEDS_REVIEW' NOT NULL,
     validation_errors_json TEXT,

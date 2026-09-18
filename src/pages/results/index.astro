@@ -19,7 +19,13 @@ function formatDate(dateStr?: string): string {
 }
 
 // Derive results dynamically from verified recruitment milestones
-const results = allRecruitments.map((r) => {
+const results = allRecruitments.filter(r =>
+  r.resultStatus === 'DECLARED' ||
+  r.officialLinksList?.some(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType) && l.isActive === 1) ||
+  r.importantDatesList?.some(d => d.eventType === 'RESULT')
+).map((r) => {
+  const resultLink = r.officialLinksList?.find(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType) && l.isActive === 1);
+  const resultDate = r.importantDatesList?.find(d => d.eventType === 'RESULT')?.date;
   const isDeclared = r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || r.lifecycleStatus === 'RESULT_DECLARED';
   const isExamDone = r.resolvedLifecycle === 'EXAM_COMPLETED' || r.examStatus === 'COMPLETED' || r.lifecycleStatus === 'EXAM_COMPLETED';
   
@@ -30,7 +36,7 @@ const results = allRecruitments.map((r) => {
   if (isDeclared) {
     statusText = 'Declared';
     statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    releaseDateText = 'Declared';
+    releaseDateText = resultDate ? formatDate(resultDate) : 'Declared';
   } else if (isExamDone) {
     statusText = 'Under Evaluation';
     statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -45,7 +51,7 @@ const results = allRecruitments.map((r) => {
     releaseDate: releaseDateText,
     status: statusText,
     statusColor,
-    sourceUrl: r.organisationUrl || 'https://esb.mp.gov.in',
+    sourceUrl: resultLink?.url,
     slug: r.slug,
     vacancies: r.totalVacancies,
   };
@@ -148,7 +154,7 @@ const results = allRecruitments.map((r) => {
               >
                 &larr; View recruitment details
               </a>
-              <a
+              {r.sourceUrl && <a
                 href={r.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -156,7 +162,7 @@ const results = allRecruitments.map((r) => {
               >
                 <span>Access official scorecard</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
+              </a>}
             </div>
           </div>
         ))

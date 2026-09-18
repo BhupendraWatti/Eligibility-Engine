@@ -1,57 +1,50 @@
 ---
 // src/pages/admin/index.astro (FlowStep Screen 20)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAllActiveRecruitments, getAdminKPIs } from '../../db/queries';
-
-// Step 4: Diagnostic logging
-console.log("[Admin Layout] admin dashboard rendered");
+import { getAdminKPIs } from '../../db/queries';
 
 // @ts-ignore
-const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
+const adminEmail = Astro.locals?.adminEmail || 'local-admin@localhost';
 
-let recruitments: any[] = [];
 let kpis: any = null;
+let dashboardError = '';
 
 try {
-  [recruitments, kpis] = await Promise.all([
-    getAllActiveRecruitments(undefined, { includeUnpublished: true }),
-    getAdminKPIs(),
-  ]);
+  kpis = await getAdminKPIs();
 } catch (err) {
   console.error("[Admin D1 Query Error]:", err);
+  dashboardError = 'Dashboard data is unavailable. Check the D1 binding and migrations.';
 }
 
-// Fallback KPIs based on recruitments if getAdminKPIs failed
 if (!kpis) {
-  const published = recruitments.filter((r: any) => r.status === 'PUBLISHED').length;
-  const drafts = recruitments.filter((r: any) => r.status === 'DRAFT').length;
-  const pendingVerification = recruitments.filter((r: any) => r.status === 'PENDING_VERIFICATION' || r.status === 'REVIEW').length;
   kpis = {
-    published: published || 42,
-    drafts: drafts || 8,
-    pendingVerification: pendingVerification || 12,
-    expiringIn7Days: 3,
-    needsReview: 12,
-    sourceExpired: 2,
+    published: 0,
+    drafts: 0,
+    pendingVerification: 0,
+    expiringIn7Days: 0,
+    needsReview: 0,
+    sourceExpired: 0,
     dataConflicts: 0,
-    totalVacancies: recruitments.reduce((sum: number, r: any) => sum + (r.totalVacancies || 0), 0) || 12800,
+    totalVacancies: 0,
+    activeDriveCount: 0,
     recentAuditLogs: [],
     conflictsList: [],
   };
 }
 
-const totalActiveRecruitments = recruitments.length > 0 ? recruitments.length : 128;
-const openApplicationsCount = recruitments.filter((r: any) => r.lifecycleStatus === 'OPEN' || r.status === 'PUBLISHED').length || 42;
-const closingTodayCount = kpis.expiringIn7Days > 0 ? kpis.expiringIn7Days : 3;
-const needsVerificationCount = kpis.pendingVerification || 12;
-const draftRecordsCount = kpis.drafts || 8;
-const expiredCount = kpis.sourceExpired || 2;
+const totalActiveRecruitments = kpis.published + kpis.drafts + kpis.pendingVerification;
+const openApplicationsCount = kpis.activeDriveCount || 0;
+const closingTodayCount = kpis.expiringIn7Days;
+const needsVerificationCount = kpis.pendingVerification;
+const draftRecordsCount = kpis.drafts;
+const expiredCount = kpis.sourceExpired;
 
 const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
 <AdminLayout title="Dashboard" currentSection="dashboard" breadcrumbs={[{ label: 'Dashboard' }]}>
   <div class="mx-auto max-w-6xl space-y-6">
+    {dashboardError && <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900">{dashboardError}</div>}
     <!-- Top Action Heading -->
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
       <div>
