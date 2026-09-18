@@ -258,3 +258,24 @@ export const recruitmentsRelations = relations(recruitments, ({ one, many }) => 
   sources: many(sources),
   officialLinks: many(officialLinks),
 }));
+
+// Inverse relations for child tables (required by Drizzle for relational queries)
+export const recruitmentEligibilityRelations = relations(recruitmentEligibility, ({ one }) => ({
+  recruitment: one(recruitments, { fields: [recruitmentEligibility.recruitmentId], references: [recruitments.id] }),
+}));
+
+export const vacanciesRelations = relations(vacancies, ({ one }) => ({
+  recruitment: one(recruitments, { fields: [vacancies.recruitmentId], references: [recruitments.id] }),
+}));
+
+export const importantDatesRelations = relations(importantDates, ({ one }) => ({
+  recruitment: one(recruitments, { fields: [importantDates.recruitmentId], references: [recruitments.id] }),
+}));
+
+export const sourcesRelations = relations(sources, ({ one }) => ({
+  recruitment: one(recruitments, { fields: [sources.recruitmentId], references: [recruitments.id] }),
+}));
+
+export const officialLinksRelations = relations(officialLinks, ({ one }) => ({
+  recruitment: one(recruitments, { fields: [officialLinks.recruitmentId], references: [recruitments.id] }),
+}));
