@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/settings.astro (FlowStep Screen 31)
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminDataTable from '../../components/admin/AdminDataTable.astro';
 
 const staffMembers = [
   {
@@ -62,21 +63,16 @@ const staffMembers = [
 
     <!-- Team Access Table (FlowStep Screen 31) -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
-      <div class="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-        <span class="text-xs font-bold uppercase tracking-wider text-zinc-700">Team Members ({staffMembers.length})</span>
-        <span class="text-[10px] text-zinc-400 font-mono">RBAC Security Active</span>
-      </div>
-
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
+        <table class="w-full text-left text-xs border-collapse" id="staffMembersDataTable">
           <thead>
-            <tr class="border-b border-zinc-200 bg-zinc-50/30 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
-              <th class="py-3 px-4">Staff Member</th>
-              <th class="py-3 px-3">Email Address</th>
-              <th class="py-3 px-3">Assigned Role</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3">Last Active</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4 min-w-[160px]">Staff Member</th>
+              <th class="py-3 px-3 min-w-[150px]">Email Address</th>
+              <th class="py-3 px-3 min-w-[120px]">Assigned Role</th>
+              <th class="py-3 px-3 min-w-[100px]">Status</th>
+              <th class="py-3 px-3 min-w-[110px]">Last Active</th>
+              <th class="py-3 px-4 text-right min-w-[100px]">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-100">
@@ -117,11 +113,11 @@ const staffMembers = [
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="flex items-center justify-end gap-2">
-                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline cursor-pointer">
                       Edit
                     </button>
                     <span class="text-zinc-300">·</span>
-                    <button type="button" class="text-rose-600 hover:text-rose-800 font-semibold hover:underline">
+                    <button type="button" class="text-rose-600 hover:text-rose-800 font-semibold hover:underline cursor-pointer">
                       Revoke
                     </button>
                   </div>
@@ -218,6 +214,12 @@ const staffMembers = [
       </div>
     </div>
   </div>
+
+  <AdminDataTable
+    tableId="staffMembersDataTable"
+    perPage={10}
+    columns={[{ select: 5, sortable: false }]}
+  />
 
   <script is:inline>
     const drawer = document.getElementById('inviteUserDrawer');

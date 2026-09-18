@@ -1,0 +1,95 @@
+---
+// src/components/admin/AdminDataTable.astro
+interface Props {
+  tableId: string;
+  perPage?: number;
+  perPageSelect?: number[];
+  searchable?: boolean;
+  sortable?: boolean;
+  columns?: Array<{
+    select: number | number[];
+    sortable?: boolean;
+    hidden?: boolean;
+    type?: string;
+  }>;
+}
+
+const {
+  tableId,
+  perPage = 10,
+  perPageSelect = [10, 25, 50, 100],
+  searchable = true,
+  sortable = true,
+  columns = [],
+} = Astro.props;
+
+const configJson = JSON.stringify({
+  tableId,
+  perPage,
+  perPageSelect,
+  searchable,
+  sortable,
+  columns,
+});
+---
+
+<script>
+  import { DataTable } from 'simple-datatables';
+
+  function initDataTables() {
+    const tableNodes = document.querySelectorAll<HTMLTableElement>('table[data-datatable-ready="false"]');
+    
+    tableNodes.forEach((tableEl) => {
+      const configRaw = tableEl.getAttribute('data-datatable-config');
+      if (!configRaw) return;
+
+      try {
+        const config = JSON.parse(configRaw);
+        
+        // Prevent double initialization
+        if ((tableEl as any).__datatableInstance) {
+          return;
+        }
+
+        const dt = new DataTable(tableEl, {
+          searchable: config.searchable ?? true,
+          sortable: config.sortable ?? true,
+          paging: true,
+          perPage: config.perPage ?? 10,
+          perPageSelect: config.perPageSelect ?? [10, 25, 50, 100],
+          columns: config.columns ?? [],
+          labels: {
+            placeholder: 'Search records...',
+            perPage: 'records per page',
+            noRows: 'No matching records found',
+            noResults: 'No results match your search query',
+            info: 'Showing {start} to {end} of {rows} records',
+          },
+        });
+
+        (tableEl as any).__datatableInstance = dt;
+        tableEl.setAttribute('data-datatable-ready', 'true');
+      } catch (err) {
+        console.error('Failed to initialize DataTable on', tableEl, err);
+      }
+    });
+  }
+
+  // Run on page load and on Astro view transitions
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDataTables);
+  } else {
+    initDataTables();
+  }
+  document.addEventListener('astro:page-load', initDataTables);
+</script>
+
+<script is:inline define:vars={{ configJson, tableId }}>
+  (function() {
+    const table = document.getElementById(tableId);
+    if (table) {
+      table.setAttribute('data-datatable-config', configJson);
+      table.setAttribute('data-datatable-ready', 'false');
+    }
+  })();
+</script>

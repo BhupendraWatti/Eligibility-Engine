@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/masters/index.astro
-import BaseLayout from '../../../layouts/BaseLayout.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
 import {
   getAllCanonicalPosts,
   getAllSectors,
@@ -459,181 +460,180 @@ const departments = await getAllDepartments();
                 </td>
               </tr>
             ))}
-
-            <!-- Reusable Inline Sub-Row Workbench Studio (Directly in table flow, No Modal/Blur/Drawer) -->
-            <tr id="inlineEditWorkbenchRow" class="hidden edit-workbench-row bg-slate-900/[0.02]">
-              <td colspan="6" class="p-0 border-y-2 border-indigo-500 shadow-inner">
-                <div class="p-6 sm:p-8 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50/90 relative">
-                  
-                  <!-- Studio Header Ribbon -->
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-indigo-100/80 gap-3">
-                    <div class="flex flex-wrap items-center gap-3">
-                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-600 text-white shadow-sm shadow-indigo-600/20">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        Inline Master Studio
-                      </span>
-                      <div class="flex items-center gap-2">
-                        <span id="studioPostIdBadge" class="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200"></span>
-                        <span id="studioSectorDeptBadge" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60"></span>
-                      </div>
-                    </div>
-
-                    <div class="flex items-center gap-3 self-end sm:self-auto">
-                      <span class="text-[11px] text-emerald-700 font-bold hidden md:inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
-                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-                        Relational cascading sync active
-                      </span>
-                      <button
-                        type="button"
-                        onclick="closeInlineEdit()"
-                        class="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-1"
-                      >
-                        <span>✕ Collapse</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Studio Form -->
-                  <form method="POST" class="space-y-5" id="inlineEditForm">
-                    <input type="hidden" name="_action" value="update_post" />
-                    <input type="hidden" id="edit_id" name="id" />
-
-                    <!-- Title & Pay Scale Row -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                      <div class="lg:col-span-2">
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
-                          <span>Canonical Post Title <span class="text-rose-500">*</span></span>
-                          <span class="text-[10px] text-slate-400 font-normal normal-case">Official gazetted cadre nomenclature</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="edit_title"
-                          name="title"
-                          required
-                          placeholder="e.g. Naib Tehsildar (Executive Magistrate)"
-                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
-                          <span>Pay Scale / Band</span>
-                          <span class="text-[10px] text-slate-400 font-normal normal-case">Level / Grade pay</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="edit_payScale"
-                          name="payScale"
-                          placeholder="e.g. Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)"
-                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Qualifications & Age Bracket Row -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div class="sm:col-span-2 lg:col-span-2">
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
-                          <span>Default Base Qualification</span>
-                          <span class="text-[10px] text-slate-400 font-normal normal-case">Baseline educational benchmark</span>
-                        </label>
-                        <select
-                          id="edit_defaultQualification"
-                          name="defaultQualification"
-                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                        >
-                          <option value="8TH">8th Pass (Primary Cadre)</option>
-                          <option value="10TH">10th Class Pass (Matriculation)</option>
-                          <option value="12TH">12th Class Pass (Higher Secondary)</option>
-                          <option value="DIPLOMA">Polytechnic / Technical Diploma</option>
-                          <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
-                          <option value="POST_GRADUATION">Post Graduate (Master's Degree)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                          Default Min Age (Years)
-                        </label>
-                        <input
-                          type="number"
-                          id="edit_defaultMinAge"
-                          name="defaultMinAge"
-                          min="14"
-                          max="65"
-                          oninput="updateAgeWindowBadge()"
-                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                          Default Max Age (Years)
-                        </label>
-                        <input
-                          type="number"
-                          id="edit_defaultMaxAge"
-                          name="defaultMaxAge"
-                          min="14"
-                          max="65"
-                          oninput="updateAgeWindowBadge()"
-                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Live Age Span Info & Summary Row -->
-                    <div>
-                      <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                          Standard Job Role Summary & Official Duties
-                        </label>
-                        <span id="liveAgeSpanBadge" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-                          Eligibility Span: 21 - 33 Years
-                        </span>
-                      </div>
-                      <textarea
-                        id="edit_summary"
-                        name="summary"
-                        rows="3"
-                        placeholder="Official cadre responsibilities, statutory duties, departmental authority..."
-                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm leading-relaxed"
-                      ></textarea>
-                    </div>
-
-                    <!-- Studio Action Footer -->
-                    <div class="pt-4 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
-                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span>Saving immediately cascades updates to candidate eligibility calculators and notifications.</span>
-                      </div>
-
-                      <div class="flex items-center gap-3 self-end sm:self-auto">
-                        <button
-                          type="button"
-                          onclick="closeInlineEdit()"
-                          class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm cursor-pointer"
-                        >
-                          Discard Changes
-                        </button>
-                        <button
-                          type="submit"
-                          class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 transition-all cursor-pointer flex items-center gap-2"
-                        >
-                          <span>Save Master Changes</span>
-                          <span>&rarr;</span>
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>
+
+      <!-- Reusable Master Studio Edit Workbench (Positioned outside table for clean pagination & sorting) -->
+      <div id="inlineEditWorkbenchRow" class="hidden edit-workbench-row border-t border-indigo-100 bg-gradient-to-b from-indigo-50/50 via-white to-slate-50/90 p-6 sm:p-8">
+        <!-- Studio Header Ribbon -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-indigo-100/80 gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-600 text-white shadow-sm shadow-indigo-600/20">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Inline Master Studio
+            </span>
+            <div class="flex items-center gap-2">
+              <span id="studioPostIdBadge" class="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200"></span>
+              <span id="studioSectorDeptBadge" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60"></span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 self-end sm:self-auto">
+            <span class="text-[11px] text-emerald-700 font-bold hidden md:inline-flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+              Relational cascading sync active
+            </span>
+            <button
+              type="button"
+              onclick="closeInlineEdit()"
+              class="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>✕ Collapse</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Studio Form -->
+        <form method="POST" class="space-y-5" id="inlineEditForm">
+          <input type="hidden" name="_action" value="update_post" />
+          <input type="hidden" id="edit_id" name="id" />
+
+          <!-- Title & Pay Scale Row -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2">
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Canonical Post Title <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-slate-400 font-normal normal-case">Official gazetted cadre nomenclature</span>
+              </label>
+              <input
+                type="text"
+                id="edit_title"
+                name="title"
+                required
+                placeholder="e.g. Naib Tehsildar (Executive Magistrate)"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Pay Scale / Band</span>
+                <span class="text-[10px] text-slate-400 font-normal normal-case">Level / Grade pay</span>
+              </label>
+              <input
+                type="text"
+                id="edit_payScale"
+                name="payScale"
+                placeholder="e.g. Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Qualifications & Age Bracket Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="sm:col-span-2 lg:col-span-2">
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Default Canonical Qualification <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-slate-400 font-normal normal-case">Standard base credential</span>
+              </label>
+              <select
+                id="edit_defaultQualification"
+                name="defaultQualification"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm cursor-pointer"
+              >
+                <option value="10TH">10th Class (Secondary)</option>
+                <option value="12TH">12th Class (Higher Secondary)</option>
+                <option value="GRADUATION">Graduation (Bachelor's Degree)</option>
+                <option value="POST_GRADUATION">Post Graduation (Master's Degree)</option>
+                <option value="DIPLOMA">Technical Polytechnic Diploma</option>
+                <option value="BED">B.Ed (Bachelor of Education)</option>
+                <option value="MBBS">MBBS (Medical Officer)</option>
+                <option value="LAW">LL.B (Bachelor of Legislative Law)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Default Min Age (Years)
+              </label>
+              <input
+                type="number"
+                id="edit_defaultMinAge"
+                name="defaultMinAge"
+                min="14"
+                max="60"
+                oninput="updateAgeWindowBadge()"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                Default Max Age (Years)
+              </label>
+              <input
+                type="number"
+                id="edit_defaultMaxAge"
+                name="defaultMaxAge"
+                min="14"
+                max="65"
+                oninput="updateAgeWindowBadge()"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Live Age Span Info & Summary Row -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+                Standard Job Role Summary & Official Duties
+              </label>
+              <span id="liveAgeSpanBadge" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+                Eligibility Span: 21 - 33 Years
+              </span>
+            </div>
+            <textarea
+              id="edit_summary"
+              name="summary"
+              rows="3"
+              placeholder="Official cadre responsibilities, statutory duties, departmental authority..."
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm leading-relaxed"
+            ></textarea>
+          </div>
+
+          <!-- Studio Action Footer -->
+          <div class="pt-4 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>Saving immediately cascades updates to candidate eligibility calculators and notifications.</span>
+            </div>
+
+            <div class="flex items-center gap-3 self-end sm:self-auto">
+              <button
+                type="button"
+                onclick="closeInlineEdit()"
+                class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="submit"
+                class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 transition-all cursor-pointer flex items-center gap-2"
+              >
+                <span>Save Master Changes</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
+
+  <AdminDataTable tableId="postsTable" perPage={15} columns={[{ select: 5, sortable: false }]} />
 </AdminLayout>
 
 <script is:inline>
@@ -720,8 +720,7 @@ const departments = await getAllDepartments();
 
     updateAgeWindowBadge();
 
-    // Reposition the workbench directly beneath targetRow
-    targetRow.insertAdjacentElement('afterend', workbenchRow);
+    // Reveal workbench
     workbenchRow.classList.remove('hidden');
 
     // Highlight target row

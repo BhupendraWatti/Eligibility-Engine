@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/documents.astro (FlowStep Screen 28)
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminDataTable from '../../components/admin/AdminDataTable.astro';
 import { getAllActiveRecruitments } from '../../db/queries';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
@@ -99,21 +100,12 @@ const documents = [
           </button>
         ))}
       </div>
-
-      <div class="relative max-w-xs w-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input
-          type="search"
-          placeholder="Filter document links..."
-          class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-900"
-        />
-      </div>
     </div>
 
     <!-- Documents Table (FlowStep Screen 28) -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
+        <table class="w-full text-left text-xs border-collapse" id="documentsDataTable">
           <thead>
             <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
               <th class="py-3 px-4">Document Title</th>
@@ -256,4 +248,6 @@ const documents = [
       modal?.classList.add('hidden');
     });
   </script>
+
+  <AdminDataTable tableId="documentsDataTable" perPage={10} columns={[{ select: 6, sortable: false }]} />
 </AdminLayout>

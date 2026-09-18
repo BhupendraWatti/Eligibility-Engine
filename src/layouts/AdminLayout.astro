@@ -1,6 +1,7 @@
 ---
 // src/layouts/AdminLayout.astro
 import '../styles/global.css';
+import '../styles/admin-datatable.css';
 import AdminSidebar from '../components/admin/AdminSidebar.astro';
 
 interface Props {
@@ -20,7 +21,7 @@ const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
 ---
 
 <!doctype html>
-<html lang="en" class="h-full bg-zinc-950">
+<html lang="en" class="min-h-full bg-zinc-50">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,20 +31,20 @@ const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
 
-  <body class="h-full bg-zinc-50 font-sans text-zinc-900 antialiased selection:bg-zinc-900 selection:text-white">
+  <body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased selection:bg-zinc-900 selection:text-white flex flex-col">
     <div class="flex min-h-screen w-full">
       <!-- High-Contrast Black Sidebar -->
       <AdminSidebar current={currentSection} />
 
       <!-- Main Operational Viewport -->
-      <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div class="flex min-w-0 flex-1 flex-col bg-zinc-50">
         <!-- Top Operations Bar -->
         <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/95 px-4 sm:px-6 backdrop-blur-md">
           <!-- Left: Workspace Breadcrumbs -->
@@ -110,7 +111,7 @@ const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
         </header>
 
         <!-- Main Workspace Surface -->
-        <main class="flex-1 overflow-y-auto bg-zinc-50/60 p-4 sm:p-6 lg:p-8">
+        <main class="flex-1 bg-zinc-50/60 p-4 sm:p-6 lg:p-8">
           <slot />
         </main>
       </div>

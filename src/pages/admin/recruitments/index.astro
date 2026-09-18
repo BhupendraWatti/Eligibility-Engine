@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/recruitments/index.astro (FlowStep Screen 21)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
 import { getAllActiveRecruitments } from '../../../db/queries';
 
 // @ts-ignore
@@ -152,20 +153,20 @@ const filterOptions = [
 
       <!-- Scannable Table Surface -->
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
+        <table class="w-full text-left text-xs border-collapse" id="recruitmentsDataTable">
           <thead>
             <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
-              <th class="w-8 py-3 px-4"></th>
-              <th class="py-3 px-3">Recruitment</th>
-              <th class="py-3 px-3">Organisation</th>
-              <th class="py-3 px-3">Department</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3">Applications</th>
-              <th class="py-3 px-3">Last date</th>
-              <th class="py-3 px-3">Source</th>
-              <th class="py-3 px-3">Verification</th>
-              <th class="py-3 px-3">Updated</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+              <th class="w-10 py-3 px-4"></th>
+              <th class="py-3 px-3 min-w-[220px]">Recruitment</th>
+              <th class="py-3 px-3 min-w-[110px]">Organisation</th>
+              <th class="py-3 px-3 min-w-[130px]">Department</th>
+              <th class="py-3 px-3 min-w-[100px]">Status</th>
+              <th class="py-3 px-3 min-w-[110px]">Applications</th>
+              <th class="py-3 px-3 min-w-[110px]">Last date</th>
+              <th class="py-3 px-3 min-w-[100px]">Source</th>
+              <th class="py-3 px-3 min-w-[130px]">Verification</th>
+              <th class="py-3 px-3 min-w-[100px]">Updated</th>
+              <th class="py-3 px-4 text-right min-w-[90px]">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-100">
@@ -286,26 +287,8 @@ const filterOptions = [
           </tbody>
         </table>
       </div>
-
-      <!-- Pagination Footer (FlowStep Screen 21) -->
-      <div class="flex items-center justify-between border-t border-zinc-200 bg-white px-4 py-3 text-xs">
-        <span class="text-zinc-500">
-          Showing 1–{recruitments.length} of {allRecruitments.length} recruitments
-        </span>
-
-        <div class="flex items-center gap-1">
-          <button type="button" disabled class="p-1 rounded border border-zinc-200 text-zinc-400 opacity-50 cursor-not-allowed">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <span class="px-2.5 py-1 rounded bg-zinc-950 text-white font-semibold text-xs">1</span>
-          <button type="button" class="px-2.5 py-1 rounded hover:bg-zinc-100 text-zinc-700 text-xs transition-colors">2</button>
-          <button type="button" class="px-2.5 py-1 rounded hover:bg-zinc-100 text-zinc-700 text-xs transition-colors">3</button>
-          <span class="px-1 text-zinc-400">…</span>
-          <button type="button" class="p-1 rounded border border-zinc-200 text-zinc-600 hover:bg-zinc-100 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
     </div>
   </div>
+
+  <AdminDataTable tableId="recruitmentsDataTable" perPage={10} columns={[{ select: [0, 10], sortable: false }]} />
 </AdminLayout>
