@@ -1,0 +1,232 @@
+---
+// src/pages/admin/settings.astro (FlowStep Screen 31)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+const staffMembers = [
+  {
+    name: 'Aarav Mehta',
+    email: 'aarav@nirnay.in',
+    role: 'Super Admin',
+    status: 'Active',
+    lastActive: 'Today',
+    avatar: 'AM',
+  },
+  {
+    name: 'Priya Shah',
+    email: 'priya@nirnay.in',
+    role: 'Reviewer',
+    status: 'Active',
+    lastActive: '2 hours ago',
+    avatar: 'PS',
+  },
+  {
+    name: 'Rohan Verma',
+    email: 'rohan@nirnay.in',
+    role: 'Editor',
+    status: 'Invited',
+    lastActive: 'Never',
+    avatar: 'RV',
+  },
+];
+---
+
+<AdminLayout
+  title="Settings & Team Access"
+  currentSection="settings"
+  breadcrumbs={[
+    { label: 'Settings' },
+    { label: 'Team access' },
+  ]}
+>
+  <div class="mx-auto max-w-5xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 31) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Team access
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Keep the small content verification team focused, accountable, and role-governed
+        </p>
+      </div>
+
+      <button
+        type="button"
+        id="openInviteUserBtn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Invite user</span>
+      </button>
+    </div>
+
+    <!-- Team Access Table (FlowStep Screen 31) -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+        <span class="text-xs font-bold uppercase tracking-wider text-zinc-700">Team Members ({staffMembers.length})</span>
+        <span class="text-[10px] text-zinc-400 font-mono">RBAC Security Active</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/30 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4">Staff Member</th>
+              <th class="py-3 px-3">Email Address</th>
+              <th class="py-3 px-3">Assigned Role</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Last Active</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            {staffMembers.map((member) => (
+              <tr class="hover:bg-zinc-50/80 transition-colors">
+                <td class="py-3.5 px-4">
+                  <div class="flex items-center gap-2.5">
+                    <span class="size-7 rounded-full bg-zinc-950 text-white text-[10px] font-bold font-mono flex items-center justify-center">
+                      {member.avatar}
+                    </span>
+                    <span class="font-bold text-zinc-950">{member.name}</span>
+                  </div>
+                </td>
+                <td class="py-3.5 px-3 font-mono text-zinc-600 text-[11px]">
+                  {member.email}
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                    member.role === 'Super Admin'
+                      ? 'bg-zinc-950 text-white border-zinc-950'
+                      : member.role === 'Reviewer'
+                      ? 'bg-zinc-100 text-zinc-800 border-zinc-300 font-semibold'
+                      : 'bg-zinc-50 text-zinc-700 border-zinc-200'
+                  }`}>
+                    {member.role}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
+                    member.status === 'Active' ? 'text-emerald-700' : 'text-amber-700'
+                  }`}>
+                    <span class={`size-1.5 rounded-full ${member.status === 'Active' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                    {member.status}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px]">
+                  {member.lastActive}
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Edit
+                    </button>
+                    <span class="text-zinc-300">·</span>
+                    <button type="button" class="text-rose-600 hover:text-rose-800 font-semibold hover:underline">
+                      Revoke
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Role Definitions & Policy Guide (FlowStep Screen 31) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-zinc-950">Super Admin</span>
+          <span class="size-2 rounded-full bg-zinc-950"></span>
+        </div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          Unrestricted access across all recruitments, canonical taxonomies, eligibility engines, and staff management.
+        </p>
+      </div>
+
+      <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-zinc-950">Reviewer</span>
+          <span class="size-2 rounded-full bg-emerald-500"></span>
+        </div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          Authorized to verify official gazette claims and approve draft recruitments for live public portal dissemination.
+        </p>
+      </div>
+
+      <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-zinc-950">Editor</span>
+          <span class="size-2 rounded-full bg-amber-500"></span>
+        </div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          Can create, ingest, and modify draft recruitments and canonical posts. Cannot publish directly without review.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite User Drawer (FlowStep Screen 31) -->
+  <div id="inviteUserDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Invite Team Member</h2>
+            <p class="text-xs text-zinc-500">Grant administrative access to NIRNAY OPS workspace.</p>
+          </div>
+          <button type="button" id="closeInviteDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Full Name *</label>
+            <input type="text" placeholder="e.g. Vikramaditya Rathore" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Email Address (@nirnay.in or gov domain) *</label>
+            <input type="email" placeholder="vikram@nirnay.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Assigned Workspace Role *</label>
+            <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              <option value="Reviewer">Reviewer (Verify & Publish claims)</option>
+              <option value="Editor">Editor (Draft & Update content)</option>
+              <option value="Super Admin">Super Admin (Full Workspace Access)</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Invitation Note</label>
+            <textarea rows="2" placeholder="Brief note explaining assigned department responsibilities..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelInviteDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+          Cancel
+        </button>
+        <button type="button" id="sendInviteBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+          Send Invitation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const drawer = document.getElementById('inviteUserDrawer');
+    document.getElementById('openInviteUserBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
+    document.getElementById('closeInviteDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('cancelInviteDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
+      alert('Invitation dispatched to staff member.');
+      drawer?.classList.add('hidden');
+    });
+  </script>
+</AdminLayout>

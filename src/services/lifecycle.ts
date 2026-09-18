@@ -174,7 +174,7 @@ export function getLifecyclePresentation(
     case 'APPLICATION_OPEN':
       return {
         canonicalState: 'APPLICATION_OPEN',
-        label: options.admin ? 'Application Open' : 'Open',
+        label: options.admin ? 'Application Open' : 'Applications Open',
         badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         isLiveApplication: true,
         description: 'Online application portal is active.',
@@ -348,3 +348,116 @@ export function formatSectorVacancySummary(metrics: RecruitmentMetrics): string 
 
   return `${driveLabel} · ${totalFormatted} Total Vacancies (${openFormatted} Open Now)`;
 }
+
+export interface MilestonePresentation {
+  label: string;
+  badgeClass: string;
+  isUrgent: boolean;
+  isPast: boolean;
+  category: 'CLOSING_SOON' | 'OPEN_NOW' | 'UPCOMING' | 'EXAM' | 'PAST';
+}
+
+/**
+ * Resolves the milestone status for calendar/timeline events relative to a reference date.
+ */
+export function resolveMilestonePresentation(
+  rawDate: string | null | undefined,
+  eventType: 'APPLICATION_START' | 'APPLICATION_END' | 'EXAM_DATE' | 'NOTIFICATION',
+  referenceDateInput?: Date | string
+): MilestonePresentation {
+  const refDateStr = normalizeDateString(referenceDateInput) || new Date().toISOString().split('T')[0];
+  const dateStr = normalizeDateString(rawDate);
+
+  if (!dateStr) {
+    return {
+      label: 'Date TBA',
+      badgeClass: 'bg-muted text-muted-foreground border-border',
+      isUrgent: false,
+      isPast: false,
+      category: 'UPCOMING',
+    };
+  }
+
+  const isPast = refDateStr > dateStr;
+
+  if (eventType === 'APPLICATION_END') {
+    if (isPast) {
+      return {
+        label: 'Closed',
+        badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+        isUrgent: false,
+        isPast: true,
+        category: 'PAST',
+      };
+    }
+
+    const endTimestamp = new Date(`${dateStr}T23:59:59Z`).getTime();
+    const refTimestamp = new Date(`${refDateStr}T00:00:00Z`).getTime();
+    const diffDays = Math.ceil((endTimestamp - refTimestamp) / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= CLOSING_SOON_THRESHOLD_DAYS) {
+      return {
+        label: 'Closing Soon',
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 animate-pulse font-bold',
+        isUrgent: true,
+        isPast: false,
+        category: 'CLOSING_SOON',
+      };
+    }
+
+    return {
+      label: 'Applications Open',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold',
+      isUrgent: false,
+      isPast: false,
+      category: 'OPEN_NOW',
+    };
+  }
+
+  if (eventType === 'APPLICATION_START') {
+    if (isPast) {
+      return {
+        label: 'Applications Open',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold',
+        isUrgent: false,
+        isPast: false,
+        category: 'OPEN_NOW',
+      };
+    }
+    return {
+      label: 'Upcoming',
+      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-medium',
+      isUrgent: false,
+      isPast: false,
+      category: 'UPCOMING',
+    };
+  }
+
+  if (eventType === 'EXAM_DATE') {
+    if (isPast) {
+      return {
+        label: 'Exam Concluded',
+        badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        isUrgent: false,
+        isPast: true,
+        category: 'PAST',
+      };
+    }
+    return {
+      label: 'Exam Scheduled',
+      badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 font-semibold',
+      isUrgent: false,
+      isPast: false,
+      category: 'EXAM',
+    };
+  }
+
+  return {
+    label: isPast ? 'Completed' : 'Upcoming',
+    badgeClass: 'bg-muted text-muted-foreground border-border',
+    isUrgent: false,
+    isPast,
+    category: isPast ? 'PAST' : 'UPCOMING',
+  };
+}
+

@@ -1,0 +1,182 @@
+---
+// src/pages/admin/sources.astro (FlowStep Screen 24)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllActiveRecruitments } from '../../db/queries';
+
+const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
+const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || 'MP Police Constable Recruitment 2026';
+const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
+---
+
+<AdminLayout
+  title="Verify Source"
+  currentSection="sources"
+  breadcrumbs={[
+    { label: 'Sources', href: '/admin/sources' },
+    { label: 'Verify source' },
+  ]}
+>
+  <div class="mx-auto max-w-5xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 24) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2 text-xs text-zinc-500">
+          <span>Sources</span>
+          <span>&rarr;</span>
+          <span class="font-medium text-zinc-950">Official Gazette Provenance</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+            Verify source
+          </h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            <span class="size-1.5 rounded-full bg-amber-500"></span>
+            Needs verification
+          </span>
+        </div>
+        <p class="text-xs text-zinc-500">
+          Review official gazette notifications and verify all claims before public dissemination.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <a
+          href={currentRec?.sourceUrl || 'https://esb.mp.gov.in'}
+          target="_blank"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>Open official source</span>
+        </a>
+
+        <button
+          type="button"
+          id="markVerifiedBtn"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+          <span>Mark verified</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Record Context Header Pill (FlowStep Screen 24) -->
+    <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="size-9 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Recruitment record</span>
+          <div class="text-sm font-bold text-zinc-950">{currentRec?.title || 'MP Police Constable Recruitment 2026'}</div>
+        </div>
+      </div>
+
+      <div class="text-right">
+        <span class="text-[10px] font-mono text-zinc-400 block">Organisation</span>
+        <span class="text-xs font-semibold font-mono text-zinc-800">{currentRec?.organisationShortName || 'MPESB'}</span>
+      </div>
+    </div>
+
+    <!-- Two-Column Verification Split (FlowStep Screen 24) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <!-- Left Card: Source Information -->
+      <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
+        <div class="border-b border-zinc-100 pb-3">
+          <h2 class="text-sm font-bold text-zinc-950">Source Information</h2>
+          <p class="text-xs text-zinc-500">Official document provenance details.</p>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <span class="text-zinc-500 block mb-1">Organisation:</span>
+            <input type="text" readonly value={currentRec?.organisationShortName || 'MPESB'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 font-semibold" />
+          </div>
+
+          <div>
+            <span class="text-zinc-500 block mb-1">Source URL:</span>
+            <input type="text" readonly value={currentRec?.sourceUrl || 'https://esb.mp.gov.in/notifications/2026/police_constable.pdf'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono text-xs" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <span class="text-zinc-500 block mb-1">Source Type:</span>
+              <input type="text" readonly value="Official notification gazette" class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs" />
+            </div>
+            <div>
+              <span class="text-zinc-500 block mb-1">Published Date:</span>
+              <input type="text" readonly value="15 Sep 2026" class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-mono" />
+            </div>
+          </div>
+
+          <div>
+            <span class="text-zinc-500 block mb-1">Audit Verification Note:</span>
+            <textarea
+              rows="3"
+              placeholder="Add audit notes comparing official PDF clauses with structured record..."
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none focus:ring-2 focus:ring-zinc-900"
+            >Verified official rulebook against gazette notification published on 15 Sep 2026. Deadlines, age parameters, and quota criteria confirmed.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Card: Claims Supported by this Source (FlowStep Screen 24) -->
+      <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
+        <div class="border-b border-zinc-100 pb-3">
+          <h2 class="text-sm font-bold text-zinc-950">Claims Supported by Source</h2>
+          <p class="text-xs text-zinc-500">Verify each statutory requirement against the notification document.</p>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <div>
+              <span class="font-semibold text-zinc-900 block">Application Deadline: 06 Oct 2026</span>
+              <span class="text-[11px] text-zinc-500">Confirmed in Section 1.2 of official gazette.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <div>
+              <span class="font-semibold text-zinc-900 block">7,500 Total Vacancies</span>
+              <span class="text-[11px] text-zinc-500">Confirmed in Quota Reservation Matrix Table 4.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <div>
+              <span class="font-semibold text-zinc-900 block">Minimum Qualification: 10th Pass</span>
+              <span class="text-[11px] text-zinc-500">Statutory minimum educational criterion verified.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <div>
+              <span class="font-semibold text-zinc-900 block">Age Limit: 18–33 Years (General)</span>
+              <span class="text-[11px] text-zinc-500">Age calculated as of statutory cutoff date 01-Jan-2026.</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+          <div class="font-bold flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Verification Responsibility</span>
+          </div>
+          <p class="text-[11px] text-amber-800">
+            Verify each claim against the official notification before publishing. Once marked verified, candidate eligibility calculations are unlocked for this recruitment.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    document.getElementById('markVerifiedBtn')?.addEventListener('click', () => {
+      alert('Source verified successfully! Record is now certified.');
+    });
+  </script>
+</AdminLayout>

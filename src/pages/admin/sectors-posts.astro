@@ -1,0 +1,209 @@
+---
+// src/pages/admin/sectors-posts.astro (FlowStep Screen 27)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllCanonicalPosts, getAllSectors, getAllDepartments } from '../../db/queries';
+
+const [posts, sectors, departments] = await Promise.all([
+  getAllCanonicalPosts(),
+  getAllSectors(),
+  getAllDepartments(),
+]);
+
+const selectedSectorSlug = Astro.url.searchParams.get('sector') || sectors[0]?.slug || 'police';
+const activeSector = sectors.find(s => s.slug === selectedSectorSlug) || sectors[0] || {
+  id: '1',
+  name: 'Police',
+  slug: 'police',
+  description: 'Law enforcement, armed constabulary, and investigation cadres across Madhya Pradesh.',
+};
+
+const linkedPosts = posts.filter(p => p.sectorId === activeSector.id);
+const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.name.toLowerCase().includes(activeSector.name.toLowerCase()));
+---
+
+<AdminLayout
+  title="Sectors & Posts"
+  currentSection="sectors-posts"
+  breadcrumbs={[
+    { label: 'Sectors & posts' },
+  ]}
+>
+  <div class="mx-auto max-w-6xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 27) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Sectors & posts
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Standardized state classification taxonomy for recruitments and eligibility rules
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <a
+          href="/admin/masters"
+          class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
+        >
+          Raw Masters Table
+        </a>
+        <button
+          type="button"
+          id="openAddPostDrawerBtn"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Add canonical post</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sub-Navigation Tabs (FlowStep Screen 27) -->
+    <div class="flex items-center gap-1 border-b border-zinc-200 text-xs">
+      <button class="px-4 py-2.5 font-bold border-b-2 border-zinc-950 text-zinc-950">
+        Sectors & Taxonomy
+      </button>
+      <a href="/admin/masters" class="px-4 py-2.5 text-zinc-500 hover:text-zinc-950 transition-colors">
+        Canonical Posts Matrix ({posts.length})
+      </a>
+      <a href="/admin/eligibility-rules" class="px-4 py-2.5 text-zinc-500 hover:text-zinc-950 transition-colors">
+        Qualification Tags
+      </a>
+    </div>
+
+    <!-- FlowStep Screen 27 Two-Column Taxonomy Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
+      <!-- Left Column: Sector List -->
+      <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+        <div class="p-3.5 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-zinc-700">All Sectors ({sectors.length})</span>
+          <span class="text-[10px] text-zinc-400 font-mono">Taxonomy</span>
+        </div>
+
+        <div class="divide-y divide-zinc-100">
+          {sectors.map((sec) => {
+            const count = posts.filter(p => p.sectorId === sec.id).length;
+            const isSelected = sec.slug === activeSector.slug;
+            return (
+              <a
+                href={`/admin/sectors-posts?sector=${sec.slug}`}
+                class={`flex items-center justify-between p-3 text-xs transition-colors ${
+                  isSelected
+                    ? 'bg-zinc-950 text-white font-semibold'
+                    : 'text-zinc-800 hover:bg-zinc-50'
+                }`}
+              >
+                <div>
+                  <div class="font-medium">{sec.name}</div>
+                  <div class={`text-[10px] font-mono ${isSelected ? 'text-zinc-400' : 'text-zinc-400'}`}>/{sec.slug}</div>
+                </div>
+                <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                  isSelected
+                    ? 'bg-zinc-800 text-zinc-200'
+                    : 'bg-zinc-100 text-zinc-600'
+                }`}>
+                  {count} posts
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      <!-- Right Column: Detail Pane for Active Sector -->
+      <div class="space-y-6">
+        <!-- Sector Header Card -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Selected Sector</span>
+              <h2 class="text-xl font-bold text-zinc-950 font-heading">{activeSector.name}</h2>
+              <span class="text-xs font-mono text-zinc-500">slug: /{activeSector.slug}</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" class="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
+                Edit Sector
+              </button>
+            </div>
+          </div>
+
+          <p class="text-xs text-zinc-600 leading-relaxed">
+            {activeSector.description || 'Public service domain covering canonical recruitment roles across Madhya Pradesh.'}
+          </p>
+
+          <!-- Protection Safeguard Callout (FlowStep Screen 27) -->
+          <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <span class="font-bold block">Taxonomy Protection Active</span>
+              <span class="text-[11px] text-amber-800">
+                Cannot archive this sector while published opportunities and canonical posts rely on it for eligibility matching.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Associated Canonical Posts Table -->
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+          <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-zinc-950">Associated Canonical Posts</h3>
+              <p class="text-xs text-zinc-500">Standardized roles inheriting this sector's pay scale and rules.</p>
+            </div>
+            <button type="button" id="addPostBtnInPane" class="text-xs font-semibold text-zinc-950 hover:underline">
+              + Add post to {activeSector.name}
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+                  <th class="py-3 px-4">Canonical Post</th>
+                  <th class="py-3 px-3">Qualification</th>
+                  <th class="py-3 px-3">Age Range</th>
+                  <th class="py-3 px-3">Pay Scale</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100">
+                {linkedPosts.length === 0 ? (
+                  <tr>
+                    <td colspan="5" class="py-8 text-center text-zinc-500 text-xs">
+                      No canonical posts assigned to this sector yet.
+                    </td>
+                  </tr>
+                ) : (
+                  linkedPosts.map((p) => (
+                    <tr class="hover:bg-zinc-50/80 transition-colors">
+                      <td class="py-3.5 px-4 font-bold text-zinc-950">
+                        {p.title}
+                      </td>
+                      <td class="py-3.5 px-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-zinc-100 text-zinc-800 border border-zinc-200">
+                          {p.defaultQualification}
+                        </span>
+                      </td>
+                      <td class="py-3.5 px-3 font-mono text-zinc-700">
+                        {p.defaultMinAge}–{p.defaultMaxAge} yrs
+                      </td>
+                      <td class="py-3.5 px-3 font-mono text-zinc-500 text-[11px]">
+                        {p.payScale || 'Level 4 (State)'}
+                      </td>
+                      <td class="py-3.5 px-4 text-right">
+                        <a href="/admin/masters" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                          Edit Master &rarr;
+                        </a>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

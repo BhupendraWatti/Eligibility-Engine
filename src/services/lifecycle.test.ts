@@ -8,6 +8,7 @@ import {
   isActiveDrive,
   isUpcomingDrive,
   formatSectorVacancySummary,
+  resolveMilestonePresentation,
   type MinimalRecruitmentInput,
 } from './lifecycle';
 
@@ -212,4 +213,35 @@ test('Metrics: Zero vacancy drive (e.g. MP Teacher TET qualifying exam)', () => 
   assert(metrics.totalAnnouncedVacancies === 0, 'Total announced vacancies is 0');
 });
 
+test('Presentation: APPLICATION_OPEN label is "Applications Open"', () => {
+  const p = getLifecyclePresentation('APPLICATION_OPEN');
+  assert(p.label === 'Applications Open', `Expected "Applications Open", got "${p.label}"`);
+});
+
+test('Milestone: Expired application end date resolves to Closed, never Closing Soon', () => {
+  const m = resolveMilestonePresentation('2026-04-30', 'APPLICATION_END', FIXED_TODAY);
+  assert(m.label === 'Closed', `Expected "Closed", got "${m.label}"`);
+  assert(m.isPast === true, 'Past date must have isPast = true');
+  assert(m.category === 'PAST', 'Past date category must be PAST');
+});
+
+test('Milestone: Active application ending in 5 days resolves to Closing Soon', () => {
+  const m = resolveMilestonePresentation('2026-09-23', 'APPLICATION_END', FIXED_TODAY);
+  assert(m.label === 'Closing Soon', `Expected "Closing Soon", got "${m.label}"`);
+  assert(m.isUrgent === true, 'Closing soon milestone must have isUrgent = true');
+  assert(m.category === 'CLOSING_SOON', 'Category must be CLOSING_SOON');
+});
+
+test('Milestone: Past and future exams resolve correctly', () => {
+  const pastExam = resolveMilestonePresentation('2026-06-04', 'EXAM_DATE', FIXED_TODAY);
+  assert(pastExam.label === 'Exam Concluded', `Expected "Exam Concluded", got "${pastExam.label}"`);
+  assert(pastExam.isPast === true, 'Past exam must have isPast = true');
+
+  const futureExam = resolveMilestonePresentation('2026-11-19', 'EXAM_DATE', FIXED_TODAY);
+  assert(futureExam.label === 'Exam Scheduled', `Expected "Exam Scheduled", got "${futureExam.label}"`);
+  assert(futureExam.isPast === false, 'Future exam must not be past');
+  assert(futureExam.category === 'EXAM', 'Category must be EXAM');
+});
+
 console.log(`\n🎉 ALL ${testCount} LIFECYCLE & METRICS TESTS PASSED SUCCESSFULLY!\n`);
+

@@ -1,26 +1,39 @@
 # ==============================================================================
-# RozgarSetu MP - Production .gitignore (Project Manager Standard)
+# NIRNAY MP Eligibility Engine - Production .gitignore
+# Project Manager Standard: Comprehensive Zero-Leak & Repository Hygiene Policy
 # ==============================================================================
 
-# Build & Compiled Output
+# ------------------------------------------------------------------------------
+# 1. Build & Compiled Artifacts
+# ------------------------------------------------------------------------------
 dist/
 build/
 out/
 .astro/
+.output/
+*.tsbuildinfo
 
-# Cloudflare Wrangler & Local Edge State (NEVER COMMIT LOCAL D1 STATE)
+# ------------------------------------------------------------------------------
+# 2. Cloudflare Wrangler & Local Edge Runtime State (NEVER COMMIT LOCAL STATE)
+# ------------------------------------------------------------------------------
 .wrangler/
 .mf/
 wrangler.log*
 .cloudflare/
 
-# Node Dependencies & Package Manager Artifacts
+# ------------------------------------------------------------------------------
+# 3. Node Dependencies & Package Managers
+# ------------------------------------------------------------------------------
 node_modules/
 .pnp/
 .pnp.js
 .npm/
-.yarn/
-WEBSITE_AND_BACKEND_AUDIT.md
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnpm-store/
+
 # Debug Logs
 npm-debug.log*
 yarn-debug.log*
@@ -29,32 +42,56 @@ pnpm-debug.log*
 lerna-debug.log*
 *.log
 
-# Environment Variables & Secrets (CRITICAL FOR ZERO TRUST)
+# ------------------------------------------------------------------------------
+# 4. Environment Variables & Secrets (CRITICAL FOR ZERO TRUST SECURITY)
+# ------------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
+!.env.template
 .dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.cert
+*.crt
 
-# Local Databases & SQLite Dumps
+# ------------------------------------------------------------------------------
+# 5. Local Databases & SQLite Dumps
+# ------------------------------------------------------------------------------
 *.db
 *.sqlite
 *.sqlite3
 *.db-journal
 *.sqlite-journal
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+local.db*
 
-# IDE & Editor Settings
+# ------------------------------------------------------------------------------
+# 6. IDE, Editors & Development Tools
+# ------------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*~
 *.bak
+*.orig
+*.patch
 
-# OS-Specific Files
+# ------------------------------------------------------------------------------
+# 7. Operating System Artifacts
+# ------------------------------------------------------------------------------
 .DS_Store
 .DS_Store?
 ._*
@@ -63,18 +100,40 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
+$RECYCLE.BIN/
 
-# Testing & Coverage
+# ------------------------------------------------------------------------------
+# 8. Testing, Playwright & QA Test Artifacts
+# ------------------------------------------------------------------------------
 coverage/
 .nyc_output/
 *.lcov
 test-results/
 playwright-report/
+.playwright-mcp/
+blob-report/
+cypress/videos/
+cypress/screenshots/
 
-# Temporary files & Caches
+# ------------------------------------------------------------------------------
+# 9. Caches, Temporary Files & Local Audits
+# ------------------------------------------------------------------------------
 *.tmp
 *.temp
 .cache/
 .parcel-cache/
 .vinext/
 report.md
+WEBSITE_AND_BACKEND_AUDIT.md
+tmp/
+temp/
+
+# ------------------------------------------------------------------------------
+# 10. AI Agent Working Sessions, Scratchpads & Ephemeral Verification
+# ------------------------------------------------------------------------------
+active/
+scratch/
+.agent/
+.agents/
+.gemini/
+.system_generated/

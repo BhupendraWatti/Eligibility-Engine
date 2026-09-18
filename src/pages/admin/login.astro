@@ -1,0 +1,115 @@
+---
+// src/pages/admin/login.astro (FlowStep Screen 19)
+import '../../styles/global.css';
+
+// Handle login submission redirect
+if (Astro.request.method === 'POST') {
+  return Astro.redirect('/admin');
+}
+---
+
+<!doctype html>
+<html lang="en" class="h-full bg-zinc-50">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Sign in to private workspace | NIRNAY OPS</title>
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body class="h-full font-sans antialiased text-zinc-900 bg-zinc-50 flex items-center justify-center p-4">
+    <main class="w-full max-w-[420px] space-y-4">
+      <!-- Centered Authentication Card (FlowStep Screen 19) -->
+      <div class="rounded-2xl border border-zinc-200 bg-white p-7 shadow-lg space-y-6">
+        <!-- Brand Header -->
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2 font-bold text-xs tracking-[0.18em] uppercase text-zinc-900 font-mono">
+            <span class="flex size-6 items-center justify-center rounded bg-zinc-950 text-[11px] font-black text-white">N</span>
+            <span>NIRNAY OPS</span>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+            Sign in to private workspace
+          </h1>
+          <p class="text-xs text-zinc-500">
+            Enter your administrative credentials to manage opportunities and verifications.
+          </p>
+        </div>
+
+        <!-- Form -->
+        <form method="POST" class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label for="email" class="block font-semibold text-zinc-800">Email Address</label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              required
+              defaultValue="admin@nirnay.in"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none shadow-2xs"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="password" class="font-semibold text-zinc-800">Password</label>
+              <a href="#" class="text-[11px] text-zinc-500 hover:text-zinc-950 hover:underline">
+                Forgot password?
+              </a>
+            </div>
+            <input
+              id="password"
+              type="password"
+              name="password"
+              required
+              defaultValue="••••••••••••"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none shadow-2xs"
+            />
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <input
+              id="remember-device"
+              type="checkbox"
+              name="remember"
+              class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900 cursor-pointer"
+            />
+            <label for="remember-device" class="text-xs text-zinc-600 font-normal cursor-pointer select-none">
+              Remember this device
+            </label>
+          </div>
+
+          <div class="space-y-2 pt-2">
+            <button
+              type="submit"
+              class="w-full py-2.5 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Sign in
+            </button>
+
+            <button
+              type="button"
+              class="w-full py-2.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-800 text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+              <span>Use a security key</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer Security Note (FlowStep Screen 19) -->
+      <p class="text-center text-[11px] text-zinc-500 leading-relaxed max-w-xs mx-auto">
+        This private workspace is reserved exclusively for authorized content verification and publishing personnel.
+      </p>
+    </main>
+  </body>
+</html>

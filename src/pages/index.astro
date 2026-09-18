@@ -2,7 +2,7 @@
 // src/pages/index.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments, getAllSectors } from '../db/queries';
-import { calculateRecruitmentMetrics, isActiveDrive } from '../services/lifecycle';
+import { calculateRecruitmentMetrics, isActiveDrive, resolveMilestonePresentation } from '../services/lifecycle';
 
 const [recruitments, dbSectors] = await Promise.all([
   getAllActiveRecruitments(),
@@ -36,27 +36,35 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive calendar milestones dynamically
-const milestones: Array<{ date: string; title: string; desc: string; status: string; slug: string }> = [];
+// Derive calendar milestones dynamically using canonical status resolution
+const milestones: Array<{ date: string; title: string; desc: string; status: string; statusClass: string; slug: string }> = [];
 
 recruitments.forEach((r) => {
   if (r.applicationEnd && milestones.length < 3) {
-    milestones.push({
-      date: formatDate(r.applicationEnd),
-      title: r.title,
-      desc: 'Applications close',
-      status: 'Closing Soon',
-      slug: r.slug,
-    });
+    const presentation = resolveMilestonePresentation(r.applicationEnd, 'APPLICATION_END');
+    if (!presentation.isPast) {
+      milestones.push({
+        date: formatDate(r.applicationEnd),
+        title: r.title,
+        desc: 'Online registration closes',
+        status: presentation.label,
+        statusClass: presentation.badgeClass,
+        slug: r.slug,
+      });
+    }
   }
   if (r.examDate && milestones.length < 5) {
-    milestones.push({
-      date: formatDate(r.examDate),
-      title: `${r.postTitle} CBT`,
-      desc: 'Written examination date',
-      status: 'Exam Date',
-      slug: r.slug,
-    });
+    const examPresentation = resolveMilestonePresentation(r.examDate, 'EXAM_DATE');
+    if (!examPresentation.isPast) {
+      milestones.push({
+        date: formatDate(r.examDate),
+        title: `${r.postTitle} CBT`,
+        desc: 'Written examination date',
+        status: examPresentation.label,
+        statusClass: examPresentation.badgeClass,
+        slug: r.slug,
+      });
+    }
   }
 });
 ---
@@ -72,19 +80,19 @@ recruitments.forEach((r) => {
       <div class="flex flex-col items-start gap-6">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide">
           <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-          <span>Find what fits</span>
+          <span>Madhya Pradesh State Advisory</span>
         </div>
 
         <h1 class="font-bold text-foreground text-4xl sm:text-5xl lg:text-6xl leading-[1.08] tracking-tight max-w-2xl">
-          Find government jobs <br class="hidden sm:inline" />
-          <span class="text-primary">you can apply for.</span>
+          Find MP government jobs <br class="hidden sm:inline" />
+          <span class="text-primary">you may be eligible for.</span>
         </h1>
 
         <p class="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
-          Explore Madhya Pradesh government opportunities, check eligibility deterministically, track important dates, and access official recruitment links directly from state notifications.
+          Deterministic statutory criteria evaluation, verified official state gazette notices, and direct application links across Madhya Pradesh.
         </p>
 
-        <!-- CTA Buttons -->
+        <!-- CTA Buttons: 3 Core Tasks -->
         <div class="flex flex-wrap items-center gap-3.5 pt-2">
           <a
             href="/eligibility-checker"
@@ -99,7 +107,13 @@ recruitments.forEach((r) => {
             href="#closing-soon"
             class="font-medium rounded-lg text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center gap-2"
           >
-            <span>Explore Jobs ({metrics.activeDriveCount} Active)</span>
+            <span>Browse Jobs ({metrics.activeDriveCount} Open Now)</span>
+          </a>
+          <a
+            href="/calendar"
+            class="font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-sm px-4 py-3.5 transition-colors flex items-center gap-1.5"
+          >
+            <span>Exam Calendar &rarr;</span>
           </a>
         </div>
       </div>
@@ -108,18 +122,23 @@ recruitments.forEach((r) => {
       <div class="w-full bg-card rounded-2xl p-6 sm:p-7 border border-border shadow-sm">
         <div class="flex items-center justify-between pb-4 border-b border-border mb-5">
           <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your next opportunity
+            Current Status
           </span>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
             <span class="size-1.5 rounded-full bg-emerald-600"></span>
-            {metrics.activeDriveCount} active {metrics.activeDriveCount === 1 ? 'drive' : 'drives'}
+            {metrics.activeDriveCount} Applications Open Now
           </span>
         </div>
 
         <div class="space-y-3.5 mb-6">
           <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
-            <span class="text-xs text-muted-foreground">Active MP Vacancies</span>
+            <span class="text-xs text-muted-foreground">Applications Open Today</span>
             <span class="text-sm font-bold text-foreground font-mono">{metrics.activeVacancyCount.toLocaleString()} Posts</span>
+          </div>
+
+          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs text-muted-foreground">Upcoming Recruitments</span>
+            <span class="text-sm font-bold text-foreground font-mono">{metrics.upcomingVacancyCount.toLocaleString()} Posts ({metrics.upcomingDriveCount} Drives)</span>
           </div>
 
           <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
@@ -136,15 +155,15 @@ recruitments.forEach((r) => {
         <div class="pt-2">
           <a
             href="/eligibility-checker"
-            class="w-full font-semibold rounded-lg bg-primary/10 hover:bg-primary/15 text-primary text-xs sm:text-sm py-3 px-4 border border-primary/20 transition-colors flex items-center justify-center gap-2"
+            class="w-full font-semibold rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm py-3 px-4 shadow-sm transition-colors flex items-center justify-center gap-2"
           >
-            <span>Start Quick 3-Minute Check</span>
+            <span>Check Your Eligibility</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M7 17L17 7M17 7H7M17 7V17"/>
             </svg>
           </a>
           <p class="text-[11px] text-muted-foreground text-center mt-3">
-            No account required · Zero ads · Verified against official gazettes
+            No account required · Free public service · Verified against official gazettes
           </p>
         </div>
       </div>
@@ -334,11 +353,7 @@ recruitments.forEach((r) => {
             </p>
           </div>
           <div class="mt-3 pt-2 border-t border-border">
-            <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-              m.status === 'Closing Soon' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-              m.status === 'Exam Date' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-              'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            }`}>
+            <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${m.statusClass || 'bg-muted text-muted-foreground border-border'}`}>
               {m.status}
             </span>
           </div>

@@ -1,0 +1,259 @@
+---
+// src/pages/admin/documents.astro (FlowStep Screen 28)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllActiveRecruitments } from '../../db/queries';
+
+const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
+
+const documents = [
+  {
+    title: 'MP Police Constable 2026 Gazette Notification',
+    type: 'Notification',
+    recruitment: 'MP Police Constable Recruitment 2026',
+    url: 'https://esb.mp.gov.in/notices/police_rulebook_2026.pdf',
+    publishedDate: '15 Sep 2026',
+    verification: 'Verified',
+    updated: '18 Sep 2026',
+  },
+  {
+    title: 'Police Constable Category Relaxation Corrigendum',
+    type: 'Correction notice',
+    recruitment: 'MP Police Constable Recruitment 2026',
+    url: 'https://esb.mp.gov.in/notices/corrigendum_01_police.pdf',
+    publishedDate: '18 Sep 2026',
+    verification: 'Needs verification',
+    updated: '18 Sep 2026',
+  },
+  {
+    title: 'MP Forest Guard 2026 Official Rulebook',
+    type: 'Notification',
+    recruitment: 'Forest Guard Recruitment 2026',
+    url: 'https://esb.mp.gov.in/notices/forest_guard_2026.pdf',
+    publishedDate: '10 Sep 2026',
+    verification: 'Verified',
+    updated: '17 Sep 2026',
+  },
+  {
+    title: 'Assistant Grade III High Court Examination Syllabus',
+    type: 'Syllabus',
+    recruitment: 'Assistant Grade III Recruitment 2026',
+    url: 'https://mphc.gov.in/recruitment/ag3_syllabus_2026.pdf',
+    publishedDate: '12 Sep 2026',
+    verification: 'Verified',
+    updated: '16 Sep 2026',
+  },
+  {
+    title: 'MPPSC State Service Prelims Provisional Answer Key',
+    type: 'Answer key',
+    recruitment: 'MPPSC State Service Examination 2026',
+    url: 'https://mppsc.mp.gov.in/keys/sse_prelims_key_2026.pdf',
+    publishedDate: '12 Sep 2026',
+    verification: 'Verified',
+    updated: '15 Sep 2026',
+  },
+];
+---
+
+<AdminLayout
+  title="Documents"
+  currentSection="documents"
+  breadcrumbs={[
+    { label: 'Documents' },
+  ]}
+>
+  <div class="mx-auto max-w-6xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 28) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Documents
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Link to official gazettes and rulebooks without storing copyrighted PDFs locally
+        </p>
+      </div>
+
+      <button
+        type="button"
+        id="openAddDocModalBtn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add document link</span>
+      </button>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        {['All', 'Notifications', 'Admit cards', 'Answer keys', 'Correction notices'].map((tag, idx) => (
+          <button
+            type="button"
+            class={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              idx === 0
+                ? 'bg-zinc-950 text-white font-semibold'
+                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+
+      <div class="relative max-w-xs w-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="search"
+          placeholder="Filter document links..."
+          class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-zinc-900"
+        />
+      </div>
+    </div>
+
+    <!-- Documents Table (FlowStep Screen 28) -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4">Document Title</th>
+              <th class="py-3 px-3">Type</th>
+              <th class="py-3 px-3">Linked Opportunity</th>
+              <th class="py-3 px-3">Source URL</th>
+              <th class="py-3 px-3">Published</th>
+              <th class="py-3 px-3">Verification</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            {documents.map((doc) => (
+              <tr class="hover:bg-zinc-50/80 transition-colors">
+                <td class="py-3.5 px-4 font-bold text-zinc-950">
+                  {doc.title}
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono bg-zinc-100 text-zinc-800 border border-zinc-200">
+                    {doc.type}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-zinc-700">
+                  {doc.recruitment}
+                </td>
+                <td class="py-3.5 px-3">
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-600 hover:text-zinc-950 hover:underline"
+                  >
+                    <span>PDF Document</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                </td>
+                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px] whitespace-nowrap">
+                  {doc.publishedDate}
+                </td>
+                <td class="py-3.5 px-3 whitespace-nowrap">
+                  {doc.verification === 'Verified' ? (
+                    <span class="inline-flex items-center gap-1 text-emerald-700 text-[11px] font-medium">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+                      <span>Verified</span>
+                    </span>
+                  ) : (
+                    <a href="/admin/sources" class="inline-flex items-center gap-1 text-amber-700 text-[11px] font-medium hover:underline">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      <span>Needs review</span>
+                    </a>
+                  )}
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Edit
+                    </button>
+                    <span class="text-zinc-300">·</span>
+                    <a href={doc.url} target="_blank" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Open PDF &rarr;
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Document Modal (FlowStep Screen 28) -->
+  <div id="addDocModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div>
+          <h2 class="text-base font-bold text-zinc-950 font-heading">Add Document Link</h2>
+          <p class="text-xs text-zinc-500">Attach an official notification PDF URL to an opportunity.</p>
+        </div>
+        <button type="button" id="closeAddDocModalBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+          &times;
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="space-y-1.5">
+          <label class="block font-semibold text-zinc-800">Document Title *</label>
+          <input type="text" placeholder="e.g. Police Constable Official Rulebook 2026" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Document Type *</label>
+            <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              <option>Notification Gazette</option>
+              <option>Correction Notice</option>
+              <option>Admit Card Link</option>
+              <option>Answer Key</option>
+              <option>Examination Syllabus</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Publication Date</label>
+            <input type="date" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-semibold text-zinc-800">Official Direct Source URL *</label>
+          <input type="url" placeholder="https://esb.mp.gov.in/notifications/..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-semibold text-zinc-800">Link to Recruitment *</label>
+          <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+            {recruitments.map((r: any) => (
+              <option value={r.id}>{r.title}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelAddDocModalBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+          Cancel
+        </button>
+        <button type="button" id="saveDocBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+          Save Document Link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const modal = document.getElementById('addDocModal');
+    document.getElementById('openAddDocModalBtn')?.addEventListener('click', () => modal?.classList.remove('hidden'));
+    document.getElementById('closeAddDocModalBtn')?.addEventListener('click', () => modal?.classList.add('hidden'));
+    document.getElementById('cancelAddDocModalBtn')?.addEventListener('click', () => modal?.classList.add('hidden'));
+    document.getElementById('saveDocBtn')?.addEventListener('click', () => {
+      alert('Document link successfully attached!');
+      modal?.classList.add('hidden');
+    });
+  </script>
+</AdminLayout>

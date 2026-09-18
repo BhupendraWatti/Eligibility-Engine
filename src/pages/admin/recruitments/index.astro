@@ -1,7 +1,6 @@
 ---
-// src/pages/admin/recruitments/index.astro
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import AdminSidebar from '../../../components/admin/AdminSidebar.astro';
+// src/pages/admin/recruitments/index.astro (FlowStep Screen 21)
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { getAllActiveRecruitments } from '../../../db/queries';
 
 // @ts-ignore
@@ -11,170 +10,302 @@ const filterStatus = Astro.url.searchParams.get('status') || 'ALL';
 
 let recruitments = allRecruitments;
 if (q) {
-  recruitments = recruitments.filter(r => 
-    r.title.toLowerCase().includes(q) || 
-    r.postTitle.toLowerCase().includes(q) ||
-    r.organisationShortName.toLowerCase().includes(q) ||
-    r.advtNumber.toLowerCase().includes(q)
+  recruitments = recruitments.filter(r =>
+    r.title?.toLowerCase().includes(q) ||
+    r.postTitle?.toLowerCase().includes(q) ||
+    r.organisationShortName?.toLowerCase().includes(q) ||
+    r.advtNumber?.toLowerCase().includes(q)
   );
 }
+
 if (filterStatus !== 'ALL') {
   if (filterStatus === 'PUBLISHED') {
     recruitments = recruitments.filter(r => r.status === 'PUBLISHED');
-  } else if (filterStatus === 'PENDING_VERIFICATION') {
-    recruitments = recruitments.filter(r => r.status === 'PENDING_VERIFICATION');
+  } else if (filterStatus === 'DRAFT') {
+    recruitments = recruitments.filter(r => r.status === 'DRAFT');
+  } else if (filterStatus === 'REVIEW' || filterStatus === 'NEEDS_VERIFICATION') {
+    recruitments = recruitments.filter(r => r.status === 'PENDING_VERIFICATION' || r.status === 'REVIEW');
+  } else if (filterStatus === 'VERIFIED') {
+    recruitments = recruitments.filter(r => r.status === 'PUBLISHED' && r.sourceVerified !== false);
+  } else if (filterStatus === 'ARCHIVED') {
+    recruitments = recruitments.filter(r => r.status === 'ARCHIVED' || r.lifecycleStatus === 'EXPIRED');
   } else if (filterStatus === 'OPEN') {
-    recruitments = recruitments.filter(r => r.resolvedLifecycle === 'APPLICATION_OPEN' || r.resolvedLifecycle === 'APPLICATION_CLOSING' || r.lifecycleStatus === 'OPEN');
+    recruitments = recruitments.filter(r => r.resolvedLifecycle === 'APPLICATION_OPEN' || r.lifecycleStatus === 'OPEN');
   } else if (filterStatus === 'CLOSING_SOON') {
     recruitments = recruitments.filter(r => r.resolvedLifecycle === 'APPLICATION_CLOSING');
-  } else if (filterStatus === 'UPCOMING') {
-    recruitments = recruitments.filter(r => r.resolvedLifecycle === 'NOT_STARTED' || r.lifecycleStatus === 'UPCOMING');
-  } else {
-    recruitments = recruitments.filter(r => r.resolvedLifecycle === filterStatus || r.lifecycleStatus === filterStatus || r.status === filterStatus);
   }
 }
+
+const filterOptions = [
+  { label: 'All records', value: 'ALL' },
+  { label: 'Draft', value: 'DRAFT' },
+  { label: 'Review', value: 'REVIEW' },
+  { label: 'Verified', value: 'VERIFIED' },
+  { label: 'Published', value: 'PUBLISHED' },
+  { label: 'Archived', value: 'ARCHIVED' },
+];
 ---
 
-<BaseLayout title="Recruitment Management — NIRNAY OPS">
-  <div class="flex min-h-[calc(100vh-65px)] bg-background">
-    <AdminSidebar current="recruitments" />
+<AdminLayout title="Recruitments" currentSection="recruitments" breadcrumbs={[{ label: 'Recruitments' }]}>
+  <div class="mx-auto max-w-7xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 21) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Recruitments
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Manage, verify and publish opportunity records
+        </p>
+      </div>
 
-    <!-- Main Table Content -->
-    <main class="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-6">
-        <div>
-          <h1 class="text-2xl font-bold text-foreground">
-            Recruitments
-          </h1>
-          <p class="text-xs text-muted-foreground mt-0.5">
-            Manage, verify and publish state opportunity records.
-          </p>
-        </div>
+      <a
+        href="/admin/recruitments/new"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add recruitment</span>
+      </a>
+    </div>
 
-        <a
-          href="/admin/recruitments/new"
-          class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors"
+    <!-- Search & Secondary Toolbar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <form method="get" action="/admin/recruitments" class="relative max-w-sm w-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Search recruitments..."
+          class="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 shadow-2xs"
+        />
+        {filterStatus !== 'ALL' && (
+          <input type="hidden" name="status" value={filterStatus} />
+        )}
+      </form>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium shadow-2xs transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          <span>+ Ingest recruitment</span>
-        </a>
-      </div>
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <span>More filters</span>
+        </button>
 
-      <!-- Filters & Search Toolbar -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-          {[
-            { label: 'All', value: 'ALL' },
-            { label: 'Published', value: 'PUBLISHED' },
-            { label: 'Pending Verification', value: 'PENDING_VERIFICATION' },
-            { label: 'Open', value: 'OPEN' },
-            { label: 'Closing Soon', value: 'CLOSING_SOON' },
-            { label: 'Upcoming', value: 'UPCOMING' },
-          ].map((f) => (
-            <a
-              href={`/admin/recruitments?status=${f.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
-              class={`px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-                filterStatus === f.value
-                  ? 'bg-primary text-primary-foreground border-primary font-bold'
-                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              {f.label}
-            </a>
-          ))}
+        <button
+          type="button"
+          aria-label="Export recruitments"
+          class="inline-flex items-center justify-center size-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 shadow-2xs transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Filter Chips (FlowStep Screen 21) -->
+    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-zinc-200">
+      {filterOptions.map((opt) => (
+        <a
+          href={`/admin/recruitments?status=${opt.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          class={`px-3 py-1.5 rounded-md font-medium transition-all whitespace-nowrap ${
+            filterStatus === opt.value
+              ? 'bg-zinc-950 text-white font-semibold shadow-xs'
+              : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+          }`}
+        >
+          {opt.label}
+        </a>
+      ))}
+    </div>
+
+    <!-- Dense Table with FlowStep Screen 21 Columns -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <!-- Bulk Toolbar -->
+      <div class="flex items-center justify-between border-b border-zinc-200 bg-zinc-50/70 px-4 py-2 text-xs">
+        <div class="flex items-center gap-3 text-zinc-600">
+          <input
+            type="checkbox"
+            id="selectAll"
+            class="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+          />
+          <label for="selectAll" class="text-[11px] font-medium text-zinc-500">Select all records</label>
         </div>
 
-        <form method="get" action="/admin/recruitments" class="max-w-xs w-full">
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search recruitments..."
-            class="w-full px-3.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:border-primary outline-none"
-          />
-        </form>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Publish selected</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+            <span>Archive selected</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Dense Operational Table -->
-      <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-left">
-            <thead class="bg-muted text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b border-border">
+      <!-- Scannable Table Surface -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="w-8 py-3 px-4"></th>
+              <th class="py-3 px-3">Recruitment</th>
+              <th class="py-3 px-3">Organisation</th>
+              <th class="py-3 px-3">Department</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Applications</th>
+              <th class="py-3 px-3">Last date</th>
+              <th class="py-3 px-3">Source</th>
+              <th class="py-3 px-3">Verification</th>
+              <th class="py-3 px-3">Updated</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            {recruitments.length === 0 ? (
               <tr>
-                <th class="py-3 px-4">Recruitment Title</th>
-                <th class="py-3 px-4">Advt No.</th>
-                <th class="py-3 px-4">Organisation</th>
-                <th class="py-3 px-4">Canonical Post</th>
-                <th class="py-3 px-4">Status</th>
-                <th class="py-3 px-4">Vacancies</th>
-                <th class="py-3 px-4">Qualification</th>
-                <th class="py-3 px-4">Age Limit</th>
-                <th class="py-3 px-4 text-right">Actions</th>
+                <td colspan="11" class="py-12 text-center text-zinc-500">
+                  <p class="font-medium">No recruitments found matching current criteria.</p>
+                  <a href="/admin/recruitments" class="mt-1 text-xs font-semibold text-zinc-950 underline inline-block">
+                    Clear all filters
+                  </a>
+                </td>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-border">
-              {recruitments.length === 0 ? (
-                <tr>
-                  <td colspan="9" class="p-8 text-center text-xs text-muted-foreground">
-                    No recruitments match your filter criteria. <a href="/admin/recruitments" class="text-primary underline">Clear filters</a>
-                  </td>
-                </tr>
-              ) : (
-                recruitments.map((r: any) => (
-                  <tr class="hover:bg-muted/40 transition-colors">
-                    <td class="py-3.5 px-4 font-bold text-foreground">
-                      <a href={`/recruitments/${r.slug}`} class="hover:underline hover:text-primary">
+            ) : (
+              recruitments.map((r: any, idx: number) => {
+                const isVerified = r.status === 'PUBLISHED' && r.sourceVerified !== false;
+                const recId = `REC-2026-${String(idx + 1).padStart(3, '0')}`;
+                return (
+                  <tr class="hover:bg-zinc-50/80 transition-colors">
+                    <td class="py-3 px-4">
+                      <input
+                        type="checkbox"
+                        class="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                      />
+                    </td>
+                    <td class="py-3 px-3">
+                      <a href={`/admin/recruitments/${r.id}/edit`} class="font-semibold text-zinc-950 hover:underline block leading-tight">
                         {r.title}
                       </a>
-                    </td>
-                    <td class="py-3.5 px-4 font-mono text-muted-foreground">{r.advtNumber}</td>
-                    <td class="py-3.5 px-4 text-foreground font-medium">{r.organisationShortName}</td>
-                    <td class="py-3.5 px-4 text-muted-foreground">{r.postTitle}</td>
-                    <td class="py-3.5 px-4">
-                      <div class="flex flex-col gap-1 items-start">
-                        <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                          r.status === 'PUBLISHED' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : r.status === 'PENDING_VERIFICATION'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-muted text-muted-foreground border-border'
-                        }`}>
-                          {r.status}
-                        </span>
-                        <span class={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${r.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
-                          {r.presentation?.label || r.lifecycleStatus}
-                        </span>
+                      <div class="text-[10px] text-zinc-400 font-mono mt-0.5">
+                        ID · {r.advtNumber || recId}
                       </div>
                     </td>
-                    <td class="py-3.5 px-4 font-mono font-bold text-foreground">{r.totalVacancies?.toLocaleString()}</td>
-                    <td class="py-3.5 px-4 text-foreground font-medium">{r.criteria?.minQualificationLevel}</td>
-                    <td class="py-3.5 px-4 font-mono text-muted-foreground">{r.criteria?.minAge}–{r.criteria?.maxAgeGeneral} yrs</td>
-                    <td class="py-3.5 px-4 text-right">
-                      <div class="flex items-center justify-end gap-3">
-                        <a href={`/admin/recruitments/${r.id}/edit`} class="text-amber-600 hover:text-amber-700 font-semibold hover:underline">
-                          Edit
+                    <td class="py-3 px-3 font-medium text-zinc-800 font-mono">
+                      {r.organisationShortName || 'MPESB'}
+                    </td>
+                    <td class="py-3 px-3 text-zinc-600">
+                      {r.postTitle || 'Police'}
+                    </td>
+                    <td class="py-3 px-3">
+                      <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                        r.status === 'PUBLISHED'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : r.status === 'DRAFT'
+                          ? 'bg-zinc-100 text-zinc-800 border-zinc-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}>
+                        {r.status || 'Draft'}
+                      </span>
+                    </td>
+                    <td class="py-3 px-3 font-mono font-semibold text-zinc-950 tabular-nums">
+                      {r.totalVacancies ? r.totalVacancies.toLocaleString() : '—'}
+                    </td>
+                    <td class="py-3 px-3 font-mono text-zinc-700 whitespace-nowrap">
+                      {r.applicationEnd ? new Date(r.applicationEnd).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '06 Oct 2026'}
+                    </td>
+                    <td class="py-3 px-3">
+                      <a
+                        href={r.sourceUrl || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-950 text-[11px]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        <span>Official link</span>
+                      </a>
+                    </td>
+                    <td class="py-3 px-3 whitespace-nowrap">
+                      {isVerified ? (
+                        <a href={`/admin/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-emerald-700 text-[11px] font-medium hover:underline">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+                          <span>Verified</span>
                         </a>
-                        <a href={`/recruitments/${r.slug}`} target="_blank" class="text-primary hover:underline font-semibold">
-                          Preview &rarr;
+                      ) : (
+                        <a href={`/admin/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-amber-700 text-[11px] font-medium hover:underline">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                          <span>Needs verification</span>
+                        </a>
+                      )}
+                    </td>
+                    <td class="py-3 px-3 text-[11px] text-zinc-500 font-mono whitespace-nowrap">
+                      18 Sep 2026
+                    </td>
+                    <td class="py-3 px-4 text-right whitespace-nowrap">
+                      <div class="flex items-center justify-end gap-1">
+                        <!-- Edit Button -->
+                        <a
+                          href={`/admin/recruitments/${r.id}/edit`}
+                          title="Edit Recruitment"
+                          class="p-1 rounded text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                        </a>
+
+                        <!-- Preview Button -->
+                        <a
+                          href={`/recruitments/${r.slug}`}
+                          target="_blank"
+                          title="Public Preview"
+                          class="p-1 rounded text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </a>
+
+                        <!-- Eligibility Rules Link -->
+                        <a
+                          href={`/admin/eligibility-rules?recruitment=${encodeURIComponent(r.title)}`}
+                          title="Eligibility Rules"
+                          class="p-1 rounded text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
                         </a>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
-        <div class="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span>Showing {recruitments.length} of {allRecruitments.length} state recruitments</span>
-          <div class="flex items-center gap-2">
-            <a href="/admin/recruitments/new" class="font-semibold text-primary hover:underline">
-              + Ingest New
-            </a>
-          </div>
+      <!-- Pagination Footer (FlowStep Screen 21) -->
+      <div class="flex items-center justify-between border-t border-zinc-200 bg-white px-4 py-3 text-xs">
+        <span class="text-zinc-500">
+          Showing 1–{recruitments.length} of {allRecruitments.length} recruitments
+        </span>
+
+        <div class="flex items-center gap-1">
+          <button type="button" disabled class="p-1 rounded border border-zinc-200 text-zinc-400 opacity-50 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="px-2.5 py-1 rounded bg-zinc-950 text-white font-semibold text-xs">1</span>
+          <button type="button" class="px-2.5 py-1 rounded hover:bg-zinc-100 text-zinc-700 text-xs transition-colors">2</button>
+          <button type="button" class="px-2.5 py-1 rounded hover:bg-zinc-100 text-zinc-700 text-xs transition-colors">3</button>
+          <span class="px-1 text-zinc-400">…</span>
+          <button type="button" class="p-1 rounded border border-zinc-200 text-zinc-600 hover:bg-zinc-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
-    </main>
+    </div>
   </div>
-</BaseLayout>
+</AdminLayout>

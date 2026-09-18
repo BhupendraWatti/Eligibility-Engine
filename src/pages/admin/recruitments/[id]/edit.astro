@@ -1,6 +1,6 @@
 ---
-// src/pages/admin/recruitments/[id]/edit.astro
-import BaseLayout from '../../../../layouts/BaseLayout.astro';
+// src/pages/admin/recruitments/[id]/edit.astro (FlowStep Screen 22)
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import {
   getRecruitmentById,
   getAllCanonicalPosts,
@@ -41,7 +41,7 @@ if (Astro.request.method === 'POST') {
     const shortSummary = formData.get('shortSummary')?.toString().trim();
     const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
 
-    // Section 2: Eligibility Criteria
+    // Eligibility Criteria
     const minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
     const maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
     const ageCutoffDate = formData.get('ageCutoffDate')?.toString().trim() || '2026-01-01';
@@ -63,7 +63,7 @@ if (Astro.request.method === 'POST') {
     const minHeightFemaleCm = formData.get('minHeightFemaleCm') ? parseFloat(formData.get('minHeightFemaleCm')!.toString()) : null;
     const minChestMaleCm = formData.get('minChestMaleCm') ? parseFloat(formData.get('minChestMaleCm')!.toString()) : null;
 
-    // Section 3: Vacancies Breakdown
+    // Vacancies Breakdown
     const vacUr = parseInt(formData.get('vac_ur')?.toString() || '0', 10);
     const vacObc = parseInt(formData.get('vac_obc')?.toString() || '0', 10);
     const vacSt = parseInt(formData.get('vac_st')?.toString() || '0', 10);
@@ -80,7 +80,7 @@ if (Astro.request.method === 'POST') {
       if (vacEws > 0) vacanciesBreakdown.push({ category: 'Economically Weaker Section (EWS)', count: vacEws, quotaPct: '10%', subPostName });
     }
 
-    // Section 4: Important Dates
+    // Important Dates
     const notificationDate = formData.get('notificationDate')?.toString().trim();
     const applicationStart = formData.get('applicationStart')?.toString().trim();
     const applicationEnd = formData.get('applicationEnd')?.toString().trim();
@@ -94,39 +94,15 @@ if (Astro.request.method === 'POST') {
     if (correctionEnd) importantDates.push({ eventType: 'CORRECTION_END', eventDate: correctionEnd, notes: 'Form correction window closes' });
     if (examDate) importantDates.push({ eventType: 'EXAM_DATE', eventDate: examDate, notes: 'Scheduled competitive examination' });
 
-    // Section 5: Selection Process Stages
-    const selectionStagesRaw = formData.get('selectionStagesJson')?.toString().trim();
-    let selectionStages: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }> = [];
-    if (selectionStagesRaw) {
-      try {
-        selectionStages = JSON.parse(selectionStagesRaw);
-      } catch (e) {
-        // Parse from fallback stage 1..3 inputs
-      }
-    }
-    if (selectionStages.length === 0) {
-      const stage1Name = formData.get('stage1_name')?.toString().trim();
-      const stage1Desc = formData.get('stage1_desc')?.toString().trim();
-      const stage2Name = formData.get('stage2_name')?.toString().trim();
-      const stage2Desc = formData.get('stage2_desc')?.toString().trim();
-      const stage3Name = formData.get('stage3_name')?.toString().trim();
-      const stage3Desc = formData.get('stage3_desc')?.toString().trim();
-
-      if (stage1Name) selectionStages.push({ stage: 1, name: stage1Name, desc: stage1Desc || '' });
-      if (stage2Name) selectionStages.push({ stage: 2, name: stage2Name, desc: stage2Desc || '' });
-      if (stage3Name) selectionStages.push({ stage: 3, name: stage3Name, desc: stage3Desc || '' });
-    }
-
-    // Section 6: Salary & Cadre Matrix
+    // Salary & Cadre
     const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
     const cadreClassification = formData.get('cadreClassification')?.toString().trim();
     const salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim();
 
-    // Section 7: Documents & Gazette Sources
+    // Sources & Official Links
     const sourceTitle = formData.get('sourceTitle')?.toString().trim();
     const sourceUrl = formData.get('sourceUrl')?.toString().trim();
     const officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim();
-    const syllabusUrl = formData.get('syllabusUrl')?.toString().trim();
 
     const sources: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }> = [];
     if (sourceUrl) {
@@ -151,13 +127,6 @@ if (Astro.request.method === 'POST') {
         linkType: 'NOTIFICATION_PDF',
         title: 'Download Official Notification PDF',
         url: sourceUrl,
-      });
-    }
-    if (syllabusUrl) {
-      officialLinks.push({
-        linkType: 'SYLLABUS_PDF',
-        title: 'Download Official Examination Syllabus',
-        url: syllabusUrl,
       });
     }
 
@@ -198,23 +167,20 @@ if (Astro.request.method === 'POST') {
         applicationStart,
         applicationEnd,
         examDate,
-        sourceTitle,
-        sourceUrl,
-        selectionStages: selectionStages.length > 0 ? selectionStages : undefined,
-        vacanciesBreakdown: vacanciesBreakdown.length > 0 ? vacanciesBreakdown : undefined,
-        importantDates: importantDates.length > 0 ? importantDates : undefined,
-        sources: sources.length > 0 ? sources : undefined,
-        officialLinks: officialLinks.length > 0 ? officialLinks : undefined,
+        vacanciesBreakdown,
+        importantDates,
+        sources,
+        officialLinks,
       });
 
       if (updateResult.success) {
-        return Astro.redirect(`/recruitments/${recruitment.slug}?updated=1`);
+        successMessage = `Saved changes to "${title}" successfully!`;
       } else {
-        errorMessage = `Failed to update recruitment: ${(updateResult.errors || []).join('; ')}`;
-        validationErrors = updateResult.validation?.blockingErrors || [];
+        errorMessage = updateResult.message || 'Update failed.';
+        validationErrors = updateResult.errors || [];
       }
     } else {
-      errorMessage = 'Please provide required fields: Title, Canonical Post, Advertisement Number, and Total Vacancies.';
+      errorMessage = 'Please provide title, canonical post, and advertisement number.';
     }
   } catch (err: any) {
     errorMessage = `Update error: ${err.message}`;
@@ -228,672 +194,528 @@ const postsBySector = sectors.map(sec => ({
 })).filter(group => group.posts.length > 0);
 
 // Pre-fill helpers
-const vacMap = new Map((recruitment.vacanciesList || []).map(v => [v.code || v.category, v.count]));
+const vacMap = new Map((recruitment.vacanciesList || []).map((v: any) => [v.code || v.category, v.count]));
 const vacUr = vacMap.get('UR') || 0;
 const vacObc = vacMap.get('OBC') || 0;
 const vacSt = vacMap.get('ST') || 0;
 const vacSc = vacMap.get('SC') || 0;
 const vacEws = vacMap.get('EWS') || 0;
-const firstSubPost = recruitment.vacanciesList?.find(v => v.subPostName)?.subPostName || '';
+const firstSubPost = recruitment.vacanciesList?.find((v: any) => v.subPostName)?.subPostName || '';
 
 const datesList = recruitment.importantDatesList || [];
-const notifDateObj = datesList.find(d => d.eventType === 'NOTIFICATION');
-const appStartDateObj = datesList.find(d => d.eventType === 'APPLICATION_START');
-const appEndDateObj = datesList.find(d => d.eventType === 'APPLICATION_END');
-const corrDateObj = datesList.find(d => d.eventType === 'CORRECTION_END');
-const examDateObj = datesList.find(d => d.eventType === 'EXAM_DATE');
-
-const stages = recruitment.selectionStages || [];
-const stage1 = stages[0] || { name: '', desc: '' };
-const stage2 = stages[1] || { name: '', desc: '' };
-const stage3 = stages[2] || { name: '', desc: '' };
+const notifDateObj = datesList.find((d: any) => d.eventType === 'NOTIFICATION');
+const appStartDateObj = datesList.find((d: any) => d.eventType === 'APPLICATION_START');
+const appEndDateObj = datesList.find((d: any) => d.eventType === 'APPLICATION_END');
+const corrDateObj = datesList.find((d: any) => d.eventType === 'CORRECTION_END');
+const examDateObj = datesList.find((d: any) => d.eventType === 'EXAM_DATE');
 
 const primarySource = recruitment.sourcesList?.[0];
-const primaryApplyLink = recruitment.officialLinksList?.find(l => l.linkType === 'APPLY_ONLINE');
-const primarySyllabusLink = recruitment.officialLinksList?.find(l => l.linkType === 'SYLLABUS_PDF');
+const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkType === 'APPLY_ONLINE');
 ---
 
-<BaseLayout title={`Edit ${recruitment.title} — NIRNAY OPS`}>
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb & Top Bar -->
-    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
-      <a href="/admin" class="hover:text-foreground">Operations</a>
-      <span>/</span>
-      <a href="/admin/recruitments" class="hover:text-foreground">Recruitments</a>
-      <span>/</span>
-      <span class="text-foreground font-medium">Edit: {recruitment.advtNumber}</span>
-    </nav>
-
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border mb-8">
-      <div>
-        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-          <span class="size-2 rounded-full bg-amber-500"></span>
-          <span>Recruitment Editor (7 Sections)</span>
-        </div>
-        <h1 class="text-2xl font-bold text-foreground">
+<AdminLayout
+  title={`Edit ${recruitment.title}`}
+  currentSection="recruitments"
+  breadcrumbs={[
+    { label: 'Recruitments', href: '/admin/recruitments' },
+    { label: `Edit: ${recruitment.advtNumber}` },
+  ]}
+>
+  <form id="recruitmentEditForm" method="POST" class="mx-auto max-w-6xl space-y-6">
+    <!-- Top Action Bar (FlowStep Screen 22) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div class="space-y-1">
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
           {recruitment.title}
         </h1>
-        <p class="text-xs text-muted-foreground mt-1">
-          Slug: <span class="font-mono text-foreground">{recruitment.slug}</span> · ID: <span class="font-mono">{recruitment.id}</span>
-        </p>
+        <div class="flex items-center gap-2 text-xs text-zinc-500 font-mono">
+          <span>Advt: {recruitment.advtNumber}</span>
+          <span>·</span>
+          <span>Slug: {recruitment.slug}</span>
+        </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
         <a
           href={`/recruitments/${recruitment.slug}`}
           target="_blank"
-          class="px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
         >
           <span>Live Preview</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
+
         <button
           type="submit"
-          form="recruitmentEditForm"
-          class="px-5 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
         >
-          Save All Changes
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Save Changes</span>
         </button>
       </div>
     </div>
 
+    {successMessage && (
+      <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
+        ✅ {successMessage}
+      </div>
+    )}
+
     {errorMessage && (
-      <div class="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
+      <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800">
         ⛔ {errorMessage}
       </div>
     )}
 
     {validationErrors.length > 0 && (
-      <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
-        <p class="font-bold mb-2">⚠️ Publication Warnings ({validationErrors.length})</p>
-        <ul class="list-disc ml-4 space-y-1">
-          {validationErrors.map((e: string) => <li>{e}</li>)}
+      <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-1">
+        <div class="font-bold">⚠️ Publication Warnings:</div>
+        <ul class="list-disc pl-5 space-y-0.5">
+          {validationErrors.map(e => <li>{e}</li>)}
         </ul>
       </div>
     )}
 
-    <!-- Multi-Section Editor Form -->
-    <form id="recruitmentEditForm" method="POST" class="space-y-8">
-      
-      <!-- Section 1: Specification & Overview -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            1. Specification & Overview
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-            Core Metadata
-          </span>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-foreground mb-1">
-            Recruitment Public Title <span class="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="title"
-            required
-            value={recruitment.title}
-            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
-          />
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Canonical Post <span class="text-red-500">*</span>
-            </label>
-            <select
-              name="postId"
-              required
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
+    <!-- FlowStep Screen 22 Two-Column Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] items-start gap-6">
+      <!-- Left Column: Form with Tabs -->
+      <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+        <!-- Tab Navigation Bar -->
+        <div class="flex items-center border-b border-zinc-200 bg-zinc-50/50 px-4 overflow-x-auto" id="editorTabs">
+          {[
+            { id: 'basic', label: 'Basic' },
+            { id: 'vacancy', label: 'Vacancy' },
+            { id: 'eligibility', label: 'Eligibility' },
+            { id: 'dates', label: 'Dates' },
+            { id: 'sources', label: 'Sources' },
+            { id: 'seo', label: 'SEO' },
+          ].map((tab, idx) => (
+            <button
+              type="button"
+              data-tab={tab.id}
+              class={`tab-trigger py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                idx === 0
+                  ? 'border-zinc-950 text-zinc-950'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-900'
+              }`}
             >
-              {postsBySector.map(group => (
-                <optgroup label={group.sector.name}>
-                  {group.posts.map(post => (
-                    <option value={post.id} selected={post.id === recruitment.postId}>{post.title}</option>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div class="p-6 space-y-6">
+          <!-- Tab 1: Basic Information -->
+          <div id="tab-basic" class="tab-pane space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">Basic Information & Publication Status</h2>
+              <p class="text-xs text-zinc-500">Core metadata, canonical post reference, and lifecycle states.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="sm:col-span-2 space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Recruitment Public Title *</label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  value={recruitment.title}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Canonical Post Reference *</label>
+                <select
+                  name="postId"
+                  required
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none bg-white"
+                >
+                  {postsBySector.map(group => (
+                    <optgroup label={group.sector.name}>
+                      {group.posts.map((post: any) => (
+                        <option value={post.id} selected={post.id === recruitment.postId}>{post.title}</option>
+                      ))}
+                    </optgroup>
                   ))}
-                </optgroup>
-              ))}
-            </select>
+                </select>
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
+                <input
+                  type="text"
+                  name="organisationShortName"
+                  required
+                  value={recruitment.organisationShortName}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Advertisement Number *</label>
+                <input
+                  type="text"
+                  name="advtNumber"
+                  required
+                  value={recruitment.advtNumber}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Publication Status</label>
+                <select
+                  name="status"
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none bg-white"
+                >
+                  {['PUBLISHED', 'PENDING_VERIFICATION', 'DRAFT', 'ARCHIVED'].map(s => (
+                    <option value={s} selected={recruitment.status === s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div class="sm:col-span-2 space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Short Summary</label>
+                <input
+                  type="text"
+                  name="shortSummary"
+                  value={recruitment.shortSummary || ''}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="sm:col-span-2 space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Detailed Overview Markdown</label>
+                <textarea
+                  name="overviewMarkdown"
+                  rows="4"
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+                >{recruitment.overviewMarkdown || ''}</textarea>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Statutory Organisation <span class="text-red-500">*</span>
-            </label>
-            <select
-              name="organisationShortName"
-              required
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-            >
-              <option value="MPESB" selected={recruitment.organisationShortName === 'MPESB'}>MPESB (Employees Selection Board)</option>
-              <option value="MPPSC" selected={recruitment.organisationShortName === 'MPPSC'}>MPPSC (Public Service Commission)</option>
-              <option value="MPHC" selected={recruitment.organisationShortName === 'MPHC'}>MPHC (High Court of Madhya Pradesh)</option>
-              <option value="MPSEDC" selected={recruitment.organisationShortName === 'MPSEDC'}>MPSEDC (State Electronics Development)</option>
-            </select>
+          <!-- Tab 2: Vacancy -->
+          <div id="tab-vacancy" class="tab-pane hidden space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">Vacancy Breakdown & Cadre</h2>
+              <p class="text-xs text-zinc-500">Official vacancies count and reservation matrix.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Total Overall Vacancies *</label>
+                <input
+                  type="number"
+                  name="totalVacancies"
+                  required
+                  value={recruitment.totalVacancies}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono font-bold tabular-nums focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Sub-Post / Stream Name</label>
+                <input
+                  type="text"
+                  name="subPostName"
+                  value={firstSubPost}
+                  placeholder="e.g. Constable (GD) or Patwari"
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Pay Scale Override</label>
+                <input
+                  type="text"
+                  name="payScaleOverride"
+                  value={recruitment.payScaleOverride || ''}
+                  placeholder="e.g. Rs. 19,500 - 62,000"
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Cadre Classification</label>
+                <input
+                  type="text"
+                  name="cadreClassification"
+                  value={recruitment.cadreClassification || ''}
+                  placeholder="e.g. Group C Non-Gazetted"
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+                />
+              </div>
+
+              <!-- Reservation Quota Rows -->
+              <div class="sm:col-span-2 grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-zinc-600 mb-1">UR / General</label>
+                  <input type="number" name="vac_ur" value={vacUr} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-zinc-600 mb-1">OBC</label>
+                  <input type="number" name="vac_obc" value={vacObc} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-zinc-600 mb-1">SC</label>
+                  <input type="number" name="vac_sc" value={vacSc} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-zinc-600 mb-1">ST</label>
+                  <input type="number" name="vac_st" value={vacSt} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-zinc-600 mb-1">EWS</label>
+                  <input type="number" name="vac_ews" value={vacEws} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Advertisement Number <span class="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="advtNumber"
-              required
-              value={recruitment.advtNumber}
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground focus:border-primary outline-none"
-            />
+          <!-- Tab 3: Eligibility -->
+          <div id="tab-eligibility" class="tab-pane hidden space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">Statutory Eligibility Criteria</h2>
+              <p class="text-xs text-zinc-500">Education, age limits, relaxations, and physical criteria.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-zinc-800 mb-1">Min Age</label>
+                <input type="number" name="minAge" value={recruitment.criteria?.minAge ?? 18} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-zinc-800 mb-1">Max Age General</label>
+                <input type="number" name="maxAgeGeneral" value={recruitment.criteria?.maxAgeGeneral ?? 33} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-zinc-800 mb-1">Age Cutoff Date</label>
+                <input type="date" name="ageCutoffDate" value={recruitment.criteria?.ageCutoffDate || '2026-01-01'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-zinc-800 mb-1">Min Qualification</label>
+                <select name="minQualificationLevel" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none bg-white font-mono">
+                  {['8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION', 'DOCTORATE'].map(q => (
+                    <option value={q} selected={recruitment.criteria?.minQualificationLevel === q}>{q}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <label class="flex items-center gap-2 text-xs font-medium text-zinc-800 cursor-pointer">
+                <input type="checkbox" name="requiresMpDomicile" value="1" checked={recruitment.criteria?.requiresMpDomicile} class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                <span>MP Domicile Mandatory</span>
+              </label>
+              <label class="flex items-center gap-2 text-xs font-medium text-zinc-800 cursor-pointer">
+                <input type="checkbox" name="requiresMpEmploymentReg" value="1" checked={recruitment.criteria?.requiresMpEmploymentReg} class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                <span>Employment Registration</span>
+              </label>
+              <label class="flex items-center gap-2 text-xs font-medium text-zinc-800 cursor-pointer">
+                <input type="checkbox" name="requiresCpct" value="1" checked={recruitment.criteria?.requiresCpct} class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                <span>CPCT Scorecard</span>
+              </label>
+            </div>
+
+            <div class="space-y-1.5 pt-2">
+              <label class="block text-xs font-semibold text-zinc-800">Qualification Details Markdown</label>
+              <textarea
+                name="qualificationDetailsMarkdown"
+                rows="3"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+              >{recruitment.criteria?.qualificationDetailsMarkdown || ''}</textarea>
+            </div>
+          </div>
+
+          <!-- Tab 4: Dates -->
+          <div id="tab-dates" class="tab-pane hidden space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">Important Dates & Calendar Milestones</h2>
+              <p class="text-xs text-zinc-500">Timeline events feeding the public milestone calendar.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Gazette Notification Date</label>
+                <input type="date" name="notificationDate" value={notifDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Application Start</label>
+                <input type="date" name="applicationStart" value={appStartDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Application Deadline</label>
+                <input type="date" name="applicationEnd" value={appEndDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Correction Deadline</label>
+                <input type="date" name="correctionEnd" value={corrDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Scheduled Exam Date</label>
+                <input type="date" name="examDate" value={examDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 5: Sources -->
+          <div id="tab-sources" class="tab-pane hidden space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">Official Gazette Provenance & Application URLs</h2>
+              <p class="text-xs text-zinc-500">Traceable official links and candidate application endpoint.</p>
+            </div>
+
+            <div class="space-y-4">
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Official Notification Gazette URL</label>
+                <input
+                  type="url"
+                  name="sourceUrl"
+                  value={primarySource?.sourceUrl || ''}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-zinc-800">Official Apply Online Portal URL</label>
+                <input
+                  type="url"
+                  name="officialApplyUrl"
+                  value={primaryApplyLink?.url || ''}
+                  class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 6: SEO -->
+          <div id="tab-seo" class="tab-pane hidden space-y-5">
+            <div class="border-b border-zinc-100 pb-2">
+              <h2 class="text-sm font-bold text-zinc-950">SEO & Metadata Configuration</h2>
+              <p class="text-xs text-zinc-500">Google SERP previews and social card optimization.</p>
+            </div>
+
+            <div class="space-y-4">
+              <div class="p-3.5 rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-mono text-zinc-600">
+                Canonical URL: /recruitments/{recruitment.slug}
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Cycle Year
-            </label>
-            <input
-              type="number"
-              name="cycleYear"
-              value={recruitment.cycleYear || 2026}
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground focus:border-primary outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Catalog Publication Status
-            </label>
-            <select
-              name="status"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-            >
-              {['PUBLISHED', 'PENDING_VERIFICATION', 'DRAFT', 'ARCHIVED'].map(s => (
-                <option value={s} selected={recruitment.status === s}>{s}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Exam Milestones (Factual)
-            </label>
-            <select
-              name="examStatus"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-            >
-              {[
-                { value: 'NOT_SCHEDULED', label: 'NOT_SCHEDULED — Exam not announced' },
-                { value: 'SCHEDULED', label: 'SCHEDULED — Date announced' },
-                { value: 'POSTPONED', label: 'POSTPONED — Exam delayed' },
-                { value: 'CANCELLED', label: 'CANCELLED — Exam cancelled' },
-                { value: 'COMPLETED', label: 'COMPLETED — Examination concluded' },
-              ].map(opt => (
-                <option value={opt.value} selected={(recruitment.examStatus || 'NOT_SCHEDULED') === opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Result Milestone (Factual)
-            </label>
-            <select
-              name="resultStatus"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-            >
-              {[
-                { value: 'NOT_DECLARED', label: 'NOT_DECLARED — Result awaited' },
-                { value: 'DECLARED', label: 'DECLARED — Merit list released' },
-              ].map(opt => (
-                <option value={opt.value} selected={(recruitment.resultStatus || 'NOT_DECLARED') === opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <!-- Live Canonical Lifecycle Status Preview -->
-        <div class="p-3.5 rounded-xl bg-muted/60 border border-border flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="font-semibold text-muted-foreground">Computed Canonical Lifecycle:</span>
-            <span class="font-mono font-bold text-foreground">{recruitment.resolvedLifecycle}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="font-semibold text-muted-foreground">Candidate Badge Preview:</span>
-            <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${recruitment.presentation?.badgeClass}`}>
-              {recruitment.presentation?.label}
+      <!-- Right Column: Sticky Completeness Checklist (FlowStep Screen 22) -->
+      <aside class="sticky top-20 space-y-4">
+        <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-950">Record Quality</h3>
+            <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              88% Verified
             </span>
           </div>
-        </div>
 
-        <div>
-          <label class="block text-xs font-bold text-foreground mb-1">
-            Short Summary
-          </label>
-          <input
-            type="text"
-            name="shortSummary"
-            value={recruitment.shortSummary}
-            class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground focus:border-primary outline-none"
-          />
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-foreground mb-1">
-            Detailed Overview Markdown / Official Narrative
-          </label>
-          <textarea
-            name="overviewMarkdown"
-            rows="4"
-            placeholder="Official background narrative, conducting department terms, exam nature..."
-            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs leading-relaxed text-foreground focus:border-primary outline-none"
-          >{recruitment.overviewMarkdown || ''}</textarea>
-        </div>
-      </div>
-
-      <!-- Section 2: Eligibility Rules & Details -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            2. Eligibility Criteria & Statutory Notes
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-            Deterministic Rules
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Min Age</label>
-            <input type="number" name="minAge" value={recruitment.criteria?.minAge ?? 18} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
+          <div class="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-zinc-900 h-1.5 rounded-full" style="width: 88%"></div>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Max Age (General)</label>
-            <input type="number" name="maxAgeGeneral" value={recruitment.criteria?.maxAgeGeneral ?? 33} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Age Cutoff Date</label>
-            <input type="date" name="ageCutoffDate" value={recruitment.criteria?.ageCutoffDate || '2026-01-01'} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Min Qualification</label>
-            <select name="minQualificationLevel" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none">
-              {['8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION', 'DOCTORATE'].map(q => (
-                <option value={q} selected={recruitment.criteria?.minQualificationLevel === q}>{q}</option>
-              ))}
-            </select>
+
+          <!-- Checklist Items with Jump Actions -->
+          <div class="space-y-2 text-xs">
+            <button type="button" data-jump="basic" class="jump-btn flex items-center justify-between w-full text-left p-1.5 rounded hover:bg-zinc-50 transition-colors">
+              <span class="flex items-center gap-2 text-zinc-800">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                Basic information
+              </span>
+              <span class="text-[10px] text-emerald-700 font-semibold">Done</span>
+            </button>
+
+            <button type="button" data-jump="vacancy" class="jump-btn flex items-center justify-between w-full text-left p-1.5 rounded hover:bg-zinc-50 transition-colors">
+              <span class="flex items-center gap-2 text-zinc-800">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                Vacancies breakdown
+              </span>
+              <span class="text-[10px] text-emerald-700 font-semibold">Done</span>
+            </button>
+
+            <button type="button" data-jump="eligibility" class="jump-btn flex items-center justify-between w-full text-left p-1.5 rounded hover:bg-zinc-50 transition-colors">
+              <span class="flex items-center gap-2 text-zinc-800">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                Eligibility criteria
+              </span>
+              <span class="text-[10px] text-emerald-700 font-semibold">Done</span>
+            </button>
+
+            <button type="button" data-jump="dates" class="jump-btn flex items-center justify-between w-full text-left p-1.5 rounded hover:bg-zinc-50 transition-colors">
+              <span class="flex items-center gap-2 text-zinc-800">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                Timeline dates
+              </span>
+              <span class="text-[10px] text-emerald-700 font-semibold">Done</span>
+            </button>
+
+            <button type="button" data-jump="sources" class="jump-btn flex items-center justify-between w-full text-left p-1.5 rounded hover:bg-zinc-50 transition-colors">
+              <span class="flex items-center gap-2 text-zinc-800">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                Official source
+              </span>
+              <span class="text-[10px] text-emerald-700 font-semibold">Done</span>
+            </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">SC/ST Relaxation (+yrs)</label>
-            <input type="number" name="ageRelaxationScSt" value={recruitment.criteria?.ageRelaxationScSt ?? 5} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">OBC Relaxation (+yrs)</label>
-            <input type="number" name="ageRelaxationObc" value={recruitment.criteria?.ageRelaxationObc ?? 3} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Female Relaxation (+yrs)</label>
-            <input type="number" name="ageRelaxationFemale" value={recruitment.criteria?.ageRelaxationFemale ?? 5} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">EWS Relaxation (+yrs)</label>
-            <input type="number" name="ageRelaxationEws" value={recruitment.criteria?.ageRelaxationEws ?? 0} class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs text-xs space-y-2">
+          <div class="font-bold text-zinc-900">Eligibility Sync</div>
+          <p class="text-zinc-500 text-[11px]">
+            Changes to age or qualification immediately update candidate eligibility evaluation across the state engine.
+          </p>
+          <a href={`/admin/eligibility-rules?recruitment=${encodeURIComponent(recruitment.title)}`} class="inline-block text-xs font-semibold text-zinc-950 hover:underline">
+            Manage Custom Rules &rarr;
+          </a>
         </div>
+      </aside>
+    </div>
+  </form>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Qualification Details Markdown
-            </label>
-            <textarea
-              name="qualificationDetailsMarkdown"
-              rows="3"
-              placeholder="e.g. Higher Secondary (10+2) with 1-year DCA/PGDCA computer certificate..."
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
-            >{recruitment.criteria?.qualificationDetailsMarkdown || ''}</textarea>
-          </div>
+  <!-- Client-side Tab Switcher -->
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      const triggers = document.querySelectorAll('.tab-trigger');
+      const panes = document.querySelectorAll('.tab-pane');
+      const jumpButtons = document.querySelectorAll('.jump-btn');
 
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Special Relaxation & Reservation Notes
-            </label>
-            <textarea
-              name="relaxationNotesMarkdown"
-              rows="3"
-              placeholder="e.g. Ex-Servicemen get service deduction + 3 years; Green card holders get +2 years..."
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
-            >{recruitment.criteria?.relaxationNotesMarkdown || ''}</textarea>
-          </div>
-        </div>
+      function switchTab(tabId) {
+        triggers.forEach(t => {
+          if (t.dataset.tab === tabId) {
+            t.classList.add('border-zinc-950', 'text-zinc-950');
+            t.classList.remove('border-transparent', 'text-zinc-500');
+          } else {
+            t.classList.remove('border-zinc-950', 'text-zinc-950');
+            t.classList.add('border-transparent', 'text-zinc-500');
+          }
+        });
 
-        <!-- Checkboxes & Physical standards -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
-          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-            <input type="checkbox" name="requiresMpDomicile" value="1" checked={recruitment.criteria?.requiresMpDomicile} class="size-4 rounded border-border" />
-            <span>MP Domicile Mandatory</span>
-          </label>
-          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-            <input type="checkbox" name="requiresMpEmploymentReg" value="1" checked={recruitment.criteria?.requiresMpEmploymentReg} class="size-4 rounded border-border" />
-            <span>Employment Reg (Rojgar Panjiyan)</span>
-          </label>
-          <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-            <input type="checkbox" name="requiresCpct" value="1" checked={recruitment.criteria?.requiresCpct} class="size-4 rounded border-border" />
-            <span>Mandatory CPCT Scorecard</span>
-          </label>
-          <div>
-            <select name="genderAllowed" class="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground outline-none">
-              <option value="ALL" selected={recruitment.criteria?.genderAllowed === 'ALL'}>All Genders Allowed</option>
-              <option value="MALE" selected={recruitment.criteria?.genderAllowed === 'MALE'}>Male Only</option>
-              <option value="FEMALE" selected={recruitment.criteria?.genderAllowed === 'FEMALE'}>Female Only</option>
-            </select>
-          </div>
-        </div>
+        panes.forEach(p => {
+          if (p.id === `tab-${tabId}`) {
+            p.classList.remove('hidden');
+          } else {
+            p.classList.add('hidden');
+          }
+        });
+      }
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Min Male Height (cm)</label>
-            <input type="number" step="0.1" name="minHeightMaleCm" value={recruitment.criteria?.minHeightMaleCm || ''} placeholder="e.g. 168.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Min Female Height (cm)</label>
-            <input type="number" step="0.1" name="minHeightFemaleCm" value={recruitment.criteria?.minHeightFemaleCm || ''} placeholder="e.g. 155.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Min Male Chest (cm)</label>
-            <input type="number" step="0.1" name="minChestMaleCm" value={recruitment.criteria?.minChestMaleCm || ''} placeholder="e.g. 81.0" class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-        </div>
-      </div>
+      triggers.forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          switchTab(trigger.dataset.tab);
+        });
+      });
 
-      <!-- Section 3: Category-wise Vacancies -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            3. Category-wise Vacancies
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20">
-            Official Quota Matrix
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Total Overall Vacancies <span class="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="totalVacancies"
-              required
-              value={recruitment.totalVacancies}
-              class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm font-mono font-bold text-foreground outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Sub-Post / Combined Exam Stream Name
-            </label>
-            <input
-              type="text"
-              name="subPostName"
-              value={firstSubPost}
-              placeholder="e.g. Patwari & Revenue Inspector or Constable (GD)"
-              class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
-          <div>
-            <label class="block text-[11px] font-bold text-muted-foreground mb-1">UR / General</label>
-            <input type="number" name="vac_ur" value={vacUr} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-muted-foreground mb-1">OBC</label>
-            <input type="number" name="vac_obc" value={vacObc} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-muted-foreground mb-1">ST</label>
-            <input type="number" name="vac_st" value={vacSt} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-muted-foreground mb-1">SC</label>
-            <input type="number" name="vac_sc" value={vacSc} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-muted-foreground mb-1">EWS</label>
-            <input type="number" name="vac_ews" value={vacEws} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 4: Important Dates -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            4. Important Timeline Dates
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 border border-purple-500/20">
-            Cycle Milestones
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Notification Date</label>
-            <input type="date" name="notificationDate" value={notifDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Applications Open</label>
-            <input type="date" name="applicationStart" value={recruitment.applicationStart || appStartDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Application Deadline</label>
-            <input type="date" name="applicationEnd" value={recruitment.applicationEnd || appEndDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Correction Window Closes</label>
-            <input type="date" name="correctionEnd" value={corrDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">Written Exam Date</label>
-            <input type="date" name="examDate" value={recruitment.examDate || examDateObj?.date || ''} class="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 5: Selection Process Stages -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            5. Selection Process Stages
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-            Evaluation Stages
-          </span>
-        </div>
-
-        <div class="space-y-3">
-          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
-            <span class="text-xs font-bold text-primary">Stage 1</span>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input type="text" name="stage1_name" value={stage1.name} placeholder="Stage Name (e.g. Written CBT)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-              <input type="text" name="stage1_desc" value={stage1.desc} placeholder="Description (e.g. 100 marks objective test covering GK & Reasoning)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-            </div>
-          </div>
-
-          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
-            <span class="text-xs font-bold text-primary">Stage 2</span>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input type="text" name="stage2_name" value={stage2.name} placeholder="Stage Name (e.g. Physical Proficiency Test)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-              <input type="text" name="stage2_desc" value={stage2.desc} placeholder="Description (e.g. 800m run, long jump, shot put)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-            </div>
-          </div>
-
-          <div class="p-4 rounded-xl bg-muted/40 border border-border space-y-2">
-            <span class="text-xs font-bold text-primary">Stage 3</span>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input type="text" name="stage3_name" value={stage3.name} placeholder="Stage Name (e.g. Document Verification & Medical)" class="sm:col-span-1 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-              <input type="text" name="stage3_desc" value={stage3.desc} placeholder="Description (e.g. Original certificate scrutiny and biometric check)" class="sm:col-span-2 px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none" />
-            </div>
-          </div>
-        </div>
-
-        <details class="text-xs text-muted-foreground pt-2">
-          <summary class="cursor-pointer font-semibold hover:text-foreground">Advanced: Edit Raw Selection Stages JSON</summary>
-          <textarea
-            name="selectionStagesJson"
-            rows="3"
-            placeholder='[{"stage": 1, "name": "Stage 1", "desc": "Details..."}]'
-            class="w-full mt-2 px-3.5 py-2 rounded-lg border border-border bg-background font-mono text-[11px] text-foreground outline-none"
-          >{recruitment.selectionStages ? JSON.stringify(recruitment.selectionStages, null, 2) : ''}</textarea>
-        </details>
-      </div>
-
-      <!-- Section 6: Salary & Cadre Matrix -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            6. Salary & Cadre Matrix
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-            Pay & Service Terms
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Official Pay Scale (Override)
-            </label>
-            <input
-              type="text"
-              name="payScaleOverride"
-              value={recruitment.payScaleOverride || recruitment.payScale || ''}
-              placeholder="e.g. Rs. 19,500 - 62,000/- (Pay Matrix Level 4)"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Cadre & Service Classification
-            </label>
-            <input
-              type="text"
-              name="cadreClassification"
-              value={recruitment.cadreClassification || ''}
-              placeholder="e.g. Class III Non-Gazetted Executive Police Service"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-foreground mb-1">
-            Allowances, Probation & Stipend Terms (Markdown)
-          </label>
-          <textarea
-            name="salaryDetailsMarkdown"
-            rows="3"
-            placeholder="e.g. Basic pay Rs. 19,500/- plus DA, HRA, Uniform Allowance. 3-year statutory probation period with 70%, 80%, 90% stipend applies."
-            class="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-xs leading-relaxed text-foreground outline-none"
-          >{recruitment.salaryDetailsMarkdown || ''}</textarea>
-        </div>
-      </div>
-
-      <!-- Section 7: Documents & Gazette Sources -->
-      <div class="bg-card p-6 sm:p-8 rounded-2xl border border-border shadow-sm space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-border">
-          <h2 class="text-sm font-bold text-foreground uppercase tracking-wider">
-            7. Official Documents & Portal Links
-          </h2>
-          <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
-            Source Ground Truth
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Gazette Rulebook Document Title
-            </label>
-            <input
-              type="text"
-              name="sourceTitle"
-              value={primarySource?.sourceTitle || ''}
-              placeholder="e.g. MP Police Constable Recruitment Test 2026 Detailed Rulebook"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs text-foreground outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Official Notification PDF URL <span class="text-red-500">*</span>
-            </label>
-            <input
-              type="url"
-              name="sourceUrl"
-              value={primarySource?.sourceUrl || ''}
-              placeholder="https://esb.mp.gov.in/Rulebooks/RB_2026/...pdf"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Official Apply Online URL
-            </label>
-            <input
-              type="url"
-              name="officialApplyUrl"
-              value={primaryApplyLink?.url || 'https://esb.mponline.gov.in'}
-              placeholder="https://esb.mponline.gov.in"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-foreground mb-1">
-              Official Syllabus Document URL
-            </label>
-            <input
-              type="url"
-              name="syllabusUrl"
-              value={primarySyllabusLink?.url || ''}
-              placeholder="https://esb.mp.gov.in/...syllabus.pdf"
-              class="w-full px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-mono text-foreground outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="flex items-center justify-end gap-3 pt-4">
-        <a
-          href="/admin/recruitments"
-          class="px-5 py-2.5 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors"
-        >
-          Cancel
-        </a>
-        <button
-          type="submit"
-          class="px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-        >
-          Save All 7 Sections
-        </button>
-      </div>
-
-    </form>
-  </div>
-</BaseLayout>
+      jumpButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.dataset.jump;
+          switchTab(tabId);
+        });
+      });
+    });
+  </script>
+</AdminLayout>

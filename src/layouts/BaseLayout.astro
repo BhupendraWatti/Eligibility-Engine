@@ -9,6 +9,7 @@ interface Props {
   description?: string;
   canonicalUrl?: string;
   ogType?: string;
+  isReportPage?: boolean;
 }
 
 const {
@@ -16,6 +17,7 @@ const {
   description = 'Explore Madhya Pradesh government opportunities, check eligibility, track important dates and access official recruitment links.',
   canonicalUrl = Astro.url.href,
   ogType = 'website',
+  isReportPage = false,
 } = Astro.props;
 ---
 
@@ -49,11 +51,13 @@ const {
     <meta name="author" content="NIRNAY" />
   </head>
   <body class="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white">
-    <!-- Print Only Header -->
-    <div class="print-only p-4 border-b-2 border-slate-900 mb-6 text-center">
-      <h1 class="text-2xl font-bold text-slate-900">NIRNAY — Eligibility Assessment Report</h1>
-      <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory platform.</p>
-    </div>
+    <!-- Print Only Header for Official Assessment Reports -->
+    {isReportPage && (
+      <div class="print-only p-4 border-b-2 border-slate-900 mb-6 text-center">
+        <h1 class="text-2xl font-bold text-slate-900">NIRNAY — Eligibility Assessment Report</h1>
+        <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory platform.</p>
+      </div>
+    )}
 
     <Header />
 

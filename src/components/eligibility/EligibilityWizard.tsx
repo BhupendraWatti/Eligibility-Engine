@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { evaluateEligibility, type UserEligibilityProfile, type RecruitmentCriteria, type OverallEligibilityStatus } from '../../engine/eligibility';
+import { evaluateEligibility, type UserEligibilityProfile, type RecruitmentCriteria } from '../../engine/eligibility';
 
 interface RecruitmentData {
   id: string;
@@ -9,6 +9,8 @@ interface RecruitmentData {
   totalVacancies: number;
   postTitle: string;
   organisationName: string;
+  organisationShortName?: string;
+  organisationUrl?: string;
   criteria: RecruitmentCriteria;
 }
 
@@ -18,38 +20,42 @@ interface Props {
 
 export default function EligibilityWizard({ recruitments }: Props) {
   const [step, setStep] = useState<number>(1);
-  const [age, setAge] = useState<number>(21);
-  const [profile, setProfile] = useState<UserEligibilityProfile>({
-    dob: '2005-01-01',
-    gender: 'MALE',
-    category: 'UR',
-    isMpDomicile: true,
-    hasMpRojgarPanjiyan: true,
-    hasCpct: false,
-    qualificationLevel: 'GRADUATION',
-    heightCm: undefined,
-  });
 
+  // Pure empty starting states — no silent defaults
+  const [ageInput, setAgeInput] = useState<string>('');
+  const [selectedGender, setSelectedGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('');
+  const [selectedQualification, setSelectedQualification] = useState<UserEligibilityProfile['qualificationLevel'] | ''>('');
   const [degree, setDegree] = useState<string>('B.Tech');
   const [stream, setStream] = useState<string>('Computer Science');
-  const [passingYear, setPassingYear] = useState<string>('2023');
+  const [passingYear, setPassingYear] = useState<string>('2024');
+
+  const [isMpDomicile, setIsMpDomicile] = useState<boolean | null>(null);
+  const [hasMpRojgarPanjiyan, setHasMpRojgarPanjiyan] = useState<boolean | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<UserEligibilityProfile['category'] | ''>('');
+
   const [experience, setExperience] = useState<string>('none');
   const [meetsPhysical, setMeetsPhysical] = useState<boolean>(false);
   const [hasTechCert, setHasTechCert] = useState<boolean>(false);
 
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [hasEvaluated, setHasEvaluated] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'ELIGIBLE' | 'NEEDS_VERIFICATION' | 'NOT_ELIGIBLE'>('ELIGIBLE');
 
-  // Compute DOB from entered age
-  const handleAgeChange = (val: number) => {
-    setAge(val);
-    const targetYear = new Date().getFullYear() - val;
-    setProfile(prev => ({ ...prev, dob: `${targetYear}-01-01` }));
-  };
-
-  const updateField = <K extends keyof UserEligibilityProfile>(key: K, value: UserEligibilityProfile[K]) => {
-    setProfile(prev => ({ ...prev, [key]: value }));
-  };
+  // Construct user profile from candidate answers
+  const profile: UserEligibilityProfile = useMemo(() => {
+    const numericAge = parseInt(ageInput) || 21;
+    const targetYear = new Date().getFullYear() - numericAge;
+    return {
+      dob: `${targetYear}-01-01`,
+      gender: (selectedGender || 'MALE') as any,
+      category: (selectedCategory || 'UR') as any,
+      isMpDomicile: isMpDomicile ?? false,
+      hasMpRojgarPanjiyan: hasMpRojgarPanjiyan ?? false,
+      hasCpct: hasTechCert,
+      qualificationLevel: (selectedQualification || 'GRADUATION') as any,
+      heightCm: undefined,
+    };
+  }, [ageInput, selectedGender, selectedCategory, isMpDomicile, hasMpRojgarPanjiyan, hasTechCert, selectedQualification]);
 
   // Evaluate candidate results across all recruitments
   const results = useMemo(() => {
@@ -84,38 +90,82 @@ export default function EligibilityWizard({ recruitments }: Props) {
     return results.filter(r => r.overallStatus === activeTab);
   }, [results, activeTab]);
 
+  // Step Validation Guard
+  const handleContinue = () => {
+    setValidationError(null);
+
+    if (step === 1) {
+      const ageNum = parseInt(ageInput);
+      if (isNaN(ageNum) || ageNum < 16 || ageNum > 65) {
+        setValidationError('Please enter a valid age between 16 and 65 years.');
+        return;
+      }
+      if (!selectedGender) {
+        setValidationError('Please select your gender.');
+        return;
+      }
+    } else if (step === 2) {
+      if (!selectedQualification) {
+        setValidationError('Please select your highest educational qualification level.');
+        return;
+      }
+    } else if (step === 3) {
+      if (isMpDomicile === null) {
+        setValidationError('Please indicate whether you are a resident domicile of Madhya Pradesh.');
+        return;
+      }
+      if (hasMpRojgarPanjiyan === null) {
+        setValidationError('Please indicate whether you have an active MP Rojgar Portal registration.');
+        return;
+      }
+    } else if (step === 4) {
+      if (!selectedCategory) {
+        setValidationError('Please select your social category for reservation and age relaxation.');
+        return;
+      }
+    }
+
+    setStep(s => Math.min(5, s + 1));
+  };
+
+  const handleFinishEvaluation = () => {
+    setHasEvaluated(true);
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto">
       {!hasEvaluated ? (
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          {/* Wizard Top Bar */}
+          {/* Top Bar with Clear Stepper & Progress Percentage */}
           <div className="bg-muted/50 border-b border-border p-6 sm:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                   Check what you can apply for
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Answer a few questions. No account required.
+                  Answer 5 questions. No account required · Zero ads · Verified against MP official gazettes.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold self-start sm:self-auto">
-                Step {step} of 5
-              </span>
+              <div className="self-start sm:self-auto">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold font-mono border border-primary/20">
+                  Step {step} of 5 · {step * 20}% Complete
+                </span>
+              </div>
             </div>
 
-            {/* 5-Step Progress Rail */}
+            {/* 5-Step Visual Progress Rail */}
             <div className="grid grid-cols-5 gap-2 pt-2">
               {[
                 { num: 1, label: 'Basic' },
                 { num: 2, label: 'Education' },
-                { num: 3, label: 'Location' },
+                { num: 3, label: 'Domicile' },
                 { num: 4, label: 'Category' },
-                { num: 5, label: 'Other' },
+                { num: 5, label: 'Review' },
               ].map(s => (
                 <div key={s.num} className="flex flex-col gap-1.5">
                   <div
-                    className={`h-1.5 rounded-full transition-all ${
+                    className={`h-2 rounded-full transition-all ${
                       s.num <= step ? 'bg-primary' : 'bg-border'
                     }`}
                   />
@@ -135,441 +185,449 @@ export default function EligibilityWizard({ recruitments }: Props) {
             </div>
           </div>
 
-          {/* Wizard Body: Two-Column Form & Why-We-Ask Rail */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 sm:p-8">
-            {/* Left Form Area (2 Cols) */}
-            <div className="lg:col-span-2">
-              {/* STEP 1: Basic Information */}
-              {step === 1 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">
-                      How old are you?
-                    </h2>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Use your age on the closing date of a recruitment.
-                    </p>
-                    <div className="max-w-xs">
-                      <input
-                        type="number"
-                        min="16"
-                        max="65"
-                        value={age}
-                        onChange={e => handleAgeChange(parseInt(e.target.value) || 18)}
-                        className="w-full text-xl font-bold font-mono px-4 py-3 rounded-xl bg-background border border-border focus:border-primary outline-none text-foreground"
-                      />
-                    </div>
-                  </div>
+          {/* Wizard Body Form */}
+          <div className="p-6 sm:p-8">
+            {/* Validation Error Banner */}
+            {validationError && (
+              <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2.5 animate-shake">
+                <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-red-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span className="font-semibold">{validationError}</span>
+              </div>
+            )}
 
-                  <div className="pt-4 border-t border-border">
-                    <label className="text-sm font-bold text-foreground block mb-2">
-                      Gender
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY'] as const).map(g => (
-                        <button
-                          key={g}
-                          type="button"
-                          onClick={() => updateField('gender', g === 'PREFER_NOT_TO_SAY' ? 'MALE' : g)}
-                          className={`p-3 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            profile.gender === g || (g === 'PREFER_NOT_TO_SAY' && false)
-                              ? 'border-primary bg-primary/10 text-primary shadow-2xs'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          {g === 'MALE' ? 'Male' : g === 'FEMALE' ? 'Female' : g === 'OTHER' ? 'Other' : 'Prefer not to say'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground pt-2">
-                    Your answers stay in this session unless you choose to download a report.
+            {/* STEP 1: Basic Information */}
+            {step === 1 && (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <label className="text-base sm:text-lg font-bold text-foreground block mb-1">
+                    How old are you? <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Enter your age in completed years as of current date.
                   </p>
+                  <div className="max-w-xs">
+                    <input
+                      type="number"
+                      min="16"
+                      max="65"
+                      placeholder="e.g. 21"
+                      value={ageInput}
+                      onChange={e => {
+                        setAgeInput(e.target.value);
+                        setValidationError(null);
+                      }}
+                      className="w-full text-xl font-bold font-mono px-4 py-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
+                    />
+                  </div>
                 </div>
-              )}
 
-              {/* STEP 2: Education */}
-              {step === 2 && (
-                <div className="space-y-6">
+                <div className="pt-2">
+                  <label className="text-sm font-bold text-foreground block mb-2">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'MALE', label: 'Male (पुरुष)' },
+                      { id: 'FEMALE', label: 'Female (महिला)' },
+                      { id: 'OTHER', label: 'Other (अन्य)' },
+                    ].map(g => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGender(g.id as any);
+                          setValidationError(null);
+                        }}
+                        className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                          selectedGender === g.id
+                            ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                            : 'border-border bg-card text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Inline "Why We Ask" Box */}
+                <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                   <div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">
-                      What is your highest qualification?
-                    </h2>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      We compare this against the minimum qualification in each official notification.
-                    </p>
+                    <strong className="text-foreground font-semibold">Why we ask:</strong> Official state gazette notifications calculate exact candidate age cutoffs on specific dates (typically 01 January) and mandate different physical standards and horizontal reservation quotas by gender.
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-6">
-                      {[
-                        { id: '10TH', label: '10th Pass' },
-                        { id: '12TH', label: '12th Pass' },
-                        { id: 'ITI', label: 'ITI Certificate' },
-                        { id: 'DIPLOMA', label: 'Polytechnic Diploma' },
-                        { id: 'GRADUATION', label: 'Graduation' },
-                        { id: 'POST_GRADUATION', label: 'Post Graduation' },
-                      ].map(q => (
+            {/* STEP 2: Education */}
+            {step === 2 && (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground mb-1">
+                    What is your highest qualification? <span className="text-red-500">*</span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Select the highest educational milestone you have completed.
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                    {[
+                      { id: '10TH', label: '10th Pass (High School)' },
+                      { id: '12TH', label: '12th Pass (Higher Secondary)' },
+                      { id: 'ITI', label: 'ITI Certificate' },
+                      { id: 'DIPLOMA', label: 'Polytechnic Diploma' },
+                      { id: 'GRADUATION', label: 'Graduation (Bachelor Degree)' },
+                      { id: 'POST_GRADUATION', label: 'Post Graduation (Master Degree)' },
+                    ].map(q => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedQualification(q.id as any);
+                          setValidationError(null);
+                        }}
+                        className={`p-3.5 rounded-xl border text-xs font-semibold text-left transition-all ${
+                          selectedQualification === q.id
+                            ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                            : 'border-border bg-card text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{q.label}</span>
+                          {selectedQualification === q.id && (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedQualification === 'GRADUATION' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border mb-4">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Degree Type</label>
+                        <select
+                          value={degree}
+                          onChange={e => setDegree(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
+                        >
+                          <option value="B.Tech">B.Tech / B.E.</option>
+                          <option value="B.Sc">B.Sc</option>
+                          <option value="B.Com">B.Com</option>
+                          <option value="B.A.">B.A.</option>
+                          <option value="Other">Other Bachelor Degree</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Discipline / Stream</label>
+                        <select
+                          value={stream}
+                          onChange={e => setStream(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
+                        >
+                          <option value="Computer Science">Computer Science / IT</option>
+                          <option value="Mechanical">Mechanical Engineering</option>
+                          <option value="Civil">Civil Engineering</option>
+                          <option value="General">General / Humanities</option>
+                          <option value="Commerce">Commerce / Accounts</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Passing Year</label>
+                        <select
+                          value={passingYear}
+                          onChange={e => setPassingYear(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
+                        >
+                          <option value="2026">2026 (Final Year)</option>
+                          <option value="2025">2025</option>
+                          <option value="2024">2024</option>
+                          <option value="2023">2023</option>
+                          <option value="2022">2022 or earlier</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline "Why We Ask" Box */}
+                  <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <div>
+                      <strong className="text-foreground font-semibold">Why we ask:</strong> We evaluate educational ranks hierarchically: 8TH &lt; 10TH &lt; 12TH &lt; DIPLOMA &lt; GRADUATION &lt; POST_GRADUATION. Having a higher degree satisfies lower baseline requirements.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Domicile & Rojgar Panjiyan */}
+            {step === 3 && (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground mb-1">
+                    Madhya Pradesh Domicile & Registration <span className="text-red-500">*</span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    State reservations and quota seats require valid domicile documents.
+                  </p>
+
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="text-xs font-bold text-foreground block mb-2">
+                        Are you a domicile of Madhya Pradesh (मूल निवासी)?
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
                         <button
-                          key={q.id}
                           type="button"
-                          onClick={() => updateField('qualificationLevel', q.id as any)}
-                          className={`p-3 rounded-xl border text-xs font-semibold text-left transition-all ${
-                            profile.qualificationLevel === q.id
+                          onClick={() => {
+                            setIsMpDomicile(true);
+                            setValidationError(null);
+                          }}
+                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                            isMpDomicile === true
                               ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
                               : 'border-border bg-card text-foreground hover:bg-muted'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span>{q.label}</span>
-                            {profile.qualificationLevel === q.id && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            )}
-                          </div>
+                          Yes, MP Domicile (हाँ, मूल निवासी)
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMpDomicile(false);
+                            setValidationError(null);
+                          }}
+                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                            isMpDomicile === false
+                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                              : 'border-border bg-card text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          No, Other State (अन्य राज्य)
+                        </button>
+                      </div>
                     </div>
 
-                    {profile.qualificationLevel === 'GRADUATION' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border mb-4">
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground block mb-1">Degree</label>
-                          <select
-                            value={degree}
-                            onChange={e => setDegree(e.target.value)}
-                            className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground"
-                          >
-                            <option value="B.Tech">B.Tech / B.E.</option>
-                            <option value="B.Sc">B.Sc</option>
-                            <option value="B.Com">B.Com</option>
-                            <option value="B.A.">B.A.</option>
-                            <option value="Other">Other Degree</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground block mb-1">Stream</label>
-                          <select
-                            value={stream}
-                            onChange={e => setStream(e.target.value)}
-                            className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground"
-                          >
-                            <option value="Computer Science">Computer Science / IT</option>
-                            <option value="Mechanical">Mechanical Engineering</option>
-                            <option value="Civil">Civil Engineering</option>
-                            <option value="General">General / Humanities</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground block mb-1">Passing Year</label>
-                          <select
-                            value={passingYear}
-                            onChange={e => setPassingYear(e.target.value)}
-                            className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground"
-                          >
-                            <option value="2026">2026 (Appearing)</option>
-                            <option value="2025">2025</option>
-                            <option value="2024">2024</option>
-                            <option value="2023">2023</option>
-                            <option value="2022">2022 or earlier</option>
-                          </select>
-                        </div>
+                    <div className="pt-2">
+                      <label className="text-xs font-bold text-foreground block mb-2">
+                        Do you hold an active MP Employment Portal Registration (रोजगार पंजीयन)?
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasMpRojgarPanjiyan(true);
+                            setValidationError(null);
+                          }}
+                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                            hasMpRojgarPanjiyan === true
+                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                              : 'border-border bg-card text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          Yes, Active Registration (हाँ, पंजीयन है)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasMpRojgarPanjiyan(false);
+                            setValidationError(null);
+                          }}
+                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                            hasMpRojgarPanjiyan === false
+                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                              : 'border-border bg-card text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          No / Not Yet (नहीं / अभी नहीं)
+                        </button>
                       </div>
-                    )}
+                    </div>
+                  </div>
 
-                    <div className="p-3 rounded-lg bg-blue-50/80 border border-blue-100 text-xs text-blue-800 flex items-start gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-blue-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span>Some notifications accept equivalent qualifications. We will mark those for verification.</span>
+                  {/* Inline "Why We Ask" Box */}
+                  <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <div>
+                      <strong className="text-foreground font-semibold">Why we ask:</strong> Under MP GAD circulars, MP domicile is mandatory to claim horizontal and vertical category reservations. Active MP Rojgar Panjiyan is mandatory on the date of application for MPESB group posts.
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* STEP 3: Location (Domicile) */}
-              {step === 3 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">
-                      Are you a domicile of Madhya Pradesh?
-                    </h2>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      State quota and age relaxations are statutory benefits for MP residents.
-                    </p>
+            {/* STEP 4: Category & Reservation */}
+            {step === 4 && (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground mb-1">
+                    What is your reservation category? <span className="text-red-500">*</span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Determines statutory upper age relaxations (up to +5 years) and qualifying marks.
+                  </p>
 
-                    <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                    {[
+                      { id: 'UR', label: 'General / Unreserved (UR)' },
+                      { id: 'OBC', label: 'OBC (Non-Creamy Layer)' },
+                      { id: 'SC', label: 'SC (Scheduled Caste)' },
+                      { id: 'ST', label: 'ST (Scheduled Tribe)' },
+                      { id: 'EWS', label: 'EWS (Economically Weaker)' },
+                    ].map(c => (
                       <button
+                        key={c.id}
                         type="button"
-                        onClick={() => updateField('isMpDomicile', true)}
-                        className={`p-4 rounded-xl border text-sm font-semibold text-center transition-all ${
-                          profile.isMpDomicile
+                        onClick={() => {
+                          setSelectedCategory(c.id as any);
+                          setValidationError(null);
+                        }}
+                        className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
+                          selectedCategory === c.id
                             ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
                             : 'border-border bg-card text-foreground hover:bg-muted'
                         }`}
                       >
-                        Yes, MP Domicile (मूल निवासी)
+                        {c.label}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => updateField('isMpDomicile', false)}
-                        className={`p-4 rounded-xl border text-sm font-semibold text-center transition-all ${
-                          !profile.isMpDomicile
-                            ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                            : 'border-border bg-card text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        No, Other State (अन्य राज्य)
-                      </button>
+                    ))}
+                  </div>
+
+                  {/* Inline "Why We Ask" Box */}
+                  <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <div>
+                      <strong className="text-foreground font-semibold">Statutory Rule:</strong> In Madhya Pradesh, SC/ST candidates receive +5 years relaxation; OBC (Non-Creamy Layer) receives +3 years; female candidates receive up to 38 years ceiling. EWS receives 0 years relaxation per state rules.
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    <div className="p-4 rounded-xl bg-muted/40 border border-border">
-                      <label className="flex items-center gap-3 cursor-pointer">
+            {/* STEP 5: Specialized Criteria */}
+            {step === 5 && (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground mb-1">
+                    Specialized Requirements (Optional)
+                  </h2>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    These optional criteria apply only to specialized uniforms or technical posts.
+                  </p>
+
+                  <div className="space-y-4 mb-6">
+                    {/* Physical Standards Check */}
+                    <div className="p-4 rounded-xl bg-card border border-border">
+                      <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={profile.hasMpRojgarPanjiyan}
-                          onChange={e => updateField('hasMpRojgarPanjiyan', e.target.checked)}
-                          className="size-4 rounded text-primary focus:ring-primary"
+                          checked={meetsPhysical}
+                          onChange={e => setMeetsPhysical(e.target.checked)}
+                          className="size-4 rounded text-primary focus:ring-primary mt-0.5"
                         />
                         <div>
                           <span className="text-xs font-semibold text-foreground block">
-                            Active MP Employment Portal Registration (रोजगार पंजीयन)
+                            I meet uniform post physical standards
                           </span>
                           <span className="text-[11px] text-muted-foreground">
-                            Mandatory for all MPESB application submissions.
+                            E.g. Male height 168 cm, Female height 158 cm for MP Police Constable & Sub-Inspector.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Technical Certs */}
+                    <div className="p-4 rounded-xl bg-card border border-border">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hasTechCert}
+                          onChange={e => setHasTechCert(e.target.checked)}
+                          className="size-4 rounded text-primary focus:ring-primary mt-0.5"
+                        />
+                        <div>
+                          <span className="text-xs font-semibold text-foreground block">
+                            I hold a CPCT scorecard / ITI / Hindi Typing certificate
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Required for Patwari, Assistant Grade-III, and Computer Operator posts.
                           </span>
                         </div>
                       </label>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* STEP 4: Category & Reservation */}
-              {step === 4 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">
-                      What is your reservation category?
-                    </h2>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Determines upper age relaxations (up to +5 years) and qualifying marks.
-                    </p>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {[
-                        { id: 'UR', label: 'General / UR' },
-                        { id: 'OBC', label: 'OBC (Non-Creamy)' },
-                        { id: 'SC', label: 'SC (Scheduled Caste)' },
-                        { id: 'ST', label: 'ST (Scheduled Tribe)' },
-                        { id: 'EWS', label: 'EWS (Economically Weaker)' },
-                      ].map(c => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => updateField('category', c.id as any)}
-                          className={`p-3 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            profile.category === c.id
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          {c.label}
-                        </button>
-                      ))}
+                  {/* Summary Profile Box */}
+                  <div className="p-4 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground">
+                    <span className="font-bold text-foreground block mb-2 uppercase tracking-wider text-[10px]">
+                      Profile ready for evaluation:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-foreground font-mono">
+                      <div>Age: <strong>{ageInput || '21'} yrs</strong></div>
+                      <div>Gender: <strong>{selectedGender}</strong></div>
+                      <div>Category: <strong>{selectedCategory}</strong></div>
+                      <div>Domicile: <strong>{isMpDomicile ? 'MP Resident' : 'Other State'}</strong></div>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* STEP 5: Other Criteria */}
-              {step === 5 && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground mb-1">
-                      Anything else we should know?
-                    </h2>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      These details only affect some specialized recruitments.
-                    </p>
-
-                    <div className="space-y-4">
-                      {/* Experience */}
-                      <div className="p-4 rounded-xl bg-card border border-border">
-                        <label className="text-xs font-bold text-foreground block mb-2">Relevant Work Experience</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['none', '1-2 years', '3+ years'].map(exp => (
-                            <button
-                              key={exp}
-                              type="button"
-                              onClick={() => setExperience(exp)}
-                              className={`p-2 rounded-lg text-xs font-medium border text-center transition-all ${
-                                experience === exp
-                                  ? 'border-primary bg-primary/10 text-primary'
-                                  : 'border-border bg-muted/40 text-foreground'
-                              }`}
-                            >
-                              {exp === 'none' ? 'No experience' : exp}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Physical Standards Check */}
-                      <div className="p-4 rounded-xl bg-card border border-border">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={meetsPhysical}
-                            onChange={e => setMeetsPhysical(e.target.checked)}
-                            className="size-4 rounded text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-xs font-semibold text-foreground block">
-                              I can meet role-specific physical standards
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              E.g. Male height 168 cm, Female height 155 cm for Police / Forest Guard posts.
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-
-                      {/* Technical Certs */}
-                      <div className="p-4 rounded-xl bg-card border border-border">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={hasTechCert}
-                            onChange={e => {
-                              setHasTechCert(e.target.checked);
-                              updateField('hasCpct', e.target.checked);
-                            }}
-                            className="size-4 rounded text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-xs font-semibold text-foreground block">
-                              I have a relevant technical certificate (CPCT / ITI / Typing)
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              Required for Patwari, Assistant Grade III, and Stenographer roles.
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 mt-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span>
-                        Skipping a field means we cannot verify that requirement. It does not automatically make you ineligible.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Actions */}
-              <div className="flex items-center justify-between pt-6 border-t border-border mt-8">
+            {/* Bottom Form Navigation Buttons */}
+            <div className="flex items-center justify-between pt-6 border-t border-border mt-8">
+              {step > 1 ? (
                 <button
                   type="button"
-                  disabled={step === 1}
-                  onClick={() => setStep(s => Math.max(1, s - 1))}
-                  className="px-4 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => {
+                    setValidationError(null);
+                    setStep(s => Math.max(1, s - 1));
+                  }}
+                  className="px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-foreground text-xs sm:text-sm font-medium transition-colors"
                 >
-                  Back
+                  &larr; Back
                 </button>
+              ) : (
+                <span />
+              )}
 
-                <div className="flex items-center gap-3">
-                  {step === 5 ? (
-                    <button
-                      type="button"
-                      onClick={() => setHasEvaluated(true)}
-                      className="px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors flex items-center gap-2"
-                    >
-                      <span>See my matches</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setStep(s => Math.min(5, s + 1))}
-                      className="px-5 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors flex items-center gap-1.5"
-                    >
-                      <span>Continue</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Rail: "Why We Ask" & Profile Summary (1 Col) */}
-            <div className="space-y-4">
-              <div className="p-5 rounded-xl bg-muted/50 border border-border">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">
-                  Why we ask
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Age and gender are used only where the official government notification makes them relevant for quotas, physical tests, or age cutoffs.
-                </p>
-                <div className="pt-3 mt-3 border-t border-border">
-                  <a
-                    href="/#closing-soon"
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Skip for now &rarr;
-                  </a>
-                </div>
-              </div>
-
-              {/* Profile summary card */}
-              <div className="p-5 rounded-xl bg-card border border-border">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
-                  Entered Profile
-                </h4>
-                <div className="space-y-2 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Age:</span>
-                    <span className="font-bold text-foreground">{age} yrs</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Gender:</span>
-                    <span className="font-medium text-foreground">{profile.gender}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Qualification:</span>
-                    <span className="font-medium text-foreground">{profile.qualificationLevel}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Domicile:</span>
-                    <span className="font-medium text-foreground">{profile.isMpDomicile ? 'Madhya Pradesh' : 'Other'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Category:</span>
-                    <span className="font-medium text-foreground">{profile.category}</span>
-                  </div>
-                </div>
-              </div>
+              {step < 5 ? (
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  className="px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors flex items-center gap-1.5 ml-auto"
+                >
+                  <span>Continue</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFinishEvaluation}
+                  className="px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors flex items-center gap-2 ml-auto"
+                >
+                  <span>Calculate Eligible Matches</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
+              )}
             </div>
           </div>
         </div>
       ) : (
-        /* RESULTS SCREEN (Flowstep Screen 7) */
+        /* RESULTS SCREEN: Transparent, explainable rule outcomes */
         <div className="space-y-6">
-          {/* Results Hero Card */}
           <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
               <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
-                  Eligibility check complete
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
+                  Evaluation Report
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+                  Your Statutory Opportunities Breakdown
                 </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  We found {eligibleCount} opportunities that match your information.
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Evaluated across {recruitments.length} published recruitments based on Madhya Pradesh state gazettes.
                 </p>
-                <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full bg-muted border border-border text-xs font-medium text-foreground">
-                  <span>Age {age}</span>
-                  <span>·</span>
-                  <span>{profile.qualificationLevel}</span>
-                  <span>·</span>
-                  <span>{profile.isMpDomicile ? 'Madhya Pradesh' : 'All-India'}</span>
-                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -578,22 +636,15 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   onClick={() => {
                     try {
                       const reportData = {
-                        evaluatedAt: new Date().toISOString(),
-                        reportId: `NIR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                         profile: {
-                          ...profile,
-                          age,
-                          degree,
-                          stream,
-                          passingYear,
-                          meetsPhysical,
-                          hasTechCert,
+                          age: parseInt(ageInput) || 21,
+                          gender: selectedGender,
+                          qualification: selectedQualification,
+                          domicile: isMpDomicile ? 'Madhya Pradesh' : 'Other State',
+                          category: selectedCategory,
+                          hasRojgarPanjiyan: hasMpRojgarPanjiyan,
                         },
-                        counts: {
-                          eligible: eligibleCount,
-                          verification: verificationCount,
-                          ineligible: ineligibleCount,
-                        },
+                        timestamp: new Date().toISOString(),
                         eligibleOpportunities: results
                           .filter(r => r.overallStatus === 'ELIGIBLE')
                           .map(r => ({
@@ -624,19 +675,19 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   className="px-4 py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm font-semibold shadow-sm transition-colors inline-flex items-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  <span>Download report</span>
+                  <span>Download Report</span>
                 </a>
                 <button
                   type="button"
                   onClick={() => setHasEvaluated(false)}
                   className="px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-foreground text-xs sm:text-sm font-medium transition-colors"
                 >
-                  Edit answers
+                  Edit Answers
                 </button>
               </div>
             </div>
 
-            {/* Segmented Result Summary Cards */}
+            {/* Segmented Result Summary Tabs */}
             <div className="grid grid-cols-3 gap-3 pt-6">
               <button
                 type="button"
@@ -664,7 +715,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-amber-800">Needs verification</span>
+                  <span className="text-xs font-semibold text-amber-800">Needs Verification</span>
                   <span className="size-2 rounded-full bg-amber-600"></span>
                 </div>
                 <span className="text-2xl font-bold font-mono text-amber-700">{verificationCount}</span>
@@ -680,7 +731,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-red-800">Not eligible</span>
+                  <span className="text-xs font-semibold text-red-800">Not Eligible</span>
                   <span className="size-2 rounded-full bg-red-500"></span>
                 </div>
                 <span className="text-2xl font-bold font-mono text-red-700">{ineligibleCount}</span>
@@ -688,26 +739,26 @@ export default function EligibilityWizard({ recruitments }: Props) {
             </div>
           </div>
 
-          {/* Matching Recruitment Cards List */}
+          {/* Results Cards List */}
           <div className="space-y-4">
             {filteredResults.length === 0 ? (
-              <div className="bg-card rounded-xl border border-border p-8 text-center">
-                <p className="text-sm text-muted-foreground">No opportunities under this category.</p>
+              <div className="bg-card rounded-2xl border border-border p-12 text-center">
+                <p className="text-sm text-muted-foreground">No recruitment opportunities under this category.</p>
               </div>
             ) : (
               filteredResults.map(r => (
-                <div key={r.recruitment.id} className="bg-card rounded-xl border border-border p-5 hover:border-border/80 transition-all">
+                <div key={r.recruitment.id} className="bg-card rounded-2xl border border-border p-6 hover:border-border/80 transition-all shadow-2xs">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div>
-                      <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                        {r.recruitment.organisationName || 'MPESB'}
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {r.recruitment.organisationName || 'MP State Authority'}
                       </span>
-                      <h3 className="text-base font-bold text-foreground">
+                      <h3 className="text-base sm:text-lg font-bold text-foreground">
                         {r.recruitment.title}
                       </h3>
                     </div>
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider self-start sm:self-auto ${
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider self-start sm:self-auto ${
                         r.overallStatus === 'ELIGIBLE'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : r.overallStatus === 'NEEDS_VERIFICATION'
@@ -715,48 +766,46 @@ export default function EligibilityWizard({ recruitments }: Props) {
                           : 'bg-red-50 text-red-700 border border-red-200'
                       }`}
                     >
-                      {r.overallStatus === 'ELIGIBLE' ? 'Eligible' : r.overallStatus === 'NEEDS_VERIFICATION' ? 'Needs verification' : 'Not eligible'}
+                      {r.overallStatus === 'ELIGIBLE' ? 'Eligible' : r.overallStatus === 'NEEDS_VERIFICATION' ? 'Verification Required' : 'Not Eligible'}
                     </span>
                   </div>
 
-                  {/* Checklist rows */}
-                  <div className="space-y-1.5 pt-2 pb-4 text-xs">
+                  {/* Explainable Rule-by-Rule Breakdown */}
+                  <div className="space-y-2 pt-2 pb-4 text-xs border-t border-border/60 mt-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                      Rule Application Breakdown:
+                    </span>
                     {r.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={idx} className="flex items-start gap-2.5">
                         {item.status === 'MATCH' ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-emerald-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         ) : item.status === 'UNKNOWN' ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-amber-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-amber-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                         ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-red-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         )}
-                        <span className={item.status === 'MATCH' ? 'text-foreground' : item.status === 'UNKNOWN' ? 'text-amber-800' : 'text-red-700'}>
+                        <span className={item.status === 'MATCH' ? 'text-foreground' : item.status === 'UNKNOWN' ? 'text-amber-900 font-medium' : 'text-red-700 font-medium'}>
                           <strong className="font-semibold">{item.ruleName}:</strong> {item.message || item.requirement}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-3 border-t border-border flex items-center justify-between">
+                  <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground font-mono">
-                      Vacancies: {r.recruitment.totalVacancies?.toLocaleString()}
+                      Total Vacancies: {r.recruitment.totalVacancies?.toLocaleString() || 'Announced'}
                     </span>
                     <a
                       href={`/recruitments/${r.recruitment.slug}`}
-                      className="font-semibold text-xs text-primary hover:underline inline-flex items-center gap-1"
+                      class="font-semibold text-xs text-primary hover:underline inline-flex items-center gap-1.5"
                     >
-                      <span>View details & official link</span>
+                      <span>View Official Gazette Details</span>
                       <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </a>
                   </div>
                 </div>
               ))
             )}
-          </div>
-
-          {/* Neutral Disclaiming Note */}
-          <div className="p-4 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground text-center">
-            This is a deterministic match against the information entered, not a selection guarantee. Verify every requirement in the official recruitment notification.
           </div>
         </div>
       )}

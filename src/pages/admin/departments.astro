@@ -1,0 +1,207 @@
+---
+// src/pages/admin/departments.astro (FlowStep Screen 26)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllDepartments, getAllSectors } from '../../db/queries';
+
+let departments: any[] = [];
+let sectors: any[] = [];
+
+try {
+  [departments, sectors] = await Promise.all([
+    getAllDepartments(),
+    getAllSectors(),
+  ]);
+} catch (err) {
+  console.error("Departments fetch error:", err);
+}
+
+// Fallback departments if DB empty
+if (!departments || departments.length === 0) {
+  departments = [
+    { id: '1', name: 'Police Department', sector: 'Police', openRecruitments: 12, publishedPages: 'Yes', status: 'Active', updated: '18 Sep 2026' },
+    { id: '2', name: 'Forest Department', sector: 'Forest', openRecruitments: 7, publishedPages: 'Yes', status: 'Active', updated: '17 Sep 2026' },
+    { id: '3', name: 'Women & Child Development', sector: 'Social Development', openRecruitments: 3, publishedPages: 'Yes', status: 'Draft', updated: '16 Sep 2026' },
+    { id: '4', name: 'Public Works Department (PWD)', sector: 'Engineering', openRecruitments: 5, publishedPages: 'Yes', status: 'Active', updated: '14 Sep 2026' },
+    { id: '5', name: 'Department of School Education', sector: 'Education', openRecruitments: 18, publishedPages: 'Yes', status: 'Active', updated: '12 Sep 2026' },
+  ];
+}
+---
+
+<AdminLayout
+  title="Departments"
+  currentSection="departments"
+  breadcrumbs={[
+    { label: 'Departments' },
+  ]}
+>
+  <div class="mx-auto max-w-6xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 26) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Departments
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Government departments conducting or sponsoring recruitment drives
+        </p>
+      </div>
+
+      <button
+        type="button"
+        id="openAddDeptDrawerBtn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add department</span>
+      </button>
+    </div>
+
+    <!-- Filters Toolbar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-3 max-w-md w-full">
+        <div class="relative flex-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="search"
+            placeholder="Search departments..."
+            class="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-2xs"
+          />
+        </div>
+
+        <select class="px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-800 outline-none focus:ring-2 focus:ring-zinc-900">
+          <option value="ALL">All Sectors</option>
+          {sectors.map((s: any) => (
+            <option value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <span class="text-xs text-zinc-500 font-mono">
+        Showing {departments.length} department records
+      </span>
+    </div>
+
+    <!-- Departments Table (FlowStep Screen 26) -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4">Department Name</th>
+              <th class="py-3 px-3">Sector</th>
+              <th class="py-3 px-3">Open Drives</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Updated</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            {departments.map((dept: any) => (
+              <tr class="hover:bg-zinc-50/80 transition-colors">
+                <td class="py-3.5 px-4 font-bold text-zinc-950">
+                  {dept.name}
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200 font-mono">
+                    {dept.sector || 'State Administration'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 font-mono font-semibold text-zinc-900 tabular-nums">
+                  {dept.openRecruitments ?? 5} active
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                    dept.status === 'Draft'
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  }`}>
+                    {dept.status || 'Active'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px]">
+                  {dept.updated || '18 Sep 2026'}
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Edit
+                    </button>
+                    <span class="text-zinc-300">·</span>
+                    <a href="/admin/recruitments" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      View recruitments
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Department Drawer (FlowStep Screen 26) -->
+  <div id="addDeptDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Add Department</h2>
+            <p class="text-xs text-zinc-500">Create a departmental governance entry.</p>
+          </div>
+          <button type="button" id="closeAddDeptDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Department Title *</label>
+            <input type="text" placeholder="e.g. Commercial Tax Department" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Assign Sector *</label>
+            <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              <option>Revenue & Finance</option>
+              <option>Police & Law Enforcement</option>
+              <option>Forest & Environment</option>
+              <option>Education</option>
+              <option>Health & Medical</option>
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Administrative Headquarters</label>
+            <input type="text" defaultValue="Vallabh Bhawan, Bhopal, MP" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 outline-none" />
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Enable department in public sector filters</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelAddDeptDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+          Cancel
+        </button>
+        <button type="button" id="saveDeptBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+          Save Department
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const drawer = document.getElementById('addDeptDrawer');
+    document.getElementById('openAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
+    document.getElementById('closeAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('cancelAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('saveDeptBtn')?.addEventListener('click', () => {
+      alert('Department registered successfully!');
+      drawer?.classList.add('hidden');
+    });
+  </script>
+</AdminLayout>

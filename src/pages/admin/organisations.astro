@@ -1,0 +1,224 @@
+---
+// src/pages/admin/organisations.astro (FlowStep Screen 25)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+const organisations = [
+  {
+    name: 'Madhya Pradesh Employees Selection Board',
+    shortName: 'MPESB',
+    slug: 'mpesb',
+    activeRecruitments: 32,
+    domain: 'esb.mp.gov.in',
+    status: 'Active',
+    updated: '18 Sep 2026',
+  },
+  {
+    name: 'High Court of Madhya Pradesh',
+    shortName: 'MP High Court',
+    slug: 'mp-high-court',
+    activeRecruitments: 8,
+    domain: 'mphc.gov.in',
+    status: 'Active',
+    updated: '16 Sep 2026',
+  },
+  {
+    name: 'Madhya Pradesh Public Service Commission',
+    shortName: 'MPPSC',
+    slug: 'mppsc',
+    activeRecruitments: 14,
+    domain: 'mppsc.mp.gov.in',
+    status: 'Active',
+    updated: '15 Sep 2026',
+  },
+  {
+    name: 'Department of Public Health & Family Welfare',
+    shortName: 'Health Department',
+    slug: 'health-dept',
+    activeRecruitments: 6,
+    domain: 'health.mp.gov.in',
+    status: 'Needs review',
+    updated: '12 Sep 2026',
+  },
+  {
+    name: 'Madhya Pradesh State Forest Department',
+    shortName: 'Forest Dept',
+    slug: 'mp-forest',
+    activeRecruitments: 4,
+    domain: 'mpforest.gov.in',
+    status: 'Active',
+    updated: '10 Sep 2026',
+  },
+];
+---
+
+<AdminLayout
+  title="Organisations"
+  currentSection="organisations"
+  breadcrumbs={[
+    { label: 'Organisations' },
+  ]}
+>
+  <div class="mx-auto max-w-6xl space-y-6">
+    <!-- Header with Action (FlowStep Screen 25) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Organisations
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Maintain canonical organisation records used across discovery pages
+        </p>
+      </div>
+
+      <button
+        type="button"
+        id="openAddOrgDrawerBtn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add organisation</span>
+      </button>
+    </div>
+
+    <!-- Search Toolbar -->
+    <div class="flex items-center justify-between gap-3">
+      <div class="relative max-w-sm w-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="search"
+          placeholder="Search organisations..."
+          class="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-2xs"
+        />
+      </div>
+      <span class="text-xs text-zinc-500 font-mono">
+        Showing {organisations.length} canonical bodies
+      </span>
+    </div>
+
+    <!-- Organisations Table (FlowStep Screen 25) -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4">Organisation</th>
+              <th class="py-3 px-3">Slug</th>
+              <th class="py-3 px-3">Active Drives</th>
+              <th class="py-3 px-3">Official Domain</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Updated</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            {organisations.map((org) => (
+              <tr class="hover:bg-zinc-50/80 transition-colors">
+                <td class="py-3.5 px-4">
+                  <div class="font-bold text-zinc-950">{org.name}</div>
+                  <div class="text-[10px] text-zinc-400 font-mono mt-0.5">{org.shortName}</div>
+                </td>
+                <td class="py-3.5 px-3 font-mono text-zinc-600 text-[11px]">{org.slug}</td>
+                <td class="py-3.5 px-3 font-mono font-semibold text-zinc-900 tabular-nums">{org.activeRecruitments}</td>
+                <td class="py-3.5 px-3">
+                  <a
+                    href={`https://${org.domain}`}
+                    target="_blank"
+                    class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-600 hover:text-zinc-950 hover:underline"
+                  >
+                    <span>{org.domain}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                    org.status === 'Active'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}>
+                    {org.status}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px]">{org.updated}</td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Edit
+                    </button>
+                    <span class="text-zinc-300">·</span>
+                    <a href={`/organisations/${org.slug}`} target="_blank" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      View public
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Organisation Slide-over Drawer (FlowStep Screen 25) -->
+  <div id="addOrgDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Add Organisation</h2>
+            <p class="text-xs text-zinc-500">Create a canonical government body record.</p>
+          </div>
+          <button type="button" id="closeAddOrgDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Organisation Name *</label>
+            <input type="text" placeholder="e.g. Madhya Pradesh Revenue Board" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" placeholder="e.g. mp-revenue-board" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Official Website Domain *</label>
+            <input type="text" placeholder="e.g. revenue.mp.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Short Description</label>
+            <textarea rows="3" placeholder="Brief statutory overview of this recruiting authority..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Mark organisation active in discovery portal</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelAddOrgDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+          Cancel
+        </button>
+        <button type="button" id="saveOrgBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+          Save Organisation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    const drawer = document.getElementById('addOrgDrawer');
+    document.getElementById('openAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
+    document.getElementById('closeAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('cancelAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('saveOrgBtn')?.addEventListener('click', () => {
+      alert('Organisation record staged successfully!');
+      drawer?.classList.add('hidden');
+    });
+  </script>
+</AdminLayout>
