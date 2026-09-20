@@ -1,0 +1,127 @@
+---
+// src/components/admin/AdminMobileBottomNav.astro
+interface Props {
+  current?: string;
+}
+
+const { current = 'dashboard' } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const isDashboard = current === 'dashboard' || pathname === '/admin' || pathname === '/admin/';
+const isRecruitments = current === 'recruitments' || pathname.startsWith('/admin/recruitments');
+const isSources = current === 'sources' || pathname.startsWith('/admin/sources');
+const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/eligibility-rules');
+---
+
+<!-- Mobile Bottom Navigation Dock (Visible only on < md screens) -->
+<nav
+  aria-label="Mobile Navigation"
+  class="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 backdrop-blur-lg border-t border-zinc-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-2"
+>
+  <div class="flex items-center justify-around max-w-md mx-auto">
+    <!-- 1. Dashboard -->
+    <a
+      href="/admin"
+      class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
+        isDashboard
+          ? 'text-zinc-950 font-bold'
+          : 'text-zinc-500 hover:text-zinc-900 font-medium'
+      }`}
+    >
+      <div class={`flex items-center justify-center size-8 rounded-lg transition-colors ${
+        isDashboard ? 'bg-zinc-950 text-white shadow-xs' : 'text-zinc-600'
+      }`}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={isDashboard ? '2.5' : '2'}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      </div>
+      <span class="text-[10px] mt-0.5 tracking-tight">Overview</span>
+    </a>
+
+    <!-- 2. Recruitments -->
+    <a
+      href="/admin/recruitments"
+      class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
+        isRecruitments
+          ? 'text-zinc-950 font-bold'
+          : 'text-zinc-500 hover:text-zinc-900 font-medium'
+      }`}
+    >
+      <div class={`flex items-center justify-center size-8 rounded-lg transition-colors ${
+        isRecruitments ? 'bg-zinc-950 text-white shadow-xs' : 'text-zinc-600'
+      }`}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={isRecruitments ? '2.5' : '2'}><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+      <span class="text-[10px] mt-0.5 tracking-tight">Drives</span>
+    </a>
+
+    <!-- 3. Sources (with pending alert indicator) -->
+    <a
+      href="/admin/sources"
+      class={`relative flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
+        isSources
+          ? 'text-zinc-950 font-bold'
+          : 'text-zinc-500 hover:text-zinc-900 font-medium'
+      }`}
+    >
+      <div class={`relative flex items-center justify-center size-8 rounded-lg transition-colors ${
+        isSources ? 'bg-zinc-950 text-white shadow-xs' : 'text-zinc-600'
+      }`}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={isSources ? '2.5' : '2'}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-amber-500 ring-2 ring-white animate-pulse"></span>
+      </div>
+      <span class="text-[10px] mt-0.5 tracking-tight">Sources</span>
+    </a>
+
+    <!-- 4. Rules -->
+    <a
+      href="/admin/eligibility-rules"
+      class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
+        isRules
+          ? 'text-zinc-950 font-bold'
+          : 'text-zinc-500 hover:text-zinc-900 font-medium'
+      }`}
+    >
+      <div class={`flex items-center justify-center size-8 rounded-lg transition-colors ${
+        isRules ? 'bg-zinc-950 text-white shadow-xs' : 'text-zinc-600'
+      }`}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={isRules ? '2.5' : '2'}><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+      </div>
+      <span class="text-[10px] mt-0.5 tracking-tight">Rules</span>
+    </a>
+
+    <!-- 5. Menu Drawer Trigger -->
+    <button
+      type="button"
+      id="bottom-nav-menu-btn"
+      class="flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl text-zinc-500 hover:text-zinc-900 font-medium cursor-pointer transition-all"
+      aria-label="Open navigation menu"
+    >
+      <div class="flex items-center justify-center size-8 rounded-lg text-zinc-700 hover:bg-zinc-100 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" x2="20" y1="12" y2="12"></line>
+          <line x1="4" x2="20" y1="6" y2="6"></line>
+          <line x1="4" x2="20" y1="18" y2="18"></line>
+        </svg>
+      </div>
+      <span class="text-[10px] mt-0.5 tracking-tight">Menu</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+  function setupBottomNavDrawerTrigger() {
+    const menuBtn = document.getElementById('bottom-nav-menu-btn');
+    if (menuBtn) {
+      menuBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('nirnay:toggle-mobile-drawer'));
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupBottomNavDrawerTrigger);
+  } else {
+    setupBottomNavDrawerTrigger();
+  }
+  document.addEventListener('astro:page-load', setupBottomNavDrawerTrigger);
+</script>
