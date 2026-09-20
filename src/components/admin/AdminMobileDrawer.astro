@@ -12,7 +12,7 @@ const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
 
 const navGroups = [
   {
-    title: 'Workspace & Records',
+    title: 'Workspace',
     items: [
       {
         name: 'Dashboard',
@@ -28,12 +28,26 @@ const navGroups = [
         active: current === 'recruitments' || pathname.startsWith('/admin/recruitments'),
         icon: 'briefcase',
       },
+    ],
+  },
+  {
+    title: 'Master Records',
+    badge: '4 Sub-types',
+    isMasterGroup: true,
+    items: [
       {
-        name: 'Organisations',
-        href: '/admin/organisations',
-        key: 'organisations',
-        active: current === 'organisations' || pathname.startsWith('/admin/organisations'),
-        icon: 'building',
+        name: 'Canonical Posts',
+        href: '/admin/masters',
+        key: 'masters',
+        active: current === 'masters' || pathname.startsWith('/admin/masters'),
+        icon: 'file-text',
+      },
+      {
+        name: 'Sectors & Posts',
+        href: '/admin/sectors-posts',
+        key: 'sectors-posts',
+        active: current === 'sectors-posts' || pathname.startsWith('/admin/sectors-posts'),
+        icon: 'layers',
       },
       {
         name: 'Departments',
@@ -43,11 +57,11 @@ const navGroups = [
         icon: 'network',
       },
       {
-        name: 'Sectors & posts',
-        href: '/admin/sectors-posts',
-        key: 'sectors-posts',
-        active: current === 'sectors-posts' || pathname.startsWith('/admin/sectors-posts') || pathname.startsWith('/admin/masters'),
-        icon: 'layers',
+        name: 'Organisations',
+        href: '/admin/organisations',
+        key: 'organisations',
+        active: current === 'organisations' || pathname.startsWith('/admin/organisations'),
+        icon: 'building',
       },
     ],
   },
@@ -156,8 +170,13 @@ const navGroups = [
       <div class="flex-1 overflow-y-auto px-3 py-3 space-y-5">
         {navGroups.map((group) => (
           <div>
-            <div class="px-2.5 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-              {group.title}
+            <div class="px-2.5 mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+              <span>{group.title}</span>
+              {group.badge && (
+                <span class="text-[9px] font-mono font-medium px-1 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+                  {group.badge}
+                </span>
+              )}
             </div>
             <nav class="space-y-1">
               {group.items.map((item) => (

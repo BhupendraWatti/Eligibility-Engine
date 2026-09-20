@@ -2,6 +2,7 @@
 // src/pages/admin/masters/index.astro
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
+import MasterSubNav from '../../../components/admin/MasterSubNav.astro';
 import {
   getAllCanonicalPosts,
   getAllSectors,
@@ -20,6 +21,8 @@ if (Astro.request.method === 'POST') {
     if (action === 'update_post') {
       const id = formData.get('id')?.toString();
       const title = formData.get('title')?.toString();
+      const sectorId = formData.get('sectorId')?.toString();
+      const departmentId = formData.get('departmentId')?.toString();
       const payScale = formData.get('payScale')?.toString();
       const defaultMinAge = parseInt(formData.get('defaultMinAge')?.toString() || '18', 10);
       const defaultMaxAge = parseInt(formData.get('defaultMaxAge')?.toString() || '33', 10);
@@ -30,6 +33,8 @@ if (Astro.request.method === 'POST') {
         await updateCanonicalPost({
           id,
           title,
+          sectorId: sectorId || undefined,
+          departmentId: departmentId || undefined,
           payScale: payScale || null,
           defaultMinAge,
           defaultMaxAge,
@@ -76,17 +81,51 @@ if (Astro.request.method === 'POST') {
 const posts = await getAllCanonicalPosts();
 const sectors = await getAllSectors();
 const departments = await getAllDepartments();
+
+// Dynamic Standard Master Qualification Levels
+const qualificationOptions = [
+  { value: '8TH', label: '8th Class Pass (Primary Cadre)', level: 'Primary' },
+  { value: '10TH', label: '10th Class Pass (Matriculation / Secondary)', level: 'Secondary' },
+  { value: '12TH', label: '12th Class Pass (Higher Secondary / 10+2)', level: 'Higher Secondary' },
+  { value: 'ITI', label: 'ITI Trade Certificate (Vocational / Technical)', level: 'Vocational' },
+  { value: 'DIPLOMA', label: 'Polytechnic Engineering / Technical Diploma', level: 'Technical' },
+  { value: 'GRADUATION', label: "Bachelor's Degree (Graduate - Any Discipline)", level: 'Undergraduate' },
+  { value: 'POST_GRADUATION', label: "Master's Degree (Post Graduate - Any Discipline)", level: 'Postgraduate' },
+];
+
+// Standard Dynamic 7th CPC State Pay Matrix Bands
+const standardPayBands = [
+  { level: 'Level 1', band: 'Rs. 15,500 - 49,000/- (Pay Matrix Level 1)' },
+  { level: 'Level 2', band: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 2)' },
+  { level: 'Level 4', band: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 4)' },
+  { level: 'Level 6', band: 'Rs. 28,700 - 91,300/- (Pay Matrix Level 6)' },
+  { level: 'Level 7', band: 'Rs. 32,800 - 1,03,600/- (Pay Matrix Level 7)' },
+  { level: 'Level 8', band: 'Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)' },
+  { level: 'Level 9', band: 'Rs. 42,700 - 1,35,100/- (Pay Matrix Level 9)' },
+  { level: 'Level 10', band: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 10)' },
+  { level: 'Level 12', band: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 12)' },
+  { level: 'Level J-1', band: 'Rs. 77,840 - 1,36,520/- (Pay Matrix Level J-1)' },
+];
 ---
 
 <AdminLayout
-  title="Master Records Catalog"
-  currentSection="sectors-posts"
+  title="Canonical Posts | Master Records"
+  currentSection="masters"
   breadcrumbs={[
-    { label: 'Sectors & posts', href: '/admin/sectors-posts' },
-    { label: 'Master records' },
+    { label: 'Master records', href: '/admin/masters' },
+    { label: 'Canonical Posts' },
   ]}
 >
-  <div class="max-w-7xl mx-auto space-y-6">
+  <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+    <!-- Master Records Section Sub-Types Navigation Bar -->
+    <MasterSubNav currentTab="masters" />
+
+    <!-- Shared Dynamic Datalist for Pay Matrix Autocomplete -->
+    <datalist id="dynamicPayBandsList">
+      {standardPayBands.map((pb) => (
+        <option value={pb.band}>{pb.level} - {pb.band}</option>
+      ))}
+    </datalist>
     <!-- Header & Breadcrumbs -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
@@ -156,32 +195,47 @@ const departments = await getAllDepartments();
     </div>
 
     <!-- Filters & Search Toolbar -->
-    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="sm:col-span-2">
+    <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4">
+        <div class="sm:col-span-6">
           <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-            Search Canonical Posts or Keywords
+            Search Master Posts or Keywords
           </label>
           <input
             type="text"
             id="searchInput"
-            placeholder="Search by post title, pay scale, or summary..."
-            class="w-full px-4 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+            placeholder="Search by post title, pay scale, or department..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
             oninput="filterPosts()"
           />
         </div>
-        <div>
+        <div class="sm:col-span-3">
           <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
             Filter by Sector
           </label>
           <select
             id="sectorFilter"
-            class="w-full px-4 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
-            onchange="filterPosts()"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            onchange="onSectorFilterChange()"
           >
             <option value="ALL">All Sectors ({posts.length} Posts)</option>
             {sectors.map(sec => (
               <option value={sec.id}>{sec.name}</option>
+            ))}
+          </select>
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+            Filter by Department
+          </label>
+          <select
+            id="deptFilter"
+            class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            onchange="filterPosts()"
+          >
+            <option value="ALL">All Departments ({departments.length})</option>
+            {departments.map(dept => (
+              <option value={dept.id} data-sector-id={dept.sectorId || ''}>{dept.name}</option>
             ))}
           </select>
         </div>
@@ -232,12 +286,15 @@ const departments = await getAllDepartments();
           <!-- Row 1: Sector, Department & Title -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                Government Sector <span class="text-rose-500">*</span>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Government Sector <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-indigo-600 font-semibold">Dynamic Filter</span>
               </label>
               <select
+                id="create_sectorId"
                 name="sectorId"
                 required
+                onchange="filterCreateDepartments()"
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
               >
                 {sectors.map(sec => (
@@ -247,16 +304,18 @@ const departments = await getAllDepartments();
             </div>
 
             <div>
-              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                State Department <span class="text-rose-500">*</span>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>State Department <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-slate-400 font-normal">Linked to sector</span>
               </label>
               <select
+                id="create_departmentId"
                 name="departmentId"
                 required
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
               >
                 {departments.map(dept => (
-                  <option value={dept.id}>{dept.name}</option>
+                  <option value={dept.id} data-sector-id={dept.sectorId || ''}>{dept.name}</option>
                 ))}
               </select>
             </div>
@@ -278,31 +337,33 @@ const departments = await getAllDepartments();
           <!-- Row 2: Pay Scale, Qualification, Min Age, Max Age -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                Pay Scale / Band
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Pay Scale / Band</span>
+                <span class="text-[10px] text-indigo-600 font-semibold">7th CPC Datalist</span>
               </label>
               <input
                 type="text"
                 name="payScale"
-                placeholder="e.g. Rs. 36,200 - 1,14,800/- (Level 9)"
+                list="dynamicPayBandsList"
+                placeholder="e.g. Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)"
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
               />
             </div>
 
             <div>
-              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                Default Qualification
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Default Qualification</span>
+                <span class="text-[10px] text-indigo-600 font-semibold">Standard Dynamic</span>
               </label>
               <select
                 name="defaultQualification"
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
               >
-                <option value="8TH">8th Pass (Primary Cadre)</option>
-                <option value="10TH" selected>10th Class Pass (Matriculation)</option>
-                <option value="12TH">12th Class Pass (Higher Secondary)</option>
-                <option value="DIPLOMA">Polytechnic / Technical Diploma</option>
-                <option value="GRADUATION">Bachelor's Degree (Graduate)</option>
-                <option value="POST_GRADUATION">Post Graduate (Master's Degree)</option>
+                {qualificationOptions.map((q) => (
+                  <option value={q.value} selected={q.value === '10TH'}>
+                    {q.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -420,6 +481,7 @@ const departments = await getAllDepartments();
                 id={`post-row-${post.id}`}
                 data-post-id={post.id}
                 data-sector-id={post.sectorId}
+                data-dept-id={post.departmentId}
                 data-title={post.title.toLowerCase()}
                 data-payscale={(post.payScale || '').toLowerCase()}
                 data-dept={(post.departmentName || '').toLowerCase()}
@@ -499,6 +561,44 @@ const departments = await getAllDepartments();
           <input type="hidden" name="_action" value="update_post" />
           <input type="hidden" id="edit_id" name="id" />
 
+          <!-- Dynamic Sector & Department Assignment Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Government Sector <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-indigo-600 font-semibold">Dynamic Assignment</span>
+              </label>
+              <select
+                id="edit_sectorId"
+                name="sectorId"
+                required
+                onchange="filterEditDepartments()"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              >
+                {sectors.map(sec => (
+                  <option value={sec.id}>{sec.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>State Department <span class="text-rose-500">*</span></span>
+                <span class="text-[10px] text-slate-400 font-normal">Filtered by sector</span>
+              </label>
+              <select
+                id="edit_departmentId"
+                name="departmentId"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              >
+                {departments.map(dept => (
+                  <option value={dept.id} data-sector-id={dept.sectorId || ''}>{dept.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <!-- Title & Pay Scale Row -->
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div class="lg:col-span-2">
@@ -519,12 +619,13 @@ const departments = await getAllDepartments();
             <div>
               <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
                 <span>Pay Scale / Band</span>
-                <span class="text-[10px] text-slate-400 font-normal normal-case">Level / Grade pay</span>
+                <span class="text-[10px] text-indigo-600 font-semibold">7th CPC Datalist</span>
               </label>
               <input
                 type="text"
                 id="edit_payScale"
                 name="payScale"
+                list="dynamicPayBandsList"
                 placeholder="e.g. Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)"
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm"
               />
@@ -536,21 +637,16 @@ const departments = await getAllDepartments();
             <div class="sm:col-span-2 lg:col-span-2">
               <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
                 <span>Default Canonical Qualification <span class="text-rose-500">*</span></span>
-                <span class="text-[10px] text-slate-400 font-normal normal-case">Standard base credential</span>
+                <span class="text-[10px] text-indigo-600 font-semibold">Standard Dynamic</span>
               </label>
               <select
                 id="edit_defaultQualification"
                 name="defaultQualification"
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm cursor-pointer"
               >
-                <option value="10TH">10th Class (Secondary)</option>
-                <option value="12TH">12th Class (Higher Secondary)</option>
-                <option value="GRADUATION">Graduation (Bachelor's Degree)</option>
-                <option value="POST_GRADUATION">Post Graduation (Master's Degree)</option>
-                <option value="DIPLOMA">Technical Polytechnic Diploma</option>
-                <option value="BED">B.Ed (Bachelor of Education)</option>
-                <option value="MBBS">MBBS (Medical Officer)</option>
-                <option value="LAW">LL.B (Bachelor of Legislative Law)</option>
+                {qualificationOptions.map((q) => (
+                  <option value={q.value}>{q.label}</option>
+                ))}
               </select>
             </div>
 
@@ -664,6 +760,62 @@ const departments = await getAllDepartments();
     }
   }
 
+  function filterCreateDepartments() {
+    const sectorSelect = document.getElementById('create_sectorId');
+    const deptSelect = document.getElementById('create_departmentId');
+    if (!sectorSelect || !deptSelect) return;
+    const selectedSectorId = sectorSelect.value;
+    let firstMatch = null;
+    Array.from(deptSelect.options).forEach((opt) => {
+      const optSectorId = opt.getAttribute('data-sector-id');
+      const match = !selectedSectorId || !optSectorId || optSectorId === selectedSectorId;
+      opt.hidden = !match;
+      if (match && !firstMatch) firstMatch = opt.value;
+    });
+    if (firstMatch && deptSelect.selectedOptions[0]?.hidden) {
+      deptSelect.value = firstMatch;
+    }
+  }
+
+  function filterEditDepartments(targetDeptId) {
+    const sectorSelect = document.getElementById('edit_sectorId');
+    const deptSelect = document.getElementById('edit_departmentId');
+    if (!sectorSelect || !deptSelect) return;
+    const selectedSectorId = sectorSelect.value;
+    let firstMatch = null;
+    Array.from(deptSelect.options).forEach((opt) => {
+      const optSectorId = opt.getAttribute('data-sector-id');
+      const match = !selectedSectorId || !optSectorId || optSectorId === selectedSectorId;
+      opt.hidden = !match;
+      if (match && !firstMatch) firstMatch = opt.value;
+    });
+    if (targetDeptId) {
+      deptSelect.value = targetDeptId;
+    } else if (firstMatch && deptSelect.selectedOptions[0]?.hidden) {
+      deptSelect.value = firstMatch;
+    }
+  }
+
+  function onSectorFilterChange() {
+    const sectorVal = document.getElementById('sectorFilter')?.value || 'ALL';
+    const deptFilter = document.getElementById('deptFilter');
+    if (deptFilter) {
+      Array.from(deptFilter.options).forEach((opt) => {
+        if (opt.value === 'ALL') {
+          opt.hidden = false;
+          return;
+        }
+        const optSector = opt.getAttribute('data-sector-id');
+        const match = sectorVal === 'ALL' || !optSector || optSector === sectorVal;
+        opt.hidden = !match;
+      });
+      if (deptFilter.selectedOptions[0]?.hidden) {
+        deptFilter.value = 'ALL';
+      }
+    }
+    filterPosts();
+  }
+
   function updateCreateAgeWindowBadge() {
     const minVal = parseInt(document.getElementById('create_minAge')?.value || '18', 10);
     const maxVal = parseInt(document.getElementById('create_maxAge')?.value || '33', 10);
@@ -704,6 +856,16 @@ const departments = await getAllDepartments();
     document.getElementById('edit_id').value = post.id;
     document.getElementById('edit_title').value = post.title;
     document.getElementById('edit_payScale').value = post.payScale || '';
+
+    // Dynamically set sector and filter departments
+    const editSector = document.getElementById('edit_sectorId');
+    if (editSector && post.sectorId) {
+      editSector.value = post.sectorId;
+      filterEditDepartments(post.departmentId);
+    } else {
+      filterEditDepartments(post.departmentId);
+    }
+
     document.getElementById('edit_defaultQualification').value = post.defaultQualification || '10TH';
     document.getElementById('edit_defaultMinAge').value = post.defaultMinAge || 18;
     document.getElementById('edit_defaultMaxAge').value = post.defaultMaxAge || 33;
@@ -777,26 +939,32 @@ const departments = await getAllDepartments();
   }
 
   function filterPosts() {
-    const searchVal = (document.getElementById('searchInput').value || '').toLowerCase().trim();
-    const sectorVal = document.getElementById('sectorFilter').value;
+    const searchVal = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    const sectorVal = document.getElementById('sectorFilter')?.value || 'ALL';
+    const deptVal = document.getElementById('deptFilter')?.value || 'ALL';
     const rows = document.querySelectorAll('.post-row');
     let visibleCount = 0;
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const rowSector = row.getAttribute('data-sector-id');
+      const rowDept = row.getAttribute('data-dept-id');
       const title = row.getAttribute('data-title') || '';
       const payScale = row.getAttribute('data-payscale') || '';
-      const dept = row.getAttribute('data-dept') || '';
+      const deptName = row.getAttribute('data-dept') || '';
 
       const matchesSector = sectorVal === 'ALL' || rowSector === sectorVal;
-      const matchesSearch = !searchVal || title.includes(searchVal) || payScale.includes(searchVal) || dept.includes(searchVal);
+      const matchesDept = deptVal === 'ALL' || rowDept === deptVal;
+      const matchesSearch =
+        !searchVal ||
+        title.includes(searchVal) ||
+        payScale.includes(searchVal) ||
+        deptName.includes(searchVal);
 
-      if (matchesSector && matchesSearch) {
+      if (matchesSector && matchesDept && matchesSearch) {
         row.style.display = '';
         visibleCount++;
       } else {
         row.style.display = 'none';
-        // If the active row is hidden by filter, hide workbench too
         if (currentEditingPostId && row.getAttribute('data-post-id') === currentEditingPostId) {
           const workbenchRow = document.getElementById('inlineEditWorkbenchRow');
           if (workbenchRow) workbenchRow.classList.add('hidden');
@@ -808,5 +976,14 @@ const departments = await getAllDepartments();
     if (badge) {
       badge.textContent = `Showing ${visibleCount} of ${rows.length} Posts`;
     }
+  }
+
+  // Initialize dynamic dropdown linking on page ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      filterCreateDepartments();
+    });
+  } else {
+    filterCreateDepartments();
   }
 </script>

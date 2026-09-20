@@ -2,42 +2,132 @@
 // src/pages/admin/departments.astro (FlowStep Screen 26)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
-import { createDepartment, getAllDepartments, getAllOrganisations } from '../../db/queries';
+import MasterSubNav from '../../components/admin/MasterSubNav.astro';
+import {
+  createDepartment,
+  updateDepartment,
+  getAllDepartments,
+  getAllOrganisations,
+  getAllCanonicalPosts,
+} from '../../db/queries';
 
-const organisations = await getAllOrganisations();
-let errorMessage = '';
+const [organisations, rawDepartments, canonicalPosts] = await Promise.all([
+  getAllOrganisations(),
+  getAllDepartments(),
+  getAllCanonicalPosts(),
+]);
+
+let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+
 if (Astro.request.method === 'POST') {
   try {
     const form = await Astro.request.formData();
-    const name = form.get('name')?.toString().trim();
-    const slug = form.get('slug')?.toString().trim();
-    const organisationId = form.get('organisationId')?.toString().trim();
-    if (!name || !slug || !organisationId) throw new Error('Department name, slug, and organisation are required.');
-    await createDepartment({ name, slug, organisationId, description: form.get('description')?.toString().trim(), isActive: form.get('isActive') === '1' ? 1 : 0, adminEmail: Astro.locals.adminEmail });
-    return Astro.redirect('/admin/departments');
-  } catch (error: any) { errorMessage = error.message; }
+    const action = form.get('_action')?.toString() || 'create_department';
+
+    if (action === 'update_department') {
+      const id = form.get('id')?.toString().trim();
+      const name = form.get('name')?.toString().trim();
+      const slug = form.get('slug')?.toString().trim();
+      const organisationId = form.get('organisationId')?.toString().trim();
+      const description = form.get('description')?.toString().trim();
+      const isActive = form.get('isActive') === '1' ? 1 : 0;
+
+      if (!id || !name || !slug || !organisationId) {
+        throw new Error('Department ID, name, slug, and organisation are required.');
+      }
+
+      await updateDepartment({
+        id,
+        name,
+        slug,
+        organisationId,
+        description,
+        isActive,
+        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+      });
+      statusMessage = { type: 'success', text: `Department "${name}" successfully updated!` };
+    } else {
+      const name = form.get('name')?.toString().trim();
+      const slug = form.get('slug')?.toString().trim();
+      const organisationId = form.get('organisationId')?.toString().trim();
+      const description = form.get('description')?.toString().trim();
+      const isActive = form.get('isActive') === '1' ? 1 : 0;
+
+      if (!name || !slug || !organisationId) {
+        throw new Error('Department name, slug, and organisation are required.');
+      }
+
+      await createDepartment({
+        name,
+        slug,
+        organisationId,
+        description,
+        isActive,
+        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+      });
+      statusMessage = { type: 'success', text: `Department "${name}" created successfully!` };
+    }
+  } catch (error: any) {
+    statusMessage = { type: 'error', text: error.message };
+  }
 }
-const orgNames = new Map(organisations.map(org => [org.id, org.shortName]));
-const departments = (await getAllDepartments()).map(dept => ({ ...dept, sector: orgNames.get(dept.organisationId) || 'Unknown organisation', openRecruitments: 0, status: dept.isActive ? 'Active' : 'Inactive', updated: 'Database' }));
+
+const orgMap = new Map(organisations.map(org => [org.id, org]));
+
+const departments = rawDepartments.map(dept => {
+  const org = orgMap.get(dept.organisationId);
+  const linkedPostsCount = canonicalPosts.filter(p => p.departmentId === dept.id).length;
+  return {
+    ...dept,
+    orgName: org?.name || 'Unknown Organisation',
+    orgShortName: org?.shortName || 'ORG',
+    linkedPostsCount,
+    status: dept.isActive ? 'Active' : 'Inactive',
+    updated: 'Database',
+  };
+});
+
+const activeCount = departments.filter(d => d.isActive).length;
+const inactiveCount = departments.length - activeCount;
 ---
 
 <AdminLayout
-  title="Departments"
+  title="Departments | Master Records"
   currentSection="departments"
   breadcrumbs={[
+    { label: 'Master records', href: '/admin/masters' },
     { label: 'Departments' },
   ]}
 >
-  <div class="mx-auto max-w-6xl space-y-6">
-    {errorMessage && <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900">{errorMessage}</div>}
-    <!-- Header with Action (FlowStep Screen 26) -->
+  <div class="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+    <!-- Master Records Section Sub-Types Navigation Bar -->
+    <MasterSubNav currentTab="departments" />
+
+    {statusMessage && (
+      <div class={`p-3.5 rounded-xl border text-xs flex items-center justify-between shadow-2xs ${
+        statusMessage.type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-rose-50 border-rose-200 text-rose-900'
+      }`}>
+        <div class="flex items-center gap-2 font-medium">
+          {statusMessage.type === 'success' ? (
+            <svg class="size-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          ) : (
+            <svg class="size-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      </div>
+    )}
+
+    <!-- Header with Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
-          Departments
+          Government Departments
         </h1>
         <p class="text-xs text-zinc-500 mt-0.5">
-          Government departments conducting or sponsoring recruitment drives
+          Ministries, directorates, and executive departments conducting public cadre recruitment
         </p>
       </div>
 
@@ -51,54 +141,121 @@ const departments = (await getAllDepartments()).map(dept => ({ ...dept, sector: 
       </button>
     </div>
 
-    <!-- Departments Table (FlowStep Screen 26) -->
+    <!-- Dynamic Filter Toolbar (Search + Dynamic Organisation Dropdown + Status) -->
+    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+        <!-- Live Search -->
+        <div class="relative flex-1 min-w-[180px]">
+          <input
+            type="text"
+            id="deptSearchInput"
+            placeholder="Search department by name or slug..."
+            class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50/50 focus:bg-white focus:ring-2 focus:ring-zinc-900 outline-none transition-all"
+          />
+          <svg class="size-3.5 text-zinc-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+
+        <!-- Dynamic Organisation Dropdown Filter -->
+        <select
+          id="deptOrgFilter"
+          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+        >
+          <option value="">All Organisations ({organisations.length})</option>
+          {organisations.map((org) => (
+            <option value={org.id}>{org.shortName || org.name}</option>
+          ))}
+        </select>
+
+        <!-- Dynamic Status Dropdown Filter -->
+        <select
+          id="deptStatusFilter"
+          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+        >
+          <option value="">All Statuses</option>
+          <option value="Active">Active ({activeCount})</option>
+          <option value="Inactive">Inactive ({inactiveCount})</option>
+        </select>
+      </div>
+
+      <div class="text-[11px] font-mono text-zinc-500">
+        Showing <span id="filteredDeptCount" class="font-bold text-zinc-900">{departments.length}</span> of {departments.length} departments
+      </div>
+    </div>
+
+    <!-- Departments Table -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse" id="departmentsDataTable">
           <thead>
             <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
               <th class="py-3 px-4">Department Name</th>
-              <th class="py-3 px-3">Sector</th>
-              <th class="py-3 px-3">Open Drives</th>
+              <th class="py-3 px-3">Parent Organisation</th>
+              <th class="py-3 px-3">Linked Posts</th>
               <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3">Updated</th>
               <th class="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
-            {departments.map((dept: any) => (
-              <tr class="hover:bg-zinc-50/80 transition-colors">
-                <td class="py-3.5 px-4 font-bold text-zinc-950">
-                  {dept.name}
+          <tbody class="divide-y divide-zinc-100" id="departmentsTableBody">
+            {departments.map((dept) => (
+              <tr
+                class="hover:bg-zinc-50/80 transition-colors dept-table-row"
+                data-dept-id={dept.id}
+                data-name={dept.name.toLowerCase()}
+                data-slug={dept.slug.toLowerCase()}
+                data-org-id={dept.organisationId}
+                data-status={dept.status}
+                data-description={dept.description || ''}
+                data-is-active={dept.isActive ? '1' : '0'}
+              >
+                <td class="py-3.5 px-4">
+                  <div class="font-bold text-zinc-950">{dept.name}</div>
+                  <div class="text-[10px] text-zinc-400 font-mono mt-0.5">/{dept.slug}</div>
                 </td>
                 <td class="py-3.5 px-3">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200 font-mono">
-                    {dept.sector || 'State Administration'}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-800 border border-zinc-200 font-mono">
+                      {dept.orgShortName}
+                    </span>
+                    <span class="text-zinc-600 truncate max-w-[200px]">{dept.orgName}</span>
+                  </div>
                 </td>
-                <td class="py-3.5 px-3 font-mono font-semibold text-zinc-900 tabular-nums">
-                  {dept.openRecruitments ?? 5} active
+                <td class="py-3.5 px-3">
+                  <a
+                    href={`/admin/masters?dept=${dept.id}`}
+                    class="inline-flex items-center gap-1 font-mono font-semibold text-zinc-900 hover:text-indigo-600 hover:underline"
+                  >
+                    <span>{dept.linkedPostsCount} canonical posts</span>
+                    <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  </a>
                 </td>
                 <td class="py-3.5 px-3">
                   <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                    dept.status === 'Draft'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    dept.status === 'Active'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}>
-                    {dept.status || 'Active'}
+                    {dept.status}
                   </span>
-                </td>
-                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px]">
-                  {dept.updated || '18 Sep 2026'}
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="flex items-center justify-end gap-2">
-                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                    <button
+                      type="button"
+                      class="edit-dept-btn text-zinc-600 hover:text-zinc-950 font-semibold hover:underline cursor-pointer"
+                      data-dept={JSON.stringify({
+                        id: dept.id,
+                        name: dept.name,
+                        slug: dept.slug,
+                        organisationId: dept.organisationId,
+                        description: dept.description || '',
+                        isActive: dept.isActive,
+                      })}
+                    >
                       Edit
                     </button>
                     <span class="text-zinc-300">·</span>
-                    <a href="/admin/recruitments" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
-                      View recruitments
+                    <a href={`/admin/recruitments`} class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                      Recruitments
                     </a>
                   </div>
                 </td>
@@ -110,16 +267,18 @@ const departments = (await getAllDepartments()).map(dept => ({ ...dept, sector: 
     </div>
   </div>
 
-  <!-- Add Department Drawer (FlowStep Screen 26) -->
+  <!-- Add Department Drawer -->
   <div id="addDeptDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
     <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="create_department" />
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Catalog</span>
             <h2 class="text-base font-bold text-zinc-950 font-heading">Add Department</h2>
             <p class="text-xs text-zinc-500">Create a departmental governance entry.</p>
           </div>
-          <button type="button" id="closeAddDeptDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+          <button type="button" id="closeAddDeptDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
             &times;
           </button>
         </div>
@@ -127,44 +286,197 @@ const departments = (await getAllDepartments()).map(dept => ({ ...dept, sector: 
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Department Title *</label>
-            <input type="text" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" id="addDeptName" name="name" required placeholder="Home Department" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
+          <!-- Dynamic Organisation Dropdown -->
           <div class="space-y-1.5">
-            <label class="block font-semibold text-zinc-800">Organisation *</label>
-            <select name="organisationId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">{organisations.map(org => <option value={org.id}>{org.name}</option>)}</select>
+            <label class="block font-semibold text-zinc-800">Parent Organisation *</label>
+            <select name="organisationId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {organisations.map((org) => (
+                <option value={org.id}>{org.name} ({org.shortName})</option>
+              ))}
+            </select>
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">URL Slug *</label>
-            <input type="text" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs text-zinc-700 outline-none" />
+            <input type="text" id="addDeptSlug" name="slug" required placeholder="home-department" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
-          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">Description</label><textarea name="description" rows="3" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs"></textarea></div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Description</label>
+            <textarea name="description" rows="3" placeholder="Sponsoring administrative department..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+          </div>
 
           <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
             <input type="checkbox" name="isActive" value="1" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
-            <span>Enable department in public sector filters</span>
+            <span>Enable department in public discovery filters</span>
           </label>
         </div>
       </div>
 
       <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
-        <button type="button" id="cancelAddDeptDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+        <button type="button" id="cancelAddDeptDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
           Save Department
         </button>
       </div>
     </form>
   </div>
 
+  <!-- Edit Department Drawer -->
+  <div id="editDeptDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="update_department" />
+      <input type="hidden" id="editDeptId" name="id" value="" />
+
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Workbench</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Edit Department</h2>
+            <p class="text-xs text-zinc-500">Update departmental governance details.</p>
+          </div>
+          <button type="button" id="closeEditDeptDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Department Title *</label>
+            <input type="text" id="editDeptName" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <!-- Dynamic Organisation Dropdown -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Parent Organisation *</label>
+            <select id="editDeptOrgId" name="organisationId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {organisations.map((org) => (
+                <option value={org.id}>{org.name} ({org.shortName})</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" id="editDeptSlug" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Description</label>
+            <textarea id="editDeptDescription" name="description" rows="3" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" id="editDeptIsActive" name="isActive" value="1" class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Enable department in public discovery filters</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelEditDeptDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+
   <script is:inline>
-    const drawer = document.getElementById('addDeptDrawer');
-    document.getElementById('openAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
-    document.getElementById('closeAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('cancelAddDeptDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    // Add Drawer controls
+    const addDrawer = document.getElementById('addDeptDrawer');
+    document.getElementById('openAddDeptDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.remove('hidden'));
+    document.getElementById('closeAddDeptDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+    document.getElementById('cancelAddDeptDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+
+    // Auto-slug on Add
+    const addNameInput = document.getElementById('addDeptName');
+    const addSlugInput = document.getElementById('addDeptSlug');
+    addNameInput?.addEventListener('input', () => {
+      const source = addNameInput.value.trim();
+      if (source && addSlugInput && !addSlugInput.dataset.touched) {
+        addSlugInput.value = source.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+    });
+    addSlugInput?.addEventListener('input', () => {
+      if (addSlugInput) addSlugInput.dataset.touched = 'true';
+    });
+
+    // Edit Drawer controls
+    const editDrawer = document.getElementById('editDeptDrawer');
+    document.getElementById('closeEditDeptDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+    document.getElementById('cancelEditDeptDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+
+    document.querySelectorAll('.edit-dept-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        try {
+          const dept = JSON.parse(btn.getAttribute('data-dept') || '{}');
+          if (dept.id) {
+            document.getElementById('editDeptId').value = dept.id;
+            document.getElementById('editDeptName').value = dept.name || '';
+            document.getElementById('editDeptSlug').value = dept.slug || '';
+            document.getElementById('editDeptDescription').value = dept.description || '';
+            if (document.getElementById('editDeptOrgId')) {
+              document.getElementById('editDeptOrgId').value = dept.organisationId || '';
+            }
+            const activeCheckbox = document.getElementById('editDeptIsActive');
+            if (activeCheckbox) {
+              activeCheckbox.checked = !!dept.isActive;
+            }
+            editDrawer?.classList.remove('hidden');
+          }
+        } catch (e) {
+          console.error('Failed to open dept edit drawer:', e);
+        }
+      });
+    });
+
+    // Dynamic Multi-Factor Filtering (Live Search + Organisation + Status)
+    const searchInput = document.getElementById('deptSearchInput');
+    const orgFilter = document.getElementById('deptOrgFilter');
+    const statusFilter = document.getElementById('deptStatusFilter');
+    const countDisplay = document.getElementById('filteredDeptCount');
+    const rows = document.querySelectorAll('.dept-table-row');
+
+    function applyDeptFilters() {
+      const q = (searchInput?.value || '').toLowerCase().trim();
+      const org = orgFilter?.value || '';
+      const status = statusFilter?.value || '';
+      let visible = 0;
+
+      rows.forEach((row) => {
+        const name = row.getAttribute('data-name') || '';
+        const slug = row.getAttribute('data-slug') || '';
+        const rowOrg = row.getAttribute('data-org-id') || '';
+        const rowStatus = row.getAttribute('data-status') || '';
+
+        const matchesQuery = !q || name.includes(q) || slug.includes(q);
+        const matchesOrg = !org || rowOrg === org;
+        const matchesStatus = !status || rowStatus === status;
+
+        if (matchesQuery && matchesOrg && matchesStatus) {
+          row.classList.remove('hidden');
+          visible++;
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+
+      if (countDisplay) countDisplay.textContent = visible.toString();
+    }
+
+    searchInput?.addEventListener('input', applyDeptFilters);
+    orgFilter?.addEventListener('change', applyDeptFilters);
+    statusFilter?.addEventListener('change', applyDeptFilters);
   </script>
 
-  <AdminDataTable tableId="departmentsDataTable" perPage={10} columns={[{ select: 5, sortable: false }]} />
+  <AdminDataTable tableId="departmentsDataTable" perPage={10} columns={[{ select: 4, sortable: false }]} />
 </AdminLayout>
+

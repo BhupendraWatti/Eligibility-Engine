@@ -2,7 +2,56 @@
 // src/pages/admin/sectors-posts.astro (FlowStep Screen 27)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
-import { getAllCanonicalPosts, getAllSectors, getAllDepartments } from '../../db/queries';
+import MasterSubNav from '../../components/admin/MasterSubNav.astro';
+import {
+  getAllCanonicalPosts,
+  getAllSectors,
+  getAllDepartments,
+  createCanonicalPost,
+} from '../../db/queries';
+
+let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const form = await Astro.request.formData();
+    const action = form.get('_action')?.toString();
+
+    if (action === 'create_post') {
+      const title = form.get('title')?.toString().trim();
+      const sectorId = form.get('sectorId')?.toString().trim();
+      const departmentId = form.get('departmentId')?.toString().trim();
+      const payScale = form.get('payScale')?.toString().trim();
+      const defaultMinAge = parseInt(form.get('defaultMinAge')?.toString() || '18', 10);
+      const defaultMaxAge = parseInt(form.get('defaultMaxAge')?.toString() || '33', 10);
+      const defaultQualification = form.get('defaultQualification')?.toString() || '10TH';
+      const summary = form.get('summary')?.toString().trim() || '';
+
+      if (!title || !sectorId || !departmentId) {
+        throw new Error('Title, Sector, and Department are required to create a canonical post.');
+      }
+
+      await createCanonicalPost({
+        title,
+        sectorId,
+        departmentId,
+        payScale: payScale || null,
+        defaultMinAge,
+        defaultMaxAge,
+        defaultQualification,
+        summary,
+        isActive: 1,
+      });
+
+      statusMessage = {
+        type: 'success',
+        text: `Canonical post "${title}" created successfully!`,
+      };
+    }
+  } catch (error: any) {
+    statusMessage = { type: 'error', text: error.message };
+  }
+}
 
 const [posts, sectors, departments] = await Promise.all([
   getAllCanonicalPosts(),
@@ -19,25 +68,77 @@ const activeSector = sectors.find(s => s.slug === selectedSectorSlug) || sectors
 };
 
 const linkedPosts = posts.filter(p => p.sectorId === activeSector.id);
-const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.name.toLowerCase().includes(activeSector.name.toLowerCase()));
+
+// Dynamic Standard Master Qualification Levels
+const qualificationOptions = [
+  { value: '8TH', label: '8th Class Pass (Primary Cadre)', level: 'Primary' },
+  { value: '10TH', label: '10th Class Pass (Matriculation / Secondary)', level: 'Secondary' },
+  { value: '12TH', label: '12th Class Pass (Higher Secondary / 10+2)', level: 'Higher Secondary' },
+  { value: 'ITI', label: 'ITI Trade Certificate (Vocational / Technical)', level: 'Vocational' },
+  { value: 'DIPLOMA', label: 'Polytechnic Engineering / Technical Diploma', level: 'Technical' },
+  { value: 'GRADUATION', label: "Bachelor's Degree (Graduate - Any Discipline)", level: 'Undergraduate' },
+  { value: 'POST_GRADUATION', label: "Master's Degree (Post Graduate - Any Discipline)", level: 'Postgraduate' },
+];
+
+// Standard Dynamic 7th CPC State Pay Matrix Bands
+const standardPayBands = [
+  { level: 'Level 1', band: 'Rs. 15,500 - 49,000/- (Pay Matrix Level 1)' },
+  { level: 'Level 2', band: 'Rs. 19,500 - 62,000/- (Pay Matrix Level 2)' },
+  { level: 'Level 4', band: 'Rs. 25,300 - 80,500/- (Pay Matrix Level 4)' },
+  { level: 'Level 6', band: 'Rs. 28,700 - 91,300/- (Pay Matrix Level 6)' },
+  { level: 'Level 7', band: 'Rs. 32,800 - 1,03,600/- (Pay Matrix Level 7)' },
+  { level: 'Level 8', band: 'Rs. 36,200 - 1,14,800/- (Pay Matrix Level 8)' },
+  { level: 'Level 9', band: 'Rs. 42,700 - 1,35,100/- (Pay Matrix Level 9)' },
+  { level: 'Level 10', band: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 10)' },
+  { level: 'Level 12', band: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 12)' },
+  { level: 'Level J-1', band: 'Rs. 77,840 - 1,36,520/- (Pay Matrix Level J-1)' },
+];
 ---
 
 <AdminLayout
-  title="Sectors & Posts"
+  title="Sectors & Posts | Master Records"
   currentSection="sectors-posts"
   breadcrumbs={[
+    { label: 'Master records', href: '/admin/masters' },
     { label: 'Sectors & posts' },
   ]}
 >
-  <div class="mx-auto max-w-6xl space-y-6">
-    <!-- Header with Action (FlowStep Screen 27) -->
+  <div class="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+    <!-- Master Records Section Sub-Types Navigation Bar -->
+    <MasterSubNav currentTab="sectors-posts" />
+
+    {statusMessage && (
+      <div class={`p-3.5 rounded-xl border text-xs flex items-center justify-between shadow-2xs ${
+        statusMessage.type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-rose-50 border-rose-200 text-rose-900'
+      }`}>
+        <div class="flex items-center gap-2 font-medium">
+          {statusMessage.type === 'success' ? (
+            <svg class="size-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          ) : (
+            <svg class="size-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      </div>
+    )}
+
+    <!-- Shared Dynamic Datalist for Pay Matrix Autocomplete -->
+    <datalist id="dynamicSectorPayBandsList">
+      {standardPayBands.map((pb) => (
+        <option value={pb.band}>{pb.level} - {pb.band}</option>
+      ))}
+    </datalist>
+
+    <!-- Header with Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
-          Sectors & posts
+          Sectors & Post Taxonomy
         </h1>
         <p class="text-xs text-zinc-500 mt-0.5">
-          Standardized state classification taxonomy for recruitments and eligibility rules
+          Standardized state classification taxonomy for recruitments, service cadres, and eligibility rules
         </p>
       </div>
 
@@ -59,36 +160,36 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
       </div>
     </div>
 
-    <!-- Sub-Navigation Tabs (FlowStep Screen 27) -->
-    <div class="flex items-center gap-1 border-b border-zinc-200 text-xs">
-      <button class="px-4 py-2.5 font-bold border-b-2 border-zinc-950 text-zinc-950">
-        Sectors & Taxonomy
-      </button>
-      <a href="/admin/masters" class="px-4 py-2.5 text-zinc-500 hover:text-zinc-950 transition-colors">
-        Canonical Posts Matrix ({posts.length})
-      </a>
-      <a href="/admin/eligibility-rules" class="px-4 py-2.5 text-zinc-500 hover:text-zinc-950 transition-colors">
-        Qualification Tags
-      </a>
-    </div>
-
-    <!-- FlowStep Screen 27 Two-Column Taxonomy Workspace -->
+    <!-- Two-Column Taxonomy Workspace -->
     <div class="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
       <!-- Left Column: Sector List -->
       <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden lg:sticky lg:top-20 flex flex-col max-h-[calc(100vh-6rem)]">
-        <div class="p-3.5 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between shrink-0">
-          <span class="text-xs font-bold uppercase tracking-wider text-zinc-700">All Sectors ({sectors.length})</span>
-          <span class="text-[10px] text-zinc-400 font-mono">Taxonomy</span>
+        <div class="p-3 border-b border-zinc-100 bg-zinc-50/50 flex flex-col gap-2 shrink-0">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-zinc-700">All Sectors ({sectors.length})</span>
+            <span class="text-[10px] text-zinc-400 font-mono">Taxonomy</span>
+          </div>
+          <!-- Dynamic Filter for Sectors -->
+          <div class="relative">
+            <input
+              type="text"
+              id="sectorFilterInput"
+              placeholder="Filter sectors..."
+              class="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg border border-zinc-200 bg-white outline-none focus:ring-1 focus:ring-zinc-900"
+            />
+            <svg class="size-3 text-zinc-400 absolute left-2 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
         </div>
 
-        <div class="divide-y divide-zinc-100 overflow-y-auto">
+        <div class="divide-y divide-zinc-100 overflow-y-auto" id="sectorsList">
           {sectors.map((sec) => {
             const count = posts.filter(p => p.sectorId === sec.id).length;
             const isSelected = sec.slug === activeSector.slug;
             return (
               <a
                 href={`/admin/sectors-posts?sector=${sec.slug}`}
-                class={`flex items-center justify-between p-3 text-xs transition-colors ${
+                data-sector-name={sec.name.toLowerCase()}
+                class={`sector-item flex items-center justify-between p-3 text-xs transition-colors ${
                   isSelected
                     ? 'bg-zinc-950 text-white font-semibold'
                     : 'text-zinc-800 hover:bg-zinc-50'
@@ -123,9 +224,12 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
             </div>
 
             <div class="flex items-center gap-2">
-              <button type="button" class="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors">
-                Edit Sector
-              </button>
+              <a
+                href={`/admin/masters?sector=${activeSector.id}`}
+                class="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors"
+              >
+                Manage in Master Grid &rarr;
+              </a>
             </div>
           </div>
 
@@ -133,7 +237,7 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
             {activeSector.description || 'Public service domain covering canonical recruitment roles across Madhya Pradesh.'}
           </p>
 
-          <!-- Protection Safeguard Callout (FlowStep Screen 27) -->
+          <!-- Protection Safeguard Callout -->
           <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <div>
@@ -150,9 +254,9 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
           <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
               <h3 class="text-sm font-bold text-zinc-950">Associated Canonical Posts</h3>
-              <p class="text-xs text-zinc-500">Standardized roles inheriting this sector's pay scale and rules.</p>
+              <p class="text-xs text-zinc-500">Standardized roles inheriting this sector's pay scale and rules ({linkedPosts.length} posts).</p>
             </div>
-            <button type="button" id="addPostBtnInPane" class="text-xs font-semibold text-zinc-950 hover:underline">
+            <button type="button" id="addPostBtnInPane" class="text-xs font-semibold text-zinc-950 hover:underline cursor-pointer">
               + Add post to {activeSector.name}
             </button>
           </div>
@@ -193,8 +297,8 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
                         {p.payScale || 'Level 4 (State)'}
                       </td>
                       <td class="py-3.5 px-4 text-right">
-                        <a href="/admin/masters" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
-                          Edit Master &rarr;
+                        <a href={`/admin/masters#edit-${p.id}`} class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                          Edit in Master Grid &rarr;
                         </a>
                       </td>
                     </tr>
@@ -208,5 +312,123 @@ const linkedDepts = departments.filter(d => d.sectorId === activeSector.id || d.
     </div>
   </div>
 
+  <!-- Add Canonical Post Drawer -->
+  <div id="addPostDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="create_post" />
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Catalog</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Add Canonical Post</h2>
+            <p class="text-xs text-zinc-500">Standardized role under {activeSector.name}.</p>
+          </div>
+          <button type="button" id="closeAddPostDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- Dynamic Sector Selection -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Target Sector *</label>
+            <select id="postSectorSelect" name="sectorId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {sectors.map((sec) => (
+                <option value={sec.id} selected={sec.id === activeSector.id}>{sec.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <!-- Dynamic Department Selection -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Governing Department *</label>
+            <select id="postDeptSelect" name="departmentId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {departments.map((dept) => (
+                <option value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Post Title *</label>
+            <input type="text" name="title" required placeholder="Sub Inspector (Executive)" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <!-- Dynamic Standard Qualification Dropdown -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Default Baseline Qualification *</label>
+            <select name="defaultQualification" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {qualificationOptions.map((q) => (
+                <option value={q.value}>{q.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <!-- Dynamic Pay Scale with Autocomplete -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Pay Scale / Pay Band</label>
+            <input
+              type="text"
+              name="payScale"
+              list="dynamicSectorPayBandsList"
+              placeholder="e.g. Rs. 25,300 - 80,500/- (Pay Matrix Level 4)"
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label class="block font-semibold text-zinc-800">Default Min Age</label>
+              <input type="number" name="defaultMinAge" value="18" min="16" max="65" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            </div>
+            <div class="space-y-1.5">
+              <label class="block font-semibold text-zinc-800">Default Max Age</label>
+              <input type="number" name="defaultMaxAge" value="33" min="18" max="65" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Summary / Cadre Responsibilities</label>
+            <textarea name="summary" rows="3" placeholder="Standard duties, field responsibilities, or posting details..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelAddPostDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Create Canonical Post
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script is:inline>
+    // Add Post Drawer controls
+    const drawer = document.getElementById('addPostDrawer');
+    document.getElementById('openAddPostDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
+    document.getElementById('addPostBtnInPane')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
+    document.getElementById('closeAddPostDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    document.getElementById('cancelAddPostDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+
+    // Dynamic Sector filter in left list
+    const sectorFilterInput = document.getElementById('sectorFilterInput');
+    const sectorItems = document.querySelectorAll('.sector-item');
+    sectorFilterInput?.addEventListener('input', () => {
+      const q = sectorFilterInput.value.toLowerCase().trim();
+      sectorItems.forEach((item) => {
+        const name = item.getAttribute('data-sector-name') || '';
+        if (!q || name.includes(q)) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    });
+  </script>
+
   <AdminDataTable tableId="sectorPostsTable" perPage={5} columns={[{ select: 4, sortable: false }]} />
 </AdminLayout>
+

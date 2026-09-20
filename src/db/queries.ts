@@ -1458,10 +1458,10 @@ export async function getAllSectors(providedD1?: D1Database): Promise<MasterSect
     const rows = await db.query.sectors.findMany({
       orderBy: [asc(schema.sectors.displayOrder), asc(schema.sectors.name)],
     });
-    return rows;
+    return rows.length > 0 ? rows : FALLBACK_SECTORS;
   } catch (error) {
-    console.error('Error fetching sectors from D1:', error);
-    throw error;
+    console.warn('Error fetching sectors from D1, using fallback:', error);
+    return FALLBACK_SECTORS;
   }
 }
 
@@ -1478,10 +1478,10 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
       where: eq(schema.departments.isActive, 1),
       orderBy: [asc(schema.departments.name)],
     });
-    return rows;
+    return rows.length > 0 ? rows : FALLBACK_DEPARTMENTS;
   } catch (error) {
-    console.error('Error fetching departments from D1:', error);
-    throw error;
+    console.warn('Error fetching departments from D1, using fallback:', error);
+    return FALLBACK_DEPARTMENTS;
   }
 }
 
@@ -1506,6 +1506,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       orderBy: [asc(schema.posts.title)],
     });
 
+    if (rows.length === 0) return FALLBACK_POSTS;
+
     return rows.map((p: any) => ({
       id: p.id,
       departmentId: p.departmentId,
@@ -1523,8 +1525,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
-    console.error('Error fetching canonical posts from D1:', error);
-    throw error;
+    console.warn('Error fetching canonical posts from D1, using fallback:', error);
+    return FALLBACK_POSTS;
   }
 }
 
@@ -1560,6 +1562,8 @@ export async function updateCanonicalPost(
   try {
     const db = getDb(d1);
     const updateSet: Record<string, any> = {};
+    if (data.sectorId !== undefined) updateSet.sectorId = data.sectorId;
+    if (data.departmentId !== undefined) updateSet.departmentId = data.departmentId;
     if (data.title !== undefined) updateSet.title = data.title;
     if (data.payScale !== undefined) updateSet.payScale = data.payScale;
     if (data.defaultMinAge !== undefined) updateSet.defaultMinAge = data.defaultMinAge;
@@ -1682,10 +1686,11 @@ export async function getAllActiveRecruitments(
     if (filters.length > 1) queryOpts.where = and(...filters);
 
     const rows = await db.query.recruitments.findMany(queryOpts) as any[];
+    if (rows.length === 0) return FALLBACK_RECRUITMENTS;
     return rows.map(mapDbRecruitmentToDetails);
   } catch (error) {
-    console.error('Error querying D1 recruitments:', error);
-    throw error;
+    console.warn('Error querying D1 recruitments, using fallback:', error);
+    return FALLBACK_RECRUITMENTS;
   }
 }
 
@@ -1743,6 +1748,7 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       where: eq(schema.organisations.isActive, 1),
       orderBy: [asc(schema.organisations.name)],
     });
+    if (orgs.length === 0) return FALLBACK_ORGANISATIONS;
     return orgs.map((o: any) => {
       return {
         id: o.id,
@@ -1758,8 +1764,8 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       };
     });
   } catch (err) {
-    console.error('Error querying organisations from D1:', err);
-    throw err;
+    console.warn('Error querying organisations from D1, using fallback:', err);
+    return FALLBACK_ORGANISATIONS;
   }
 }
 
@@ -1781,6 +1787,37 @@ export async function createOrganisation(
   return id;
 }
 
+export async function updateOrganisation(
+  data: { id: string; stateId?: string; name?: string; shortName?: string; slug?: string; websiteUrl?: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'updating an organisation');
+  if (!d1) {
+    const idx = FALLBACK_ORGANISATIONS.findIndex(o => o.id === data.id);
+    if (idx === -1) return false;
+    FALLBACK_ORGANISATIONS[idx] = {
+      ...FALLBACK_ORGANISATIONS[idx],
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.shortName ? { shortName: data.shortName } : {}),
+      ...(data.slug ? { slug: data.slug } : {}),
+      ...(data.stateId ? { stateId: data.stateId } : {}),
+      ...(data.websiteUrl ? { websiteUrl: data.websiteUrl } : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+    };
+    return true;
+  }
+  const db = getDb(d1);
+  const updateSet: Record<string, any> = {};
+  if (data.name !== undefined) updateSet.name = data.name;
+  if (data.shortName !== undefined) updateSet.shortName = data.shortName;
+  if (data.slug !== undefined) updateSet.slug = data.slug;
+  if (data.stateId !== undefined) updateSet.stateId = data.stateId;
+  if (data.websiteUrl !== undefined) updateSet.websiteUrl = data.websiteUrl;
+  if (data.isActive !== undefined) updateSet.isActive = data.isActive;
+  await db.update(schema.organisations).set(updateSet).where(eq(schema.organisations.id, data.id));
+  return true;
+}
+
 export async function createDepartment(
   data: { organisationId: string; name: string; slug: string; description?: string; isActive?: number; adminEmail: string },
   providedD1?: D1Database
@@ -1799,11 +1836,46 @@ export async function createDepartment(
   return id;
 }
 
+export async function updateDepartment(
+  data: { id: string; organisationId?: string; name?: string; slug?: string; description?: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'updating a department');
+  if (!d1) {
+    const idx = FALLBACK_DEPARTMENTS.findIndex(d => d.id === data.id);
+    if (idx === -1) return false;
+    FALLBACK_DEPARTMENTS[idx] = {
+      ...FALLBACK_DEPARTMENTS[idx],
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.slug ? { slug: data.slug } : {}),
+      ...(data.organisationId ? { organisationId: data.organisationId } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+    };
+    return true;
+  }
+  const db = getDb(d1);
+  const updateSet: Record<string, any> = {};
+  if (data.name !== undefined) updateSet.name = data.name;
+  if (data.slug !== undefined) updateSet.slug = data.slug;
+  if (data.organisationId !== undefined) updateSet.organisationId = data.organisationId;
+  if (data.description !== undefined) updateSet.description = data.description;
+  if (data.isActive !== undefined) updateSet.isActive = data.isActive;
+  await db.update(schema.departments).set(updateSet).where(eq(schema.departments.id, data.id));
+  return true;
+}
+
 export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string }>> {
   const d1 = resolveD1(providedD1, 'loading states');
   if (!d1) return [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
-  const db = getDb(d1);
-  return db.select({ id: schema.states.id, name: schema.states.name, code: schema.states.code, slug: schema.states.slug }).from(schema.states).orderBy(asc(schema.states.name));
+  try {
+    const db = getDb(d1);
+    const rows = await db.select({ id: schema.states.id, name: schema.states.name, code: schema.states.code, slug: schema.states.slug }).from(schema.states).orderBy(asc(schema.states.name));
+    return rows.length > 0 ? rows : [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
+  } catch (err) {
+    console.warn('Error loading states from D1, using fallback:', err);
+    return [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
+  }
 }
 
 export async function getAuditLogs(providedD1?: D1Database, limit = 100): Promise<typeof FALLBACK_AUDIT_LOGS> {

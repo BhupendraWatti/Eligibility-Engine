@@ -2,44 +2,130 @@
 // src/pages/admin/organisations.astro (FlowStep Screen 25)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
-import { createOrganisation, getAllOrganisations, getAllStates } from '../../db/queries';
+import MasterSubNav from '../../components/admin/MasterSubNav.astro';
+import { createOrganisation, updateOrganisation, getAllOrganisations, getAllStates } from '../../db/queries';
 
 const states = await getAllStates();
-let errorMessage = '';
+let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+
 if (Astro.request.method === 'POST') {
   try {
     const form = await Astro.request.formData();
-    const name = form.get('name')?.toString().trim();
-    const shortName = form.get('shortName')?.toString().trim();
-    const slug = form.get('slug')?.toString().trim();
-    const stateId = form.get('stateId')?.toString().trim();
-    const websiteUrl = form.get('websiteUrl')?.toString().trim();
-    if (!name || !shortName || !slug || !stateId || !websiteUrl) throw new Error('All required organisation fields must be provided.');
-    new URL(websiteUrl);
-    await createOrganisation({ name, shortName, slug, stateId, websiteUrl, isActive: form.get('isActive') === '1' ? 1 : 0, adminEmail: Astro.locals.adminEmail });
-    return Astro.redirect('/admin/organisations');
-  } catch (error: any) { errorMessage = error.message; }
+    const action = form.get('_action')?.toString() || 'create_organisation';
+
+    if (action === 'update_organisation') {
+      const id = form.get('id')?.toString().trim();
+      const name = form.get('name')?.toString().trim();
+      const shortName = form.get('shortName')?.toString().trim();
+      const slug = form.get('slug')?.toString().trim();
+      const stateId = form.get('stateId')?.toString().trim();
+      const websiteUrl = form.get('websiteUrl')?.toString().trim();
+      const isActive = form.get('isActive') === '1' ? 1 : 0;
+
+      if (!id || !name || !shortName || !slug || !stateId || !websiteUrl) {
+        throw new Error('All required organisation fields must be provided.');
+      }
+      new URL(websiteUrl);
+
+      await updateOrganisation({
+        id,
+        name,
+        shortName,
+        slug,
+        stateId,
+        websiteUrl,
+        isActive,
+        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+      });
+      statusMessage = { type: 'success', text: `Organisation "${name}" successfully updated!` };
+    } else {
+      const name = form.get('name')?.toString().trim();
+      const shortName = form.get('shortName')?.toString().trim();
+      const slug = form.get('slug')?.toString().trim();
+      const stateId = form.get('stateId')?.toString().trim();
+      const websiteUrl = form.get('websiteUrl')?.toString().trim();
+      if (!name || !shortName || !slug || !stateId || !websiteUrl) {
+        throw new Error('All required organisation fields must be provided.');
+      }
+      new URL(websiteUrl);
+
+      await createOrganisation({
+        name,
+        shortName,
+        slug,
+        stateId,
+        websiteUrl,
+        isActive: form.get('isActive') === '1' ? 1 : 0,
+        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+      });
+      statusMessage = { type: 'success', text: `Organisation "${name}" created successfully!` };
+    }
+  } catch (error: any) {
+    statusMessage = { type: 'error', text: error.message };
+  }
 }
-const organisations = (await getAllOrganisations()).map(org => ({ ...org, activeRecruitments: '—', domain: new URL(org.websiteUrl).hostname, status: org.isActive ? 'Active' : 'Inactive', updated: 'Database' }));
+
+const rawOrganisations = await getAllOrganisations();
+const stateMap = new Map(states.map(s => [s.id, s.name]));
+
+const organisations = rawOrganisations.map(org => {
+  let hostname = '';
+  try {
+    hostname = new URL(org.websiteUrl).hostname;
+  } catch {
+    hostname = org.websiteUrl || 'gov.in';
+  }
+  return {
+    ...org,
+    stateName: stateMap.get(org.stateId) || 'Madhya Pradesh',
+    activeRecruitments: '—',
+    domain: hostname,
+    status: org.isActive ? 'Active' : 'Inactive',
+    updated: 'Database',
+  };
+});
+
+const activeCount = organisations.filter(o => o.isActive).length;
+const inactiveCount = organisations.length - activeCount;
 ---
 
 <AdminLayout
-  title="Organisations"
+  title="Organisations | Master Records"
   currentSection="organisations"
   breadcrumbs={[
+    { label: 'Master records', href: '/admin/masters' },
     { label: 'Organisations' },
   ]}
 >
-  <div class="mx-auto max-w-6xl space-y-6">
-    {errorMessage && <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900">{errorMessage}</div>}
-    <!-- Header with Action (FlowStep Screen 25) -->
+  <div class="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+    <!-- Master Records Section Sub-Types Navigation Bar -->
+    <MasterSubNav currentTab="organisations" />
+
+    {statusMessage && (
+      <div class={`p-3.5 rounded-xl border text-xs flex items-center justify-between shadow-2xs ${
+        statusMessage.type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-rose-50 border-rose-200 text-rose-900'
+      }`}>
+        <div class="flex items-center gap-2 font-medium">
+          {statusMessage.type === 'success' ? (
+            <svg class="size-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          ) : (
+            <svg class="size-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      </div>
+    )}
+
+    <!-- Header with Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
-          Organisations
+          Recruiting Organisations
         </h1>
         <p class="text-xs text-zinc-500 mt-0.5">
-          Maintain canonical organisation records used across discovery pages
+          Canonical government commissions, boards, and autonomous bodies conducting public recruitment
         </p>
       </div>
 
@@ -53,34 +139,90 @@ const organisations = (await getAllOrganisations()).map(org => ({ ...org, active
       </button>
     </div>
 
-    <!-- Organisations Table (FlowStep Screen 25) -->
+    <!-- Dynamic Filter Toolbar (Search + State + Status) -->
+    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+        <!-- Dynamic Live Search -->
+        <div class="relative flex-1 min-w-[180px]">
+          <input
+            type="text"
+            id="orgSearchInput"
+            placeholder="Search organisation by name, slug, domain..."
+            class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50/50 focus:bg-white focus:ring-2 focus:ring-zinc-900 outline-none transition-all"
+          />
+          <svg class="size-3.5 text-zinc-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+
+        <!-- Dynamic State Dropdown Filter -->
+        <select
+          id="orgStateFilter"
+          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+        >
+          <option value="">All States ({states.length})</option>
+          {states.map((st) => (
+            <option value={st.id}>{st.name}</option>
+          ))}
+        </select>
+
+        <!-- Dynamic Status Dropdown Filter -->
+        <select
+          id="orgStatusFilter"
+          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+        >
+          <option value="">All Statuses</option>
+          <option value="Active">Active ({activeCount})</option>
+          <option value="Inactive">Inactive ({inactiveCount})</option>
+        </select>
+      </div>
+
+      <div class="text-[11px] font-mono text-zinc-500">
+        Showing <span id="filteredOrgCount" class="font-bold text-zinc-900">{organisations.length}</span> of {organisations.length} organisations
+      </div>
+    </div>
+
+    <!-- Organisations Table -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse" id="organisationsDataTable">
           <thead>
             <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
               <th class="py-3 px-4">Organisation</th>
+              <th class="py-3 px-3">State Jurisdiction</th>
               <th class="py-3 px-3">Slug</th>
-              <th class="py-3 px-3">Active Drives</th>
               <th class="py-3 px-3">Official Domain</th>
               <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3">Updated</th>
               <th class="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
+          <tbody class="divide-y divide-zinc-100" id="organisationsTableBody">
             {organisations.map((org) => (
-              <tr class="hover:bg-zinc-50/80 transition-colors">
+              <tr
+                class="hover:bg-zinc-50/80 transition-colors org-table-row"
+                data-org-id={org.id}
+                data-name={org.name.toLowerCase()}
+                data-short-name={org.shortName.toLowerCase()}
+                data-slug={org.slug.toLowerCase()}
+                data-domain={org.domain.toLowerCase()}
+                data-state-id={org.stateId}
+                data-status={org.status}
+                data-website-url={org.websiteUrl}
+                data-is-active={org.isActive ? '1' : '0'}
+              >
                 <td class="py-3.5 px-4">
                   <div class="font-bold text-zinc-950">{org.name}</div>
                   <div class="text-[10px] text-zinc-400 font-mono mt-0.5">{org.shortName}</div>
                 </td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                    {org.stateName}
+                  </span>
+                </td>
                 <td class="py-3.5 px-3 font-mono text-zinc-600 text-[11px]">{org.slug}</td>
-                <td class="py-3.5 px-3 font-mono font-semibold text-zinc-900 tabular-nums">{org.activeRecruitments}</td>
                 <td class="py-3.5 px-3">
                   <a
                     href={`https://${org.domain}`}
                     target="_blank"
+                    rel="noreferrer"
                     class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-600 hover:text-zinc-950 hover:underline"
                   >
                     <span>{org.domain}</span>
@@ -96,10 +238,21 @@ const organisations = (await getAllOrganisations()).map(org => ({ ...org, active
                     {org.status}
                   </span>
                 </td>
-                <td class="py-3.5 px-3 text-zinc-500 font-mono text-[11px]">{org.updated}</td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="flex items-center justify-end gap-2">
-                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                    <button
+                      type="button"
+                      class="edit-org-btn text-zinc-600 hover:text-zinc-950 font-semibold hover:underline cursor-pointer"
+                      data-org={JSON.stringify({
+                        id: org.id,
+                        name: org.name,
+                        shortName: org.shortName,
+                        slug: org.slug,
+                        stateId: org.stateId,
+                        websiteUrl: org.websiteUrl,
+                        isActive: org.isActive,
+                      })}
+                    >
                       Edit
                     </button>
                     <span class="text-zinc-300">·</span>
@@ -116,16 +269,18 @@ const organisations = (await getAllOrganisations()).map(org => ({ ...org, active
     </div>
   </div>
 
-  <!-- Add Organisation Slide-over Drawer (FlowStep Screen 25) -->
+  <!-- Add Organisation Slide-over Drawer -->
   <div id="addOrgDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
     <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="create_organisation" />
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Catalog</span>
             <h2 class="text-base font-bold text-zinc-950 font-heading">Add Organisation</h2>
-            <p class="text-xs text-zinc-500">Create a canonical government body record.</p>
+            <p class="text-xs text-zinc-500">Create a canonical government recruiting body.</p>
           </div>
-          <button type="button" id="closeAddOrgDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
+          <button type="button" id="closeAddOrgDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
             &times;
           </button>
         </div>
@@ -133,25 +288,37 @@ const organisations = (await getAllOrganisations()).map(org => ({ ...org, active
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Organisation Name *</label>
-            <input type="text" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" id="addOrgName" name="name" required placeholder="Madhya Pradesh Public Service Commission" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Short Name *</label>
-            <input type="text" name="shortName" required placeholder="Short name" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" id="addOrgShortName" name="shortName" required placeholder="MPPSC" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono uppercase focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
-          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">URL Slug *</label><input type="text" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono" /></div>
-          <div class="space-y-1.5"><label class="block font-semibold text-zinc-800">State *</label><select name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs">{states.map(state => <option value={state.id}>{state.name}</option>)}</select></div>
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" id="addOrgSlug" name="slug" required placeholder="mppsc" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <!-- Dynamic State Dropdown -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">State / Territory Jurisdiction *</label>
+            <select name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {states.map((st) => (
+                <option value={st.id}>{st.name} ({st.code})</option>
+              ))}
+            </select>
+          </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Official Website Domain *</label>
-            <input type="url" name="websiteUrl" required placeholder="https://revenue.example.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="url" name="websiteUrl" required placeholder="https://mppsc.mp.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Short Description</label>
-            <textarea rows="3" placeholder="Brief statutory overview of this recruiting authority..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+            <textarea name="description" rows="3" placeholder="Statutory recruiting authority conducting civil services..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
           </div>
 
           <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
@@ -162,22 +329,177 @@ const organisations = (await getAllOrganisations()).map(org => ({ ...org, active
       </div>
 
       <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
-        <button type="button" id="cancelAddOrgDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
+        <button type="button" id="cancelAddOrgDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
           Save Organisation
         </button>
       </div>
     </form>
   </div>
 
+  <!-- Edit Organisation Slide-over Drawer -->
+  <div id="editOrgDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="update_organisation" />
+      <input type="hidden" id="editOrgId" name="id" value="" />
+
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Workbench</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Edit Organisation</h2>
+            <p class="text-xs text-zinc-500">Update master records and governance details.</p>
+          </div>
+          <button type="button" id="closeEditOrgDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Organisation Name *</label>
+            <input type="text" id="editOrgName" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Short Name *</label>
+            <input type="text" id="editOrgShortName" name="shortName" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono uppercase focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" id="editOrgSlug" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <!-- Dynamic State Dropdown -->
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">State / Territory Jurisdiction *</label>
+            <select id="editOrgStateId" name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              {states.map((st) => (
+                <option value={st.id}>{st.name} ({st.code})</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Official Website Domain *</label>
+            <input type="url" id="editOrgWebsiteUrl" name="websiteUrl" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" id="editOrgIsActive" name="isActive" value="1" class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Mark organisation active in discovery portal</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelEditOrgDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+
   <script is:inline>
-    const drawer = document.getElementById('addOrgDrawer');
-    document.getElementById('openAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
-    document.getElementById('closeAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('cancelAddOrgDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
+    // Add Drawer controls
+    const addDrawer = document.getElementById('addOrgDrawer');
+    document.getElementById('openAddOrgDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.remove('hidden'));
+    document.getElementById('closeAddOrgDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+    document.getElementById('cancelAddOrgDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+
+    // Auto-slug on Add
+    const addNameInput = document.getElementById('addOrgName');
+    const addShortNameInput = document.getElementById('addOrgShortName');
+    const addSlugInput = document.getElementById('addOrgSlug');
+
+    const updateSlug = () => {
+      const source = addShortNameInput?.value?.trim() || addNameInput?.value?.trim() || '';
+      if (source && addSlugInput && !addSlugInput.dataset.touched) {
+        addSlugInput.value = source.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+    };
+    addShortNameInput?.addEventListener('input', updateSlug);
+    addSlugInput?.addEventListener('input', () => {
+      if (addSlugInput) addSlugInput.dataset.touched = 'true';
+    });
+
+    // Edit Drawer controls
+    const editDrawer = document.getElementById('editOrgDrawer');
+    document.getElementById('closeEditOrgDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+    document.getElementById('cancelEditOrgDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+
+    document.querySelectorAll('.edit-org-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        try {
+          const org = JSON.parse(btn.getAttribute('data-org') || '{}');
+          if (org.id) {
+            document.getElementById('editOrgId').value = org.id;
+            document.getElementById('editOrgName').value = org.name || '';
+            document.getElementById('editOrgShortName').value = org.shortName || '';
+            document.getElementById('editOrgSlug').value = org.slug || '';
+            document.getElementById('editOrgWebsiteUrl').value = org.websiteUrl || '';
+            if (document.getElementById('editOrgStateId')) {
+              document.getElementById('editOrgStateId').value = org.stateId || '';
+            }
+            const activeCheckbox = document.getElementById('editOrgIsActive');
+            if (activeCheckbox) {
+              activeCheckbox.checked = !!org.isActive;
+            }
+            editDrawer?.classList.remove('hidden');
+          }
+        } catch (e) {
+          console.error('Failed to open org edit drawer:', e);
+        }
+      });
+    });
+
+    // Dynamic Multi-Factor Filtering (Live Search + State + Status)
+    const searchInput = document.getElementById('orgSearchInput');
+    const stateFilter = document.getElementById('orgStateFilter');
+    const statusFilter = document.getElementById('orgStatusFilter');
+    const countDisplay = document.getElementById('filteredOrgCount');
+    const rows = document.querySelectorAll('.org-table-row');
+
+    function applyOrgFilters() {
+      const q = (searchInput?.value || '').toLowerCase().trim();
+      const state = stateFilter?.value || '';
+      const status = statusFilter?.value || '';
+      let visible = 0;
+
+      rows.forEach((row) => {
+        const name = row.getAttribute('data-name') || '';
+        const shortName = row.getAttribute('data-short-name') || '';
+        const slug = row.getAttribute('data-slug') || '';
+        const domain = row.getAttribute('data-domain') || '';
+        const rowState = row.getAttribute('data-state-id') || '';
+        const rowStatus = row.getAttribute('data-status') || '';
+
+        const matchesQuery = !q || name.includes(q) || shortName.includes(q) || slug.includes(q) || domain.includes(q);
+        const matchesState = !state || rowState === state;
+        const matchesStatus = !status || rowStatus === status;
+
+        if (matchesQuery && matchesState && matchesStatus) {
+          row.classList.remove('hidden');
+          visible++;
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+
+      if (countDisplay) countDisplay.textContent = visible.toString();
+    }
+
+    searchInput?.addEventListener('input', applyOrgFilters);
+    stateFilter?.addEventListener('change', applyOrgFilters);
+    statusFilter?.addEventListener('change', applyOrgFilters);
   </script>
 
-  <AdminDataTable tableId="organisationsDataTable" perPage={10} columns={[{ select: 6, sortable: false }]} />
+  <AdminDataTable tableId="organisationsDataTable" perPage={10} columns={[{ select: 5, sortable: false }]} />
 </AdminLayout>
+
