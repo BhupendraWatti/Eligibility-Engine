@@ -43,7 +43,7 @@ try {
   // Fallback for environments outside Cloudflare Workers runtime
 }
 
-const demoFallbackEnabled = import.meta.env?.DEV === true;
+const demoFallbackEnabled = import.meta.env?.DEV === true || (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');
 
 function resolveD1(providedD1: D1Database | undefined, operation: string): D1Database | undefined {
   const d1 = providedD1 || cfEnv?.DB;
@@ -1893,6 +1893,355 @@ export async function verifySource(sourceId: string, adminEmail: string, note: s
     db.update(schema.sources).set({ lastVerifiedAt: sql`(unixepoch())` }).where(eq(schema.sources.id, sourceId)),
     db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail, entity: 'SOURCE', entityId: sourceId, action: 'VERIFY', reason: note || 'Official source re-verified by an administrator.' }),
   ]);
+}
+
+export interface DocumentItem {
+  id: string;
+  recruitmentId: string;
+  recruitment: string;
+  title: string;
+  sourceType: string;
+  type: string;
+  url: string;
+  publishedDate: string;
+  publicationDateRaw: string;
+  verification: 'Verified' | 'Needs review';
+  lastVerifiedAt: Date | string | null;
+  updated: string;
+}
+
+function normalizeSourceType(type: string): string {
+  const t = (type || '').toUpperCase().replace(/\s+/g, '_');
+  if (t.includes('CORRECTION') || t.includes('CORRIGENDUM') || t.includes('RELAXATION')) return 'CORRECTION_NOTICE';
+  if (t.includes('ADMIT')) return 'ADMIT_CARD';
+  if (t.includes('KEY') || t.includes('ANSWER')) return 'ANSWER_KEY';
+  if (t.includes('SYLLABUS')) return 'SYLLABUS';
+  return 'OFFICIAL_NOTIFICATION_PDF';
+}
+
+function formatSourceTypeLabel(sourceType: string): string {
+  switch (sourceType) {
+    case 'CORRECTION_NOTICE': return 'Correction notice';
+    case 'ADMIT_CARD': return 'Admit card';
+    case 'ANSWER_KEY': return 'Answer key';
+    case 'SYLLABUS': return 'Syllabus';
+    case 'OFFICIAL_NOTIFICATION_PDF':
+    case 'GOVT_GAZETTE':
+    default:
+      return 'Notification';
+  }
+}
+
+function formatDateDisplay(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+export const FALLBACK_DOCUMENTS: DocumentItem[] = [
+  {
+    id: 'src_doc_constable_notif',
+    recruitmentId: 'rec_mp_constable_2026',
+    recruitment: 'MP Police Constable Recruitment 2026',
+    title: 'MP Police Constable 2026 Gazette Notification',
+    sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+    type: 'Notification',
+    url: 'https://esb.mp.gov.in/notices/police_rulebook_2026.pdf',
+    publishedDate: '15 Sep 2026',
+    publicationDateRaw: '2026-09-15',
+    verification: 'Verified',
+    lastVerifiedAt: new Date('2026-09-18'),
+    updated: '18 Sep 2026',
+  },
+  {
+    id: 'src_doc_constable_corr',
+    recruitmentId: 'rec_mp_constable_2026',
+    recruitment: 'MP Police Constable Recruitment 2026',
+    title: 'Police Constable Category Relaxation Corrigendum',
+    sourceType: 'CORRECTION_NOTICE',
+    type: 'Correction notice',
+    url: 'https://esb.mp.gov.in/notices/corrigendum_01_police.pdf',
+    publishedDate: '18 Sep 2026',
+    publicationDateRaw: '2026-09-18',
+    verification: 'Needs review',
+    lastVerifiedAt: null,
+    updated: '18 Sep 2026',
+  },
+  {
+    id: 'src_doc_forest_notif',
+    recruitmentId: 'rec_mp_forest_guard_2026',
+    recruitment: 'Forest Guard Recruitment 2026',
+    title: 'MP Forest Guard 2026 Official Rulebook',
+    sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+    type: 'Notification',
+    url: 'https://esb.mp.gov.in/notices/forest_guard_2026.pdf',
+    publishedDate: '10 Sep 2026',
+    publicationDateRaw: '2026-09-10',
+    verification: 'Verified',
+    lastVerifiedAt: new Date('2026-09-17'),
+    updated: '17 Sep 2026',
+  },
+  {
+    id: 'src_doc_ag3_syllabus',
+    recruitmentId: 'rec_mp_jja_court_2026',
+    recruitment: 'Assistant Grade III Recruitment 2026',
+    title: 'Assistant Grade III High Court Examination Syllabus',
+    sourceType: 'SYLLABUS',
+    type: 'Syllabus',
+    url: 'https://mphc.gov.in/recruitment/ag3_syllabus_2026.pdf',
+    publishedDate: '12 Sep 2026',
+    publicationDateRaw: '2026-09-12',
+    verification: 'Verified',
+    lastVerifiedAt: new Date('2026-09-16'),
+    updated: '16 Sep 2026',
+  },
+  {
+    id: 'src_doc_sse_answerkey',
+    recruitmentId: 'rec_mp_mppsc_sse_2026',
+    recruitment: 'MPPSC State Service Examination 2026',
+    title: 'MPPSC State Service Prelims Provisional Answer Key',
+    sourceType: 'ANSWER_KEY',
+    type: 'Answer key',
+    url: 'https://mppsc.mp.gov.in/keys/sse_prelims_key_2026.pdf',
+    publishedDate: '12 Sep 2026',
+    publicationDateRaw: '2026-09-12',
+    verification: 'Verified',
+    lastVerifiedAt: new Date('2026-09-15'),
+    updated: '15 Sep 2026',
+  },
+];
+
+export async function getAllDocuments(providedD1?: D1Database): Promise<DocumentItem[]> {
+  const d1 = resolveD1(providedD1, 'loading documents');
+  if (d1) {
+    try {
+      const db = getDb(d1);
+      const rows = await db.query.sources.findMany({
+        with: { recruitment: true },
+        orderBy: [desc(schema.sources.lastVerifiedAt), desc(schema.sources.publicationDate)],
+      }) as any[];
+      if (rows && rows.length > 0) {
+        return rows.map(r => ({
+          id: r.id,
+          recruitmentId: r.recruitmentId,
+          recruitment: r.recruitment?.title || 'Linked Recruitment',
+          title: r.sourceTitle,
+          sourceType: r.sourceType,
+          type: formatSourceTypeLabel(r.sourceType),
+          url: r.sourceUrl,
+          publishedDate: formatDateDisplay(r.publicationDate),
+          publicationDateRaw: r.publicationDate || '',
+          verification: r.lastVerifiedAt ? 'Verified' : 'Needs review',
+          lastVerifiedAt: r.lastVerifiedAt,
+          updated: formatDateDisplay(r.lastVerifiedAt || r.publicationDate),
+        }));
+      }
+    } catch (err) {
+      console.warn('Error querying sources from D1, using fallback documents:', err);
+    }
+  }
+  return FALLBACK_DOCUMENTS;
+}
+
+export async function createDocument(
+  data: {
+    recruitmentId: string;
+    title: string;
+    sourceType: string;
+    sourceUrl: string;
+    publicationDate?: string;
+    adminEmail: string;
+  },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = resolveD1(providedD1, 'creating document');
+  const id = `src_${crypto.randomUUID()}`;
+  const normType = normalizeSourceType(data.sourceType);
+  const typeLabel = formatSourceTypeLabel(normType);
+  const pubDateRaw = data.publicationDate || new Date().toISOString().split('T')[0];
+  const pubDateDisplay = formatDateDisplay(pubDateRaw);
+  const recs = await getAllActiveRecruitments(providedD1, { includeUnpublished: true });
+  const rec = recs.find(r => r.id === data.recruitmentId);
+  const recTitle = rec?.title || 'Official Recruitment';
+
+  const newDoc: DocumentItem = {
+    id,
+    recruitmentId: data.recruitmentId,
+    recruitment: recTitle,
+    title: data.title,
+    sourceType: normType,
+    type: typeLabel,
+    url: data.sourceUrl,
+    publishedDate: pubDateDisplay,
+    publicationDateRaw: pubDateRaw,
+    verification: 'Verified',
+    lastVerifiedAt: new Date(),
+    updated: formatDateDisplay(new Date().toISOString()),
+  };
+
+  if (!d1) {
+    FALLBACK_DOCUMENTS.unshift(newDoc);
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: id,
+      action: 'CREATE',
+      field: 'title',
+      oldValue: null,
+      newValue: data.title,
+      reason: 'New document link attached to recruitment',
+      source: data.sourceUrl,
+      createdAt: new Date(),
+    } as any);
+    return id;
+  }
+
+  const db = getDb(d1);
+  await db.batch([
+    db.insert(schema.sources).values({
+      id,
+      recruitmentId: data.recruitmentId,
+      sourceType: normType,
+      sourceUrl: data.sourceUrl,
+      sourceTitle: data.title,
+      publicationDate: pubDateRaw,
+      lastVerifiedAt: sql`(unixepoch())`,
+    }),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: id,
+      action: 'CREATE',
+      field: 'title',
+      newValue: data.title,
+      reason: 'New official document attached',
+      source: data.sourceUrl,
+    }),
+  ]);
+
+  return id;
+}
+
+export async function updateDocument(
+  data: {
+    id: string;
+    recruitmentId?: string;
+    title?: string;
+    sourceType?: string;
+    sourceUrl?: string;
+    publicationDate?: string;
+    adminEmail: string;
+  },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'updating document');
+  const normType = data.sourceType ? normalizeSourceType(data.sourceType) : undefined;
+  const typeLabel = normType ? formatSourceTypeLabel(normType) : undefined;
+  const pubDateDisplay = data.publicationDate ? formatDateDisplay(data.publicationDate) : undefined;
+
+  let recTitle: string | undefined = undefined;
+  if (data.recruitmentId) {
+    const recs = await getAllActiveRecruitments(providedD1, { includeUnpublished: true });
+    recTitle = recs.find(r => r.id === data.recruitmentId)?.title;
+  }
+
+  if (!d1) {
+    const idx = FALLBACK_DOCUMENTS.findIndex(d => d.id === data.id);
+    if (idx === -1) return false;
+    FALLBACK_DOCUMENTS[idx] = {
+      ...FALLBACK_DOCUMENTS[idx],
+      ...(data.recruitmentId ? { recruitmentId: data.recruitmentId } : {}),
+      ...(recTitle ? { recruitment: recTitle } : {}),
+      ...(data.title ? { title: data.title } : {}),
+      ...(normType ? { sourceType: normType, type: typeLabel! } : {}),
+      ...(data.sourceUrl ? { url: data.sourceUrl } : {}),
+      ...(data.publicationDate ? { publicationDateRaw: data.publicationDate, publishedDate: pubDateDisplay! } : {}),
+      updated: formatDateDisplay(new Date().toISOString()),
+    };
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: data.id,
+      action: 'UPDATE',
+      field: 'title',
+      newValue: data.title || FALLBACK_DOCUMENTS[idx].title,
+      reason: 'Document details updated',
+      createdAt: new Date(),
+    } as any);
+    return true;
+  }
+
+  const db = getDb(d1);
+  const updateSet: Record<string, any> = {};
+  if (data.recruitmentId) updateSet.recruitmentId = data.recruitmentId;
+  if (data.title) updateSet.sourceTitle = data.title;
+  if (normType) updateSet.sourceType = normType;
+  if (data.sourceUrl) updateSet.sourceUrl = data.sourceUrl;
+  if (data.publicationDate) updateSet.publicationDate = data.publicationDate;
+  updateSet.lastVerifiedAt = sql`(unixepoch())`;
+
+  await db.batch([
+    db.update(schema.sources).set(updateSet).where(eq(schema.sources.id, data.id)),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: data.id,
+      action: 'UPDATE',
+      reason: 'Document updated by administrator',
+      newValue: data.title || '',
+    }),
+  ]);
+
+  return true;
+}
+
+export async function deleteDocument(
+  data: { id: string; adminEmail: string },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'deleting document');
+
+  if (!d1) {
+    const idx = FALLBACK_DOCUMENTS.findIndex(d => d.id === data.id);
+    if (idx === -1) return false;
+    const removed = FALLBACK_DOCUMENTS.splice(idx, 1)[0];
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: data.id,
+      action: 'DELETE',
+      field: 'title',
+      oldValue: removed.title,
+      reason: 'Document deleted by administrator',
+      createdAt: new Date(),
+    } as any);
+    return true;
+  }
+
+  const db = getDb(d1);
+  await db.batch([
+    db.delete(schema.sources).where(eq(schema.sources.id, data.id)),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SOURCE',
+      entityId: data.id,
+      action: 'DELETE',
+      reason: 'Document link removed from system',
+    }),
+  ]);
+
+  return true;
 }
 
 /**
