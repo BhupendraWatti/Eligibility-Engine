@@ -2,6 +2,7 @@ import { getDb, schema } from './client';
 import { eq, desc, asc, sql, and } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates } from '../services/duplicate-detector';
+import { resolveSectorRoute } from '../services/sector-routing';
 import {
   resolveRecruitmentLifecycle,
   getLifecyclePresentation,
@@ -2634,7 +2635,7 @@ export async function getRecruitmentBySlug(slug: string, providedD1?: D1Database
  */
 export async function getSectorBySlug(slug: string, providedD1?: D1Database): Promise<MasterSector | undefined> {
   const sectors = await getAllSectors(providedD1);
-  return sectors.find(s => s.slug === slug);
+  return resolveSectorRoute(slug, sectors);
 }
 
 /**

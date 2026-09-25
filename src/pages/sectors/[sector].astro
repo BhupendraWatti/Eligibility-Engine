@@ -1,20 +1,19 @@
 ---
 // src/pages/sectors/[sector].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getAllSectors, getPostsBySectorId, getAllActiveRecruitments } from '../../db/queries';
+import { getAllSectors, getSectorBySlug, getPostsBySectorId, getAllActiveRecruitments } from '../../db/queries';
 import { calculateRecruitmentMetrics, formatSectorVacancySummary, isActiveDrive } from '../../services/lifecycle';
-import { resolveSectorRoute } from '../../services/sector-routing';
 
-const sectorParam = (Astro.params.sector || 'police').toLowerCase();
+const sectorParam = Astro.params.sector ?? '';
 
-const [allSectors, allRecruitments] = await Promise.all([
+const [sector, allSectors, allRecruitments] = await Promise.all([
+  getSectorBySlug(sectorParam),
   getAllSectors(),
   getAllActiveRecruitments(),
 ]);
 
-const sector = resolveSectorRoute(sectorParam, allSectors);
 if (!sector) {
-  return new Response('Sector not found.', { status: 404 });
+  return Astro.rewrite('/404');
 }
 
 const posts = await getPostsBySectorId(sector.id);
@@ -40,7 +39,7 @@ const isMedical = sector.slug.includes('health');
   title={`${sector.name} Jobs in Madhya Pradesh — NIRNAY MP`}
   description={`Explore open and upcoming ${sector.name} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
 >
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-sector-profile={sector.slug}>
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
