@@ -6,6 +6,7 @@ import { getCanonicalPostBySlug } from '../../db/queries';
 const { slug } = Astro.params;
 
 const post = await getCanonicalPostBySlug(slug || '');
+if (!post) Astro.response.status = 404;
 
 // Derive Selection Stages and Syllabus dynamically based on post and sector
 const defaultSelectionStages = post?.selectionStages || (

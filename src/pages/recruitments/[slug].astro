@@ -6,6 +6,7 @@ import { getRecruitmentWithRelations } from '../../db/queries';
 const { slug } = Astro.params;
 
 const recruitment = await getRecruitmentWithRelations(slug || '');
+if (!recruitment) Astro.response.status = 404;
 
 // Default dates formatter
 function formatDate(dateStr?: string): string {

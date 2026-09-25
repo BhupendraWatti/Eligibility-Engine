@@ -7,6 +7,7 @@ import { calculateRecruitmentMetrics, isActiveDrive } from '../../services/lifec
 const slug = (Astro.params.slug || '').toLowerCase();
 
 const org = await getOrganisationBySlug(slug);
+if (!org) Astro.response.status = 404;
 const allOrgs = await getAllOrganisations();
 
 const orgRecruitments = org?.recruitments || [];

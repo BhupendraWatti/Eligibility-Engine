@@ -1,28 +1,54 @@
 ---
 // src/pages/admin/sources.astro (FlowStep Screen 24)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAllActiveRecruitments, verifySource } from '../../db/queries';
+import { createDocument, getAllActiveRecruitments, verifySource } from '../../db/queries';
+
+class RequestValidationError extends Error {}
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
 const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
 const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
 const currentSource = currentRec?.sourcesList?.[0];
 let message = '';
+let messageType: 'success' | 'error' = 'success';
 if (Astro.request.method === 'POST') {
   const contentType = Astro.request.headers.get('content-type') || '';
   const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+  const adminEmail = Astro.locals.adminEmail;
   let sourceId = '';
   let note = '';
+  let recruitmentId = '';
+  let title = '';
+  let sourceType = 'OFFICIAL_NOTIFICATION_PDF';
+  let sourceUrl = '';
+  let publicationDate = '';
+
+  if (!adminEmail) {
+    return new Response(JSON.stringify({ error: 'Authenticated admin session is required.' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
     if (contentType.includes('application/json')) {
       const body = await Astro.request.json();
       sourceId = typeof body?.sourceId === 'string' ? body.sourceId.trim() : '';
       note = typeof body?.note === 'string' ? body.note.trim() : '';
+      recruitmentId = typeof body?.recruitmentId === 'string' ? body.recruitmentId.trim() : '';
+      title = typeof body?.title === 'string' ? body.title.trim() : '';
+      sourceType = typeof body?.sourceType === 'string' ? body.sourceType.trim() : sourceType;
+      sourceUrl = typeof body?.sourceUrl === 'string' ? body.sourceUrl.trim() : '';
+      publicationDate = typeof body?.publicationDate === 'string' ? body.publicationDate.trim() : '';
     } else {
       const form = await Astro.request.formData();
       sourceId = form.get('sourceId')?.toString().trim() || '';
       note = form.get('note')?.toString().trim() || '';
+      recruitmentId = form.get('recruitmentId')?.toString().trim() || '';
+      title = form.get('title')?.toString().trim() || '';
+      sourceType = form.get('sourceType')?.toString().trim() || sourceType;
+      sourceUrl = form.get('sourceUrl')?.toString().trim() || '';
+      publicationDate = form.get('publicationDate')?.toString().trim() || '';
     }
   } catch {
     return new Response(JSON.stringify({ error: 'Request body must be valid JSON or form data.' }), {
@@ -31,35 +57,80 @@ if (Astro.request.method === 'POST') {
     });
   }
 
-  if (!sourceId) {
+  const hasFixtureFields = Boolean(recruitmentId || title || sourceUrl);
+  if (!sourceId && (!recruitmentId || !title || !sourceUrl)) {
+    const error = hasFixtureFields
+      ? 'recruitmentId, title, and sourceUrl are required to create a source document.'
+      : 'sourceId or source document fields are required.';
     if (!acceptsHtml) {
-      return new Response(JSON.stringify({ error: 'sourceId is required.' }), {
+      return new Response(JSON.stringify({ error }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
     Astro.response.status = 400;
-    message = 'sourceId is required.';
+    message = error;
+    messageType = 'error';
   } else {
-    const verified = await verifySource(
-      sourceId,
-      Astro.locals.adminEmail,
-      note || 'Verified against the official document.',
-    );
-    if (!verified) {
-      if (!acceptsHtml) {
-        return new Response(JSON.stringify({ error: 'Source not found.' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
+    try {
+      let created = false;
+      if (!sourceId) {
+        try {
+          new URL(sourceUrl);
+        } catch {
+          throw new RequestValidationError('sourceUrl must be a valid URL.');
+        }
+        sourceId = await createDocument({
+          recruitmentId,
+          title,
+          sourceType,
+          sourceUrl,
+          publicationDate,
+          adminEmail,
         });
+        created = true;
       }
-      Astro.response.status = 404;
-      message = 'Source not found.';
-    } else {
-      message = 'Source verification recorded.';
+
+      const verified = await verifySource(
+        sourceId,
+        adminEmail,
+        note || 'Verified against the official document.',
+      );
+      if (!verified) {
+        if (!acceptsHtml) {
+          return new Response(JSON.stringify({ error: 'Source not found.' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        Astro.response.status = 404;
+        message = 'Source not found.';
+        messageType = 'error';
+      } else {
+        message = 'Source verification recorded.';
+        messageType = 'success';
+        Astro.response.headers.set('X-Source-Id', sourceId);
+        if (!acceptsHtml) {
+          return new Response(JSON.stringify({ sourceId, created, verified: true, message }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Source-Id': sourceId,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      const isValidationError = error instanceof RequestValidationError;
+      const status = isValidationError ? 400 : 503;
+      const errorMessage = isValidationError ? error.message : 'Source verification is temporarily unavailable.';
+      if (!isValidationError) console.error('[admin/sources] Source verification failed:', error);
+      Astro.response.status = status;
+      message = errorMessage;
+      messageType = 'error';
       if (!acceptsHtml) {
-        return new Response(JSON.stringify({ sourceId, verified: true, message }), {
-          status: 200,
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status,
           headers: { 'Content-Type': 'application/json' },
         });
       }
@@ -77,7 +148,15 @@ if (Astro.request.method === 'POST') {
   ]}
 >
   <div class="mx-auto max-w-5xl space-y-6">
-    {message && <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">{message}</div>}
+    {message && (
+      <div class={`p-3 rounded-lg border text-xs ${
+        messageType === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-rose-50 border-rose-200 text-rose-900'
+      }`}>
+        {message}
+      </div>
+    )}
     <!-- Header with Action (FlowStep Screen 24) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div class="space-y-1">

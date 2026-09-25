@@ -91,6 +91,21 @@ if (Astro.request.method === 'POST') {
         throw new Error('Document not found.');
       }
       statusMessage = { type: 'success', text: `Document "${title}" successfully updated!` };
+      Astro.response.headers.set('X-Document-Id', id);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          document_id: id,
+          updated: true,
+          message: statusMessage.text,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Document-Id': id,
+          },
+        });
+      }
     } else if (action === 'delete_document') {
       const id = form.get('id')?.toString().trim();
       const title = form.get('title')?.toString().trim() || 'Document';
@@ -108,6 +123,21 @@ if (Astro.request.method === 'POST') {
         throw new Error('Document not found.');
       }
       statusMessage = { type: 'success', text: `Document "${title}" successfully deleted!` };
+      Astro.response.headers.set('X-Document-Id', id);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          document_id: id,
+          deleted: true,
+          message: statusMessage.text,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Document-Id': id,
+          },
+        });
+      }
     } else {
       throw new Error('A supported document action is required.');
     }
