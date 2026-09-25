@@ -12,6 +12,8 @@ import {
 } from '../../db/queries';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+let createdDocumentId = '';
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
 
 if (Astro.request.method === 'POST') {
   try {
@@ -35,7 +37,7 @@ if (Astro.request.method === 'POST') {
         throw new Error('Please provide a valid official document URL (e.g. https://esb.mp.gov.in/...).');
       }
 
-      await createDocument({
+      createdDocumentId = await createDocument({
         title,
         recruitmentId,
         sourceType,
@@ -44,6 +46,20 @@ if (Astro.request.method === 'POST') {
         adminEmail,
       });
       statusMessage = { type: 'success', text: `Document "${title}" successfully attached!` };
+      Astro.response.headers.set('X-Document-Id', createdDocumentId);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          document_id: createdDocumentId,
+          message: statusMessage.text,
+        }), {
+          status: 201,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Document-Id': createdDocumentId,
+          },
+        });
+      }
     } else if (action === 'update_document') {
       const id = form.get('id')?.toString().trim();
       const title = form.get('title')?.toString().trim();
@@ -61,7 +77,7 @@ if (Astro.request.method === 'POST') {
         throw new Error('Please provide a valid official document URL.');
       }
 
-      await updateDocument({
+      const updated = await updateDocument({
         id,
         title,
         recruitmentId,
@@ -70,6 +86,10 @@ if (Astro.request.method === 'POST') {
         publicationDate,
         adminEmail,
       });
+      if (!updated) {
+        Astro.response.status = 404;
+        throw new Error('Document not found.');
+      }
       statusMessage = { type: 'success', text: `Document "${title}" successfully updated!` };
     } else if (action === 'delete_document') {
       const id = form.get('id')?.toString().trim();
@@ -79,14 +99,27 @@ if (Astro.request.method === 'POST') {
         throw new Error('Document ID is required for deletion.');
       }
 
-      await deleteDocument({
+      const deleted = await deleteDocument({
         id,
         adminEmail,
       });
+      if (!deleted) {
+        Astro.response.status = 404;
+        throw new Error('Document not found.');
+      }
       statusMessage = { type: 'success', text: `Document "${title}" successfully deleted!` };
+    } else {
+      throw new Error('A supported document action is required.');
     }
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
+    if (Astro.response.status < 400) Astro.response.status = 400;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: statusMessage.text }), {
+        status: Astro.response.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 }
 
@@ -141,6 +174,7 @@ const filterTags = [
         </div>
       </div>
     )}
+    {createdDocumentId && <input type="hidden" name="document_id" value={createdDocumentId} />}
 
     <!-- Header with Action (FlowStep Screen 28) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">

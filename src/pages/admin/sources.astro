@@ -9,11 +9,62 @@ const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitm
 const currentSource = currentRec?.sourcesList?.[0];
 let message = '';
 if (Astro.request.method === 'POST') {
-  const form = await Astro.request.formData();
-  const sourceId = form.get('sourceId')?.toString();
-  if (!sourceId) throw new Error('No persisted source selected.');
-  await verifySource(sourceId, Astro.locals.adminEmail, form.get('note')?.toString().trim() || 'Verified against the official document.');
-  message = 'Source verification recorded.';
+  const contentType = Astro.request.headers.get('content-type') || '';
+  const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+  let sourceId = '';
+  let note = '';
+
+  try {
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json();
+      sourceId = typeof body?.sourceId === 'string' ? body.sourceId.trim() : '';
+      note = typeof body?.note === 'string' ? body.note.trim() : '';
+    } else {
+      const form = await Astro.request.formData();
+      sourceId = form.get('sourceId')?.toString().trim() || '';
+      note = form.get('note')?.toString().trim() || '';
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: 'Request body must be valid JSON or form data.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!sourceId) {
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: 'sourceId is required.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    Astro.response.status = 400;
+    message = 'sourceId is required.';
+  } else {
+    const verified = await verifySource(
+      sourceId,
+      Astro.locals.adminEmail,
+      note || 'Verified against the official document.',
+    );
+    if (!verified) {
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ error: 'Source not found.' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      Astro.response.status = 404;
+      message = 'Source not found.';
+    } else {
+      message = 'Source verification recorded.';
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ sourceId, verified: true, message }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+  }
 }
 ---
 

@@ -11,13 +11,13 @@ const [allSectors, allRecruitments] = await Promise.all([
   getAllActiveRecruitments(),
 ]);
 
-// Find matching sector by slug or keyword
-const sector = allSectors.find(s => 
-  s.slug === sectorParam || 
-  s.slug.startsWith(sectorParam) || 
-  sectorParam.startsWith(s.slug) ||
-  s.name.toLowerCase().includes(sectorParam)
-) || allSectors[1] || allSectors[0]; // fallback to police or first sector
+const sector = allSectors.find(s => {
+  const slug = s.slug.toLowerCase();
+  return slug === sectorParam || s.id.toLowerCase() === sectorParam || slug.split('-')[0] === sectorParam;
+});
+if (!sector) {
+  return new Response('Sector not found.', { status: 404 });
+}
 
 const posts = await getPostsBySectorId(sector.id);
 const postIds = new Set(posts.map(p => p.id));

@@ -1,11 +1,15 @@
-import assert from 'node:assert';
 import {
   getAllDocuments,
   createDocument,
   updateDocument,
   deleteDocument,
   getAuditLogs,
+  verifySource,
 } from './queries';
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
 
 async function runDocumentsCrudTests() {
   console.log('--- Running Documents CRUD Tests ---');
@@ -32,9 +36,19 @@ async function runDocumentsCrudTests() {
   const afterCreateDocs = await getAllDocuments();
   const createdDoc = afterCreateDocs.find(d => d.id === createdId);
   assert(createdDoc !== undefined, 'Newly created document must be present in getAllDocuments');
-  assert.strictEqual(createdDoc.title, newDocData.title, 'Created document title must match input');
-  assert.strictEqual(createdDoc.url, newDocData.sourceUrl, 'Created document URL must match input');
+  assert(createdDoc.title === newDocData.title, 'Created document title must match input');
+  assert(createdDoc.url === newDocData.sourceUrl, 'Created document URL must match input');
   console.log(`✅ CREATE PASSED: Created document with ID: ${createdId}`);
+
+  assert(
+    await verifySource(createdId, newDocData.adminEmail, 'Regression test verification'),
+    'verifySource should verify an existing document',
+  );
+  assert(
+    !(await verifySource('src_missing', newDocData.adminEmail, 'Must not create a false audit event')),
+    'verifySource should reject an unknown source ID',
+  );
+  console.log('✅ VERIFY PASSED: Existing IDs succeed and missing IDs are rejected');
 
   // 3. UPDATE: Modify document
   const updatedTitle = 'Test MP Police Revised Medical Guidelines 2026';
@@ -47,14 +61,14 @@ async function runDocumentsCrudTests() {
     adminEmail: 'test-admin@rozgarsetu.in',
   });
 
-  assert.strictEqual(updateSuccess, true, 'updateDocument should return true on success');
+  assert(updateSuccess, 'updateDocument should return true on success');
 
   const afterUpdateDocs = await getAllDocuments();
   const updatedDoc = afterUpdateDocs.find(d => d.id === createdId);
   assert(updatedDoc !== undefined, 'Updated document must exist');
-  assert.strictEqual(updatedDoc.title, updatedTitle, 'Document title must be updated');
-  assert.strictEqual(updatedDoc.url, updatedUrl, 'Document URL must be updated');
-  assert.strictEqual(updatedDoc.type, 'Correction notice', 'Document type must reflect updated notice type');
+  assert(updatedDoc.title === updatedTitle, 'Document title must be updated');
+  assert(updatedDoc.url === updatedUrl, 'Document URL must be updated');
+  assert(updatedDoc.type === 'Correction notice', 'Document type must reflect updated notice type');
   console.log('✅ UPDATE PASSED: Document successfully updated');
 
   // 4. DELETE: Remove document
@@ -63,7 +77,7 @@ async function runDocumentsCrudTests() {
     adminEmail: 'test-admin@rozgarsetu.in',
   });
 
-  assert.strictEqual(deleteSuccess, true, 'deleteDocument should return true on success');
+  assert(deleteSuccess, 'deleteDocument should return true on success');
 
   const afterDeleteDocs = await getAllDocuments();
   const deletedDoc = afterDeleteDocs.find(d => d.id === createdId);

@@ -1885,14 +1885,32 @@ export async function getAuditLogs(providedD1?: D1Database, limit = 100): Promis
   return db.query.auditLogs.findMany({ orderBy: [desc(schema.auditLogs.createdAt)], limit: Math.min(Math.max(limit, 1), 500) }) as any;
 }
 
-export async function verifySource(sourceId: string, adminEmail: string, note: string, providedD1?: D1Database): Promise<void> {
+export async function verifySource(sourceId: string, adminEmail: string, note: string, providedD1?: D1Database): Promise<boolean> {
   const d1 = resolveD1(providedD1, 'verifying a source');
-  if (!d1) return;
+  if (!d1) {
+    const source = FALLBACK_DOCUMENTS.find(document => document.id === sourceId);
+    if (!source) return false;
+    source.lastVerifiedAt = new Date();
+    source.verification = 'Verified';
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail,
+      entity: 'SOURCE',
+      entityId: sourceId,
+      action: 'VERIFY',
+      reason: note || 'Official source re-verified by an administrator.',
+      createdAt: new Date(),
+    } as any);
+    return true;
+  }
   const db = getDb(d1);
+  const source = await db.query.sources.findFirst({ where: eq(schema.sources.id, sourceId) });
+  if (!source) return false;
   await db.batch([
     db.update(schema.sources).set({ lastVerifiedAt: sql`(unixepoch())` }).where(eq(schema.sources.id, sourceId)),
     db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail, entity: 'SOURCE', entityId: sourceId, action: 'VERIFY', reason: note || 'Official source re-verified by an administrator.' }),
   ]);
+  return true;
 }
 
 export interface DocumentItem {
@@ -2180,6 +2198,8 @@ export async function updateDocument(
   }
 
   const db = getDb(d1);
+  const existing = await db.query.sources.findFirst({ where: eq(schema.sources.id, data.id) });
+  if (!existing) return false;
   const updateSet: Record<string, any> = {};
   if (data.recruitmentId) updateSet.recruitmentId = data.recruitmentId;
   if (data.title) updateSet.sourceTitle = data.title;
@@ -2229,6 +2249,8 @@ export async function deleteDocument(
   }
 
   const db = getDb(d1);
+  const existing = await db.query.sources.findFirst({ where: eq(schema.sources.id, data.id) });
+  if (!existing) return false;
   await db.batch([
     db.delete(schema.sources).where(eq(schema.sources.id, data.id)),
     db.insert(schema.auditLogs).values({

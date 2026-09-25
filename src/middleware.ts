@@ -1,4 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
+import { env } from 'cloudflare:workers';
 import { getHostname, isAdminSubdomain } from './lib/hostname';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
@@ -13,6 +14,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     url.port === '3000';
 
   const isAdminHost = isAdminSubdomain(hostname);
+  const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
 
   // Step 5: Subdomain Routing
   // workers.dev only issues TLS for one level of subdomain (*.bhupendrawatti24.workers.dev).
@@ -21,12 +23,8 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   // On a real custom domain the redirect to admin.* still applies.
   const isWorkersDev = hostname.endsWith('.workers.dev');
 
-  // Case A: If hostname starts with "admin." → serve admin pages
-  if (isAdminHost) {
-    if (!url.pathname.startsWith('/admin')) {
-      return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
-    }
-  } else if (!isLocal && !isWorkersDev && url.pathname.startsWith('/admin')) {
+  // On a custom-domain public host, send admin paths to the protected admin host.
+  if (!isAdminHost && !isLocal && !isWorkersDev && isAdminPath) {
     // Case B: On a custom domain in production, redirect /admin on the main domain to the admin subdomain
     const baseDomain = hostname.replace(/^www\./, '');
     const redirectUrl = new URL(url.toString());
@@ -34,16 +32,9 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     return Response.redirect(redirectUrl.toString(), 302);
   }
 
-  // Case C: Accessing /admin route directly
-  if (url.pathname.startsWith('/admin')) {
-    // Local development AND workers.dev staging bypass auth — no Zero Trust tunnel available.
-    if (isLocal || isWorkersDev) {
-      // @ts-ignore
-      locals.adminEmail = 'admin@rozgarsetu.in';
-      return next();
-    }
-
-    // In Production on custom domain, verify Cloudflare Zero Trust Access identity header
+  // Authenticate both /admin/* paths and clean URLs served from the admin subdomain.
+  if (isAdminPath || isAdminHost) {
+    // Cloudflare Access must protect every admin surface, including workers.dev and local test hosts.
     const userEmail = request.headers.get('cf-access-authenticated-user-email');
     const allowedAdmins = (import.meta.env.ADMIN_EMAILS || '')
       .split(',')
@@ -67,7 +58,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       );
     }
 
-    const db = (locals as any).runtime?.env?.DB as D1Database | undefined;
+    const db = (env as unknown as { DB?: D1Database }).DB;
     if (!db) return new Response('Admin database unavailable.', { status: 503 });
 
     try {
@@ -83,11 +74,19 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const origin = request.headers.get('origin');
-      if (!origin || new URL(origin).host !== url.host) return new Response('Invalid request origin.', { status: 403 });
+      try {
+        if (!origin || new URL(origin).host !== url.host) throw new Error('Invalid origin');
+      } catch {
+        return new Response('Invalid request origin.', { status: 403 });
+      }
     }
 
     // @ts-ignore
     locals.adminEmail = userEmail;
+
+    if (isAdminHost && !isAdminPath) {
+      return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
+    }
   }
 
   return next();

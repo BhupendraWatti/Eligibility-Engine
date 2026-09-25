@@ -137,3 +137,9 @@ scratch/
 .agents/
 .gemini/
 .system_generated/
+
+# Generated API documentation and TestSprite output
+backend.md
+openapi.json
+openapi.yaml
+testsprite_tests/
