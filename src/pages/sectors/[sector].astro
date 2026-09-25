@@ -3,6 +3,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getAllSectors, getPostsBySectorId, getAllActiveRecruitments } from '../../db/queries';
 import { calculateRecruitmentMetrics, formatSectorVacancySummary, isActiveDrive } from '../../services/lifecycle';
+import { resolveSectorRoute } from '../../services/sector-routing';
 
 const sectorParam = (Astro.params.sector || 'police').toLowerCase();
 
@@ -11,10 +12,7 @@ const [allSectors, allRecruitments] = await Promise.all([
   getAllActiveRecruitments(),
 ]);
 
-const sector = allSectors.find(s => {
-  const slug = s.slug.toLowerCase();
-  return slug === sectorParam || s.id.toLowerCase() === sectorParam || slug.split('-')[0] === sectorParam;
-});
+const sector = resolveSectorRoute(sectorParam, allSectors);
 if (!sector) {
   return new Response('Sector not found.', { status: 404 });
 }
