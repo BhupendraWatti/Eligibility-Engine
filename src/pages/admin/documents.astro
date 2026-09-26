@@ -573,70 +573,80 @@ const filterTags = [
   </div>
 
   <script is:inline>
-    // Add Document Modal controls
+    // Modal element references
     const addModal = document.getElementById('addDocModal');
+    const editModal = document.getElementById('editDocModal');
+    const deleteModal = document.getElementById('deleteDocModal');
+
+    // ── Add Modal controls ────────────────────────────────────────────────────
     document.getElementById('openAddDocModalBtn')?.addEventListener('click', () => addModal?.classList.remove('hidden'));
     document.getElementById('closeAddDocModalBtn')?.addEventListener('click', () => addModal?.classList.add('hidden'));
     document.getElementById('cancelAddDocModalBtn')?.addEventListener('click', () => addModal?.classList.add('hidden'));
 
-    // Edit Document Modal controls
-    const editModal = document.getElementById('editDocModal');
+    // ── Edit Modal controls ───────────────────────────────────────────────────
     document.getElementById('closeEditDocModalBtn')?.addEventListener('click', () => editModal?.classList.add('hidden'));
     document.getElementById('cancelEditDocModalBtn')?.addEventListener('click', () => editModal?.classList.add('hidden'));
 
-    document.querySelectorAll('.edit-doc-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        try {
-          const doc = JSON.parse(btn.getAttribute('data-doc') || '{}');
-          if (doc.id) {
-            document.getElementById('editDocId').value = doc.id;
-            document.getElementById('editDocTitle').value = doc.title || '';
-            if (document.getElementById('editDocSourceType')) {
-              document.getElementById('editDocSourceType').value = doc.sourceType || 'OFFICIAL_NOTIFICATION_PDF';
-            }
-            if (document.getElementById('editDocPubDate')) {
-              document.getElementById('editDocPubDate').value = doc.publicationDate || '';
-            }
-            if (document.getElementById('editDocSourceUrl')) {
-              document.getElementById('editDocSourceUrl').value = doc.sourceUrl || '';
-            }
-            if (document.getElementById('editDocRecruitmentId') && doc.recruitmentId) {
-              document.getElementById('editDocRecruitmentId').value = doc.recruitmentId;
-            }
-            editModal?.classList.remove('hidden');
-          }
-        } catch (e) {
-          console.error('Failed to open edit modal:', e);
-        }
-      });
-    });
-
-    // Delete Document Modal controls
-    const deleteModal = document.getElementById('deleteDocModal');
+    // ── Delete Modal controls ─────────────────────────────────────────────────
     document.getElementById('cancelDeleteDocModalBtn')?.addEventListener('click', () => deleteModal?.classList.add('hidden'));
 
-    document.querySelectorAll('.delete-doc-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        const title = btn.getAttribute('data-title') || 'Document';
-        if (id) {
-          document.getElementById('deleteDocId').value = id;
-          document.getElementById('deleteDocTitleHidden').value = title;
-          const displayEl = document.getElementById('deleteDocTitleDisplay');
-          if (displayEl) displayEl.textContent = `"${title}"`;
-          deleteModal?.classList.remove('hidden');
+    // ── EVENT DELEGATION on the table wrapper ─────────────────────────────────
+    // simple-datatables rewrites <tbody> on every page change and sort,
+    // which destroys any listeners attached directly to row buttons.
+    // Using a delegated listener on the stable parent (the card div) fixes this.
+    const tableWrapper = document.querySelector('.overflow-x-auto');
+    if (tableWrapper) {
+      tableWrapper.addEventListener('click', (e) => {
+        // ── Edit button ──────────────────────────────────────────────────────
+        const editBtn = e.target.closest('.edit-doc-btn');
+        if (editBtn) {
+          try {
+            const doc = JSON.parse(editBtn.getAttribute('data-doc') || '{}');
+            if (doc.id) {
+              const editDocId = document.getElementById('editDocId');
+              const editDocTitle = document.getElementById('editDocTitle');
+              const editDocSourceType = document.getElementById('editDocSourceType');
+              const editDocPubDate = document.getElementById('editDocPubDate');
+              const editDocSourceUrl = document.getElementById('editDocSourceUrl');
+              const editDocRecruitmentId = document.getElementById('editDocRecruitmentId');
+
+              if (editDocId) editDocId.value = doc.id;
+              if (editDocTitle) editDocTitle.value = doc.title || '';
+              if (editDocSourceType) editDocSourceType.value = doc.sourceType || 'OFFICIAL_NOTIFICATION_PDF';
+              if (editDocPubDate) editDocPubDate.value = doc.publicationDate || '';
+              if (editDocSourceUrl) editDocSourceUrl.value = doc.sourceUrl || '';
+              if (editDocRecruitmentId && doc.recruitmentId) editDocRecruitmentId.value = doc.recruitmentId;
+
+              editModal?.classList.remove('hidden');
+            }
+          } catch (err) {
+            console.error('Failed to open edit modal:', err);
+          }
+        }
+
+        // ── Delete button ────────────────────────────────────────────────────
+        const deleteBtn = e.target.closest('.delete-doc-btn');
+        if (deleteBtn) {
+          const id = deleteBtn.getAttribute('data-id');
+          const title = deleteBtn.getAttribute('data-title') || 'Document';
+          if (id) {
+            const deleteDocId = document.getElementById('deleteDocId');
+            const deleteDocTitleHidden = document.getElementById('deleteDocTitleHidden');
+            const deleteDocTitleDisplay = document.getElementById('deleteDocTitleDisplay');
+
+            if (deleteDocId) deleteDocId.value = id;
+            if (deleteDocTitleHidden) deleteDocTitleHidden.value = title;
+            if (deleteDocTitleDisplay) deleteDocTitleDisplay.textContent = `"${title}"`;
+            deleteModal?.classList.remove('hidden');
+          }
         }
       });
-    });
+    }
 
-    // Close on backdrop click
+    // ── Backdrop / Escape close ───────────────────────────────────────────────
     [addModal, editModal, deleteModal].forEach((m) => {
-      m?.addEventListener('click', (e) => {
-        if (e.target === m) m.classList.add('hidden');
-      });
+      m?.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); });
     });
-
-    // Close on Escape key
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         addModal?.classList.add('hidden');

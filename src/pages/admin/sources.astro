@@ -1,171 +1,159 @@
 ---
 // src/pages/admin/sources.astro (FlowStep Screen 24)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { createDocument, getAllActiveRecruitments, verifySource } from '../../db/queries';
+import { createDocument, getAllActiveRecruitments, getAllDocuments, deleteDocument, verifySource } from '../../db/queries';
+import { readAdminSubmission } from '../../services/admin-integrity';
 
 class RequestValidationError extends Error {}
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
 const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
 const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
-const currentSource = currentRec?.sourcesList?.[0];
+
 let message = '';
 let messageType: 'success' | 'error' = 'success';
+
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+const adminEmail = (Astro.locals as any).adminEmail || 'admin@rozgarsetu.in';
+
 if (Astro.request.method === 'POST') {
-  const contentType = Astro.request.headers.get('content-type') || '';
-  const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
-  const adminEmail = Astro.locals.adminEmail || 'admin@rozgarsetu.in';
-  let sourceId = '';
-  let note = '';
-  let recruitmentId = '';
-  let title = '';
-  let sourceType = 'OFFICIAL_NOTIFICATION_PDF';
-  let sourceUrl = '';
-  let publicationDate = '';
-
-  if (!adminEmail) {
-    return new Response(JSON.stringify({ error: 'Authenticated admin session is required.' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
   try {
-    if (contentType.includes('application/json')) {
-      const body = await Astro.request.json().catch(() => ({}));
-      sourceId = typeof body?.sourceId === 'string' ? body.sourceId.trim() : (typeof body?.source_id === 'string' ? body.source_id.trim() : (typeof body?.id === 'string' ? body.id.trim() : (typeof body?.document_id === 'string' ? body.document_id.trim() : '')));
-      note = typeof body?.note === 'string' ? body.note.trim() : '';
-      recruitmentId = typeof body?.recruitmentId === 'string' ? body.recruitmentId.trim() : (typeof body?.recruitment_id === 'string' ? body.recruitment_id.trim() : '');
-      title = typeof body?.title === 'string' ? body.title.trim() : '';
-      sourceType = typeof body?.sourceType === 'string' ? body.sourceType.trim() : (typeof body?.source_type === 'string' ? body.source_type.trim() : sourceType);
-      sourceUrl = typeof body?.sourceUrl === 'string' ? body.sourceUrl.trim() : (typeof body?.source_url === 'string' ? body.source_url.trim() : (typeof body?.url === 'string' ? body.url.trim() : ''));
-      publicationDate = typeof body?.publicationDate === 'string' ? body.publicationDate.trim() : (typeof body?.publication_date === 'string' ? body.publication_date.trim() : '');
-    } else {
-      const form = await Astro.request.formData();
-      sourceId = (form.get('sourceId') || form.get('source_id') || form.get('id') || form.get('document_id'))?.toString().trim() || '';
-      note = form.get('note')?.toString().trim() || '';
-      recruitmentId = (form.get('recruitmentId') || form.get('recruitment_id'))?.toString().trim() || '';
-      title = form.get('title')?.toString().trim() || '';
-      sourceType = (form.get('sourceType') || form.get('source_type'))?.toString().trim() || sourceType;
-      sourceUrl = (form.get('sourceUrl') || form.get('source_url') || form.get('url'))?.toString().trim() || '';
-      publicationDate = (form.get('publicationDate') || form.get('publication_date'))?.toString().trim() || '';
-    }
-  } catch {
-    return new Response(JSON.stringify({ error: 'Request body must be valid JSON or form data.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action') || 'verify';
 
-  const hasFixtureFields = Boolean(recruitmentId || title || sourceUrl);
-  if (!sourceId && (!recruitmentId || !title || !sourceUrl)) {
-    const error = hasFixtureFields
-      ? 'recruitmentId, title, and sourceUrl are required to create a source document.'
-      : 'sourceId or source document fields are required.';
-    if (!acceptsHtml) {
-      return new Response(JSON.stringify({ error }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-    Astro.response.status = 400;
-    message = error;
-    messageType = 'error';
-  } else {
-    try {
+    if (action === 'delete_source') {
+      // ── Delete a source document ────────────────────────────────────────────
+      const id = input.text('sourceId', 'source_id', 'id', 'document_id');
+      if (!id) throw new RequestValidationError('sourceId is required for deletion.');
+
+      const deleted = await deleteDocument({ id, adminEmail });
+      if (!deleted) {
+        Astro.response.status = 404;
+        throw new Error('Source not found.');
+      }
+      message = 'Source document deleted.';
+      messageType = 'success';
+      Astro.response.headers.set('X-Source-Id', id);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ id, deleted: true, success: true, message }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Source-Id': id },
+        });
+      }
+
+    } else if (action === 'create_source') {
+      // ── Create a new source document ────────────────────────────────────────
+      const recruitmentId = input.text('recruitmentId', 'recruitment_id');
+      const title = input.text('title');
+      const sourceType = input.text('sourceType', 'source_type') || 'OFFICIAL_NOTIFICATION_PDF';
+      const sourceUrl = input.text('sourceUrl', 'source_url', 'url');
+      const publicationDate = input.text('publicationDate', 'publication_date');
+
+      if (!recruitmentId || !title || !sourceUrl) {
+        throw new RequestValidationError('recruitmentId, title, and sourceUrl are required to create a source.');
+      }
+      try { new URL(sourceUrl); } catch { throw new RequestValidationError('sourceUrl must be a valid URL.'); }
+
+      const sourceId = await createDocument({ recruitmentId, title, sourceType, sourceUrl, publicationDate, adminEmail });
+      message = `Source "${title}" added successfully.`;
+      messageType = 'success';
+      Astro.response.headers.set('X-Source-Id', sourceId);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ sourceId, id: sourceId, source_id: sourceId, created: true, success: true, message }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json', 'X-Source-Id': sourceId },
+        });
+      }
+
+    } else {
+      // ── Verify a source (original action) ──────────────────────────────────
+      let sourceId = input.text('sourceId', 'source_id', 'id', 'document_id');
+      const note = input.text('note');
+      const recruitmentId = input.text('recruitmentId', 'recruitment_id');
+      const title = input.text('title');
+      const sourceType = input.text('sourceType', 'source_type') || 'OFFICIAL_NOTIFICATION_PDF';
+      const sourceUrl = input.text('sourceUrl', 'source_url', 'url');
+      const publicationDate = input.text('publicationDate', 'publication_date');
+
+      if (!sourceId && (!recruitmentId || !title || !sourceUrl)) {
+        const hasFields = Boolean(recruitmentId || title || sourceUrl);
+        throw new RequestValidationError(hasFields
+          ? 'recruitmentId, title, and sourceUrl are required to create a source document.'
+          : 'sourceId or source document fields are required.');
+      }
+
       let created = false;
       if (!sourceId) {
-        try {
-          new URL(sourceUrl);
-        } catch {
-          throw new RequestValidationError('sourceUrl must be a valid URL.');
-        }
-        sourceId = await createDocument({
-          recruitmentId,
-          title,
-          sourceType,
-          sourceUrl,
-          publicationDate,
-          adminEmail,
-        });
+        try { new URL(sourceUrl); } catch { throw new RequestValidationError('sourceUrl must be a valid URL.'); }
+        sourceId = await createDocument({ recruitmentId, title, sourceType, sourceUrl, publicationDate, adminEmail });
         created = true;
       }
 
-      const verified = await verifySource(
-        sourceId,
-        adminEmail,
-        note || 'Verified against the official document.',
-      );
+      const verified = await verifySource(sourceId, adminEmail, note || 'Verified against the official document.');
       if (!verified) {
-        if (!acceptsHtml) {
-          return new Response(JSON.stringify({ error: 'Source not found.' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
         Astro.response.status = 404;
-        message = 'Source not found.';
-        messageType = 'error';
-      } else {
-        message = 'Source verification recorded.';
-        messageType = 'success';
-        Astro.response.headers.set('X-Source-Id', sourceId);
-        if (!acceptsHtml) {
-          return new Response(JSON.stringify({
-            sourceId,
-            id: sourceId,
-            source_id: sourceId,
-            created,
-            verified: true,
-            success: true,
-            message,
-          }), {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Source-Id': sourceId,
-            },
-          });
-        }
+        throw new Error('Source not found.');
       }
-    } catch (error: any) {
-      const isValidationError = error instanceof RequestValidationError;
-      const status = isValidationError ? 400 : (Astro.response.status >= 400 && Astro.response.status < 500 ? Astro.response.status : 400);
-      const errorMessage = error?.message || 'Source verification failed.';
-      console.error('[admin/sources] Source verification notice:', error);
-      Astro.response.status = status;
-      message = errorMessage;
-      messageType = 'error';
+      message = 'Source verification recorded.';
+      messageType = 'success';
+      Astro.response.headers.set('X-Source-Id', sourceId);
+
       if (!acceptsHtml) {
-        return new Response(JSON.stringify({ error: errorMessage }), {
-          status,
-          headers: { 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ sourceId, id: sourceId, source_id: sourceId, created, verified: true, success: true, message }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Source-Id': sourceId },
         });
       }
     }
+  } catch (error: any) {
+    const isValidationError = error instanceof RequestValidationError;
+    const status = isValidationError ? 400 : (Astro.response.status >= 400 && Astro.response.status < 500 ? Astro.response.status : 400);
+    const errorMessage = error?.message || 'Action failed.';
+    console.error('[admin/sources]', error);
+    Astro.response.status = status;
+    message = errorMessage;
+    messageType = 'error';
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: errorMessage }), { status, headers: { 'Content-Type': 'application/json' } });
+    }
   }
 }
+
+// Load all documents and filter to those belonging to the selected recruitment
+const allDocuments = await getAllDocuments();
+const recSources = currentRec
+  ? allDocuments.filter(d => d.recruitmentId === currentRec.id)
+  : [];
+const currentSource = currentRec?.sourcesList?.[0];
 ---
 
 <AdminLayout
-  title="Verify Source"
+  title="Sources"
   currentSection="sources"
   breadcrumbs={[
     { label: 'Sources', href: '/admin/sources' },
-    { label: 'Verify source' },
+    { label: 'Official Gazette Provenance' },
   ]}
 >
   <div class="mx-auto max-w-5xl space-y-6">
     {message && (
-      <div class={`p-3 rounded-lg border text-xs ${
+      <div class={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
         messageType === 'success'
           ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
           : 'bg-rose-50 border-rose-200 text-rose-900'
       }`}>
-        {message}
+        {messageType === 'success' ? (
+          <svg class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        ) : (
+          <svg class="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        )}
+        <span>{message}</span>
       </div>
     )}
-    <!-- Header with Action (FlowStep Screen 24) -->
+
+    <!-- Header with Recruitment Selector -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div class="space-y-1">
         <div class="flex items-center gap-2 text-xs text-zinc-500">
@@ -173,158 +161,417 @@ if (Astro.request.method === 'POST') {
           <span>&rarr;</span>
           <span class="font-medium text-zinc-950">Official Gazette Provenance</span>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
-            Verify source
-          </h1>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-            <span class="size-1.5 rounded-full bg-amber-500"></span>
-            Needs verification
-          </span>
-        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          Verify Sources
+        </h1>
         <p class="text-xs text-zinc-500">
           Review official gazette notifications and verify all claims before public dissemination.
         </p>
       </div>
 
-      <div class="flex items-center gap-2.5">
-        <a
-          href={currentSource?.sourceUrl || '#'}
-          target="_blank"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
+      <!-- Recruitment Selector -->
+      <form method="GET" class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-zinc-700 whitespace-nowrap">Recruitment:</label>
+        <select
+          name="recruitment"
+          onchange="this.form.submit()"
+          class="px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-800 font-medium focus:ring-2 focus:ring-zinc-900 outline-none shadow-2xs"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          <span>Open official source</span>
-        </a>
-
-        <form method="POST" id="sourceVerificationForm">
-          <input type="hidden" name="sourceId" value={currentSource?.id || ''} />
-        <button
-          type="submit"
-          disabled={!currentSource?.id}
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
-          <span>Mark verified</span>
-        </button>
-        </form>
-      </div>
+          {recruitments.map((r: any) => (
+            <option value={r.title} selected={r.title === selectedTitle}>{r.title}</option>
+          ))}
+        </select>
+      </form>
     </div>
 
-    <!-- Record Context Header Pill (FlowStep Screen 24) -->
-    <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="size-9 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+    {currentRec ? (
+      <>
+        <!-- Record Context Header Pill -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="size-9 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Recruitment record</span>
+              <div class="text-sm font-bold text-zinc-950">{currentRec.title}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+              currentRec.status === 'PUBLISHED'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border-amber-200'
+            }`}>{currentRec.status}</span>
+            <div class="text-right">
+              <span class="text-[10px] font-mono text-zinc-400 block">Organisation</span>
+              <span class="text-xs font-semibold font-mono text-zinc-800">{currentRec.organisationShortName || 'MPESB'}</span>
+            </div>
+          </div>
         </div>
-        <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Recruitment record</span>
-          <div class="text-sm font-bold text-zinc-950">{currentRec?.title || 'No recruitment selected'}</div>
-        </div>
-      </div>
 
-      <div class="text-right">
-        <span class="text-[10px] font-mono text-zinc-400 block">Organisation</span>
-        <span class="text-xs font-semibold font-mono text-zinc-800">{currentRec?.organisationShortName || 'MPESB'}</span>
-      </div>
-    </div>
-
-    <!-- Two-Column Verification Split (FlowStep Screen 24) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      <!-- Left Card: Source Information -->
-      <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
-        <div class="border-b border-zinc-100 pb-3">
-          <h2 class="text-sm font-bold text-zinc-950">Source Information</h2>
-          <p class="text-xs text-zinc-500">Official document provenance details.</p>
-        </div>
-
-        <div class="space-y-3 text-xs">
-          <div>
-            <span class="text-zinc-500 block mb-1">Organisation:</span>
-            <input type="text" readonly value={currentRec?.organisationShortName || 'MPESB'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 font-semibold" />
+        <!-- Sources List for this Recruitment -->
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+          <div class="flex items-center justify-between p-4 border-b border-zinc-100">
+            <div>
+              <h2 class="text-sm font-bold text-zinc-950">Source Documents</h2>
+              <p class="text-xs text-zinc-500 mt-0.5">All official documents attached to this recruitment.</p>
+            </div>
+            <button
+              type="button"
+              id="openAddSourceModalBtn"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Add source</span>
+            </button>
           </div>
 
-          <div>
-            <span class="text-zinc-500 block mb-1">Source URL:</span>
-            <input type="text" readonly value={currentSource?.sourceUrl || 'No persisted source'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono text-xs" />
+          {recSources.length === 0 ? (
+            <div class="py-12 text-center text-zinc-400 text-xs">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-8 mx-auto mb-2 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <p>No source documents attached yet.</p>
+              <p class="mt-1 text-zinc-300">Add an official gazette or notification PDF link above.</p>
+            </div>
+          ) : (
+            <div class="divide-y divide-zinc-100" id="sourcesTableWrapper">
+              {recSources.map((doc: any) => (
+                <div class="flex items-start gap-4 p-4 hover:bg-zinc-50/70 transition-colors">
+                  <!-- Source type icon -->
+                  <div class="size-8 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 shrink-0 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                  </div>
+
+                  <!-- Title & meta -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-bold text-zinc-950 truncate">{doc.title}</span>
+                      <span class={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
+                        doc.type.toLowerCase().includes('correction')
+                          ? 'bg-amber-50 text-amber-900 border-amber-200'
+                          : doc.type.toLowerCase().includes('syllabus')
+                          ? 'bg-blue-50 text-blue-900 border-blue-200'
+                          : doc.type.toLowerCase().includes('key')
+                          ? 'bg-purple-50 text-purple-900 border-purple-200'
+                          : doc.type.toLowerCase().includes('admit')
+                          ? 'bg-cyan-50 text-cyan-900 border-cyan-200'
+                          : 'bg-zinc-100 text-zinc-800 border-zinc-200'
+                      }`}>{doc.type}</span>
+                      {doc.verification === 'Verified' ? (
+                        <span class="inline-flex items-center gap-1 text-emerald-700 text-[11px] font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+                          Verified
+                        </span>
+                      ) : (
+                        <span class="inline-flex items-center gap-1 text-amber-700 text-[11px] font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                          Needs review
+                        </span>
+                      )}
+                    </div>
+                    <div class="mt-1 flex items-center gap-3 text-[11px] text-zinc-400">
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" class="font-mono hover:text-zinc-700 hover:underline truncate max-w-xs">{doc.url}</a>
+                      {doc.publishedDate && <span>· Published {doc.publishedDate}</span>}
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2 shrink-0">
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 text-[11px] font-semibold transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Open
+                    </a>
+                    <!-- Verify form -->
+                    <form method="POST">
+                      <input type="hidden" name="_action" value="verify" />
+                      <input type="hidden" name="sourceId" value={doc.id} />
+                      <button
+                        type="submit"
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+                        Verify
+                      </button>
+                    </form>
+                    <!-- Delete button -->
+                    <button
+                      type="button"
+                      class="delete-source-btn inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                      data-id={doc.id}
+                      data-title={doc.title}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <!-- Two-Column Verification Split (Quick Verify panel for first source) -->
+        {currentSource && (
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <!-- Left Card: Source Information -->
+            <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
+              <div class="border-b border-zinc-100 pb-3">
+                <h2 class="text-sm font-bold text-zinc-950">Primary Source Details</h2>
+                <p class="text-xs text-zinc-500">Official document provenance for the primary source.</p>
+              </div>
+
+              <div class="space-y-3 text-xs">
+                <div>
+                  <span class="text-zinc-500 block mb-1">Organisation:</span>
+                  <input type="text" readonly value={currentRec?.organisationShortName || 'MPESB'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900 font-semibold" />
+                </div>
+                <div>
+                  <span class="text-zinc-500 block mb-1">Source URL:</span>
+                  <input type="text" readonly value={currentSource?.sourceUrl || 'No persisted source'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono text-xs" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <span class="text-zinc-500 block mb-1">Source Type:</span>
+                    <input type="text" readonly value={currentSource?.sourceType || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs" />
+                  </div>
+                  <div>
+                    <span class="text-zinc-500 block mb-1">Published Date:</span>
+                    <input type="text" readonly value={currentSource?.publicationDate || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-mono" />
+                  </div>
+                </div>
+                <form method="POST" id="sourceVerificationForm">
+                  <input type="hidden" name="_action" value="verify" />
+                  <input type="hidden" name="sourceId" value={currentSource?.id || ''} />
+                  <div>
+                    <span class="text-zinc-500 block mb-1">Audit Verification Note:</span>
+                    <textarea
+                      name="note"
+                      rows="3"
+                      placeholder="Add audit notes comparing official PDF clauses with structured record..."
+                      class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none focus:ring-2 focus:ring-zinc-900"
+                    ></textarea>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!currentSource?.id}
+                    class="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+                    <span>Mark primary source verified</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Right Card: Claims Checklist -->
+            <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
+              <div class="border-b border-zinc-100 pb-3">
+                <h2 class="text-sm font-bold text-zinc-950">Claims Supported by Source</h2>
+                <p class="text-xs text-zinc-500">Verify each statutory requirement against the notification document.</p>
+              </div>
+
+              <div class="space-y-3 text-xs">
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+                  <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                  <div>
+                    <span class="font-semibold text-zinc-900 block">Application Deadline: {currentRec?.applicationEnd || 'Not recorded'}</span>
+                    <span class="text-[11px] text-zinc-500">Confirmed in Section 1.2 of official gazette.</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+                  <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                  <div>
+                    <span class="font-semibold text-zinc-900 block">{currentRec?.totalVacancies ?? 'Not recorded'} Total Vacancies</span>
+                    <span class="text-[11px] text-zinc-500">Confirmed in Quota Reservation Matrix Table 4.</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+                  <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                  <div>
+                    <span class="font-semibold text-zinc-900 block">Minimum Qualification: {currentRec?.criteria.minQualificationLevel || 'Not recorded'}</span>
+                    <span class="text-[11px] text-zinc-500">Statutory minimum educational criterion verified.</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
+                  <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+                  <div>
+                    <span class="font-semibold text-zinc-900 block">Age Limit: {currentRec?.criteria.minAge ?? '—'}–{currentRec?.criteria.maxAgeGeneral ?? '—'} Years (General)</span>
+                    <span class="text-[11px] text-zinc-500">Age calculated as of statutory cutoff date 01-Jan-2026.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+                <div class="font-bold flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span>Verification Responsibility</span>
+                </div>
+                <p class="text-[11px] text-amber-800">
+                  Verify each claim against the official notification before publishing. Once marked verified, candidate eligibility calculations are unlocked for this recruitment.
+                </p>
+              </div>
+            </div>
           </div>
+        )}
+      </>
+    ) : (
+      <div class="rounded-xl border border-zinc-200 bg-white p-10 text-center text-zinc-400 text-xs">
+        No recruitments found. Please add a recruitment first.
+      </div>
+    )}
+  </div>
+
+  <!-- Add Source Modal -->
+  <div id="addSourceModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+      <form method="POST">
+        <input type="hidden" name="_action" value="create_source" />
+        {currentRec && <input type="hidden" name="recruitmentId" value={currentRec.id} />}
+
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Add Source Document</h2>
+            <p class="text-xs text-zinc-500">Attach an official gazette or notification PDF to this recruitment.</p>
+          </div>
+          <button type="button" id="closeAddSourceModalBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">&times;</button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Document Title *</label>
+            <input type="text" name="title" required placeholder="e.g. MP Police Constable 2026 Gazette Notification"
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          {!currentRec && (
+            <div class="space-y-1.5">
+              <label class="block font-semibold text-zinc-800">Recruitment *</label>
+              <select name="recruitmentId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+                {recruitments.map((r: any) => (
+                  <option value={r.id}>{r.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div class="grid grid-cols-2 gap-3">
-            <div>
-              <span class="text-zinc-500 block mb-1">Source Type:</span>
-              <input type="text" readonly value={currentSource?.sourceType || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs" />
+            <div class="space-y-1.5">
+              <label class="block font-semibold text-zinc-800">Document Type *</label>
+              <select name="sourceType" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+                <option value="OFFICIAL_NOTIFICATION_PDF">Notification Gazette</option>
+                <option value="CORRECTION_NOTICE">Correction Notice</option>
+                <option value="ADMIT_CARD">Admit Card Link</option>
+                <option value="ANSWER_KEY">Answer Key</option>
+                <option value="SYLLABUS">Examination Syllabus</option>
+              </select>
             </div>
-            <div>
-              <span class="text-zinc-500 block mb-1">Published Date:</span>
-              <input type="text" readonly value={currentSource?.publicationDate || 'Not recorded'} class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-mono" />
+            <div class="space-y-1.5">
+              <label class="block font-semibold text-zinc-800">Publication Date</label>
+              <input type="date" name="publicationDate"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
             </div>
           </div>
 
-          <div>
-            <span class="text-zinc-500 block mb-1">Audit Verification Note:</span>
-            <textarea
-              name="note"
-              form="sourceVerificationForm"
-              rows="3"
-              placeholder="Add audit notes comparing official PDF clauses with structured record..."
-              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none focus:ring-2 focus:ring-zinc-900"
-            ></textarea>
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Official Source URL *</label>
+            <input type="url" name="sourceUrl" required placeholder="https://esb.mp.gov.in/notifications/..."
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
         </div>
-      </div>
 
-      <!-- Right Card: Claims Supported by this Source (FlowStep Screen 24) -->
-      <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
-        <div class="border-b border-zinc-100 pb-3">
-          <h2 class="text-sm font-bold text-zinc-950">Claims Supported by Source</h2>
-          <p class="text-xs text-zinc-500">Verify each statutory requirement against the notification document.</p>
+        <div class="border-t border-zinc-100 pt-4 mt-4 flex items-center justify-end gap-2.5">
+          <button type="button" id="cancelAddSourceModalBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+            Save Source
+          </button>
         </div>
-
-        <div class="space-y-3 text-xs">
-          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
-            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
-            <div>
-              <span class="font-semibold text-zinc-900 block">Application Deadline: {currentRec?.applicationEnd || 'Not recorded'}</span>
-              <span class="text-[11px] text-zinc-500">Confirmed in Section 1.2 of official gazette.</span>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
-            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
-            <div>
-              <span class="font-semibold text-zinc-900 block">{currentRec?.totalVacancies ?? 'Not recorded'} Total Vacancies</span>
-              <span class="text-[11px] text-zinc-500">Confirmed in Quota Reservation Matrix Table 4.</span>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
-            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
-            <div>
-              <span class="font-semibold text-zinc-900 block">Minimum Qualification: {currentRec?.criteria.minQualificationLevel || 'Not recorded'}</span>
-              <span class="text-[11px] text-zinc-500">Statutory minimum educational criterion verified.</span>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors">
-            <input type="checkbox" checked class="mt-0.5 size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
-            <div>
-              <span class="font-semibold text-zinc-900 block">Age Limit: {currentRec?.criteria.minAge ?? '—'}–{currentRec?.criteria.maxAgeGeneral ?? '—'} Years (General)</span>
-              <span class="text-[11px] text-zinc-500">Age calculated as of statutory cutoff date 01-Jan-2026.</span>
-            </div>
-          </label>
-        </div>
-
-        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
-          <div class="font-bold flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span>Verification Responsibility</span>
-          </div>
-          <p class="text-[11px] text-amber-800">
-            Verify each claim against the official notification before publishing. Once marked verified, candidate eligibility calculations are unlocked for this recruitment.
-          </p>
-        </div>
-      </div>
+      </form>
     </div>
   </div>
+
+  <!-- Delete Source Confirmation Modal -->
+  <div id="deleteSourceModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+      <form method="POST">
+        <input type="hidden" name="_action" value="delete_source" />
+        <input type="hidden" name="sourceId" id="deleteSourceId" value="" />
+
+        <div class="flex items-center gap-3 border-b border-zinc-100 pb-3">
+          <div class="size-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Delete Source</h2>
+            <p class="text-xs text-zinc-500">Are you sure you want to remove this source document?</p>
+          </div>
+        </div>
+
+        <div class="py-2 text-xs text-zinc-600">
+          <p>You are about to delete <strong id="deleteSourceTitleDisplay" class="text-zinc-950 font-semibold"></strong>. This action cannot be undone.</p>
+        </div>
+
+        <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+          <button type="button" id="cancelDeleteSourceModalBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 text-xs font-semibold shadow-xs cursor-pointer">
+            Confirm Delete
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script is:inline>
+    // ── Add Source Modal ───────────────────────────────────────────────────────
+    const addSourceModal = document.getElementById('addSourceModal');
+    document.getElementById('openAddSourceModalBtn')?.addEventListener('click', () => addSourceModal?.classList.remove('hidden'));
+    document.getElementById('closeAddSourceModalBtn')?.addEventListener('click', () => addSourceModal?.classList.add('hidden'));
+    document.getElementById('cancelAddSourceModalBtn')?.addEventListener('click', () => addSourceModal?.classList.add('hidden'));
+
+    // ── Delete Source Modal ────────────────────────────────────────────────────
+    const deleteSourceModal = document.getElementById('deleteSourceModal');
+    document.getElementById('cancelDeleteSourceModalBtn')?.addEventListener('click', () => deleteSourceModal?.classList.add('hidden'));
+
+    // Event delegation on the sources list wrapper
+    const sourcesWrapper = document.getElementById('sourcesTableWrapper');
+    if (sourcesWrapper) {
+      sourcesWrapper.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.delete-source-btn');
+        if (deleteBtn) {
+          const id = deleteBtn.getAttribute('data-id');
+          const title = deleteBtn.getAttribute('data-title') || 'Source';
+          if (id) {
+            const deleteSourceId = document.getElementById('deleteSourceId');
+            const deleteSourceTitleDisplay = document.getElementById('deleteSourceTitleDisplay');
+            if (deleteSourceId) deleteSourceId.value = id;
+            if (deleteSourceTitleDisplay) deleteSourceTitleDisplay.textContent = `"${title}"`;
+            deleteSourceModal?.classList.remove('hidden');
+          }
+        }
+      });
+    }
+
+    // Backdrop / Escape close
+    [addSourceModal, deleteSourceModal].forEach((m) => {
+      m?.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); });
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        addSourceModal?.classList.add('hidden');
+        deleteSourceModal?.classList.add('hidden');
+      }
+    });
+  </script>
 
 </AdminLayout>

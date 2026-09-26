@@ -33,27 +33,53 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
             {selectedRec?.status || 'Draft'}
           </span>
         </div>
-        <p class="text-xs text-zinc-500 font-mono">
-          Target: {selectedRecruitmentTitle}
-        </p>
       </div>
 
-      <div class="flex items-center gap-2.5">
-        <a
-          href={`/admin/recruitments/${selectedRec?.id || '1'}/edit`}
-          class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
-        >
-          Edit Raw Criteria
-        </a>
-        <button
-          type="button"
-          id="saveRulesBtn"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Save Rules</span>
-        </button>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <!-- Recruitment Selector -->
+        <form method="GET">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-zinc-600 whitespace-nowrap">Recruitment:</label>
+            <select
+              name="recruitment"
+              onchange="this.form.submit()"
+              class="px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-800 font-medium focus:ring-2 focus:ring-zinc-900 outline-none shadow-2xs"
+            >
+              {recruitments.map((r: any) => (
+                <option value={r.title} selected={r.title === selectedRecruitmentTitle}>{r.title}</option>
+              ))}
+            </select>
+          </div>
+        </form>
+
+        <div class="flex items-center gap-2">
+          <a
+            href={`/admin/recruitments/${selectedRec?.id || '1'}/edit`}
+            class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
+          >
+            Edit Raw Criteria
+          </a>
+          <button
+            type="button"
+            id="saveRulesBtn"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Save Rules</span>
+          </button>
+        </div>
       </div>
+    </div>
+
+    <!-- Target info row -->
+    <div class="flex items-center gap-3 text-xs text-zinc-500 -mt-2">
+      <span class="font-mono">Target:</span>
+      <span class="font-medium text-zinc-800">{selectedRecruitmentTitle}</span>
+      {selectedRec && (
+        <a href={`/admin/recruitments/${selectedRec.id}/edit`} class="ml-auto text-zinc-400 hover:text-zinc-700 hover:underline transition-colors">
+          Edit full record &rarr;
+        </a>
+      )}
     </div>
 
     <!-- Main Builder Canvas (FlowStep Screen 23) -->
