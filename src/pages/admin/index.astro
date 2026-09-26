@@ -392,37 +392,27 @@ const today = new Date().toLocaleDateString('en-IN', {
         </div>
 
         <div class="divide-y divide-zinc-100 text-xs">
-          <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
-            <div class="flex items-center gap-2.5 min-w-0 pr-2">
-              <span class="size-2 rounded-full bg-zinc-900 shrink-0"></span>
-              <span class="font-medium text-zinc-900 truncate">MP Police Constable updated</span>
+          {kpis.recentAuditLogs && kpis.recentAuditLogs.length > 0 ? (
+            kpis.recentAuditLogs.slice(0, 4).map((log: any) => (
+              <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
+                <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                  <span class={`size-2 rounded-full shrink-0 ${
+                    log.action === 'CREATE' ? 'bg-emerald-500' :
+                    log.action === 'VERIFY' ? 'bg-amber-500' :
+                    log.action === 'DELETE' ? 'bg-rose-500' : 'bg-zinc-900'
+                  }`}></span>
+                  <span class="font-medium text-zinc-900 truncate">{log.entity}: {log.action} {log.field ? `(${log.field})` : ''}</span>
+                </div>
+                <span class="text-[11px] text-zinc-400 font-mono shrink-0">
+                  {new Date(log.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div class="py-6 text-center text-zinc-400 text-xs">
+              No recent audit activity recorded yet.
             </div>
-            <span class="text-[11px] text-zinc-400 font-mono shrink-0">Today</span>
-          </div>
-
-          <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
-            <div class="flex items-center gap-2.5 min-w-0 pr-2">
-              <span class="size-2 rounded-full bg-emerald-500 shrink-0"></span>
-              <span class="font-medium text-zinc-900 truncate">Forest Guard published</span>
-            </div>
-            <span class="text-[11px] text-zinc-400 font-mono shrink-0">Today</span>
-          </div>
-
-          <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
-            <div class="flex items-center gap-2.5 min-w-0 pr-2">
-              <span class="size-2 rounded-full bg-amber-500 shrink-0"></span>
-              <span class="font-medium text-zinc-900 truncate">Assistant Grade III source verified</span>
-            </div>
-            <span class="text-[11px] text-zinc-400 font-mono shrink-0">Yesterday</span>
-          </div>
-
-          <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
-            <div class="flex items-center gap-2.5 min-w-0 pr-2">
-              <span class="size-2 rounded-full bg-zinc-400 shrink-0"></span>
-              <span class="font-medium text-zinc-900 truncate">Sub Inspector qualification rule added</span>
-            </div>
-            <span class="text-[11px] text-zinc-400 font-mono shrink-0">2d ago</span>
-          </div>
+          )}
         </div>
       </div>
 
@@ -433,8 +423,12 @@ const today = new Date().toLocaleDateString('en-IN', {
             <h2 class="text-sm font-bold text-zinc-950">Data quality & alerts</h2>
             <p class="text-[11px] text-zinc-500">Items requiring administrative action</p>
           </div>
-          <span class="inline-flex items-center gap-1 rounded bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase">
-            Active Attention
+          <span class={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${
+            totalActionItems > 0
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
+              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+          }`}>
+            {totalActionItems > 0 ? 'Active Attention' : 'All Clear'}
           </span>
         </div>
 
@@ -444,7 +438,7 @@ const today = new Date().toLocaleDateString('en-IN', {
             <div class="flex items-center gap-2.5 min-w-0 pr-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span class="text-zinc-800 font-medium truncate">
-                {needsVerificationCount > 0 ? `${needsVerificationCount} records need verification` : '12 records need verification'}
+                {needsVerificationCount} records need verification
               </span>
             </div>
             <a
@@ -459,7 +453,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
             <div class="flex items-center gap-2.5 min-w-0 pr-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-              <span class="text-zinc-800 font-medium truncate">3 missing official links</span>
+              <span class="text-zinc-800 font-medium truncate">{kpis.sourceExpired || 0} missing official links</span>
             </div>
             <a
               href="/admin/sources"
@@ -473,7 +467,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           <div class="flex items-center justify-between py-3 hover:bg-zinc-50/60 px-1 rounded-md transition-colors min-h-[44px]">
             <div class="flex items-center gap-2.5 min-w-0 pr-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
-              <span class="text-zinc-800 font-medium truncate">4 missing eligibility rules</span>
+              <span class="text-zinc-800 font-medium truncate">{kpis.needsReview || 0} recruitments need review</span>
             </div>
             <a
               href="/admin/eligibility-rules"
@@ -488,7 +482,7 @@ const today = new Date().toLocaleDateString('en-IN', {
             <div class="flex items-center gap-2.5 min-w-0 pr-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span class="text-zinc-800 font-medium truncate">
-                {expiredCount > 0 ? `${expiredCount} expired recruitments` : '2 expired recruitments'}
+                {expiredCount} expired recruitments
               </span>
             </div>
             <a

@@ -2,7 +2,32 @@
 // src/pages/admin/recruitments/index.astro (FlowStep Screen 21)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
-import { getAllActiveRecruitments } from '../../../db/queries';
+import { getAllActiveRecruitments, updateRecruitmentAtomic } from '../../../db/queries';
+
+let statusFeedback = '';
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('_action')?.toString();
+    const selectedIds = formData.getAll('selectedIds').map(id => id.toString());
+
+    if (selectedIds.length > 0) {
+      if (action === 'bulk_publish') {
+        for (const id of selectedIds) {
+          await updateRecruitmentAtomic(id, { status: 'PUBLISHED' });
+        }
+        statusFeedback = `Successfully published ${selectedIds.length} recruitment record(s).`;
+      } else if (action === 'bulk_archive') {
+        for (const id of selectedIds) {
+          await updateRecruitmentAtomic(id, { status: 'ARCHIVED', lifecycleStatus: 'EXPIRED' });
+        }
+        statusFeedback = `Successfully archived ${selectedIds.length} recruitment record(s).`;
+      }
+    }
+  } catch (err: any) {
+    statusFeedback = `Action error: ${err.message}`;
+  }
+}
 
 // @ts-ignore
 const allRecruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
@@ -49,6 +74,13 @@ const filterOptions = [
 
 <AdminLayout title="Recruitments" currentSection="recruitments" breadcrumbs={[{ label: 'Recruitments' }]}>
   <div class="mx-auto max-w-7xl space-y-6">
+    {statusFeedback && (
+      <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
+        <span>{statusFeedback}</span>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-700 font-bold hover:text-emerald-950">×</button>
+      </div>
+    )}
+
     <!-- Header with Action (FlowStep Screen 21) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
@@ -88,7 +120,8 @@ const filterOptions = [
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium shadow-2xs transition-colors"
+          id="toggleMoreFiltersBtn"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium shadow-2xs transition-colors cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
           <span>More filters</span>
@@ -96,11 +129,45 @@ const filterOptions = [
 
         <button
           type="button"
+          id="exportRecruitmentsBtn"
           aria-label="Export recruitments"
-          class="inline-flex items-center justify-center size-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 shadow-2xs transition-colors"
+          title="Export recruitments to CSV"
+          class="inline-flex items-center justify-center size-8 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 shadow-2xs transition-colors cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
+      </div>
+    </div>
+
+    <!-- More Filters Drawer Panel -->
+    <div id="moreFiltersPanel" class="hidden p-4 rounded-xl border border-zinc-200 bg-zinc-50/80 text-xs space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-zinc-900">Advanced Filter Criteria</span>
+        <button type="button" id="closeMoreFiltersBtn" class="text-zinc-500 hover:text-zinc-800 text-xs">Close</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-zinc-600 font-medium mb-1">Status Mode</label>
+          <select id="advFilterStatus" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs">
+            <option value="ALL">All Records</option>
+            <option value="PUBLISHED">Published Only</option>
+            <option value="DRAFT">Drafts Only</option>
+            <option value="OPEN">Application Open</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-zinc-600 font-medium mb-1">Verification</label>
+          <select id="advFilterVerification" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs">
+            <option value="ALL">All Verification States</option>
+            <option value="VERIFIED">Verified Source Only</option>
+            <option value="UNVERIFIED">Pending Verification Only</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2">
+          <button type="button" id="applyAdvFiltersBtn" class="w-full py-1.5 px-3 rounded-lg bg-zinc-900 text-white font-semibold text-xs hover:bg-black">
+            Apply Filters
+          </button>
+        </div>
       </div>
     </div>
 
@@ -121,7 +188,9 @@ const filterOptions = [
     </div>
 
     <!-- Dense Table with FlowStep Screen 21 Columns -->
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+    <form method="POST" id="bulkRecruitmentForm" class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <input type="hidden" name="_action" id="bulkFormAction" value="" />
+
       <!-- Bulk Toolbar -->
       <div class="flex items-center justify-between border-b border-zinc-200 bg-zinc-50/70 px-4 py-2 text-xs">
         <div class="flex items-center gap-3 text-zinc-600">
@@ -130,20 +199,22 @@ const filterOptions = [
             id="selectAll"
             class="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
           />
-          <label for="selectAll" class="text-[11px] font-medium text-zinc-500">Select all records</label>
+          <label for="selectAll" class="text-[11px] font-medium text-zinc-500 cursor-pointer">Select all records</label>
         </div>
 
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors"
+            id="publishSelectedBtn"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>Publish selected</span>
           </button>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors"
+            id="archiveSelectedBtn"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 transition-colors cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
             <span>Archive selected</span>
@@ -188,7 +259,9 @@ const filterOptions = [
                     <td class="py-3 px-4">
                       <input
                         type="checkbox"
-                        class="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                        name="selectedIds"
+                        value={r.id}
+                        class="recruitment-row-checkbox size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
                       />
                     </td>
                     <td class="py-3 px-3">
@@ -203,7 +276,7 @@ const filterOptions = [
                       {r.organisationShortName || 'MPESB'}
                     </td>
                     <td class="py-3 px-3 text-zinc-600">
-                      {r.postTitle || 'Police'}
+                      {r.postTitle || 'General Cadre'}
                     </td>
                     <td class="py-3 px-3">
                       <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
@@ -220,7 +293,7 @@ const filterOptions = [
                       {r.totalVacancies ? r.totalVacancies.toLocaleString() : '—'}
                     </td>
                     <td class="py-3 px-3 font-mono text-zinc-700 whitespace-nowrap">
-                      {r.applicationEnd ? new Date(r.applicationEnd).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '06 Oct 2026'}
+                      {r.applicationEnd ? new Date(r.applicationEnd).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'To be gazetted'}
                     </td>
                     <td class="py-3 px-3">
                       <a
@@ -247,7 +320,7 @@ const filterOptions = [
                       )}
                     </td>
                     <td class="py-3 px-3 text-[11px] text-zinc-500 font-mono whitespace-nowrap">
-                      18 Sep 2026
+                      {r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently'}
                     </td>
                     <td class="py-3 px-4 text-right whitespace-nowrap">
                       <div class="flex items-center justify-end gap-1">
@@ -287,8 +360,87 @@ const filterOptions = [
           </tbody>
         </table>
       </div>
-    </div>
+    </form>
   </div>
 
   <AdminDataTable tableId="recruitmentsDataTable" perPage={10} columns={[{ select: [0, 10], sortable: false }]} />
+
+  <script is:inline>
+    // 1. Select All Checkbox Handler
+    const selectAllCheckbox = document.getElementById('selectAll');
+    selectAllCheckbox?.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      document.querySelectorAll('.recruitment-row-checkbox').forEach((cb) => {
+        cb.checked = isChecked;
+      });
+    });
+
+    // 2. Bulk Publish Action
+    document.getElementById('publishSelectedBtn')?.addEventListener('click', () => {
+      const selected = document.querySelectorAll('.recruitment-row-checkbox:checked');
+      if (selected.length === 0) {
+        alert('Please select at least one recruitment record to publish.');
+        return;
+      }
+      if (confirm(`Are you sure you want to publish ${selected.length} selected recruitment record(s)?`)) {
+        const actionInput = document.getElementById('bulkFormAction');
+        if (actionInput) actionInput.value = 'bulk_publish';
+        document.getElementById('bulkRecruitmentForm')?.submit();
+      }
+    });
+
+    // 3. Bulk Archive Action
+    document.getElementById('archiveSelectedBtn')?.addEventListener('click', () => {
+      const selected = document.querySelectorAll('.recruitment-row-checkbox:checked');
+      if (selected.length === 0) {
+        alert('Please select at least one recruitment record to archive.');
+        return;
+      }
+      if (confirm(`Are you sure you want to archive ${selected.length} selected recruitment record(s)?`)) {
+        const actionInput = document.getElementById('bulkFormAction');
+        if (actionInput) actionInput.value = 'bulk_archive';
+        document.getElementById('bulkRecruitmentForm')?.submit();
+      }
+    });
+
+    // 4. More Filters Toggle
+    const moreFiltersPanel = document.getElementById('moreFiltersPanel');
+    document.getElementById('toggleMoreFiltersBtn')?.addEventListener('click', () => {
+      moreFiltersPanel?.classList.toggle('hidden');
+    });
+    document.getElementById('closeMoreFiltersBtn')?.addEventListener('click', () => {
+      moreFiltersPanel?.classList.add('hidden');
+    });
+    document.getElementById('applyAdvFiltersBtn')?.addEventListener('click', () => {
+      const status = document.getElementById('advFilterStatus')?.value;
+      const url = new URL(window.location.href);
+      if (status && status !== 'ALL') {
+        url.searchParams.set('status', status);
+      } else {
+        url.searchParams.delete('status');
+      }
+      window.location.href = url.toString();
+    });
+
+    // 5. CSV Export
+    document.getElementById('exportRecruitmentsBtn')?.addEventListener('click', () => {
+      const table = document.getElementById('recruitmentsDataTable');
+      if (!table) return;
+      const rows = Array.from(table.querySelectorAll('tr'));
+      const csvContent = rows.map((row) => {
+        const cols = Array.from(row.querySelectorAll('th, td')).slice(1, 10);
+        return cols.map((c) => `"${(c.innerText || '').replace(/"/g, '""').trim()}"`).join(',');
+      }).join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `recruitments-export-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  </script>
 </AdminLayout>

@@ -61,8 +61,8 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       request.headers.get('x-admin-bypass'),
     );
 
-    // A secret-backed test request may use the seeded lead-admin identity.
-    if (!userEmail && isTestBypass) {
+    // A secret-backed test request or local development may use the seeded lead-admin identity.
+    if (!userEmail && (isTestBypass || isLocal)) {
       userEmail = 'admin@rozgarsetu.in';
     }
 
@@ -90,11 +90,11 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       // not in worker runtime
     }
 
-    if (!isTestBypass && !db) {
+    if (!isTestBypass && !isLocal && !db) {
       return new Response('Admin authorization unavailable.', { status: 503 });
     }
 
-    if (!isTestBypass && db) {
+    if (!isTestBypass && !isLocal && db) {
       try {
         const admin = await db
           .prepare('SELECT is_active FROM admin_users WHERE lower(email) = lower(?) LIMIT 1')
@@ -117,7 +117,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
         } catch {
           return new Response('Invalid request origin.', { status: 403 });
         }
-      } else if (!isTestBypass) {
+      } else if (!isTestBypass && !isLocal) {
         return new Response('Invalid request origin.', { status: 403 });
       }
     }
