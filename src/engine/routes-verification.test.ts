@@ -5,6 +5,8 @@ function assert(condition: boolean, testName: string) {
   }
   console.log(`✅ PASSED: ${testName}`);
 }
+// @ts-expect-error Node built-ins are available to the tsx test runner, not the Worker bundle.
+import { readFileSync } from 'node:fs';
 import {
   getOrganisationBySlug,
   getCanonicalPostBySlug,
@@ -113,6 +115,34 @@ async function runTests() {
   const recMissing = await getRecruitmentWithRelations('nonexistent-recruitment-slug');
   assert(recMissing === undefined, 'nonexistent recruitment slug must return undefined');
   console.log('✅ PASSED: Recruitment lookups succeed for real slugs & return undefined for non-existent');
+
+  console.log('Test 5: HTTP route and admin-integrity regression guards');
+  for (const route of [
+    'src/pages/organisations/[slug].astro',
+    'src/pages/posts/[slug].astro',
+    'src/pages/recruitments/[slug].astro',
+    'src/pages/sectors/[sector].astro',
+  ]) {
+    const source = readFileSync(route, 'utf8');
+    assert(source.includes('Astro.response.status = 404'), `${route} must set a real 404 status`);
+  }
+
+  const middleware = readFileSync('src/middleware.ts', 'utf8');
+  assert(middleware.includes('ADMIN_TEST_BYPASS_TOKEN'), 'admin bypass requires a server-configured token');
+  assert(!/(x-test-bypass|searchParams\.get\('test_bypass'\)|includes\('testsprite'\)|includes\('playwright'\))/i.test(middleware), 'caller-controlled legacy auth bypasses stay removed');
+
+  const documentsPage = readFileSync('src/pages/admin/documents.astro', 'utf8');
+  assert(!documentsPage.includes('recruitments.length'), 'document POST does not read display fixtures before initialization');
+
+  const notFoundPage = readFileSync('src/pages/404.astro', 'utf8');
+  assert(notFoundPage.includes('Astro.url.pathname'), 'the global 404 identifies the requested path');
+
+  const auditLogPage = readFileSync('src/pages/admin/audit-log.astro', 'utf8');
+  assert(auditLogPage.includes('getAuditLogs().catch'), 'the authenticated audit shell survives audit data-loading errors');
+
+  const recruitmentPage = readFileSync('src/pages/admin/recruitments/new.astro', 'utf8');
+  assert(!recruitmentPage.includes("sourceUrl = 'https://esb.mp.gov.in/notifications/official-rulebook.pdf'"), 'recruitment intake never fabricates an official source');
+  assert(!recruitmentPage.includes('if (!totalVacancies)'), 'zero-vacancy recruitments remain valid');
 
   console.log('\n🎉 ALL PUBLIC DETAIL ROUTE LOOKUP TESTS PASSED!\n');
 }

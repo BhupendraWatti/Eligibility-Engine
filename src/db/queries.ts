@@ -1459,10 +1459,10 @@ export async function getAllSectors(providedD1?: D1Database): Promise<MasterSect
     const rows = await db.query.sectors.findMany({
       orderBy: [asc(schema.sectors.displayOrder), asc(schema.sectors.name)],
     });
-    return rows.length > 0 ? rows : FALLBACK_SECTORS;
+    return rows;
   } catch (error) {
-    console.warn('Error fetching sectors from D1, using fallback:', error);
-    return FALLBACK_SECTORS;
+    console.error('Error fetching sectors from D1:', error);
+    throw error;
   }
 }
 
@@ -1479,10 +1479,10 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
       where: eq(schema.departments.isActive, 1),
       orderBy: [asc(schema.departments.name)],
     });
-    return rows.length > 0 ? rows : FALLBACK_DEPARTMENTS;
+    return rows;
   } catch (error) {
-    console.warn('Error fetching departments from D1, using fallback:', error);
-    return FALLBACK_DEPARTMENTS;
+    console.error('Error fetching departments from D1:', error);
+    throw error;
   }
 }
 
@@ -1507,8 +1507,6 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       orderBy: [asc(schema.posts.title)],
     });
 
-    if (rows.length === 0) return FALLBACK_POSTS;
-
     return rows.map((p: any) => ({
       id: p.id,
       departmentId: p.departmentId,
@@ -1526,8 +1524,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
-    console.warn('Error fetching canonical posts from D1, using fallback:', error);
-    return FALLBACK_POSTS;
+    console.error('Error fetching canonical posts from D1:', error);
+    throw error;
   }
 }
 
@@ -1613,6 +1611,12 @@ export async function createCanonicalPost(
 
   try {
     const db = getDb(d1);
+    const [department, sector] = await Promise.all([
+      db.query.departments.findFirst({ where: eq(schema.departments.id, data.departmentId) }),
+      db.query.sectors.findFirst({ where: eq(schema.sectors.id, data.sectorId) }),
+    ]);
+    if (!department) throw new Error(`Unknown department: ${data.departmentId}`);
+    if (!sector) throw new Error(`Unknown sector: ${data.sectorId}`);
     const existing = await db.select({ id: schema.posts.id }).from(schema.posts).where(eq(schema.posts.slug, slug)).limit(1);
     if (existing.length > 0) {
       slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1691,11 +1695,10 @@ export async function getAllActiveRecruitments(
     if (filters.length > 1) queryOpts.where = and(...filters);
 
     const rows = await db.query.recruitments.findMany(queryOpts) as any[];
-    if (rows.length === 0) return FALLBACK_RECRUITMENTS;
     return rows.map(mapDbRecruitmentToDetails);
   } catch (error) {
-    console.warn('Error querying D1 recruitments, using fallback:', error);
-    return FALLBACK_RECRUITMENTS;
+    console.error('Error querying D1 recruitments:', error);
+    throw error;
   }
 }
 
@@ -1753,7 +1756,6 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       where: eq(schema.organisations.isActive, 1),
       orderBy: [asc(schema.organisations.name)],
     });
-    if (orgs.length === 0) return FALLBACK_ORGANISATIONS;
     return orgs.map((o: any) => {
       return {
         id: o.id,
@@ -1769,8 +1771,8 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       };
     });
   } catch (err) {
-    console.warn('Error querying organisations from D1, using fallback:', err);
-    return FALLBACK_ORGANISATIONS;
+    console.error('Error querying organisations from D1:', err);
+    throw err;
   }
 }
 
@@ -1786,6 +1788,8 @@ export async function createOrganisation(
     return id;
   }
   const db = getDb(d1);
+  const state = await db.query.states.findFirst({ where: eq(schema.states.id, data.stateId) });
+  if (!state) throw new Error(`Unknown state: ${data.stateId}`);
   const existing = await db.select({ id: schema.organisations.id }).from(schema.organisations).where(eq(schema.organisations.slug, slug)).limit(1);
   if (existing.length > 0) {
     slug = `${data.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1840,6 +1844,8 @@ export async function createDepartment(
     return id;
   }
   const db = getDb(d1);
+  const organisation = await db.query.organisations.findFirst({ where: eq(schema.organisations.id, data.organisationId) });
+  if (!organisation) throw new Error(`Unknown organisation: ${data.organisationId}`);
   const existing = await db.select({ id: schema.departments.id }).from(schema.departments).where(and(eq(schema.departments.organisationId, data.organisationId), eq(schema.departments.slug, slug))).limit(1);
   if (existing.length > 0) {
     slug = `${data.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1886,10 +1892,10 @@ export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id:
   try {
     const db = getDb(d1);
     const rows = await db.select({ id: schema.states.id, name: schema.states.name, code: schema.states.code, slug: schema.states.slug }).from(schema.states).orderBy(asc(schema.states.name));
-    return rows.length > 0 ? rows : [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
+    return rows;
   } catch (err) {
-    console.warn('Error loading states from D1, using fallback:', err);
-    return [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }];
+    console.error('Error loading states from D1:', err);
+    throw err;
   }
 }
 
@@ -2058,8 +2064,7 @@ export async function getAllDocuments(providedD1?: D1Database): Promise<Document
         with: { recruitment: true },
         orderBy: [desc(schema.sources.lastVerifiedAt), desc(schema.sources.publicationDate)],
       }) as any[];
-      if (rows && rows.length > 0) {
-        return rows.map(r => ({
+      return rows.map(r => ({
           id: r.id,
           recruitmentId: r.recruitmentId,
           recruitment: r.recruitment?.title || 'Linked Recruitment',
@@ -2073,9 +2078,9 @@ export async function getAllDocuments(providedD1?: D1Database): Promise<Document
           lastVerifiedAt: r.lastVerifiedAt,
           updated: formatDateDisplay(r.lastVerifiedAt || r.publicationDate),
         }));
-      }
     } catch (err) {
-      console.warn('Error querying sources from D1, using fallback documents:', err);
+      console.error('Error querying sources from D1:', err);
+      throw err;
     }
   }
   return FALLBACK_DOCUMENTS;
@@ -2098,9 +2103,11 @@ export async function createDocument(
   const typeLabel = formatSourceTypeLabel(normType);
   const pubDateRaw = data.publicationDate || new Date().toISOString().split('T')[0];
   const pubDateDisplay = formatDateDisplay(pubDateRaw);
-  const recs = await getAllActiveRecruitments(providedD1, { includeUnpublished: true });
-  const rec = recs.find(r => r.id === data.recruitmentId);
-  const recTitle = rec?.title || 'Official Recruitment';
+  const rec = d1
+    ? await getDb(d1).query.recruitments.findFirst({ where: eq(schema.recruitments.id, data.recruitmentId) })
+    : FALLBACK_RECRUITMENTS.find(r => r.id === data.recruitmentId);
+  if (!rec) throw new Error(`Unknown recruitment: ${data.recruitmentId}`);
+  const recTitle = rec.title;
 
   const newDoc: DocumentItem = {
     id,
@@ -2860,7 +2867,10 @@ async function resolveRecruitmentMasters(data: CreateRecruitmentInput, d1?: D1Da
   }) as any;
   if (!post) throw new Error(`Unknown canonical post: ${data.postId}`);
   if (!organisation) throw new Error('A valid recruiting organisation is required.');
-  return { post, organisation, stateId: data.stateId || organisation.stateId };
+  if (data.stateId && data.stateId !== organisation.stateId) {
+    throw new Error('Recruitment state must match the recruiting organisation.');
+  }
+  return { post, organisation, stateId: organisation.stateId };
 }
 
 /**

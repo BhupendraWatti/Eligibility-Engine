@@ -66,7 +66,13 @@ const unusedDemoAuditEntries = [
     reason: 'Cabinet decision granting 3-year uniform age relaxation.',
   },
 ];
-const auditEntries = (await getAuditLogs()).map(log => ({
+let auditLoadError = '';
+const auditLogs = await getAuditLogs().catch(error => {
+  console.error('[Audit log] Failed to load entries:', error);
+  auditLoadError = 'Audit entries are temporarily unavailable. Please retry.';
+  return [];
+});
+const auditEntries = auditLogs.map(log => ({
   id: log.id,
   timestamp: new Date(log.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
   user: log.adminEmail,
@@ -98,6 +104,11 @@ if (wantsJson) {
   ]}
 >
   <div class="mx-auto max-w-6xl space-y-6">
+    {auditLoadError && (
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">
+        {auditLoadError}
+      </div>
+    )}
     <!-- Header with Action (FlowStep Screen 30) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>

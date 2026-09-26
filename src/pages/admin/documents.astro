@@ -10,6 +10,7 @@ import {
   deleteDocument,
   type DocumentItem,
 } from '../../db/queries';
+import { readAdminSubmission } from '../../services/admin-integrity';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 let createdDocumentId = '';
@@ -17,42 +18,18 @@ const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?
 
 if (Astro.request.method === 'POST') {
   try {
-    const contentType = Astro.request.headers.get('content-type') || '';
-    let action = '';
-    let title = '';
-    let recruitmentId = '';
-    let sourceType = 'OFFICIAL_NOTIFICATION_PDF';
-    let sourceUrl = '';
-    let publicationDate = '';
-    let id = '';
-
-    if (contentType.includes('application/json')) {
-      const body = await Astro.request.json().catch(() => ({}));
-      action = body._action || body.action || 'create_document';
-      title = (body.title || '').trim();
-      recruitmentId = (body.recruitmentId || body.recruitment_id || '').trim();
-      sourceType = (body.sourceType || body.source_type || 'OFFICIAL_NOTIFICATION_PDF').trim();
-      sourceUrl = (body.sourceUrl || body.source_url || body.url || '').trim();
-      publicationDate = (body.publicationDate || body.publication_date || '').trim();
-      id = (body.id || body.document_id || body.documentId || '').trim();
-    } else {
-      const form = await Astro.request.formData();
-      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_document';
-      title = form.get('title')?.toString().trim() || '';
-      recruitmentId = (form.get('recruitmentId') || form.get('recruitment_id'))?.toString().trim() || '';
-      sourceType = (form.get('sourceType') || form.get('source_type'))?.toString().trim() || 'OFFICIAL_NOTIFICATION_PDF';
-      sourceUrl = (form.get('sourceUrl') || form.get('source_url') || form.get('url'))?.toString().trim() || '';
-      publicationDate = (form.get('publicationDate') || form.get('publication_date'))?.toString().trim() || '';
-      id = (form.get('id') || form.get('document_id') || form.get('documentId'))?.toString().trim() || '';
-    }
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action') || 'create_document';
+    const title = input.text('title');
+    const recruitmentId = input.text('recruitmentId', 'recruitment_id');
+    const sourceType = input.text('sourceType', 'source_type') || 'OFFICIAL_NOTIFICATION_PDF';
+    const sourceUrl = input.text('sourceUrl', 'source_url', 'url');
+    const publicationDate = input.text('publicationDate', 'publication_date');
+    const id = input.text('id', 'document_id', 'documentId');
 
     const adminEmail = Astro.locals.adminEmail || 'aarav@nirnay.in';
 
     if (action === 'create_document') {
-      if (!recruitmentId && recruitments.length > 0) {
-        recruitmentId = recruitments[0].id;
-      }
-
       if (!title || !recruitmentId || !sourceUrl) {
         throw new Error('Document title, linked recruitment, and official source URL are required.');
       }

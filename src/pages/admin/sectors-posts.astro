@@ -10,6 +10,7 @@ import {
   createCanonicalPost,
 } from '../../db/queries';
 import { resolveSectorRoute } from '../../services/sector-routing';
+import { parseIntegerInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 
@@ -24,54 +25,19 @@ const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?
 
 if (Astro.request.method === 'POST') {
   try {
-    const contentType = Astro.request.headers.get('content-type') || '';
-    let action = 'create_post';
-    let title = '';
-    let sectorId = '';
-    let departmentId = '';
-    let payScale = '';
-    let defaultMinAge = 18;
-    let defaultMaxAge = 33;
-    let defaultQualification = '10TH';
-    let summary = '';
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action') || 'create_post';
+    const title = input.text('title', 'name');
+    let sectorId = input.text('sectorId', 'sector_id', 'sector');
+    let departmentId = input.text('departmentId', 'department_id', 'department');
+    const payScale = input.text('payScale', 'pay_scale');
+    const defaultMinAge = parseIntegerInput(input.value('defaultMinAge', 'default_min_age', 'minAge'), 18);
+    const defaultMaxAge = parseIntegerInput(input.value('defaultMaxAge', 'default_max_age', 'maxAge'), 33);
+    const defaultQualification = input.text('defaultQualification', 'default_qualification', 'qualification') || '10TH';
+    const summary = input.text('summary', 'description');
 
-    if (contentType.includes('application/json')) {
-      const body = await Astro.request.json().catch(() => ({}));
-      action = body._action || body.action || 'create_post';
-      title = (body.title || body.name || '').trim();
-      sectorId = (body.sectorId || body.sector_id || body.sector || '').trim();
-      departmentId = (body.departmentId || body.department_id || body.department || '').trim();
-      payScale = (body.payScale || body.pay_scale || '').trim();
-      defaultMinAge = parseInt(body.defaultMinAge || body.default_min_age || body.minAge || '18', 10);
-      defaultMaxAge = parseInt(body.defaultMaxAge || body.default_max_age || body.maxAge || '33', 10);
-      defaultQualification = (body.defaultQualification || body.default_qualification || body.qualification || '10TH').trim();
-      summary = (body.summary || body.description || '').trim();
-    } else {
-      const form = await Astro.request.formData();
-      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_post';
-      title = (form.get('title') || form.get('name'))?.toString().trim() || '';
-      sectorId = (form.get('sectorId') || form.get('sector_id') || form.get('sector'))?.toString().trim() || '';
-      departmentId = (form.get('departmentId') || form.get('department_id') || form.get('department'))?.toString().trim() || '';
-      payScale = (form.get('payScale') || form.get('pay_scale'))?.toString().trim() || '';
-      defaultMinAge = parseInt(form.get('defaultMinAge')?.toString() || form.get('minAge')?.toString() || '18', 10);
-      defaultMaxAge = parseInt(form.get('defaultMaxAge')?.toString() || form.get('maxAge')?.toString() || '33', 10);
-      defaultQualification = form.get('defaultQualification')?.toString() || form.get('qualification')?.toString() || '10TH';
-      summary = form.get('summary')?.toString().trim() || '';
-    }
-
-    const matchingSector = sectors.find(s => s.id === sectorId || s.slug === sectorId || s.name?.toLowerCase() === sectorId.toLowerCase());
-    if (matchingSector) {
-      sectorId = matchingSector.id;
-    } else if (sectors.length > 0) {
-      sectorId = sectors[0].id;
-    }
-
-    const matchingDept = departments.find(d => d.id === departmentId || d.slug === departmentId || d.name?.toLowerCase() === departmentId.toLowerCase());
-    if (matchingDept) {
-      departmentId = matchingDept.id;
-    } else if (departments.length > 0) {
-      departmentId = departments[0].id;
-    }
+    sectorId = resolveRequiredReference(sectorId, sectors, 'sector').id;
+    departmentId = resolveRequiredReference(departmentId, departments, 'department').id;
 
     if (action === 'create_post' || !action) {
       if (!title || !sectorId || !departmentId) {
@@ -497,4 +463,3 @@ const standardPayBands = [
 
   <AdminDataTable tableId="sectorPostsTable" perPage={5} columns={[{ select: 4, sortable: false }]} />
 </AdminLayout>
-

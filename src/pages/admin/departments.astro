@@ -10,6 +10,7 @@ import {
   getAllOrganisations,
   getAllCanonicalPosts,
 } from '../../db/queries';
+import { parseBooleanInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
 
 const [organisations, rawDepartments, canonicalPosts] = await Promise.all([
   getAllOrganisations(),
@@ -23,41 +24,16 @@ const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?
 
 if (Astro.request.method === 'POST') {
   try {
-    const contentType = Astro.request.headers.get('content-type') || '';
-    let action = 'create_department';
-    let id = '';
-    let name = '';
-    let slug = '';
-    let organisationId = '';
-    let description = '';
-    let isActive = 1;
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action') || 'create_department';
+    const id = input.text('id', 'department_id', 'departmentId');
+    const name = input.text('name', 'title');
+    let slug = input.text('slug');
+    let organisationId = input.text('organisationId', 'organisation_id');
+    const description = input.text('description');
+    const isActive = parseBooleanInput(input.value('isActive'), true) ? 1 : 0;
 
-    if (contentType.includes('application/json')) {
-      const body = await Astro.request.json().catch(() => ({}));
-      action = body._action || body.action || 'create_department';
-      id = (body.id || body.department_id || body.departmentId || '').trim();
-      name = (body.name || body.title || '').trim();
-      slug = (body.slug || '').trim();
-      organisationId = (body.organisationId || body.organisation_id || '').trim();
-      description = (body.description || '').trim();
-      isActive = body.isActive !== undefined ? (body.isActive ? 1 : 0) : 1;
-    } else {
-      const form = await Astro.request.formData();
-      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_department';
-      id = (form.get('id') || form.get('department_id') || form.get('departmentId'))?.toString().trim() || '';
-      name = (form.get('name') || form.get('title'))?.toString().trim() || '';
-      slug = form.get('slug')?.toString().trim() || '';
-      organisationId = (form.get('organisationId') || form.get('organisation_id'))?.toString().trim() || '';
-      description = form.get('description')?.toString().trim() || '';
-      isActive = form.get('isActive') === '1' ? 1 : (form.has('isActive') ? 0 : 1);
-    }
-
-    const matchingOrg = organisations.find(o => o.id === organisationId || o.slug === organisationId || o.shortName?.toUpperCase() === organisationId.toUpperCase());
-    if (matchingOrg) {
-      organisationId = matchingOrg.id;
-    } else if (organisations.length > 0) {
-      organisationId = organisations[0].id;
-    }
+    organisationId = resolveRequiredReference(organisationId, organisations, 'organisation').id;
     if (!slug && name) {
       slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
@@ -526,4 +502,3 @@ const inactiveCount = departments.length - activeCount;
 
   <AdminDataTable tableId="departmentsDataTable" perPage={10} columns={[{ select: 4, sortable: false }]} />
 </AdminLayout>
-

@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { getHostname, isAdminSubdomain } from './lib/hostname';
+import { isAdminTestBypass } from './services/admin-integrity';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
   const hostname = getHostname(request) || url.hostname;
@@ -49,20 +50,18 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       .filter(Boolean);
     const allowedAdmins = envAdmins.length > 0 ? envAdmins : defaultAdmins;
 
-    // Check for automated test bypass, local development, or staging bypass
-    const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
-    const isTestBypass =
-      isLocal ||
-      isWorkersDev ||
-      import.meta.env.ADMIN_TEST_BYPASS === 'true' ||
-      process.env?.ADMIN_TEST_BYPASS === 'true' ||
-      request.headers.get('x-admin-bypass') === 'true' ||
-      request.headers.get('x-test-bypass') === 'true' ||
-      url.searchParams.get('test_bypass') === 'true' ||
-      userAgent.includes('testsprite') ||
-      userAgent.includes('playwright');
+    let configuredBypassToken = import.meta.env.ADMIN_TEST_BYPASS_TOKEN as string | undefined;
+    try {
+      configuredBypassToken ||= (env as unknown as { ADMIN_TEST_BYPASS_TOKEN?: string }).ADMIN_TEST_BYPASS_TOKEN;
+    } catch {
+      // Cloudflare bindings are unavailable outside the worker runtime.
+    }
+    const isTestBypass = isAdminTestBypass(
+      configuredBypassToken,
+      request.headers.get('x-admin-bypass'),
+    );
 
-    // In test or local environments, auto-provision the lead admin session if missing
+    // A secret-backed test request may use the seeded lead-admin identity.
     if (!userEmail && isTestBypass) {
       userEmail = 'admin@rozgarsetu.in';
     }
@@ -91,17 +90,22 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       // not in worker runtime
     }
 
-    if (db) {
+    if (!isTestBypass && !db) {
+      return new Response('Admin authorization unavailable.', { status: 503 });
+    }
+
+    if (!isTestBypass && db) {
       try {
         const admin = await db
           .prepare('SELECT is_active FROM admin_users WHERE lower(email) = lower(?) LIMIT 1')
           .bind(userEmail)
           .first<{ is_active: number }>();
-        if (admin && admin.is_active !== 1) {
+        if (!admin || admin.is_active !== 1) {
           return new Response('Admin account is inactive or not provisioned.', { status: 403 });
         }
       } catch (error) {
-        console.warn('[Middleware] Admin authorization DB lookup skipped/failed:', error);
+        console.error('[Middleware] Admin authorization lookup failed:', error);
+        return new Response('Admin authorization unavailable.', { status: 503 });
       }
     }
 
@@ -113,7 +117,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
         } catch {
           return new Response('Invalid request origin.', { status: 403 });
         }
-      } else if (!isTestBypass && !isLocal && !isWorkersDev) {
+      } else if (!isTestBypass) {
         return new Response('Invalid request origin.', { status: 403 });
       }
     }
