@@ -7,7 +7,6 @@ import { calculateRecruitmentMetrics, isActiveDrive } from '../../services/lifec
 const slug = (Astro.params.slug || '').toLowerCase();
 
 const org = await getOrganisationBySlug(slug);
-if (!org) Astro.response.status = 404;
 const allOrgs = await getAllOrganisations();
 
 const orgRecruitments = org?.recruitments || [];
@@ -27,7 +26,7 @@ function formatDate(dateStr?: string): string {
 
 {!org ? (
   <BaseLayout title="Statutory Organisation Not Found — NIRNAY MP">
-    <div class="max-w-3xl mx-auto px-4 py-20 text-center">
+    <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-org-not-found>
       <div class="size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
         !
       </div>

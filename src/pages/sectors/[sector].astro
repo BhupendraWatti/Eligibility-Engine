@@ -12,10 +12,6 @@ const [sector, allSectors, allRecruitments] = await Promise.all([
   getAllActiveRecruitments(),
 ]);
 
-if (!sector) {
-  Astro.response.status = 404;
-}
-
 const posts = sector ? await getPostsBySectorId(sector.id) : [];
 const postIds = new Set(posts.map(p => p.id));
 

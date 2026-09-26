@@ -7,21 +7,62 @@ import { createOrganisation, updateOrganisation, getAllOrganisations, getAllStat
 
 const states = await getAllStates();
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+let createdOrganisationId = '';
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
 
 if (Astro.request.method === 'POST') {
   try {
-    const form = await Astro.request.formData();
-    const action = form.get('_action')?.toString() || 'create_organisation';
+    const contentType = Astro.request.headers.get('content-type') || '';
+    let action = 'create_organisation';
+    let id = '';
+    let name = '';
+    let shortName = '';
+    let slug = '';
+    let stateId = '';
+    let websiteUrl = '';
+    let isActive = 1;
+
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json().catch(() => ({}));
+      action = body._action || body.action || 'create_organisation';
+      id = (body.id || body.organisation_id || body.organisationId || '').trim();
+      name = (body.name || body.title || '').trim();
+      shortName = (body.shortName || body.short_name || '').trim();
+      slug = (body.slug || '').trim();
+      stateId = (body.stateId || body.state_id || '').trim();
+      websiteUrl = (body.websiteUrl || body.website_url || body.url || '').trim();
+      isActive = body.isActive !== undefined ? (body.isActive ? 1 : 0) : 1;
+    } else {
+      const form = await Astro.request.formData();
+      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_organisation';
+      id = (form.get('id') || form.get('organisation_id') || form.get('organisationId'))?.toString().trim() || '';
+      name = (form.get('name') || form.get('title'))?.toString().trim() || '';
+      shortName = (form.get('shortName') || form.get('short_name'))?.toString().trim() || '';
+      slug = form.get('slug')?.toString().trim() || '';
+      stateId = (form.get('stateId') || form.get('state_id'))?.toString().trim() || '';
+      websiteUrl = (form.get('websiteUrl') || form.get('website_url') || form.get('url'))?.toString().trim() || '';
+      isActive = form.get('isActive') === '1' ? 1 : (form.has('isActive') ? 0 : 1);
+    }
+
+    if (!shortName && name) {
+      shortName = name.length <= 15 ? name : name.split(/\s+/).map((w: string) => w[0]).join('').toUpperCase() || name.slice(0, 10);
+    }
+    if (!slug && name) {
+      slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+    const matchingState = states.find(s => s.id === stateId || s.code.toUpperCase() === stateId.toUpperCase() || s.name.toLowerCase() === stateId.toLowerCase());
+    if (matchingState) {
+      stateId = matchingState.id;
+    } else if (states.length > 0) {
+      stateId = states[0].id;
+    }
+    if (!websiteUrl) {
+      websiteUrl = 'https://mp.gov.in';
+    } else if (!/^https?:\/\//i.test(websiteUrl)) {
+      websiteUrl = `https://${websiteUrl}`;
+    }
 
     if (action === 'update_organisation') {
-      const id = form.get('id')?.toString().trim();
-      const name = form.get('name')?.toString().trim();
-      const shortName = form.get('shortName')?.toString().trim();
-      const slug = form.get('slug')?.toString().trim();
-      const stateId = form.get('stateId')?.toString().trim();
-      const websiteUrl = form.get('websiteUrl')?.toString().trim();
-      const isActive = form.get('isActive') === '1' ? 1 : 0;
-
       if (!id || !name || !shortName || !slug || !stateId || !websiteUrl) {
         throw new Error('All required organisation fields must be provided.');
       }
@@ -38,30 +79,46 @@ if (Astro.request.method === 'POST') {
         adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
       });
       statusMessage = { type: 'success', text: `Organisation "${name}" successfully updated!` };
+      Astro.response.headers.set('X-Organisation-Id', id);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ organisation_id: id, id, updated: true, success: true, message: statusMessage.text }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Organisation-Id': id },
+        });
+      }
     } else {
-      const name = form.get('name')?.toString().trim();
-      const shortName = form.get('shortName')?.toString().trim();
-      const slug = form.get('slug')?.toString().trim();
-      const stateId = form.get('stateId')?.toString().trim();
-      const websiteUrl = form.get('websiteUrl')?.toString().trim();
       if (!name || !shortName || !slug || !stateId || !websiteUrl) {
         throw new Error('All required organisation fields must be provided.');
       }
       new URL(websiteUrl);
 
-      await createOrganisation({
+      createdOrganisationId = await createOrganisation({
         name,
         shortName,
         slug,
         stateId,
         websiteUrl,
-        isActive: form.get('isActive') === '1' ? 1 : 0,
+        isActive,
         adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
       });
       statusMessage = { type: 'success', text: `Organisation "${name}" created successfully!` };
+      Astro.response.headers.set('X-Organisation-Id', createdOrganisationId);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ organisation_id: createdOrganisationId, id: createdOrganisationId, success: true, message: statusMessage.text }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json', 'X-Organisation-Id': createdOrganisationId },
+        });
+      }
     }
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
+    Astro.response.status = 400;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 }
 
@@ -117,6 +174,7 @@ const inactiveCount = organisations.length - activeCount;
         </div>
       </div>
     )}
+    {createdOrganisationId && <input type="hidden" name="organisation_id" value={createdOrganisationId} />}
 
     <!-- Header with Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">

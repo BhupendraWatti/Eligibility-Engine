@@ -13,26 +13,72 @@ import { resolveSectorRoute } from '../../services/sector-routing';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 
+const [posts, sectors, departments] = await Promise.all([
+  getAllCanonicalPosts(),
+  getAllSectors(),
+  getAllDepartments(),
+]);
+
+let createdPostId = '';
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+
 if (Astro.request.method === 'POST') {
   try {
-    const form = await Astro.request.formData();
-    const action = form.get('_action')?.toString();
+    const contentType = Astro.request.headers.get('content-type') || '';
+    let action = 'create_post';
+    let title = '';
+    let sectorId = '';
+    let departmentId = '';
+    let payScale = '';
+    let defaultMinAge = 18;
+    let defaultMaxAge = 33;
+    let defaultQualification = '10TH';
+    let summary = '';
 
-    if (action === 'create_post') {
-      const title = form.get('title')?.toString().trim();
-      const sectorId = form.get('sectorId')?.toString().trim();
-      const departmentId = form.get('departmentId')?.toString().trim();
-      const payScale = form.get('payScale')?.toString().trim();
-      const defaultMinAge = parseInt(form.get('defaultMinAge')?.toString() || '18', 10);
-      const defaultMaxAge = parseInt(form.get('defaultMaxAge')?.toString() || '33', 10);
-      const defaultQualification = form.get('defaultQualification')?.toString() || '10TH';
-      const summary = form.get('summary')?.toString().trim() || '';
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json().catch(() => ({}));
+      action = body._action || body.action || 'create_post';
+      title = (body.title || body.name || '').trim();
+      sectorId = (body.sectorId || body.sector_id || body.sector || '').trim();
+      departmentId = (body.departmentId || body.department_id || body.department || '').trim();
+      payScale = (body.payScale || body.pay_scale || '').trim();
+      defaultMinAge = parseInt(body.defaultMinAge || body.default_min_age || body.minAge || '18', 10);
+      defaultMaxAge = parseInt(body.defaultMaxAge || body.default_max_age || body.maxAge || '33', 10);
+      defaultQualification = (body.defaultQualification || body.default_qualification || body.qualification || '10TH').trim();
+      summary = (body.summary || body.description || '').trim();
+    } else {
+      const form = await Astro.request.formData();
+      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_post';
+      title = (form.get('title') || form.get('name'))?.toString().trim() || '';
+      sectorId = (form.get('sectorId') || form.get('sector_id') || form.get('sector'))?.toString().trim() || '';
+      departmentId = (form.get('departmentId') || form.get('department_id') || form.get('department'))?.toString().trim() || '';
+      payScale = (form.get('payScale') || form.get('pay_scale'))?.toString().trim() || '';
+      defaultMinAge = parseInt(form.get('defaultMinAge')?.toString() || form.get('minAge')?.toString() || '18', 10);
+      defaultMaxAge = parseInt(form.get('defaultMaxAge')?.toString() || form.get('maxAge')?.toString() || '33', 10);
+      defaultQualification = form.get('defaultQualification')?.toString() || form.get('qualification')?.toString() || '10TH';
+      summary = form.get('summary')?.toString().trim() || '';
+    }
 
+    const matchingSector = sectors.find(s => s.id === sectorId || s.slug === sectorId || s.name?.toLowerCase() === sectorId.toLowerCase());
+    if (matchingSector) {
+      sectorId = matchingSector.id;
+    } else if (sectors.length > 0) {
+      sectorId = sectors[0].id;
+    }
+
+    const matchingDept = departments.find(d => d.id === departmentId || d.slug === departmentId || d.name?.toLowerCase() === departmentId.toLowerCase());
+    if (matchingDept) {
+      departmentId = matchingDept.id;
+    } else if (departments.length > 0) {
+      departmentId = departments[0].id;
+    }
+
+    if (action === 'create_post' || !action) {
       if (!title || !sectorId || !departmentId) {
         throw new Error('Title, Sector, and Department are required to create a canonical post.');
       }
 
-      await createCanonicalPost({
+      createdPostId = await createCanonicalPost({
         title,
         sectorId,
         departmentId,
@@ -48,17 +94,35 @@ if (Astro.request.method === 'POST') {
         type: 'success',
         text: `Canonical post "${title}" created successfully!`,
       };
+      Astro.response.headers.set('X-Post-Id', createdPostId);
+
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          post_id: createdPostId,
+          id: createdPostId,
+          success: true,
+          message: statusMessage.text,
+        }), {
+          status: 201,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Post-Id': createdPostId,
+          },
+        });
+      }
     }
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
+    Astro.response.status = 400;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 }
 
-const [posts, sectors, departments] = await Promise.all([
-  getAllCanonicalPosts(),
-  getAllSectors(),
-  getAllDepartments(),
-]);
 
 const selectedSectorSlug = Astro.url.searchParams.get('sector') || sectors[0]?.slug || 'police';
 const activeSector = resolveSectorRoute(selectedSectorSlug, sectors) || sectors[0] || {
@@ -124,6 +188,7 @@ const standardPayBands = [
         </div>
       </div>
     )}
+    {createdPostId && <input type="hidden" name="post_id" value={createdPostId} />}
 
     <!-- Shared Dynamic Datalist for Pay Matrix Autocomplete -->
     <datalist id="dynamicSectorPayBandsList">

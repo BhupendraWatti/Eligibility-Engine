@@ -22,20 +22,26 @@ export function resolveSectorRoute<T extends SectorRouteTarget>(
   }
   if (!normalizedParam) return undefined;
 
-  // 1. Exact match by slug or id
+  const hyphenatedParam = normalizedParam.replace(/_/g, '-');
+
+  // 1. Exact match by slug or id (with underscore/hyphen flexibility)
   const exactMatch = sectors.find(
-    (sector) => sector.slug.toLowerCase() === normalizedParam || sector.id.toLowerCase() === normalizedParam,
+    (sector) =>
+      sector.slug.toLowerCase() === normalizedParam ||
+      sector.slug.toLowerCase() === hyphenatedParam ||
+      sector.id.toLowerCase() === normalizedParam ||
+      sector.id.toLowerCase() === hyphenatedParam,
   );
   if (exactMatch) return exactMatch;
 
   // 2. Exact match by slugified name
   const nameMatch = sectors.find(
-    (sector) => slugify(sector.name) === normalizedParam,
+    (sector) => slugify(sector.name) === normalizedParam || slugify(sector.name) === hyphenatedParam,
   );
   if (nameMatch) return nameMatch;
 
   // 3. Token-based alias matching (supports compound aliases like police-defence, civil-services)
-  const paramTokens = normalizedParam.split('-').filter(Boolean);
+  const paramTokens = hyphenatedParam.split('-').filter(Boolean);
   if (paramTokens.length === 0) return undefined;
 
   const tokenMatches = sectors.filter((sector) => {

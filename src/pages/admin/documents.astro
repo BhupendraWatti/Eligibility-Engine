@@ -17,16 +17,41 @@ const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?
 
 if (Astro.request.method === 'POST') {
   try {
-    const form = await Astro.request.formData();
-    const action = form.get('_action')?.toString();
+    const contentType = Astro.request.headers.get('content-type') || '';
+    let action = '';
+    let title = '';
+    let recruitmentId = '';
+    let sourceType = 'OFFICIAL_NOTIFICATION_PDF';
+    let sourceUrl = '';
+    let publicationDate = '';
+    let id = '';
+
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json().catch(() => ({}));
+      action = body._action || body.action || 'create_document';
+      title = (body.title || '').trim();
+      recruitmentId = (body.recruitmentId || body.recruitment_id || '').trim();
+      sourceType = (body.sourceType || body.source_type || 'OFFICIAL_NOTIFICATION_PDF').trim();
+      sourceUrl = (body.sourceUrl || body.source_url || body.url || '').trim();
+      publicationDate = (body.publicationDate || body.publication_date || '').trim();
+      id = (body.id || body.document_id || body.documentId || '').trim();
+    } else {
+      const form = await Astro.request.formData();
+      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_document';
+      title = form.get('title')?.toString().trim() || '';
+      recruitmentId = (form.get('recruitmentId') || form.get('recruitment_id'))?.toString().trim() || '';
+      sourceType = (form.get('sourceType') || form.get('source_type'))?.toString().trim() || 'OFFICIAL_NOTIFICATION_PDF';
+      sourceUrl = (form.get('sourceUrl') || form.get('source_url') || form.get('url'))?.toString().trim() || '';
+      publicationDate = (form.get('publicationDate') || form.get('publication_date'))?.toString().trim() || '';
+      id = (form.get('id') || form.get('document_id') || form.get('documentId'))?.toString().trim() || '';
+    }
+
     const adminEmail = Astro.locals.adminEmail || 'aarav@nirnay.in';
 
     if (action === 'create_document') {
-      const title = form.get('title')?.toString().trim();
-      const recruitmentId = form.get('recruitmentId')?.toString().trim();
-      const sourceType = form.get('sourceType')?.toString().trim() || 'OFFICIAL_NOTIFICATION_PDF';
-      const sourceUrl = form.get('sourceUrl')?.toString().trim();
-      const publicationDate = form.get('publicationDate')?.toString().trim();
+      if (!recruitmentId && recruitments.length > 0) {
+        recruitmentId = recruitments[0].id;
+      }
 
       if (!title || !recruitmentId || !sourceUrl) {
         throw new Error('Document title, linked recruitment, and official source URL are required.');
@@ -51,6 +76,8 @@ if (Astro.request.method === 'POST') {
       if (!acceptsHtml) {
         return new Response(JSON.stringify({
           document_id: createdDocumentId,
+          id: createdDocumentId,
+          success: true,
           message: statusMessage.text,
         }), {
           status: 201,
@@ -61,13 +88,6 @@ if (Astro.request.method === 'POST') {
         });
       }
     } else if (action === 'update_document') {
-      const id = form.get('id')?.toString().trim();
-      const title = form.get('title')?.toString().trim();
-      const recruitmentId = form.get('recruitmentId')?.toString().trim();
-      const sourceType = form.get('sourceType')?.toString().trim();
-      const sourceUrl = form.get('sourceUrl')?.toString().trim();
-      const publicationDate = form.get('publicationDate')?.toString().trim();
-
       if (!id || !title || !recruitmentId || !sourceUrl) {
         throw new Error('Document ID, title, linked recruitment, and source URL are required.');
       }
@@ -96,7 +116,9 @@ if (Astro.request.method === 'POST') {
       if (!acceptsHtml) {
         return new Response(JSON.stringify({
           document_id: id,
+          id,
           updated: true,
+          success: true,
           message: statusMessage.text,
         }), {
           status: 200,
@@ -107,8 +129,7 @@ if (Astro.request.method === 'POST') {
         });
       }
     } else if (action === 'delete_document') {
-      const id = form.get('id')?.toString().trim();
-      const title = form.get('title')?.toString().trim() || 'Document';
+      const titleDisplay = title || 'Document';
 
       if (!id) {
         throw new Error('Document ID is required for deletion.');
@@ -122,13 +143,15 @@ if (Astro.request.method === 'POST') {
         Astro.response.status = 404;
         throw new Error('Document not found.');
       }
-      statusMessage = { type: 'success', text: `Document "${title}" successfully deleted!` };
+      statusMessage = { type: 'success', text: `Document "${titleDisplay}" successfully deleted!` };
       Astro.response.headers.set('X-Document-Id', id);
 
       if (!acceptsHtml) {
         return new Response(JSON.stringify({
           document_id: id,
+          id,
           deleted: true,
+          success: true,
           message: statusMessage.text,
         }), {
           status: 200,
@@ -204,7 +227,12 @@ const filterTags = [
         </div>
       </div>
     )}
-    {createdDocumentId && <input type="hidden" name="document_id" value={createdDocumentId} />}
+    {createdDocumentId && (
+      <>
+        <input type="hidden" name="document_id" value={createdDocumentId} id="createdDocumentId" />
+        <input type="hidden" name="id" value={createdDocumentId} id="createdDocId" />
+      </>
+    )}
 
     <!-- Header with Action (FlowStep Screen 28) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">

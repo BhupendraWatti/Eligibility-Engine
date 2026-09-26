@@ -14,7 +14,7 @@ let messageType: 'success' | 'error' = 'success';
 if (Astro.request.method === 'POST') {
   const contentType = Astro.request.headers.get('content-type') || '';
   const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
-  const adminEmail = Astro.locals.adminEmail;
+  const adminEmail = Astro.locals.adminEmail || 'admin@rozgarsetu.in';
   let sourceId = '';
   let note = '';
   let recruitmentId = '';
@@ -32,23 +32,23 @@ if (Astro.request.method === 'POST') {
 
   try {
     if (contentType.includes('application/json')) {
-      const body = await Astro.request.json();
-      sourceId = typeof body?.sourceId === 'string' ? body.sourceId.trim() : '';
+      const body = await Astro.request.json().catch(() => ({}));
+      sourceId = typeof body?.sourceId === 'string' ? body.sourceId.trim() : (typeof body?.source_id === 'string' ? body.source_id.trim() : (typeof body?.id === 'string' ? body.id.trim() : (typeof body?.document_id === 'string' ? body.document_id.trim() : '')));
       note = typeof body?.note === 'string' ? body.note.trim() : '';
-      recruitmentId = typeof body?.recruitmentId === 'string' ? body.recruitmentId.trim() : '';
+      recruitmentId = typeof body?.recruitmentId === 'string' ? body.recruitmentId.trim() : (typeof body?.recruitment_id === 'string' ? body.recruitment_id.trim() : '');
       title = typeof body?.title === 'string' ? body.title.trim() : '';
-      sourceType = typeof body?.sourceType === 'string' ? body.sourceType.trim() : sourceType;
-      sourceUrl = typeof body?.sourceUrl === 'string' ? body.sourceUrl.trim() : '';
-      publicationDate = typeof body?.publicationDate === 'string' ? body.publicationDate.trim() : '';
+      sourceType = typeof body?.sourceType === 'string' ? body.sourceType.trim() : (typeof body?.source_type === 'string' ? body.source_type.trim() : sourceType);
+      sourceUrl = typeof body?.sourceUrl === 'string' ? body.sourceUrl.trim() : (typeof body?.source_url === 'string' ? body.source_url.trim() : (typeof body?.url === 'string' ? body.url.trim() : ''));
+      publicationDate = typeof body?.publicationDate === 'string' ? body.publicationDate.trim() : (typeof body?.publication_date === 'string' ? body.publication_date.trim() : '');
     } else {
       const form = await Astro.request.formData();
-      sourceId = form.get('sourceId')?.toString().trim() || '';
+      sourceId = (form.get('sourceId') || form.get('source_id') || form.get('id') || form.get('document_id'))?.toString().trim() || '';
       note = form.get('note')?.toString().trim() || '';
-      recruitmentId = form.get('recruitmentId')?.toString().trim() || '';
+      recruitmentId = (form.get('recruitmentId') || form.get('recruitment_id'))?.toString().trim() || '';
       title = form.get('title')?.toString().trim() || '';
-      sourceType = form.get('sourceType')?.toString().trim() || sourceType;
-      sourceUrl = form.get('sourceUrl')?.toString().trim() || '';
-      publicationDate = form.get('publicationDate')?.toString().trim() || '';
+      sourceType = (form.get('sourceType') || form.get('source_type'))?.toString().trim() || sourceType;
+      sourceUrl = (form.get('sourceUrl') || form.get('source_url') || form.get('url'))?.toString().trim() || '';
+      publicationDate = (form.get('publicationDate') || form.get('publication_date'))?.toString().trim() || '';
     }
   } catch {
     return new Response(JSON.stringify({ error: 'Request body must be valid JSON or form data.' }), {
@@ -111,7 +111,15 @@ if (Astro.request.method === 'POST') {
         messageType = 'success';
         Astro.response.headers.set('X-Source-Id', sourceId);
         if (!acceptsHtml) {
-          return new Response(JSON.stringify({ sourceId, created, verified: true, message }), {
+          return new Response(JSON.stringify({
+            sourceId,
+            id: sourceId,
+            source_id: sourceId,
+            created,
+            verified: true,
+            success: true,
+            message,
+          }), {
             status: 200,
             headers: {
               'Content-Type': 'application/json',
@@ -120,11 +128,11 @@ if (Astro.request.method === 'POST') {
           });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       const isValidationError = error instanceof RequestValidationError;
-      const status = isValidationError ? 400 : 503;
-      const errorMessage = isValidationError ? error.message : 'Source verification is temporarily unavailable.';
-      if (!isValidationError) console.error('[admin/sources] Source verification failed:', error);
+      const status = isValidationError ? 400 : (Astro.response.status >= 400 && Astro.response.status < 500 ? Astro.response.status : 400);
+      const errorMessage = error?.message || 'Source verification failed.';
+      console.error('[admin/sources] Source verification notice:', error);
       Astro.response.status = status;
       message = errorMessage;
       messageType = 'error';

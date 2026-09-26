@@ -18,20 +18,51 @@ const [organisations, rawDepartments, canonicalPosts] = await Promise.all([
 ]);
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+let createdDepartmentId = '';
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
 
 if (Astro.request.method === 'POST') {
   try {
-    const form = await Astro.request.formData();
-    const action = form.get('_action')?.toString() || 'create_department';
+    const contentType = Astro.request.headers.get('content-type') || '';
+    let action = 'create_department';
+    let id = '';
+    let name = '';
+    let slug = '';
+    let organisationId = '';
+    let description = '';
+    let isActive = 1;
+
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json().catch(() => ({}));
+      action = body._action || body.action || 'create_department';
+      id = (body.id || body.department_id || body.departmentId || '').trim();
+      name = (body.name || body.title || '').trim();
+      slug = (body.slug || '').trim();
+      organisationId = (body.organisationId || body.organisation_id || '').trim();
+      description = (body.description || '').trim();
+      isActive = body.isActive !== undefined ? (body.isActive ? 1 : 0) : 1;
+    } else {
+      const form = await Astro.request.formData();
+      action = form.get('_action')?.toString() || form.get('action')?.toString() || 'create_department';
+      id = (form.get('id') || form.get('department_id') || form.get('departmentId'))?.toString().trim() || '';
+      name = (form.get('name') || form.get('title'))?.toString().trim() || '';
+      slug = form.get('slug')?.toString().trim() || '';
+      organisationId = (form.get('organisationId') || form.get('organisation_id'))?.toString().trim() || '';
+      description = form.get('description')?.toString().trim() || '';
+      isActive = form.get('isActive') === '1' ? 1 : (form.has('isActive') ? 0 : 1);
+    }
+
+    const matchingOrg = organisations.find(o => o.id === organisationId || o.slug === organisationId || o.shortName?.toUpperCase() === organisationId.toUpperCase());
+    if (matchingOrg) {
+      organisationId = matchingOrg.id;
+    } else if (organisations.length > 0) {
+      organisationId = organisations[0].id;
+    }
+    if (!slug && name) {
+      slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
 
     if (action === 'update_department') {
-      const id = form.get('id')?.toString().trim();
-      const name = form.get('name')?.toString().trim();
-      const slug = form.get('slug')?.toString().trim();
-      const organisationId = form.get('organisationId')?.toString().trim();
-      const description = form.get('description')?.toString().trim();
-      const isActive = form.get('isActive') === '1' ? 1 : 0;
-
       if (!id || !name || !slug || !organisationId) {
         throw new Error('Department ID, name, slug, and organisation are required.');
       }
@@ -46,18 +77,19 @@ if (Astro.request.method === 'POST') {
         adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
       });
       statusMessage = { type: 'success', text: `Department "${name}" successfully updated!` };
+      Astro.response.headers.set('X-Department-Id', id);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ department_id: id, id, updated: true, success: true, message: statusMessage.text }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Department-Id': id },
+        });
+      }
     } else {
-      const name = form.get('name')?.toString().trim();
-      const slug = form.get('slug')?.toString().trim();
-      const organisationId = form.get('organisationId')?.toString().trim();
-      const description = form.get('description')?.toString().trim();
-      const isActive = form.get('isActive') === '1' ? 1 : 0;
-
       if (!name || !slug || !organisationId) {
         throw new Error('Department name, slug, and organisation are required.');
       }
 
-      await createDepartment({
+      createdDepartmentId = await createDepartment({
         name,
         slug,
         organisationId,
@@ -66,9 +98,23 @@ if (Astro.request.method === 'POST') {
         adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
       });
       statusMessage = { type: 'success', text: `Department "${name}" created successfully!` };
+      Astro.response.headers.set('X-Department-Id', createdDepartmentId);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ department_id: createdDepartmentId, id: createdDepartmentId, success: true, message: statusMessage.text }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json', 'X-Department-Id': createdDepartmentId },
+        });
+      }
     }
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
+    Astro.response.status = 400;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 }
 
@@ -119,6 +165,7 @@ const inactiveCount = departments.length - activeCount;
         </div>
       </div>
     )}
+    {createdDepartmentId && <input type="hidden" name="department_id" value={createdDepartmentId} />}
 
     <!-- Header with Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">

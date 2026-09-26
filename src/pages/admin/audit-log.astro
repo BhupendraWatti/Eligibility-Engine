@@ -78,6 +78,16 @@ const auditEntries = (await getAuditLogs()).map(log => ({
   newVal: log.newValue || '—',
   reason: log.reason || 'No reason recorded.',
 }));
+
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? true;
+const wantsJson = Astro.url.searchParams.get('format') === 'json' || (!acceptsHtml && Astro.request.headers.get('accept')?.includes('application/json'));
+
+if (wantsJson) {
+  return new Response(JSON.stringify(auditEntries), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 ---
 
 <AdminLayout

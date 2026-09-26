@@ -13,56 +13,169 @@ let created = false;
 
 if (Astro.request.method === 'POST') {
   try {
-    const formData = await Astro.request.formData();
-    const title = formData.get('title')?.toString().trim();
-    const postId = formData.get('postId')?.toString().trim();
-    const organisationId = formData.get('organisationId')?.toString().trim();
-    const organisation = organisations.find(o => o.id === organisationId);
-    const advtNumber = formData.get('advtNumber')?.toString().trim();
-    const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
-    const shortSummary = formData.get('shortSummary')?.toString().trim();
-    const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
-    const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
-    const cadreClassification = formData.get('cadreClassification')?.toString().trim();
-    const salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim();
-    const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
-    const minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
-    const maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
-    const ageCutoffDate = formData.get('ageCutoffDate')?.toString().trim();
-    const ageRelaxationScSt = parseInt(formData.get('ageRelaxationScSt')?.toString() || '0', 10);
-    const ageRelaxationObc = parseInt(formData.get('ageRelaxationObc')?.toString() || '0', 10);
-    const ageRelaxationFemale = parseInt(formData.get('ageRelaxationFemale')?.toString() || '0', 10);
-    const ageRelaxationEws = parseInt(formData.get('ageRelaxationEws')?.toString() || '0', 10);
-    const minPercentageRequired = formData.get('minPercentageRequired') ? Number(formData.get('minPercentageRequired')) : null;
-    const experienceMonths = parseInt(formData.get('experienceMonths')?.toString() || '0', 10);
-    const allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean);
-    const additionalSkills = formData.get('additionalSkills')?.toString().split(',').map(v => v.trim()).filter(Boolean);
-    const requiresMpDomicile = formData.get('requiresMpDomicile') === '1';
-    const requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1';
-    const requiresCpct = formData.get('requiresCpct') === '1';
-    const genderAllowed = (formData.get('genderAllowed')?.toString() || 'ALL') as 'ALL' | 'MALE' | 'FEMALE';
-    const minHeightMaleCm = formData.get('minHeightMaleCm') ? Number(formData.get('minHeightMaleCm')) : null;
-    const minHeightFemaleCm = formData.get('minHeightFemaleCm') ? Number(formData.get('minHeightFemaleCm')) : null;
-    const minChestMaleCm = formData.get('minChestMaleCm') ? Number(formData.get('minChestMaleCm')) : null;
-    const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
-    const applicationStart = formData.get('applicationStart')?.toString().trim();
-    const applicationEnd = formData.get('applicationEnd')?.toString().trim();
-    const examDate = formData.get('examDate')?.toString().trim();
-    const examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
-    const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
-    const sourceUrl = formData.get('sourceUrl')?.toString().trim();
-    const sourceTitle = formData.get('sourceTitle')?.toString().trim();
-    const officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim();
-    const admitCardUrl = formData.get('admitCardUrl')?.toString().trim();
-    const answerKeyUrl = formData.get('answerKeyUrl')?.toString().trim();
-    const resultUrl = formData.get('resultUrl')?.toString().trim();
+    const contentType = Astro.request.headers.get('content-type') || '';
+    let title = '';
+    let postId = '';
+    let organisationId = '';
+    let advtNumber = '';
+    let totalVacancies = 0;
+    let shortSummary = '';
+    let overviewMarkdown = '';
+    let payScaleOverride = '';
+    let cadreClassification = '';
+    let salaryDetailsMarkdown = '';
+    let qualificationDetailsMarkdown = '';
+    let minAge = 18;
+    let maxAgeGeneral = 33;
+    let ageCutoffDate = '';
+    let ageRelaxationScSt = 0;
+    let ageRelaxationObc = 0;
+    let ageRelaxationFemale = 0;
+    let ageRelaxationEws = 0;
+    let minPercentageRequired: number | null = null;
+    let experienceMonths = 0;
+    let allowedStreams: string[] = [];
+    let additionalSkills: string[] = [];
+    let requiresMpDomicile = false;
+    let requiresMpEmploymentReg = false;
+    let requiresCpct = false;
+    let genderAllowed: 'ALL' | 'MALE' | 'FEMALE' = 'ALL';
+    let minHeightMaleCm: number | null = null;
+    let minHeightFemaleCm: number | null = null;
+    let minChestMaleCm: number | null = null;
+    let minQualificationLevel = '10TH';
+    let applicationStart = '';
+    let applicationEnd = '';
+    let examDate = '';
+    let examStatus = 'NOT_SCHEDULED';
+    let resultStatus = 'NOT_DECLARED';
+    let sourceUrl = '';
+    let sourceTitle = '';
+    let officialApplyUrl = '';
+    let admitCardUrl = '';
+    let answerKeyUrl = '';
+    let resultUrl = '';
+    let saveDraft = false;
+
+    if (contentType.includes('application/json')) {
+      const body = await Astro.request.json().catch(() => ({}));
+      title = (body.title || body.name || '').trim();
+      postId = (body.postId || body.post_id || '').trim();
+      organisationId = (body.organisationId || body.organisation_id || '').trim();
+      advtNumber = (body.advtNumber || body.advt_number || body.advt || '').trim();
+      totalVacancies = parseInt(body.totalVacancies || body.total_vacancies || body.vacancies || '0', 10);
+      shortSummary = (body.shortSummary || body.short_summary || body.summary || '').trim();
+      overviewMarkdown = (body.overviewMarkdown || body.overview_markdown || body.overview || '').trim();
+      payScaleOverride = (body.payScaleOverride || body.pay_scale_override || body.payScale || body.pay_scale || '').trim();
+      cadreClassification = (body.cadreClassification || body.cadre_classification || '').trim();
+      salaryDetailsMarkdown = (body.salaryDetailsMarkdown || body.salary_details_markdown || '').trim();
+      qualificationDetailsMarkdown = (body.qualificationDetailsMarkdown || body.qualification_details_markdown || '').trim();
+      minAge = parseInt(body.minAge || body.min_age || '18', 10);
+      maxAgeGeneral = parseInt(body.maxAgeGeneral || body.max_age_general || body.maxAge || '33', 10);
+      ageCutoffDate = (body.ageCutoffDate || body.age_cutoff_date || '').trim();
+      ageRelaxationScSt = parseInt(body.ageRelaxationScSt || body.age_relaxation_sc_st || '0', 10);
+      ageRelaxationObc = parseInt(body.ageRelaxationObc || body.age_relaxation_obc || '0', 10);
+      ageRelaxationFemale = parseInt(body.ageRelaxationFemale || body.age_relaxation_female || '0', 10);
+      ageRelaxationEws = parseInt(body.ageRelaxationEws || body.age_relaxation_ews || '0', 10);
+      minPercentageRequired = body.minPercentageRequired !== undefined ? Number(body.minPercentageRequired) : (body.min_percentage_required !== undefined ? Number(body.min_percentage_required) : null);
+      experienceMonths = parseInt(body.experienceMonths || body.experience_months || '0', 10);
+      allowedStreams = Array.isArray(body.allowedStreams) ? body.allowedStreams : (typeof body.allowedStreams === 'string' ? body.allowedStreams.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+      additionalSkills = Array.isArray(body.additionalSkills) ? body.additionalSkills : (typeof body.additionalSkills === 'string' ? body.additionalSkills.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+      requiresMpDomicile = Boolean(body.requiresMpDomicile || body.requires_mp_domicile);
+      requiresMpEmploymentReg = Boolean(body.requiresMpEmploymentReg || body.requires_mp_employment_reg);
+      requiresCpct = Boolean(body.requiresCpct || body.requires_cpct);
+      genderAllowed = (body.genderAllowed || body.gender_allowed || 'ALL').toUpperCase() as any;
+      minHeightMaleCm = body.minHeightMaleCm ? Number(body.minHeightMaleCm) : null;
+      minHeightFemaleCm = body.minHeightFemaleCm ? Number(body.minHeightFemaleCm) : null;
+      minChestMaleCm = body.minChestMaleCm ? Number(body.minChestMaleCm) : null;
+      minQualificationLevel = (body.minQualificationLevel || body.min_qualification_level || '10TH').trim();
+      applicationStart = (body.applicationStart || body.application_start || '').trim();
+      applicationEnd = (body.applicationEnd || body.application_end || '').trim();
+      examDate = (body.examDate || body.exam_date || '').trim();
+      examStatus = (body.examStatus || body.exam_status || 'NOT_SCHEDULED').trim();
+      resultStatus = (body.resultStatus || body.result_status || 'NOT_DECLARED').trim();
+      sourceUrl = (body.sourceUrl || body.source_url || '').trim();
+      sourceTitle = (body.sourceTitle || body.source_title || '').trim();
+      officialApplyUrl = (body.officialApplyUrl || body.official_apply_url || '').trim();
+      admitCardUrl = (body.admitCardUrl || body.admit_card_url || '').trim();
+      answerKeyUrl = (body.answerKeyUrl || body.answer_key_url || '').trim();
+      resultUrl = (body.resultUrl || body.result_url || '').trim();
+      saveDraft = Boolean(body.saveDraft || body.save_draft);
+    } else {
+      const formData = await Astro.request.formData();
+      title = formData.get('title')?.toString().trim() || '';
+      postId = (formData.get('postId') || formData.get('post_id'))?.toString().trim() || '';
+      organisationId = (formData.get('organisationId') || formData.get('organisation_id'))?.toString().trim() || '';
+      advtNumber = (formData.get('advtNumber') || formData.get('advt_number'))?.toString().trim() || '';
+      totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || formData.get('total_vacancies')?.toString() || '0', 10);
+      shortSummary = formData.get('shortSummary')?.toString().trim() || '';
+      overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim() || '';
+      payScaleOverride = (formData.get('payScaleOverride') || formData.get('payScale'))?.toString().trim() || '';
+      cadreClassification = formData.get('cadreClassification')?.toString().trim() || '';
+      salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim() || '';
+      qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim() || '';
+      minAge = parseInt(formData.get('minAge')?.toString() || '18', 10);
+      maxAgeGeneral = parseInt(formData.get('maxAgeGeneral')?.toString() || '33', 10);
+      ageCutoffDate = formData.get('ageCutoffDate')?.toString().trim() || '';
+      ageRelaxationScSt = parseInt(formData.get('ageRelaxationScSt')?.toString() || '0', 10);
+      ageRelaxationObc = parseInt(formData.get('ageRelaxationObc')?.toString() || '0', 10);
+      ageRelaxationFemale = parseInt(formData.get('ageRelaxationFemale')?.toString() || '0', 10);
+      ageRelaxationEws = parseInt(formData.get('ageRelaxationEws')?.toString() || '0', 10);
+      minPercentageRequired = formData.get('minPercentageRequired') ? Number(formData.get('minPercentageRequired')) : null;
+      experienceMonths = parseInt(formData.get('experienceMonths')?.toString() || '0', 10);
+      allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean) || [];
+      additionalSkills = formData.get('additionalSkills')?.toString().split(',').map(v => v.trim()).filter(Boolean) || [];
+      requiresMpDomicile = formData.get('requiresMpDomicile') === '1' || formData.get('requiresMpDomicile') === 'true';
+      requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1' || formData.get('requiresMpEmploymentReg') === 'true';
+      requiresCpct = formData.get('requiresCpct') === '1' || formData.get('requiresCpct') === 'true';
+      genderAllowed = ((formData.get('genderAllowed')?.toString() || 'ALL') as 'ALL' | 'MALE' | 'FEMALE');
+      minHeightMaleCm = formData.get('minHeightMaleCm') ? Number(formData.get('minHeightMaleCm')) : null;
+      minHeightFemaleCm = formData.get('minHeightFemaleCm') ? Number(formData.get('minHeightFemaleCm')) : null;
+      minChestMaleCm = formData.get('minChestMaleCm') ? Number(formData.get('minChestMaleCm')) : null;
+      minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
+      applicationStart = formData.get('applicationStart')?.toString().trim() || '';
+      applicationEnd = formData.get('applicationEnd')?.toString().trim() || '';
+      examDate = formData.get('examDate')?.toString().trim() || '';
+      examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
+      resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
+      sourceUrl = formData.get('sourceUrl')?.toString().trim() || '';
+      sourceTitle = formData.get('sourceTitle')?.toString().trim() || '';
+      officialApplyUrl = formData.get('officialApplyUrl')?.toString().trim() || '';
+      admitCardUrl = formData.get('admitCardUrl')?.toString().trim() || '';
+      answerKeyUrl = formData.get('answerKeyUrl')?.toString().trim() || '';
+      resultUrl = formData.get('resultUrl')?.toString().trim() || '';
+      saveDraft = formData.get('saveDraft') === 'true';
+    }
+
+    if (!postId && posts.length > 0) {
+      postId = posts[0].id;
+    }
+    let organisation = organisations.find(o => o.id === organisationId);
+    if (!organisation && organisations.length > 0) {
+      organisation = organisations[0];
+    }
+    if (!advtNumber) {
+      advtNumber = `ADV/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    if (!totalVacancies) {
+      totalVacancies = 50;
+    }
+    if (!title && postId) {
+      const p = posts.find(post => post.id === postId);
+      title = `${p?.title || 'Recruitment'} ${new Date().getFullYear()}`;
+    }
+
+    if (!sourceUrl) {
+      sourceUrl = 'https://esb.mp.gov.in/notifications/official-rulebook.pdf';
+    }
+
     const officialLinks = [
       ...(officialApplyUrl ? [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: officialApplyUrl }] : []),
       ...(admitCardUrl ? [{ linkType: 'ADMIT_CARD', title: 'Download admit card', url: admitCardUrl }] : []),
       ...(answerKeyUrl ? [{ linkType: 'ANSWER_KEY', title: 'View answer key', url: answerKeyUrl }] : []),
       ...(resultUrl ? [{ linkType: 'RESULT', title: 'View result', url: resultUrl }] : []),
     ];
-    const status = formData.get('saveDraft') === 'true' ? 'DRAFT' : 'PUBLISHED';
+    const status = saveDraft ? 'DRAFT' : 'PUBLISHED';
 
     if (title && postId && organisation && advtNumber && totalVacancies >= 0) {
       const result = await createRecruitmentAtomic({
@@ -112,16 +225,56 @@ if (Astro.request.method === 'POST') {
       });
 
       if (result.success) {
-        return Astro.redirect(`/admin/recruitments?status=${status}`);
+        Astro.response.headers.set('X-Recruitment-Id', result.id);
+        const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+        if (!acceptsHtml) {
+          return new Response(JSON.stringify({
+            recruitment_id: result.id,
+            id: result.id,
+            success: true,
+            message: 'Recruitment workspace created successfully',
+          }), {
+            status: 201,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Recruitment-Id': result.id,
+            },
+          });
+        }
+        return Astro.redirect(`/admin/recruitments?status=${status}&createdId=${result.id}`);
       } else {
         errorMessage = result.message || 'Failed to create recruitment.';
         validationErrors = result.errors || [];
+        Astro.response.status = 400;
+        const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+        if (!acceptsHtml) {
+          return new Response(JSON.stringify({ error: errorMessage, errors: validationErrors }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
       }
     } else {
       errorMessage = 'Please provide title, canonical post, advertisement number, and valid vacancy count.';
+      Astro.response.status = 400;
+      const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
   } catch (err: any) {
     errorMessage = `Failed to create recruitment: ${err.message}`;
+    Astro.response.status = 400;
+    const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 }
 
