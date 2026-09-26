@@ -13,33 +13,57 @@ const [sector, allSectors, allRecruitments] = await Promise.all([
 ]);
 
 if (!sector) {
-  return Astro.rewrite('/404');
+  Astro.response.status = 404;
 }
 
-const posts = await getPostsBySectorId(sector.id);
+const posts = sector ? await getPostsBySectorId(sector.id) : [];
 const postIds = new Set(posts.map(p => p.id));
 
 // Find recruitments matching this sector
-const sectorRecruitments = allRecruitments.filter(r => 
+const sectorRecruitments = sector ? allRecruitments.filter(r => 
   (r.postId && postIds.has(r.postId)) ||
   r.postTitle?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0]) ||
   r.title?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0])
-);
+) : [];
 
 const metrics = calculateRecruitmentMetrics(sectorRecruitments);
 
 // Sector guidelines helper
-const isUniformService = sector.slug.includes('police') || sector.slug.includes('forest');
-const isEducation = sector.slug.includes('teaching');
-const isJudiciary = sector.slug.includes('judiciary');
-const isMedical = sector.slug.includes('health');
+const isUniformService = sector ? (sector.slug.includes('police') || sector.slug.includes('forest')) : false;
+const isEducation = sector ? sector.slug.includes('teaching') : false;
+const isJudiciary = sector ? sector.slug.includes('judiciary') : false;
+const isMedical = sector ? sector.slug.includes('health') : false;
 ---
 
-<BaseLayout
-  title={`${sector.name} Jobs in Madhya Pradesh — NIRNAY MP`}
-  description={`Explore open and upcoming ${sector.name} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
->
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-sector-profile={sector.slug}>
+{!sector ? (
+  <BaseLayout
+    title="Sector Not Found — NIRNAY MP"
+    description="The requested public sector or department profile could not be found."
+  >
+    <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-sector-not-found>
+      <div class="size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+        !
+      </div>
+      <h1 class="text-2xl font-bold text-foreground mb-2">Sector Not Found</h1>
+      <p class="text-sm text-muted-foreground mb-6">
+        No state government sector matches the identifier <code class="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{sectorParam}</code>.
+      </p>
+      <div class="flex items-center justify-center gap-3">
+        <a href="/jobs" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-blue-700 transition-colors">
+          Browse All Opportunities
+        </a>
+        <a href="/" class="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-xs font-semibold hover:bg-muted transition-colors">
+          Home
+        </a>
+      </div>
+    </div>
+  </BaseLayout>
+) : (
+  <BaseLayout
+    title={`${sector.name} Jobs in Madhya Pradesh — NIRNAY MP`}
+    description={`Explore open and upcoming ${sector.name} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
+  >
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-sector-profile={sector.slug} data-sector-title={sector.name}>
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
@@ -271,3 +295,4 @@ const isMedical = sector.slug.includes('health');
     </div>
   </div>
 </BaseLayout>
+)}

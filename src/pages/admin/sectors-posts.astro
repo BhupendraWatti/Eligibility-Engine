@@ -9,6 +9,7 @@ import {
   getAllDepartments,
   createCanonicalPost,
 } from '../../db/queries';
+import { resolveSectorRoute } from '../../services/sector-routing';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 
@@ -60,7 +61,7 @@ const [posts, sectors, departments] = await Promise.all([
 ]);
 
 const selectedSectorSlug = Astro.url.searchParams.get('sector') || sectors[0]?.slug || 'police';
-const activeSector = sectors.find(s => s.slug === selectedSectorSlug) || sectors[0] || {
+const activeSector = resolveSectorRoute(selectedSectorSlug, sectors) || sectors[0] || {
   id: '1',
   name: 'Police',
   slug: 'police',

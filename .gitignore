@@ -121,13 +121,23 @@ cypress/screenshots/
 # ------------------------------------------------------------------------------
 *.tmp
 *.temp
+*.tmp.*
 .cache/
 .parcel-cache/
 .vinext/
 report.md
+*report*.md
+*REPORT*.md
 WEBSITE_AND_BACKEND_AUDIT.md
+ARCHITECTURE_AUDIT_AND_ROADMAP.md
+BACKEND_AUDIT.md
+*AUDIT*.md
+*audit*.md
 tmp/
 temp/
+
+# Drizzle local meta folder (migrations/ and drizzle.config.ts remain tracked)
+drizzle/
 
 # ------------------------------------------------------------------------------
 # 10. AI Agent Working Sessions, Scratchpads & Ephemeral Verification
