@@ -18,6 +18,8 @@ const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?
 
 if (Astro.request.method === 'POST') {
   try {
+    const adminEmail = Astro.locals.adminEmail;
+    if (!adminEmail) throw new Error('Admin identity is required for mutations.');
     const input = await readAdminSubmission(Astro.request);
     const action = input.text('_action', 'action') || 'create_document';
     const title = input.text('title');
@@ -26,8 +28,6 @@ if (Astro.request.method === 'POST') {
     const sourceUrl = input.text('sourceUrl', 'source_url', 'url');
     const publicationDate = input.text('publicationDate', 'publication_date');
     const id = input.text('id', 'document_id', 'documentId');
-
-    const adminEmail = Astro.locals.adminEmail || 'aarav@nirnay.in';
 
     if (action === 'create_document') {
       if (!title || !recruitmentId || !sourceUrl) {

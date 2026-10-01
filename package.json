@@ -10,7 +10,7 @@
     "dev:vinext": "vinext dev --port 3001",
     "build": "astro build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/engine/eligibility.test.ts && tsx src/engine/batch-eligibility.test.ts && tsx src/engine/regression.test.ts && tsx src/engine/extract-notification.test.ts && tsx src/services/lifecycle.test.ts && tsx src/services/sector-routing.test.ts && tsx src/services/admin-integrity.test.ts && tsx src/db/documents.test.ts && tsx src/engine/routes-verification.test.ts",
+    "test": "tsx src/engine/eligibility.test.ts && tsx src/engine/batch-eligibility.test.ts && tsx src/engine/regression.test.ts && tsx src/engine/extract-notification.test.ts && tsx src/services/lifecycle.test.ts && tsx src/services/sector-routing.test.ts && tsx src/services/admin-integrity.test.ts && tsx src/middleware.test.ts && tsx src/db/documents.test.ts && tsx src/engine/routes-verification.test.ts",
     "build:vinext": "vinext build",
     "preview": "astro preview",
     "preview:workers": "wrangler dev --config dist/server/wrangler.json",

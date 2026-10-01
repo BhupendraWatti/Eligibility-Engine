@@ -14,10 +14,11 @@ let message = '';
 let messageType: 'success' | 'error' = 'success';
 
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
-const adminEmail = (Astro.locals as any).adminEmail || 'admin@rozgarsetu.in';
+const adminEmail = Astro.locals.adminEmail;
 
 if (Astro.request.method === 'POST') {
   try {
+    if (!adminEmail) throw new Error('Admin identity is required for mutations.');
     const input = await readAdminSubmission(Astro.request);
     const action = input.text('_action', 'action') || 'verify';
 

@@ -2,33 +2,15 @@
 // src/pages/admin/settings.astro (FlowStep Screen 31)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
+import { getAdminUsers } from '../../db/queries';
 
-const staffMembers = [
-  {
-    name: 'Aarav Mehta',
-    email: 'aarav@nirnay.in',
-    role: 'Super Admin',
-    status: 'Active',
-    lastActive: 'Today',
-    avatar: 'AM',
-  },
-  {
-    name: 'Priya Shah',
-    email: 'priya@nirnay.in',
-    role: 'Reviewer',
-    status: 'Active',
-    lastActive: '2 hours ago',
-    avatar: 'PS',
-  },
-  {
-    name: 'Rohan Verma',
-    email: 'rohan@nirnay.in',
-    role: 'Editor',
-    status: 'Invited',
-    lastActive: 'Never',
-    avatar: 'RV',
-  },
-];
+const staffMembers = (await getAdminUsers()).map(member => ({
+  ...member,
+  role: member.role === 'SUPER_ADMIN' ? 'Super Admin' : member.role === 'REVIEWER' ? 'Reviewer' : 'Editor',
+  status: member.isActive ? 'Active' : 'Inactive',
+  lastActive: '—',
+  avatar: member.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase(),
+}));
 ---
 
 <AdminLayout

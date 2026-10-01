@@ -1,3 +1,11 @@
+## Project Architecture & Context Memory
+
+Before making architectural decisions, editing database queries, altering lifecycle states, or modifying eligibility calculation logic, always consult the comprehensive project architecture guide:
+
+- [CONTEXT.md](file:///d:/Personal%20Projects/Eligibility%20Engine/CONTEXT.md) — Complete Platform Memory, Relational Schema, Deterministic Engine Rules, and Operational Playbook.
+- [RECRUITMENT_LIFECYCLE_DOMAIN.md](file:///d:/Personal%20Projects/Eligibility%20Engine/docs/RECRUITMENT_LIFECYCLE_DOMAIN.md) — Canonical Recruitment Lifecycle & Metric Standards.
+
+
 ## Development
 
 When starting the dev server, use background mode:
@@ -20,3 +28,5 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+
+

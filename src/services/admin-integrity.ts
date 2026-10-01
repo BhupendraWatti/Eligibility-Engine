@@ -87,3 +87,20 @@ export function parseStringListInput(value: unknown): string[] {
 export function isAdminTestBypass(configuredToken: string | undefined, suppliedToken: string | null): boolean {
   return Boolean(configuredToken && suppliedToken && configuredToken === suppliedToken);
 }
+
+export function isAdminRequestAllowed(
+  email: string | null,
+  allowedAdmins: readonly string[],
+  trustedLocalOrTestRequest = false,
+): boolean {
+  return Boolean(email && (trustedLocalOrTestRequest || allowedAdmins.includes(email.toLowerCase())));
+}
+
+export function isSameOrigin(origin: string | null, expectedHost: string): boolean {
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === expectedHost;
+  } catch {
+    return false;
+  }
+}

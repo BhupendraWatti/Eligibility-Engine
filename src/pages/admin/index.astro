@@ -4,7 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAdminKPIs } from '../../db/queries';
 
 // @ts-ignore
-const adminEmail = Astro.locals?.adminEmail || 'aarav@nirnay.in';
+const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
 let kpis: any = null;
 let dashboardError = '';

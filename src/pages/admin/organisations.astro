@@ -7,12 +7,14 @@ import { createOrganisation, updateOrganisation, getAllOrganisations, getAllStat
 import { parseBooleanInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
 
 const states = await getAllStates();
+const adminEmail = Astro.locals.adminEmail;
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 let createdOrganisationId = '';
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
 
 if (Astro.request.method === 'POST') {
   try {
+    if (!adminEmail) throw new Error('Admin identity is required for mutations.');
     const input = await readAdminSubmission(Astro.request);
     const action = input.text('_action', 'action') || 'create_organisation';
     const id = input.text('id', 'organisation_id', 'organisationId');
@@ -50,7 +52,7 @@ if (Astro.request.method === 'POST') {
         stateId,
         websiteUrl,
         isActive,
-        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+        adminEmail,
       });
       statusMessage = { type: 'success', text: `Organisation "${name}" successfully updated!` };
       Astro.response.headers.set('X-Organisation-Id', id);
@@ -73,7 +75,7 @@ if (Astro.request.method === 'POST') {
         stateId,
         websiteUrl,
         isActive,
-        adminEmail: Astro.locals.adminEmail || 'aarav@nirnay.in',
+        adminEmail,
       });
       statusMessage = { type: 'success', text: `Organisation "${name}" created successfully!` };
       Astro.response.headers.set('X-Organisation-Id', createdOrganisationId);

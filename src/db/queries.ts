@@ -44,7 +44,8 @@ try {
   // Fallback for environments outside Cloudflare Workers runtime
 }
 
-const demoFallbackEnabled = import.meta.env?.DEV === true || (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production');
+// Cloudflare Workers expose the server-side Cache API; browsers never execute this module.
+const demoFallbackEnabled = import.meta.env?.DEV === true || typeof globalThis.caches === 'undefined';
 
 function resolveD1(providedD1: D1Database | undefined, operation: string): D1Database | undefined {
   const d1 = providedD1 || cfEnv?.DB;
@@ -3701,6 +3702,21 @@ export interface AdminKPIData {
     type: string;
     issue: string;
   }>;
+}
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: number;
+  createdAt: Date;
+}
+
+export async function getAdminUsers(providedD1?: D1Database): Promise<AdminUserItem[]> {
+  const d1 = resolveD1(providedD1, 'loading admin users');
+  if (!d1) return [];
+  return getDb(d1).select().from(schema.adminUsers).orderBy(asc(schema.adminUsers.name));
 }
 
 /**

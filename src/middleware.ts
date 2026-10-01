@@ -1,7 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { getHostname, isAdminSubdomain } from './lib/hostname';
-import { isAdminTestBypass } from './services/admin-integrity';
+import { isAdminRequestAllowed, isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
   const hostname = getHostname(request) || url.hostname;
@@ -37,18 +37,16 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   if (isAdminPath || isAdminHost) {
     let userEmail = request.headers.get('cf-access-authenticated-user-email');
 
-    // Default admin allowlist if not set in environment
-    const defaultAdmins = [
-      'admin@rozgarsetu.in',
-      'aarav@nirnay.in',
-      'admin@nirnay.in',
-      'bhupendrawatti24@gmail.com',
-    ];
-    const envAdmins = (import.meta.env.ADMIN_EMAILS || '')
+    let configuredAdmins = import.meta.env.ADMIN_EMAILS as string | undefined;
+    try {
+      configuredAdmins ||= (env as unknown as { ADMIN_EMAILS?: string }).ADMIN_EMAILS;
+    } catch {
+      // Cloudflare bindings are unavailable outside the worker runtime.
+    }
+    const allowedAdmins = (configuredAdmins || '')
       .split(',')
       .map((e: string) => e.trim().toLowerCase())
       .filter(Boolean);
-    const allowedAdmins = envAdmins.length > 0 ? envAdmins : defaultAdmins;
 
     let configuredBypassToken = import.meta.env.ADMIN_TEST_BYPASS_TOKEN as string | undefined;
     try {
@@ -66,7 +64,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       userEmail = 'admin@rozgarsetu.in';
     }
 
-    if (!userEmail || !allowedAdmins.includes(userEmail.toLowerCase())) {
+    if (!isAdminRequestAllowed(userEmail, allowedAdmins, isTestBypass || isLocal)) {
       return new Response(
         `<!DOCTYPE html>
         <html>
@@ -111,13 +109,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const origin = request.headers.get('origin');
-      if (origin) {
-        try {
-          if (new URL(origin).host !== url.host) throw new Error('Invalid origin');
-        } catch {
-          return new Response('Invalid request origin.', { status: 403 });
-        }
-      } else if (!isTestBypass && !isLocal) {
+      if (origin ? !isSameOrigin(origin, url.host) : !isTestBypass && !isLocal) {
         return new Response('Invalid request origin.', { status: 403 });
       }
     }
