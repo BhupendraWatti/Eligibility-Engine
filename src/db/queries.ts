@@ -1896,6 +1896,79 @@ export async function updateDepartment(
   return true;
 }
 
+export async function createSector(
+  data: { name: string; slug: string; icon?: string; displayOrder?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = resolveD1(providedD1, 'creating a sector');
+  const id = `sec_${crypto.randomUUID()}`;
+  let slug = data.slug;
+  if (!d1) {
+    FALLBACK_SECTORS.push({
+      id,
+      name: data.name,
+      slug,
+      icon: data.icon || 'Briefcase',
+      displayOrder: data.displayOrder ?? (FALLBACK_SECTORS.length + 1),
+    });
+    return id;
+  }
+  const db = getDb(d1);
+  const existing = await db
+    .select({ id: schema.sectors.id })
+    .from(schema.sectors)
+    .where(eq(schema.sectors.slug, slug))
+    .limit(1);
+  if (existing.length > 0) {
+    slug = `${data.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  await db.batch([
+    db.insert(schema.sectors).values({
+      id,
+      name: data.name,
+      slug,
+      icon: data.icon || 'Briefcase',
+      displayOrder: data.displayOrder ?? 0,
+    }),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SECTOR',
+      entityId: id,
+      action: 'CREATE',
+      newValue: data.name,
+    }),
+  ]);
+  return id;
+}
+
+export async function updateSector(
+  data: { id: string; name?: string; slug?: string; icon?: string; displayOrder?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'updating a sector');
+  if (!d1) {
+    const idx = FALLBACK_SECTORS.findIndex(s => s.id === data.id);
+    if (idx === -1) return false;
+    FALLBACK_SECTORS[idx] = {
+      ...FALLBACK_SECTORS[idx],
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.slug ? { slug: data.slug } : {}),
+      ...(data.icon ? { icon: data.icon } : {}),
+      ...(data.displayOrder !== undefined ? { displayOrder: data.displayOrder } : {}),
+    };
+    return true;
+  }
+  const db = getDb(d1);
+  const updateSet: Record<string, any> = {};
+  if (data.name !== undefined) updateSet.name = data.name;
+  if (data.slug !== undefined) updateSet.slug = data.slug;
+  if (data.icon !== undefined) updateSet.icon = data.icon;
+  if (data.displayOrder !== undefined) updateSet.displayOrder = data.displayOrder;
+  await db.update(schema.sectors).set(updateSet).where(eq(schema.sectors.id, data.id));
+  return true;
+}
+
 export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string }>> {
   const d1 = resolveD1(providedD1, 'loading states');
   if (!d1) return INDIA_JURISDICTIONS;
