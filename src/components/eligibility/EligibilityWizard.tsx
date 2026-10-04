@@ -548,9 +548,10 @@ export default function EligibilityWizard({ recruitments }: Props) {
                     setValidationError(null);
                     setStep(s => Math.max(1, s - 1));
                   }}
-                  className="px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-foreground text-xs sm:text-sm font-medium transition-colors"
+                  className="px-4 py-2.5 rounded-lg border border-border hover:bg-muted text-foreground text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1.5"
                 >
-                  &larr; Back
+                  <svg xmlns="http://www.w3.org/2000/svg" className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                  <span>Back</span>
                 </button>
               ) : (
                 <span />

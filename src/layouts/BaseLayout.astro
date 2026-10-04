@@ -3,6 +3,7 @@
 import '../styles/global.css';
 import Header from '../components/common/Header.astro';
 import Footer from '../components/common/Footer.astro';
+import MobileBottomNav from '../components/common/MobileBottomNav.astro';
 
 interface Props {
   title: string;
@@ -36,7 +37,7 @@ const {
     <!-- Google Fonts: Plus Jakarta Sans, Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
     <!-- OpenGraph / Social -->
     <meta property="og:title" content={`${title} | NIRNAY`} />
@@ -56,17 +57,19 @@ const {
     <!-- Print Only Header for Official Assessment Reports -->
     {isReportPage && (
       <div class="print-only p-4 border-b-2 border-slate-900 mb-6 text-center">
-        <h1 class="text-2xl font-bold text-slate-900">NIRNAY — Eligibility Assessment Report</h1>
+        <h1 class="text-2xl font-bold text-slate-900">NIRNAY - Eligibility Assessment Report</h1>
         <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory platform.</p>
       </div>
     )}
 
     <Header />
 
-    <main class="flex-1">
+    <main class="flex-1 pb-16 lg:pb-0">
       <slot />
     </main>
 
     <Footer />
+
+    <MobileBottomNav />
   </body>
 </html>

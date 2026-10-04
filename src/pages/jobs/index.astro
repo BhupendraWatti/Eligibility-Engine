@@ -96,45 +96,66 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
 ---
 
 <BaseLayout
-  title="Government Jobs Across India — NIRNAY"
-  description="Browse open, upcoming, and recently closed central and state government opportunities with verified official links."
+  title="Government Jobs & Active Recruitment Drives - NIRNAY"
+  description="Browse open, upcoming, and verified central and state government recruitment opportunities from official gazettes."
 >
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
       <span>/</span>
-      <span class="text-foreground font-medium">Jobs</span>
+      <span class="text-foreground font-semibold">Jobs Directory</span>
     </nav>
 
     <!-- Page Title & Search Header -->
     <div class="mb-8">
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Government Jobs Across India
-      </h1>
-      <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Browse open, upcoming and verified state opportunities from official gazettes.
-      </p>
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+            Central & State Gazetted Notices
+          </span>
+          <h1 class="text-2xl sm:text-4xl font-black text-foreground tracking-tight font-heading">
+            Government Recruitment Directory
+          </h1>
+          <p class="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
+            Browse verified opportunities across all 28 states, 8 union territories, and central commissions with direct application links.
+          </p>
+        </div>
 
-      <div class="mt-5 max-w-2xl">
+        <div class="shrink-0 flex items-center gap-2">
+          <a
+            href="/eligibility-checker"
+            class="px-4 py-2.5 rounded-xl bg-amber-500/10 text-amber-900 border border-amber-300 font-bold text-xs inline-flex items-center gap-2 hover:bg-amber-500/20 transition-colors shadow-2xs"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+            <span>Match Your Profile</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Search Input Bar -->
+      <div class="mt-6 max-w-3xl">
         <form method="GET" action="/jobs" class="flex gap-2">
           {qualification && <input type="hidden" name="qualification" value={qualification} />}
           {org && <input type="hidden" name="org" value={org} />}
           {status && <input type="hidden" name="status" value={status} />}
           {sort && <input type="hidden" name="sort" value={sort} />}
-          <label class="flex-1 rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 shadow-2xs focus-within:border-primary transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <label class="flex-1 rounded-2xl bg-card border border-input flex px-4 items-center gap-3 h-12 shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="search"
               name="q"
               value={q}
-              placeholder="Search by job title, department or exam..."
-              class="bg-transparent text-foreground text-sm outline-none flex-1"
+              placeholder="Search by job title, commission, or cadre (e.g. Constable, Patwari, Sub Inspector)..."
+              class="bg-transparent text-foreground text-sm outline-none flex-1 min-w-0 placeholder:text-muted-foreground/70"
             />
           </label>
           <button
             type="submit"
-            class="px-5 h-11 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-blue-700 transition-colors shrink-0"
+            class="px-5 sm:px-6 h-12 rounded-2xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs sm:text-sm font-bold transition-colors shrink-0 shadow-sm"
           >
             Search
           </button>
@@ -142,14 +163,19 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
       </div>
     </div>
 
-    <!-- Layout: Left Filters (1 Col) + Right Listings (3 Cols) -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      <!-- Left Filter Panel -->
-      <aside class="space-y-5 bg-card p-5 rounded-2xl border border-border h-fit">
+    <!-- Layout: Left Filters + Right Listings -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8 items-start">
+      <!-- Left Filter Panel (Collapsible Accordion on Mobile, Sticky on Desktop) -->
+      <aside class="bg-card p-5 rounded-2xl border border-border lg:sticky lg:top-20 space-y-5">
         <div class="flex items-center justify-between pb-3 border-b border-border">
-          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Filters</span>
+          <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            <span class="text-xs font-bold text-foreground uppercase tracking-wider">Filters</span>
+          </div>
           {hasActiveFilters && (
-            <a href="/jobs" class="text-[11px] text-primary hover:underline font-medium">Reset all</a>
+            <a href="/jobs" class="text-[11px] text-primary hover:underline font-bold">Reset all</a>
           )}
         </div>
 
@@ -161,33 +187,37 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               {q && (
                 <a
                   href={`/jobs?${new URLSearchParams({ ...(qualification ? { qualification } : {}), ...(org ? { org } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
-                  "{q}" <span class="text-xs">&times;</span>
+                  <span>"{q}"</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </a>
               )}
               {qualification && (
                 <a
                   href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(org ? { org } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
-                  {qualification} <span class="text-xs">&times;</span>
+                  <span>{qualification}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </a>
               )}
               {org && (
                 <a
                   href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(qualification ? { qualification } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
-                  {org} <span class="text-xs">&times;</span>
+                  <span>{org}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </a>
               )}
               {status && (
                 <a
                   href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(qualification ? { qualification } : {}), ...(org ? { org } : {}), ...(sort ? { sort } : {}) })}`}
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200 hover:bg-emerald-100 transition-colors"
                 >
-                  {status} <span class="text-xs">&times;</span>
+                  <span>{status}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </a>
               )}
             </div>
@@ -200,29 +230,29 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
           {sort && <input type="hidden" name="sort" value={sort} />}
 
           <div>
-            <label class="font-bold text-foreground block mb-1.5">Qualification</label>
+            <label class="font-bold text-foreground block mb-1.5">Educational Qualification</label>
             <select
               name="qualification"
               onchange="this.form.submit()"
-              class="w-full p-2.5 rounded-lg bg-background border border-border text-foreground outline-none cursor-pointer"
+              class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
               <option value="">All Qualifications</option>
               <option value="10TH" selected={qualification === '10TH'}>10th Pass (Matriculation)</option>
-              <option value="12TH" selected={qualification === '12TH'}>12th Pass (Higher Secondary)</option>
-              <option value="DIPLOMA" selected={qualification === 'DIPLOMA'}>Diploma (Polytechnic / DMLT)</option>
-              <option value="GRADUATION" selected={qualification === 'GRADUATION'}>Graduation (Degree)</option>
-              <option value="POST_GRADUATION" selected={qualification === 'POST_GRADUATION'}>Post Graduation</option>
+              <option value="12TH" selected={qualification === '12TH'}>12th Pass (Intermediate / 10+2)</option>
+              <option value="DIPLOMA" selected={qualification === 'DIPLOMA'}>Diploma (Polytechnic / Technical)</option>
+              <option value="GRADUATION" selected={qualification === 'GRADUATION'}>Graduation (Bachelor Degree)</option>
+              <option value="POST_GRADUATION" selected={qualification === 'POST_GRADUATION'}>Post Graduation (Master Degree)</option>
             </select>
           </div>
 
           <div>
-            <label class="font-bold text-foreground block mb-1.5">Organisation</label>
+            <label class="font-bold text-foreground block mb-1.5">Recruiting Organisation</label>
             <select
               name="org"
               onchange="this.form.submit()"
-              class="w-full p-2.5 rounded-lg bg-background border border-border text-foreground outline-none cursor-pointer"
+              class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
-              <option value="">All Organisations</option>
+              <option value="">All Authorities</option>
               <option value="MPESB" selected={org === 'MPESB'}>MPESB (Bhopal)</option>
               <option value="MPPSC" selected={org === 'MPPSC'}>MPPSC (Indore)</option>
               <option value="MPHC" selected={org === 'MPHC'}>MP High Court (Jabalpur)</option>
@@ -230,40 +260,41 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
           </div>
 
           <div>
-            <label class="font-bold text-foreground block mb-1.5">Application Status</label>
+            <label class="font-bold text-foreground block mb-1.5">Application Lifecycle State</label>
             <select
               name="status"
               onchange="this.form.submit()"
-              class="w-full p-2.5 rounded-lg bg-background border border-border text-foreground outline-none cursor-pointer"
+              class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
-              <option value="">All Statuses</option>
-              <option value="OPEN" selected={status === 'OPEN'}>Open (Applications Active)</option>
-              <option value="CLOSING_SOON" selected={status === 'CLOSING_SOON'}>Closing Soon (&le; 7 Days)</option>
-              <option value="UPCOMING" selected={status === 'UPCOMING'}>Upcoming Drives</option>
+              <option value="">All Lifecycle States</option>
+              <option value="OPEN" selected={status === 'OPEN'}>Open (Registration Active)</option>
+              <option value="CLOSING_SOON" selected={status === 'CLOSING_SOON'}>Closing Soon (Within 7 Days)</option>
+              <option value="UPCOMING" selected={status === 'UPCOMING'}>Upcoming Recruitment Notices</option>
               <option value="CONCLUDED" selected={status === 'CONCLUDED' || status === 'CLOSED'}>Concluded (Exams / Results)</option>
             </select>
           </div>
         </form>
 
-        <div class="pt-4 border-t border-border">
-          <a
-            href="/eligibility-checker"
-            class="w-full py-2 px-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs text-center block transition-colors"
-          >
-            Instant Eligibility Check &rarr;
-          </a>
+        <div class="pt-3 border-t border-border">
+            <a
+              href="/eligibility-checker"
+              class="w-full py-2.5 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs text-center transition-colors inline-flex items-center justify-center gap-1.5"
+            >
+              <span>Check Your Eligibility Now</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
         </div>
       </aside>
 
-      <!-- Right Content Area -->
-      <div class="lg:col-span-3 space-y-6">
-        <!-- Content Header -->
+      <!-- Right Content Area: Opportunities List -->
+      <div class="lg:col-span-3 space-y-5">
+        <!-- Content Header & Sort -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <span class="text-xs font-semibold text-foreground">
-            Showing <strong class="text-primary font-bold">{filteredRecruitments.length} opportunities</strong>
+          <span class="text-xs font-bold text-foreground">
+            Showing <strong class="text-primary font-black font-mono">{filteredRecruitments.length}</strong> opportunities
           </span>
           <div class="flex items-center gap-2 text-xs">
-            <span class="text-muted-foreground">Sort by:</span>
+            <span class="text-muted-foreground font-medium">Sort by:</span>
             <form method="GET" action="/jobs" class="inline">
               {q && <input type="hidden" name="q" value={q} />}
               {qualification && <input type="hidden" name="qualification" value={qualification} />}
@@ -272,10 +303,10 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               <select
                 name="sort"
                 onchange="this.form.submit()"
-                class="p-1.5 rounded-md bg-background border border-border text-foreground text-xs font-medium cursor-pointer"
+                class="p-1.5 px-2 rounded-lg bg-background border border-input text-foreground text-xs font-semibold cursor-pointer focus:border-primary outline-none"
               >
                 <option value="closing_asc" selected={sort === 'closing_asc'}>Closing date (Earliest first)</option>
-                <option value="vacancies_desc" selected={sort === 'vacancies_desc'}>Vacancies (High to Low)</option>
+                <option value="vacancies_desc" selected={sort === 'vacancies_desc'}>Vacancies (Highest first)</option>
                 <option value="recent" selected={sort === 'recent'}>Recently Added</option>
               </select>
             </form>
@@ -284,12 +315,15 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
 
         <!-- Cards List -->
         {filteredRecruitments.length === 0 ? (
-          <div class="bg-card rounded-2xl border border-border p-12 text-center">
-            <h3 class="text-base font-bold text-foreground mb-1">No opportunities match your search</h3>
-            <p class="text-xs text-muted-foreground mb-4">Try clearing filters or searching with a different term.</p>
+          <div class="bg-card rounded-2xl border border-border p-10 sm:p-14 text-center">
+            <div class="size-12 rounded-2xl bg-muted border border-border flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </div>
+            <h3 class="text-base font-bold text-foreground mb-1">No opportunities match current criteria</h3>
+            <p class="text-xs text-muted-foreground mb-4">Try clearing filters or adjusting your search keywords.</p>
             <a
               href="/jobs"
-              class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold inline-block hover:bg-blue-700 transition-colors"
+              class="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold inline-block hover:bg-primary-hover transition-colors shadow-sm"
             >
               Clear all filters
             </a>
@@ -297,69 +331,68 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
         ) : (
           <div class="space-y-4">
             {filteredRecruitments.map((job) => {
-              const statusColor = job.lifecycleStatus === 'OPEN'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : job.lifecycleStatus === 'UPCOMING'
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'bg-muted text-muted-foreground border-border';
-
               return (
-                <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-sm hover:border-border/80 transition-all">
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
+                  <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
+                          {job.presentation?.label || job.lifecycleStatus}
+                        </span>
+                        <span class="text-xs font-semibold text-muted-foreground">
+                          {job.organisationShortName} · {job.postTitle}
+                        </span>
+                      </div>
+                      <span class="text-xs font-mono font-bold text-amber-700">
+                        Deadline: {formatDate(job.applicationEnd)}
+                      </span>
+                    </div>
+
+                    <h2 class="text-base sm:text-xl font-bold text-foreground mb-2 font-heading">
+                      <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
+                        {job.title}
+                      </a>
+                    </h2>
+
+                    <p class="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                      {job.shortSummary || 'Official public recruitment drive with verified statutory quotas and examination syllabus.'}
+                    </p>
+
+                    <!-- Key Metadata Row -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-3 px-3.5 sm:px-4 rounded-xl bg-muted/40 border border-border/70 mb-4 text-xs">
+                      <div>
+                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Total Vacancies</span>
+                        <span class="font-bold text-foreground font-mono text-sm">{job.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
+                      </div>
+                      <div>
+                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Min Education</span>
+                        <span class="font-semibold text-foreground">{job.criteria.minQualificationLevel ? job.criteria.minQualificationLevel.replace(/_/g, ' ') : 'Refer Notice'}</span>
+                      </div>
+                      <div>
+                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Age Bracket</span>
+                        <span class="font-semibold text-foreground font-mono">{job.criteria.minAge}-{job.criteria.maxAgeGeneral} Yrs</span>
+                      </div>
+                      <div>
+                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Domicile Scope</span>
+                        <span class="font-semibold text-foreground">{job.criteria.requiresMpDomicile ? `${job.stateCode || 'State'} Domicile` : 'Open All-India'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span class="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      Verified Notice ({job.advtNumber})
+                    </span>
                     <div class="flex items-center gap-2">
-                      <span class={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
-                        {job.presentation?.label || job.lifecycleStatus}
-                      </span>
-                      <span class="text-xs text-muted-foreground font-medium">
-                        {job.organisationShortName} · {job.postTitle}
-                      </span>
+                      <a
+                        href={`/recruitments/${job.slug}`}
+                        class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <span>View Details</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </a>
                     </div>
-                    <span class="text-xs font-mono font-bold text-foreground">
-                      Last date: {formatDate(job.applicationEnd)}
-                    </span>
-                  </div>
-
-                  <h2 class="text-lg font-bold text-foreground mb-2">
-                    <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
-                      {job.title}
-                    </a>
-                  </h2>
-
-                  <p class="text-xs text-muted-foreground mb-4 line-clamp-2">
-                    {job.shortSummary}
-                  </p>
-
-                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3 px-4 rounded-xl bg-muted/40 border border-border mb-4 text-xs">
-                    <div>
-                      <span class="text-muted-foreground block text-[10px] uppercase font-semibold">Vacancies</span>
-                      <span class="font-bold text-foreground font-mono">{job.totalVacancies?.toLocaleString() || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span class="text-muted-foreground block text-[10px] uppercase font-semibold">Min Qualification</span>
-                      <span class="font-medium text-foreground">{job.criteria.minQualificationLevel}</span>
-                    </div>
-                    <div>
-                      <span class="text-muted-foreground block text-[10px] uppercase font-semibold">Age Bracket</span>
-                      <span class="font-medium text-foreground">{job.criteria.minAge}–{job.criteria.maxAgeGeneral} yrs</span>
-                    </div>
-                    <div>
-                      <span class="text-muted-foreground block text-[10px] uppercase font-semibold">State Domicile</span>
-                      <span class="font-medium text-foreground">{job.criteria.requiresMpDomicile ? `${job.stateCode || 'State'} domicile` : 'All India'}</span>
-                    </div>
-                  </div>
-
-                  <div class="flex items-center justify-between pt-2">
-                    <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      Official source verified ({job.advtNumber})
-                    </span>
-                    <a
-                      href={`/recruitments/${job.slug}`}
-                      class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"
-                    >
-                      <span>View details & criteria</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </a>
                   </div>
                 </div>
               );
@@ -367,10 +400,13 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
           </div>
         )}
 
-        <!-- Note footer -->
-        <div class="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-4">
-          <p>Dates and eligibility are summarised strictly from verified state gazettes.</p>
-          <a href="/disclaimer" class="hover:underline">Legal Disclaimer & Source Policy &rarr;</a>
+        <!-- Bottom Note -->
+        <div class="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-3">
+          <p>All dates and quota criteria are derived directly from verified official gazettes.</p>
+          <a href="/disclaimer" class="hover:underline font-medium text-primary inline-flex items-center gap-1">
+            <span>Non-affiliation notice</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
         </div>
       </div>
     </div>

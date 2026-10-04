@@ -87,7 +87,7 @@ allRecruitments.forEach((job) => {
       rawDate: job.examDate,
       formattedDate: formatted,
       weekday,
-      title: `${job.title} — Written Examination`,
+      title: `${job.title} - Written Examination`,
       org: job.organisationShortName,
       desc: p.isPast
         ? `Examination concluded across state centers. Model answer key scrutiny underway.`
@@ -115,7 +115,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
 ---
 
 <BaseLayout
-  title="Government Recruitment & Exam Calendar 2026 — NIRNAY"
+  title="Government Recruitment & Exam Calendar 2026 - NIRNAY"
   description="Chronological schedule of central and state government recruitment deadlines, registrations, and examination dates."
 >
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -209,7 +209,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
             <div class="flex items-center gap-2 mb-4">
               <span class="size-2 rounded-full bg-amber-500 animate-ping"></span>
               <h2 class="text-sm font-bold uppercase tracking-wider text-amber-900">
-                Immediate Action — Closing Soon (Next 7 Days)
+                Immediate Action: Closing Soon (Next 7 Days)
               </h2>
               <span class="text-xs text-muted-foreground font-mono ml-auto font-medium">
                 {closingSoonMilestones.length} {closingSoonMilestones.length === 1 ? 'event' : 'events'}
@@ -404,7 +404,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
                   <span>Concluded & Historical Milestones ({pastMilestones.length})</span>
                 </span>
                 <span class="text-xs font-normal text-muted-foreground group-open:rotate-180 transition-transform">
-                  &darr;
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
                 </span>
               </summary>
 
@@ -450,39 +450,40 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
             How dates are tracked
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-            Dates are taken from official recruitment notifications and authority portals. Always confirm the final deadline on the linked official job post.
+            Dates are compiled from verified government notifications and authority gazettes. Always confirm final dates with the direct official notification.
           </p>
           <div class="pt-2 border-t border-border space-y-2 text-xs">
             <div class="flex items-center gap-2">
               <span class="size-2 rounded-full bg-amber-500"></span>
-              <span class="font-medium text-foreground">Closing Soon:</span>
+              <span class="font-semibold text-foreground">Closing Soon:</span>
               <span class="text-muted-foreground">&le; 7 days remaining</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="size-2 rounded-full bg-emerald-500"></span>
-              <span class="font-medium text-foreground">Applications Open:</span>
+              <span class="font-semibold text-foreground">Applications Open:</span>
               <span class="text-muted-foreground">Active submission window</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="size-2 rounded-full bg-purple-500"></span>
-              <span class="font-medium text-foreground">Exam Scheduled:</span>
+              <span class="font-semibold text-foreground">Exam Scheduled:</span>
               <span class="text-muted-foreground">Official CBT date announced</span>
             </div>
           </div>
         </div>
 
-        <div class="p-6 rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/50 border border-blue-100">
-          <h4 class="font-bold text-sm text-foreground mb-2">
+        <div class="p-6 rounded-2xl bg-slate-900 text-white shadow-md relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-primary"></div>
+          <h4 class="font-bold text-sm text-white mb-2">
             Never miss an eligible vacancy
           </h4>
-          <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-            Our deterministic eligibility engine checks your qualifications against all active recruitments in milliseconds.
+          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+            Check your qualifications and age against official statutory criteria in seconds.
           </p>
           <a
             href="/eligibility-checker"
-            class="w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs text-center block shadow-sm transition-colors"
+            class="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs text-center block shadow-sm transition-colors"
           >
-            Check My Eligibility Match
+            Check My Eligibility
           </a>
         </div>
       </aside>

@@ -1,0 +1,98 @@
+---
+// src/components/common/MobileBottomNav.astro
+const pathname = Astro.url.pathname;
+
+const isHome = pathname === '/';
+const isJobs = pathname.startsWith('/jobs') || pathname.startsWith('/recruitments') || pathname.startsWith('/posts');
+const isEligibility = pathname.startsWith('/eligibility');
+const isCalendar = pathname.startsWith('/calendar');
+const isResults = pathname.startsWith('/results') || pathname.startsWith('/admit-cards') || pathname.startsWith('/answer-keys');
+---
+
+<nav
+  aria-label="Mobile Navigation Dock"
+  class="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border lg:hidden px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] no-print"
+>
+  <div class="grid grid-cols-5 items-center justify-around max-w-lg mx-auto">
+    <!-- Home -->
+    <a
+      href="/"
+      class={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors touch-target ${
+        isHome ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span class="text-[10px] tracking-tight mt-0.5">Home</span>
+    </a>
+
+    <!-- Jobs Directory -->
+    <a
+      href="/jobs"
+      class={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors touch-target ${
+        isJobs ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="20" height="14" x="2" y="7" rx="2"/>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+      </svg>
+      <span class="text-[10px] tracking-tight mt-0.5">Jobs</span>
+    </a>
+
+    <!-- Center Highlight: Eligibility Checker -->
+    <a
+      href="/eligibility-checker"
+      class="flex flex-col items-center justify-center -mt-3 touch-target group"
+    >
+      <div class={`size-11 rounded-full flex items-center justify-center shadow-md transition-all ${
+        isEligibility
+          ? 'bg-amber-600 text-white ring-4 ring-amber-100'
+          : 'bg-primary text-white group-hover:bg-blue-700 ring-2 ring-primary/20'
+      }`}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <span class={`text-[10px] tracking-tight mt-0.5 font-bold ${
+        isEligibility ? 'text-amber-700' : 'text-primary'
+      }`}>
+        Eligibility
+      </span>
+    </a>
+
+    <!-- Calendar -->
+    <a
+      href="/calendar"
+      class={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors touch-target ${
+        isCalendar ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 2v4"/>
+        <path d="M16 2v4"/>
+        <rect width="18" height="18" x="3" y="4" rx="2"/>
+        <path d="M3 10h18"/>
+      </svg>
+      <span class="text-[10px] tracking-tight mt-0.5">Calendar</span>
+    </a>
+
+    <!-- Results -->
+    <a
+      href="/results"
+      class={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors touch-target ${
+        isResults ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <path d="m9 15 2 2 4-4"/>
+      </svg>
+      <span class="text-[10px] tracking-tight mt-0.5">Results</span>
+    </a>
+  </div>
+</nav>

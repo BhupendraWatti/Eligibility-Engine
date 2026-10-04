@@ -77,27 +77,27 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border text-xs">
             <div>
               <span class="text-muted-foreground block">Age:</span>
-              <span id="profile-age" class="font-bold text-foreground">—</span>
+              <span id="profile-age" class="font-bold text-foreground">-</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Highest Qualification:</span>
-              <span id="profile-qualification" class="font-bold text-foreground">—</span>
+              <span id="profile-qualification" class="font-bold text-foreground">-</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Domicile:</span>
-              <span id="profile-domicile" class="font-bold text-foreground">—</span>
+              <span id="profile-domicile" class="font-bold text-foreground">-</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Social Category:</span>
-              <span id="profile-category" class="font-bold text-foreground">—</span>
+              <span id="profile-category" class="font-bold text-foreground">-</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Employment Registration:</span>
-              <span id="profile-panjiyan" class="font-bold text-foreground">—</span>
+              <span id="profile-panjiyan" class="font-bold text-foreground">-</span>
             </div>
             <div>
               <span class="text-muted-foreground block">CPCT / Technical:</span>
-              <span id="profile-cpct" class="font-bold text-foreground">—</span>
+              <span id="profile-cpct" class="font-bold text-foreground">-</span>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <a href="/recruitments/mp-police-constable-recruitment-2026" class="font-bold text-foreground hover:text-primary block">
                   MP Police Constable Recruitment 2026
                 </a>
-                <span class="text-muted-foreground">MPESB · 7,500 Vacancies · Age 18–33</span>
+                <span class="text-muted-foreground">MPESB · 7,500 Vacancies · Age 18 to 33</span>
               </div>
               <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
                 <span>Official Notice</span>
@@ -148,7 +148,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <a href="/recruitments/mp-assistant-grade-3-recruitment-2026" class="font-bold text-foreground hover:text-primary block">
                   Assistant Grade-III & Steno-Typist Combined Recruitment 2026
                 </a>
-                <span class="text-muted-foreground">MPESB · 1,420 Vacancies · Age 18–40</span>
+                <span class="text-muted-foreground">MPESB · 1,420 Vacancies · Age 18 to 40</span>
               </div>
               <a href="https://esb.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
                 <span>Official Notice</span>
@@ -161,7 +161,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 <a href="/recruitments/mppsc-state-service-2026" class="font-bold text-foreground hover:text-primary block">
                   MPPSC State Services Examination (SSE) 2026
                 </a>
-                <span class="text-muted-foreground">MPPSC · 356 Vacancies · Age 21–40</span>
+                <span class="text-muted-foreground">MPPSC · 356 Vacancies · Age 21 to 40</span>
               </div>
               <a href="https://mppsc.mp.gov.in" target="_blank" rel="noopener noreferrer" class="text-primary font-semibold hover:underline flex items-center gap-1">
                 <span>Official Notice</span>
@@ -214,9 +214,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
           <a
             href="/eligibility-checker"
-            class="w-full py-2.5 px-4 text-center text-xs text-primary font-medium hover:underline block"
+            class="w-full py-2.5 px-4 text-center text-xs text-primary font-medium hover:underline inline-flex items-center justify-center gap-1"
           >
-            Start a new evaluation &rarr;
+            <span>Start a new evaluation</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
 
@@ -277,7 +278,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 title.textContent = opp.title;
                 const meta = document.createElement('span');
                 meta.className = 'text-muted-foreground';
-                meta.textContent = `${opp.org || 'Government authority'} · ${opp.vacancies ? `${Number(opp.vacancies).toLocaleString()} Vacancies` : ''} · Age ${opp.minAge || 18}–${opp.maxAge || 40}`;
+                meta.textContent = `${opp.org || 'Government authority'} · ${opp.vacancies ? `${Number(opp.vacancies).toLocaleString()} Vacancies` : ''} · Age ${opp.minAge || 18} to ${opp.maxAge || 40}`;
                 const official = document.createElement('a');
                 official.href = opp.url || `/recruitments/${encodeURIComponent(opp.slug)}`;
                 official.target = '_blank';

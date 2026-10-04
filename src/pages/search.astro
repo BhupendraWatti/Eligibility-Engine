@@ -68,7 +68,7 @@ const categories = [
 ---
 
 <BaseLayout
-  title={query ? `Search results for "${query}" — NIRNAY` : 'Search Government Jobs & Exams — NIRNAY'}
+  title={query ? `Search results for "${query}" - NIRNAY` : 'Search Government Jobs & Exams - NIRNAY'}
   description="Find central and state government jobs, exams, canonical posts, and recruiting organisations across India."
 >
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -135,9 +135,10 @@ const categories = [
         <div class="pt-4 mt-2 border-t border-border px-2">
           <a
             href="/eligibility-checker"
-            class="text-[11px] text-primary font-medium hover:underline block"
+            class="text-[11px] text-primary font-medium hover:underline inline-flex items-center gap-1"
           >
-            &rarr; Run instant eligibility test
+            <span>Run instant eligibility test</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
       </aside>
@@ -251,7 +252,7 @@ const categories = [
                           Exam Date
                         </span>
                         <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                          {r.title} — Written Examination
+                          {r.title} · Written Examination
                         </h3>
                         <p class="text-xs text-muted-foreground mt-1">Conducted by {r.organisationName} ({r.organisationShortName})</p>
                         <span class="text-[11px] font-mono text-muted-foreground block mt-2">

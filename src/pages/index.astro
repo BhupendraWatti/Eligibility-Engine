@@ -67,136 +67,140 @@ recruitments.forEach((r) => {
 ---
 
 <BaseLayout
-  title="NIRNAY — Government Jobs & Eligibility Across India"
+  title="NIRNAY - Central & State Government Recruitment Discovery"
   description="Explore verified central and state government recruitments across India, check eligibility, track important dates, and follow direct official job-post links."
 >
   <!-- Hero Section -->
-  <section class="bg-gradient-to-b from-blue-50/60 via-slate-50/40 to-background border-b border-border">
-    <div class="grid mx-auto py-16 sm:py-20 px-4 sm:px-6 lg:px-8 items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] max-w-7xl">
+  <section class="bg-gradient-to-b from-slate-900/[0.03] via-transparent to-background border-b border-border">
+    <div class="grid mx-auto py-10 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 items-center gap-8 lg:gap-12 lg:grid-cols-[1.2fr_0.8fr] max-w-7xl">
       <!-- Left Hero Content -->
-      <div class="flex flex-col items-start gap-6">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide">
-          <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-          <span>Central & State Government Recruitment</span>
+      <div class="flex flex-col items-start gap-4 sm:gap-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/5 border border-slate-900/10 text-slate-800 text-xs font-semibold tracking-wide">
+          <span class="size-2 rounded-full bg-emerald-600 animate-pulse"></span>
+          <span>Central & State Public Service Commissions</span>
         </div>
 
-        <h1 class="font-bold text-foreground text-4xl sm:text-5xl lg:text-6xl leading-[1.08] tracking-tight max-w-2xl">
+        <h1 class="font-black text-foreground text-3xl sm:text-5xl lg:text-6xl leading-[1.1] tracking-tight max-w-2xl font-heading">
           Find government jobs across India <br class="hidden sm:inline" />
-          <span class="text-primary">you may be eligible for.</span>
+          <span class="text-primary underline decoration-amber-400 decoration-wavy decoration-2 underline-offset-4">you are eligible to apply for.</span>
         </h1>
 
-        <p class="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
-          Deterministic criteria evaluation, verified official notifications, and direct application links for central and state recruitments.
+        <p class="text-sm sm:text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl">
+          Verified official gazette notifications, statutory age relaxations, and direct application links for all central and state recruitment drives.
         </p>
 
         <!-- CTA Buttons: 3 Core Tasks -->
-        <div class="flex flex-wrap items-center gap-3.5 pt-2">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto">
           <a
             href="/eligibility-checker"
-            class="font-semibold rounded-lg bg-primary text-primary-foreground text-sm px-6 py-3.5 shadow-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+            class="font-bold rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-sm px-6 py-3.5 shadow-sm transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span>Check My Eligibility</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+              <path d="m9 12 2 2 4-4"/>
             </svg>
+            <span>Check My Eligibility</span>
           </a>
           <a
             href="#closing-soon"
-            class="font-medium rounded-lg text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center gap-2"
+            class="font-semibold rounded-xl text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center justify-center gap-2 shadow-2xs"
           >
-            <span>Browse Jobs ({metrics.activeDriveCount} Open Now)</span>
+            <span>Browse Active Jobs ({metrics.activeDriveCount})</span>
           </a>
           <a
             href="/calendar"
-            class="font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-sm px-4 py-3.5 transition-colors flex items-center gap-1.5"
+            class="font-semibold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted text-sm px-4 py-3.5 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span>Exam Calendar &rarr;</span>
+            <span>Exam Calendar</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
       </div>
 
       <!-- Right Eligibility Preview Card -->
-      <div class="w-full bg-card rounded-2xl p-6 sm:p-7 border border-border shadow-sm">
-        <div class="flex items-center justify-between pb-4 border-b border-border mb-5">
-          <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Current Status
-          </span>
+      <div class="w-full bg-card rounded-2xl p-5 sm:p-7 border border-border shadow-sm">
+        <div class="flex items-center justify-between pb-4 border-b border-border mb-4">
+          <div class="flex items-center gap-2">
+            <div class="size-2 rounded-full bg-emerald-600"></div>
+            <span class="text-xs font-bold uppercase tracking-wider text-foreground">
+              Live Recruitment Tracker
+            </span>
+          </div>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-            <span class="size-1.5 rounded-full bg-emerald-600"></span>
-            {metrics.activeDriveCount} Applications Open Now
+            {metrics.activeDriveCount} Drives Open
           </span>
         </div>
 
-        <div class="space-y-3.5 mb-6">
-          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
-            <span class="text-xs text-muted-foreground">Applications Open Today</span>
+        <div class="space-y-3 mb-5">
+          <div class="p-3 rounded-xl bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs font-medium text-muted-foreground">Applications Open Today</span>
             <span class="text-sm font-bold text-foreground font-mono">{metrics.activeVacancyCount.toLocaleString()} Posts</span>
           </div>
 
-          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
-            <span class="text-xs text-muted-foreground">Upcoming Recruitments</span>
+          <div class="p-3 rounded-xl bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs font-medium text-muted-foreground">Upcoming Recruitments</span>
             <span class="text-sm font-bold text-foreground font-mono">{metrics.upcomingVacancyCount.toLocaleString()} Posts ({metrics.upcomingDriveCount} Drives)</span>
           </div>
 
-          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
-            <span class="text-xs text-muted-foreground">Recruitment Boards</span>
-            <span class="text-sm font-medium text-foreground">MPESB, MPPSC, MPHC</span>
+          <div class="p-3 rounded-xl bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs font-medium text-muted-foreground">Jurisdiction Scope</span>
+            <span class="text-sm font-semibold text-foreground">Central + 28 States & 8 UTs</span>
           </div>
 
-          <div class="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">
-            <span class="text-xs text-muted-foreground">Evaluation Method</span>
-            <span class="text-sm font-medium text-primary">100% Deterministic Code</span>
+          <div class="p-3 rounded-xl bg-muted/60 border border-border flex items-center justify-between">
+            <span class="text-xs font-medium text-muted-foreground">Evaluation Standard</span>
+            <span class="text-xs font-semibold text-primary font-mono">Statutory Gazette Rules</span>
           </div>
         </div>
 
-        <div class="pt-2">
+        <div class="pt-1">
           <a
             href="/eligibility-checker"
-            class="w-full font-semibold rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs sm:text-sm py-3 px-4 shadow-sm transition-colors flex items-center justify-center gap-2"
+            class="w-full font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm py-3 px-4 shadow-sm transition-colors flex items-center justify-center gap-2"
           >
-            <span>Check Your Eligibility</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M7 17L17 7M17 7H7M17 7V17"/>
+            <span>Start Eligibility Assessment</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
-          <p class="text-[11px] text-muted-foreground text-center mt-3">
-            No account required · Free public service · Verified against official gazettes
+          <p class="text-[11px] text-muted-foreground text-center mt-2.5">
+            No registration needed · Free public service · Direct official portals
           </p>
         </div>
       </div>
     </div>
 
     <!-- Search Bar & Shortcut Chips -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-      <form action="/search" method="get" class="relative max-w-4xl mx-auto mb-5">
-        <div class="flex items-center rounded-xl bg-card border border-border shadow-sm p-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
+      <form action="/search" method="get" class="relative max-w-4xl mx-auto mb-4">
+        <div class="flex items-center rounded-2xl bg-card border border-input shadow-sm p-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
           <div class="pl-3.5 pr-2 text-muted-foreground">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
             </svg>
           </div>
           <input
             type="search"
             name="q"
-            placeholder="Search jobs, exams, states or organisations (e.g. SSC, Police, Teaching)"
-            class="w-full bg-transparent text-foreground text-sm sm:text-base outline-none py-2 pr-3"
+            placeholder="Search by exam, department, state, or post (e.g. Police, Patwari, SSC, Teaching)"
+            class="w-full bg-transparent text-foreground text-sm sm:text-base outline-none py-2 pr-3 placeholder:text-muted-foreground/70"
           />
           <button
             type="submit"
-            class="shrink-0 px-4 py-2 bg-primary hover:bg-blue-700 text-primary-foreground font-semibold rounded-lg text-xs sm:text-sm transition-colors"
+            class="shrink-0 px-4 sm:px-5 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground font-bold rounded-xl text-xs sm:text-sm transition-colors"
           >
             Search
           </button>
         </div>
       </form>
 
-      <!-- Shortcut Chips -->
-      <div class="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
-        <span class="text-xs text-muted-foreground font-medium mr-1">Popular:</span>
-        {['10th Pass', '12th Pass', 'ITI', 'Diploma', 'Graduate', 'Post Graduate', 'Police', 'Forest', 'Education', 'Health'].map((chip) => (
+      <!-- Shortcut Chips with Horizontal Scroll on Mobile -->
+      <div class="flex items-center gap-1.5 max-w-4xl mx-auto overflow-x-auto no-scrollbar py-1">
+        <span class="text-xs text-muted-foreground font-semibold shrink-0 mr-1">Popular:</span>
+        {['10th Pass', '12th Pass', 'ITI', 'Diploma', 'Graduate', 'Police', 'Civil Services', 'Teaching', 'Judiciary', 'Health'].map((chip) => (
           <a
             href={`/search?q=${encodeURIComponent(chip)}`}
-            class="px-3 py-1 rounded-full text-xs font-medium bg-card border border-border text-foreground hover:bg-muted hover:border-primary/40 transition-colors shadow-2xs"
+            class="px-3 py-1 rounded-full text-xs font-semibold bg-card border border-border text-foreground hover:bg-muted hover:border-primary/40 transition-colors shadow-2xs shrink-0"
           >
             {chip}
           </a>
@@ -206,24 +210,24 @@ recruitments.forEach((r) => {
   </section>
 
   <!-- Section: Closing Soon -->
-  <section id="closing-soon" class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+  <section id="closing-soon" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div>
-        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 text-xs font-semibold mb-2 border border-amber-200">
-          <span class="size-1.5 rounded-full bg-amber-500 animate-ping"></span>
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-900 text-xs font-bold mb-2 border border-amber-200">
+          <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
           <span>Immediate Deadlines</span>
         </div>
-        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-          Closing soon
+        <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
+          Closing Soon Applications
         </h2>
         <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-          Government recruitments with application deadlines in the coming days.
+          Government recruitments with official application deadlines in the coming days.
         </p>
       </div>
 
-      <a href="/calendar" class="text-xs sm:text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+      <a href="/calendar" class="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1">
         <span>View all in Exam Calendar</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
       </a>
@@ -231,50 +235,54 @@ recruitments.forEach((r) => {
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {closingSoon.map((item: any) => (
-        <div class="bg-card rounded-xl border border-border p-5 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
+        <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
           <div>
             <div class="flex items-center justify-between gap-2 mb-3">
-              <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                 {item.presentation?.label || 'Closing Soon'}
               </span>
-              <span class="text-[11px] text-muted-foreground font-medium">
-                {item.organisationShortName || item.authorityCode || 'Government Authority'}
+              <span class="text-xs text-muted-foreground font-semibold">
+                {item.organisationShortName || item.authorityCode || 'Government Board'}
               </span>
             </div>
 
-            <h3 class="font-bold text-base text-foreground mb-2 line-clamp-2">
+            <h3 class="font-bold text-base sm:text-lg text-foreground mb-3 line-clamp-2 leading-snug">
               <a href={`/recruitments/${item.slug}`} class="hover:text-primary transition-colors">
                 {item.title}
               </a>
             </h3>
 
-            <div class="space-y-1.5 text-xs text-muted-foreground mb-4">
+            <div class="space-y-2 text-xs text-muted-foreground mb-5 bg-muted/40 p-3 rounded-xl border border-border/60">
               <div class="flex items-center justify-between">
                 <span>Total Vacancies:</span>
-                <span class="font-bold text-foreground font-mono">{item.totalVacancies?.toLocaleString() || 'N/A'}</span>
+                <span class="font-bold text-foreground font-mono">{item.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
               </div>
               <div class="flex items-center justify-between">
-                <span>Qualification:</span>
-                <span class="font-medium text-foreground">10th / 12th / Grad</span>
+                <span>Min Qualification:</span>
+                <span class="font-semibold text-foreground">
+                  {item.criteria?.minQualificationLevel ? item.criteria.minQualificationLevel.replace(/_/g, ' ') : 'Refer Notice'}
+                </span>
               </div>
               <div class="flex items-center justify-between">
-                <span>Last Date:</span>
-                <span class="font-bold text-amber-600 font-mono">{item.applicationEnd ? new Date(item.applicationEnd).toLocaleDateString('en-IN') : 'Upcoming'}</span>
+                <span>Application Deadline:</span>
+                <span class="font-bold text-amber-700 font-mono">
+                  {item.applicationEnd ? formatDate(item.applicationEnd) : 'Refer Notice'}
+                </span>
               </div>
             </div>
           </div>
 
           <div class="pt-3 border-t border-border flex items-center justify-between gap-2">
-            <span class="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Verified Source
+            <span class="text-[11px] text-muted-foreground inline-flex items-center gap-1 font-medium">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Official Gazette Verified
             </span>
             <a
               href={`/recruitments/${item.slug}`}
-              class="font-semibold text-xs text-primary hover:text-blue-700 inline-flex items-center gap-1"
+              class="font-bold text-xs text-primary hover:text-primary-hover inline-flex items-center gap-1"
             >
-              <span>View details</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              <span>View Notice</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
         </div>
@@ -283,18 +291,21 @@ recruitments.forEach((r) => {
   </section>
 
   <!-- Section: Explore by Sector -->
-  <section class="py-16 px-4 sm:px-6 lg:px-8 bg-muted/40 border-y border-border">
+  <section class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-muted/40 border-y border-border">
     <div class="max-w-7xl mx-auto">
-      <div class="text-center max-w-2xl mx-auto mb-12">
-        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-          Explore by sector
+      <div class="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
+        <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+          Government Cadres
+        </span>
+        <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
+          Browse by Public Sector
         </h2>
         <p class="text-xs sm:text-sm text-muted-foreground mt-2">
-          Navigate government sectors including administration, uniformed services, education, health, railways, banking, and technical posts.
+          Find openings across civil services, police and defence, judiciary, teaching, health, railways, and technical departments.
         </p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {dbSectors.map((sec) => (
           <SectorCard
             sector={sec}
@@ -306,18 +317,24 @@ recruitments.forEach((r) => {
   </section>
 
   <!-- Section: Exam Calendar Milestone Timeline -->
-  <section class="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+  <section class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div>
-        <h2 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-          Government exam calendar
+        <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+          Milestone Tracker
+        </span>
+        <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
+          Upcoming Examination & Application Milestones
         </h2>
         <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-          Chronological milestone timeline of notifications, closing dates, and examination days.
+          Chronological milestone timeline of notifications, closing dates, and written examination days.
         </p>
       </div>
-      <a href="/calendar" class="text-xs sm:text-sm font-semibold text-primary hover:underline">
-        Open full interactive calendar &rarr;
+      <a href="/calendar" class="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1">
+        <span>Open interactive calendar</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
       </a>
     </div>
 
@@ -326,20 +343,20 @@ recruitments.forEach((r) => {
       {milestones.map((m) => (
         <a
           href={m.slug ? `/recruitments/${m.slug}` : '/calendar'}
-          class="p-4 rounded-xl bg-card border border-border hover:border-border/80 hover:shadow-2xs transition-all relative flex flex-col justify-between group"
+          class="p-4 sm:p-5 rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all relative flex flex-col justify-between group"
         >
           <div>
-            <span class="text-[11px] font-mono font-bold text-primary block mb-1">
+            <span class="text-xs font-mono font-bold text-primary block mb-1.5">
               {m.date}
             </span>
-            <h4 class="font-bold text-xs text-foreground mb-1 leading-snug group-hover:text-primary transition-colors">
+            <h4 class="font-bold text-sm text-foreground mb-1 leading-snug group-hover:text-primary transition-colors">
               {m.title}
             </h4>
-            <p class="text-[11px] text-muted-foreground">
+            <p class="text-xs text-muted-foreground">
               {m.desc}
             </p>
           </div>
-          <div class="mt-3 pt-2 border-t border-border">
+          <div class="mt-4 pt-3 border-t border-border">
             <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${m.statusClass || 'bg-muted text-muted-foreground border-border'}`}>
               {m.status}
             </span>
@@ -349,27 +366,34 @@ recruitments.forEach((r) => {
     </div>
   </section>
 
-  <!-- Conversion Panel: Not sure what you can apply for? -->
-  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-    <div class="rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/50 to-slate-50 border border-blue-100 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+  <!-- Conversion Panel: Check what you can apply for -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
+    <div class="rounded-3xl bg-slate-900 text-white p-6 sm:p-10 lg:p-12 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8 shadow-md relative overflow-hidden">
+      <!-- Decorative micro accent -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-primary to-emerald-400"></div>
+
       <div class="max-w-xl text-center md:text-left">
-        <h3 class="text-xl sm:text-2xl font-bold text-foreground mb-2">
-          Not sure what you can apply for?
+        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 inline-block mb-3">
+          Free Aspirant Tool
+        </span>
+        <h3 class="text-2xl sm:text-3xl font-black mb-2 font-heading tracking-tight">
+          Find Every Government Exam You Are Eligible For
         </h3>
-        <p class="text-xs sm:text-sm text-muted-foreground">
-          Enter your age, qualification, and domicile once. The engine applies each recruitment's own stored rules instead of assuming that one state's policy applies everywhere.
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          Enter your qualification, age, and state once. The engine evaluates each recruitment against its own stored statutory criteria rather than applying broad assumptions.
         </p>
       </div>
 
-      <div class="shrink-0">
+      <div class="shrink-0 w-full sm:w-auto">
         <a
           href="/eligibility-checker"
-          class="font-semibold rounded-lg bg-primary text-primary-foreground text-sm px-6 py-3.5 shadow-sm hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          class="font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm px-7 py-4 shadow-lg transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto"
         >
-          <span>Check Eligibility</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+            <path d="m9 12 2 2 4-4"/>
           </svg>
+          <span>Check My Eligibility Now</span>
         </a>
       </div>
     </div>

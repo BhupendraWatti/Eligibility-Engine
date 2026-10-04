@@ -57,8 +57,8 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
 {!recruitment ? (
   <BaseLayout title="Recruitment Not Found">
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-recruitment-not-found>
-      <div class="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
-        !
+      <div class="size-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <h1 class="text-2xl font-bold text-foreground mb-2">Recruitment Notice Not Found</h1>
       <p class="text-sm text-muted-foreground mb-6">
@@ -80,7 +80,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
     description={recruitment.seoDescription || `Official details, verified eligibility criteria, category vacancies, dates, and direct authority links for ${recruitment.title}.`}
     robotsIndex={recruitment.robotsIndex !== 0}
   >
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-16 lg:mb-0">
       <!-- Breadcrumb -->
       <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
         <a href="/" class="hover:text-foreground">Home</a>
@@ -94,8 +94,8 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
       {isUnderVerification && (
         <div class="mb-8 p-5 sm:p-6 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div class="flex items-start gap-3.5">
-            <div class="size-10 rounded-xl bg-amber-200/80 flex items-center justify-center text-amber-900 shrink-0 font-bold text-lg">
-              !
+            <div class="size-10 rounded-xl bg-amber-200/80 flex items-center justify-center text-amber-900 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
             <div>
               <div class="flex items-center gap-2 mb-1">
@@ -157,7 +157,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Age Range</span>
-                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria?.minAge || 18}–{recruitment.criteria?.maxAgeGeneral || 33} yrs</span>
+                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria?.minAge || 18} to {recruitment.criteria?.maxAgeGeneral || 33} yrs</span>
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Last Date</span>
@@ -200,7 +200,8 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
               href="#documents"
               class="font-medium rounded-lg text-muted-foreground hover:text-foreground text-xs sm:text-sm px-3.5 py-2.5 border border-border hover:bg-muted transition-colors inline-flex items-center gap-1.5 ml-auto"
             >
-              <span>Official Rulebook PDF &darr;</span>
+              <span>Official Rulebook PDF</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
             </a>
           </div>
         </div>
@@ -267,15 +268,15 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
       </div>
 
       <!-- Sticky Horizontal Section Navigation -->
-      <div class="sticky top-16 z-30 bg-card/95 backdrop-blur-md border-y border-border mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar">
-        <nav class="flex items-center gap-6 text-xs font-semibold text-muted-foreground whitespace-nowrap py-3">
-          <a href="#overview" class="text-primary border-b-2 border-primary pb-1 font-bold">Overview</a>
-          <a href="#eligibility" class="hover:text-foreground transition-colors pb-1">Eligibility</a>
-          <a href="#vacancy" class="hover:text-foreground transition-colors pb-1">Vacancy</a>
-          <a href="#dates" class="hover:text-foreground transition-colors pb-1">Important dates</a>
-          <a href="#selection" class="hover:text-foreground transition-colors pb-1">Selection process</a>
-          <a href="#salary" class="hover:text-foreground transition-colors pb-1">Salary & Cadre</a>
-          <a href="#documents" class="hover:text-foreground transition-colors pb-1">Documents</a>
+      <div class="sticky top-[91px] z-30 bg-card/95 backdrop-blur-md border-y border-border mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar">
+        <nav id="recruitment-subnav" class="flex items-center gap-6 text-xs font-semibold text-muted-foreground whitespace-nowrap py-3">
+          <a href="#overview" class="rec-nav-link text-primary border-b-2 border-primary pb-1 font-bold">Overview</a>
+          <a href="#eligibility" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Eligibility</a>
+          <a href="#vacancy" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Vacancy</a>
+          <a href="#dates" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Important dates</a>
+          <a href="#selection" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Selection process</a>
+          <a href="#salary" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Salary & Cadre</a>
+          <a href="#documents" class="rec-nav-link hover:text-foreground transition-colors pb-1 border-b-2 border-transparent">Documents</a>
         </nav>
       </div>
 
@@ -284,7 +285,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
         <!-- Left Column: Detailed Sections (2 Cols) -->
         <div class="lg:col-span-2 space-y-10">
           <!-- Overview -->
-          <section id="overview" class="scroll-mt-32">
+          <section id="overview" class="scroll-mt-36">
             <h2 class="text-xl font-bold text-foreground mb-4">Overview</h2>
             <div class="prose prose-slate dark:prose-invert max-w-none text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
               {recruitment.overviewMarkdown ? (
@@ -303,7 +304,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           </section>
 
           <!-- Eligibility Section -->
-          <section id="eligibility" class="scroll-mt-32 pt-8 border-t border-border">
+          <section id="eligibility" class="scroll-mt-36 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Eligibility Requirements</h2>
             
             <div class="bg-card rounded-xl border border-border overflow-hidden mb-4">
@@ -402,7 +403,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           </section>
 
           <!-- Vacancy Breakdown -->
-          <section id="vacancy" class="scroll-mt-32 pt-8 border-t border-border">
+          <section id="vacancy" class="scroll-mt-36 pt-8 border-t border-border">
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-xl font-bold text-foreground">Category-wise Vacancy Breakdown</h2>
               <span class="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -450,7 +451,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           </section>
 
           <!-- Selection Process -->
-          <section id="selection" class="scroll-mt-32 pt-8 border-t border-border">
+          <section id="selection" class="scroll-mt-36 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Selection Process</h2>
             {selectionStages && selectionStages.length > 0 ? (
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -477,13 +478,13 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           </section>
 
           <!-- Salary & Cadre -->
-          <section id="salary" class="scroll-mt-32 pt-8 border-t border-border">
+          <section id="salary" class="scroll-mt-36 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Salary & Cadre</h2>
             <div class="p-5 rounded-xl bg-card border border-border space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span class="text-xs text-muted-foreground block">Appointed Cadre / Post</span>
-                  <span class="text-base font-bold text-foreground font-['Outfit']">{recruitment.postTitle}</span>
+                  <span class="text-base font-bold text-foreground font-heading">{recruitment.postTitle}</span>
                   <span class="text-xs text-muted-foreground block mt-0.5">{recruitment.cadreClassification || recruitment.departmentName || 'State Civil Services'}</span>
                 </div>
                 <div class="sm:text-right">
@@ -503,7 +504,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           </section>
 
           <!-- Documents & Official Sources (NEW Section: Fixes Anchor #documents) -->
-          <section id="documents" class="scroll-mt-32 pt-8 border-t border-border">
+          <section id="documents" class="scroll-mt-36 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Official Documents & Verification Sources</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Gazette / Notification Sources */}
@@ -563,7 +564,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
         <!-- Right Column Rail: Important Dates & Explanation (1 Col) -->
         <div class="space-y-6">
           <!-- Important Dates Summary Card -->
-          <div id="dates" class="bg-card rounded-2xl p-6 border border-border shadow-sm scroll-mt-32">
+          <div id="dates" class="bg-card rounded-2xl p-6 border border-border shadow-sm scroll-mt-36">
             <h3 class="font-bold text-sm text-foreground uppercase tracking-wider mb-4 pb-3 border-b border-border">
               Important dates
             </h3>
@@ -589,21 +590,22 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
             <p class="text-xs text-muted-foreground leading-relaxed mb-3">
               NIRNAY compiles statutory gazettes into verified deterministic rule logic. We do not charge applicant fees, lock profiles, or act as an application broker.
             </p>
-            <a href="/disclaimer" class="text-xs font-semibold text-primary hover:underline">
-              Read our source & verification policy &rarr;
+            <a href="/disclaimer" class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+              <span>Read our source and verification policy</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Mobile Sticky Bottom Action Bar (visible on < lg viewports) -->
-    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border p-3 px-4 shadow-lg no-print">
+    <!-- Mobile Sticky Bottom Action Bar (docked above MobileBottomNav on < lg viewports) -->
+    <div class="lg:hidden fixed bottom-16 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border p-2.5 px-4 shadow-lg no-print">
       <div class="flex items-center gap-2.5 max-w-md mx-auto">
         {isUnderVerification ? (
           <button
             disabled
-            class="flex-1 py-3 px-3 rounded-xl bg-muted text-muted-foreground font-semibold text-xs text-center cursor-not-allowed border border-border"
+            class="flex-1 py-2.5 px-3 rounded-xl bg-muted text-muted-foreground font-semibold text-xs text-center cursor-not-allowed border border-border"
           >
             Pending Official Gazette
           </button>
@@ -612,7 +614,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
             href={officialLink.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="flex-1 py-3 px-3 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs sm:text-sm text-center shadow-sm transition-colors flex items-center justify-center gap-1.5"
+            class="flex-1 py-2.5 px-3 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs sm:text-sm text-center shadow-sm transition-colors flex items-center justify-center gap-1.5"
           >
             <span>Apply Officially</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -620,11 +622,45 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
         )}
         <a
           href="/eligibility-checker"
-          class="flex-1 py-3 px-3 rounded-xl bg-card hover:bg-muted text-foreground font-semibold text-xs sm:text-sm text-center border border-border transition-colors flex items-center justify-center gap-1.5"
+          class="flex-1 py-2.5 px-3 rounded-xl bg-card hover:bg-muted text-foreground font-semibold text-xs sm:text-sm text-center border border-border transition-colors flex items-center justify-center gap-1.5"
         >
           <span>Check Eligibility</span>
         </a>
       </div>
     </div>
+
+    <script is:inline>
+      // Active section scrollspy for sticky sub-nav
+      const navLinks = document.querySelectorAll('#recruitment-subnav .rec-nav-link');
+      const sectionIds = ['overview', 'eligibility', 'vacancy', 'dates', 'selection', 'salary', 'documents'];
+      const observedSections = sectionIds
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+
+      if ('IntersectionObserver' in window && observedSections.length > 0) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const currentId = entry.target.id;
+              navLinks.forEach(link => {
+                const href = link.getAttribute('href')?.replace('#', '');
+                if (href === currentId) {
+                  link.classList.add('text-primary', 'border-primary', 'font-bold');
+                  link.classList.remove('border-transparent');
+                } else {
+                  link.classList.remove('text-primary', 'border-primary', 'font-bold');
+                  link.classList.add('border-transparent');
+                }
+              });
+            }
+          });
+        }, {
+          rootMargin: '-100px 0px -60% 0px',
+          threshold: 0
+        });
+
+        observedSections.forEach(sec => observer.observe(sec));
+      }
+    </script>
   </BaseLayout>
 )}

@@ -79,10 +79,12 @@ const rootClasses = `group relative flex flex-col justify-between p-5 rounded-xl
       {opportunityLabel}
     </span>
     <span
-      class={`text-zinc-400 dark:text-zinc-500 transition-all text-xs ${asLink ? 'group-hover:text-primary group-hover:translate-x-0.5' : ''}`}
+      class={`text-zinc-400 dark:text-zinc-500 transition-all ${asLink ? 'group-hover:text-primary group-hover:translate-x-0.5' : ''}`}
       aria-hidden="true"
     >
-      &rarr;
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
     </span>
   </div>
 </Root>

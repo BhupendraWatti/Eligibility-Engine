@@ -1,39 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #ffffff;
+  --color-background: #f8fafc;
   --color-foreground: #090d16;
   --color-card: #ffffff;
   --color-card-foreground: #090d16;
   --color-popover: #ffffff;
   --color-popover-foreground: #090d16;
-  --color-primary: #1d4ed8;
+  --color-primary: #1e40af;
+  --color-primary-hover: #1e3a8a;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-  --color-muted: #f8fafc;
-  --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;
+  --color-secondary: #0f172a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #475569;
+  --color-accent: #f8fafc;
   --color-accent-foreground: #0f172a;
   --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #2563eb;
-  --color-sidebar: #f8fafc;
-  --color-sidebar-foreground: #0f172a;
-  --color-sidebar-border: #e2e8f0;
+  --color-input: #cbd5e1;
+  --color-ring: #1e40af;
+  --color-sidebar: #09090b;
+  --color-sidebar-foreground: #f8fafc;
+  --color-sidebar-border: #27272a;
+
+  /* Civic & Statutory Accent Tokens */
+  --color-gov-saffron: #d97706;
+  --color-gov-saffron-light: #fffbeb;
+  --color-gov-emerald: #059669;
+  --color-gov-emerald-light: #ecfdf5;
+  --color-gov-navy: #0f172a;
 }
 
 @layer base {
   :root {
-    --font-heading: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
   html {
     color-scheme: light;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -42,12 +51,11 @@
     background-color: #f8fafc;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
     font-weight: 700;
   }
 
@@ -81,6 +89,31 @@
 .gov-card:hover {
   border-color: #cbd5e1;
   box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.05), 0 4px 6px -4px rgb(15 23 42 / 0.02);
+}
+
+/* Mobile Touch & Layout Ergonomics */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Civic subtle national micro strip */
+.civic-tricolor-bar {
+  background: linear-gradient(90deg, #d97706 0%, #1e40af 50%, #059669 100%);
+  height: 2px;
+}
+
+/* Polished Card Elevation */
+.premium-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.02);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 20px -4px rgb(15 23 42 / 0.06), 0 4px 6px -2px rgb(15 23 42 / 0.03);
 }
 
 /* Custom Sleek Scrollbar (Fixes Windows 17px default gray scrollbars) */

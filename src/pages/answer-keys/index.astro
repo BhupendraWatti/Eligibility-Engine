@@ -46,7 +46,7 @@ const keys = allRecruitments.filter(r =>
   }
 
   return {
-    title: `${r.title} — Model Answer Key & Question Paper`,
+    title: `${r.title} - Model Answer Key & Question Paper`,
     exam: `${r.postTitle} Examination (${r.advtNumber})`,
     org: `${r.organisationShortName} · ${r.organisationName}`,
     publishedDate: publishedDateText,
@@ -63,48 +63,53 @@ const keys = allRecruitments.filter(r =>
 ---
 
 <BaseLayout
-  title="Recruitment Answer Keys & Objections"
+  title="Recruitment Answer Keys & Challenge Deadlines - NIRNAY"
   description="Verified preliminary and final answer keys with official objection window deadlines."
 >
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
       <span>/</span>
-      <span class="text-foreground font-medium">Answer Keys</span>
+      <span class="text-foreground font-semibold">Answer Keys</span>
     </nav>
 
     <!-- Page Header & Search -->
     <div class="mb-8">
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Answer Keys & Representations
+      <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+        Official Key & Representations
+      </span>
+      <h1 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
+        Answer Keys & Question Papers
       </h1>
-      <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Access official provisional and final answer keys with formal challenge procedures.
+      <p class="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
+        Access official provisional and final answer keys with formal challenge schedules and direct board portal links.
       </p>
 
       <div class="mt-6 max-w-xl">
         <form method="GET" action="/answer-keys">
-          <label class="rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <label class="rounded-xl bg-card border border-input flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="search"
               name="q"
               value={q}
-              placeholder="Search by exam or department..."
-              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1"
+              placeholder="Search by exam or department name..."
+              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
             />
             {q && (
-              <a href="/answer-keys" class="text-xs text-muted-foreground hover:text-foreground">&times;</a>
+              <a href="/answer-keys" class="text-xs text-muted-foreground hover:text-foreground p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </a>
             )}
           </label>
         </form>
       </div>
     </div>
 
-    <!-- Violet Explanatory Callout -->
-    <div class="p-4 rounded-xl bg-purple-50/80 border border-purple-200 text-xs text-purple-900 flex items-start gap-2.5 mb-8">
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-purple-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <!-- Explanatory Callout -->
+    <div class="p-4 rounded-xl bg-muted/60 border border-border text-xs text-foreground/80 flex items-start gap-2.5 mb-8">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span>
         Answer keys and objection submissions are hosted directly on each conducting authority's official portal. Deadlines and evidence requirements vary by authority; always follow the linked official notice.
       </span>
@@ -113,49 +118,55 @@ const keys = allRecruitments.filter(r =>
     <!-- Cards List -->
     <div class="space-y-4">
       {keys.length === 0 ? (
-        <div class="p-8 rounded-2xl bg-card border border-border text-center">
+        <div class="p-10 rounded-2xl bg-card border border-border text-center">
           <p class="text-xs text-muted-foreground">No answer key notices match your query.</p>
+          <a href="/answer-keys" class="text-xs text-primary font-bold hover:underline mt-2 inline-block">Reset search</a>
         </div>
       ) : (
         keys.map((k) => (
-          <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <div class="flex items-center gap-2">
-                <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${k.statusColor}`}>
-                  {k.status}
+          <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${k.statusColor}`}>
+                    {k.status}
+                  </span>
+                  <span class="text-xs text-muted-foreground font-semibold">{k.org}</span>
+                </div>
+                <span class="text-xs font-mono font-bold text-foreground">
+                  Challenge Deadline: {k.deadline}
                 </span>
-                <span class="text-xs text-muted-foreground font-medium">{k.org}</span>
               </div>
-              <span class="text-xs font-mono font-bold text-foreground">
-                Challenge Deadline: {k.deadline}
-              </span>
+
+              <h2 class="text-base sm:text-lg font-bold text-foreground mb-1 font-heading">
+                <a href={`/recruitments/${k.slug}`} class="hover:text-primary transition-colors">
+                  {k.title}
+                </a>
+              </h2>
+              <p class="text-xs text-muted-foreground mb-4">
+                Exam Cycle: <span class="font-mono text-foreground font-medium">{k.exam}</span>
+              </p>
             </div>
 
-            <h2 class="text-base font-bold text-foreground mb-1">
-              <a href={`/recruitments/${k.slug}`} class="hover:text-primary transition-colors">
-                {k.title}
-              </a>
-            </h2>
-            <p class="text-xs text-muted-foreground mb-4">
-              Exam Cycle: <span class="font-mono text-foreground font-medium">{k.exam}</span>
-            </p>
-
-            <div class="pt-3 border-t border-border flex items-center justify-between">
+            <div class="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3">
               <a
                 href={`/recruitments/${k.slug}`}
-                class="text-xs text-primary hover:underline"
+                class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1.5"
               >
-                &larr; View recruitment summary
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>View Recruitment Summary</span>
               </a>
-              {k.sourceUrl && <a
-                href={k.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
-              >
-                <span>View on board portal</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>}
+              {k.sourceUrl && (
+                <a
+                  href={k.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+                >
+                  <span>Official Board Portal</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              )}
             </div>
           </div>
         ))

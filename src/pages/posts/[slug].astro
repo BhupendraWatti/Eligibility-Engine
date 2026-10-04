@@ -23,7 +23,7 @@ const defaultSelectionStages = post?.selectionStages || (
     { name: 'Stage 2: Main Written Examination', desc: 'Four descriptive papers covering civil law, criminal law, judgment writing, and translation.' },
     { name: 'Stage 3: Viva-Voce & Interview', desc: '50 marks interview conducted by High Court judges committee.' },
   ] : [
-    { name: 'Stage 1: Written Competitive Examination (CBT)', desc: '100–200 marks objective multiple-choice test on subject knowledge, reasoning, and state aptitude.' },
+    { name: 'Stage 1: Written Competitive Examination (CBT)', desc: '100 to 200 marks objective multiple-choice test on subject knowledge, reasoning, and state aptitude.' },
     { name: 'Stage 2: Document Verification & Biometrics', desc: 'Scrutiny of academic transcripts, caste certificates, and MP employment registration.' },
     { name: 'Stage 3: Final Medical & Cadre Allotment', desc: 'Medical clearance and appointment order issue by the parent department.' },
   ]
@@ -52,8 +52,8 @@ const defaultSyllabus = post?.syllabus || (
 {!post ? (
   <BaseLayout title="Canonical Post Not Found">
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-post-not-found>
-      <div class="size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
-        !
+      <div class="size-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <h1 class="text-2xl font-bold text-foreground mb-2">Canonical Post Not Found</h1>
       <p class="text-sm text-muted-foreground mb-6">
@@ -71,16 +71,16 @@ const defaultSyllabus = post?.syllabus || (
   </BaseLayout>
 ) : (
   <BaseLayout
-    title={`${post.title} — Career, Eligibility & Pay Guide`}
+    title={`${post.title} · Career, Eligibility & Pay Guide`}
     description={`Canonical guide to ${post.title}. Review pay scale, qualifications, age rules, syllabus, and linked government recruitment cycles.`}
   >
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <!-- Breadcrumb -->
       <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
         <a href="/" class="hover:text-foreground">Home</a>
-        <span>&rsaquo;</span>
+        <span>/</span>
         <a href="/jobs" class="hover:text-foreground">Opportunities</a>
-        <span>&rsaquo;</span>
+        <span>/</span>
         <span class="text-foreground font-semibold truncate max-w-xs sm:max-w-md">{post.title}</span>
       </nav>
 
@@ -121,9 +121,10 @@ const defaultSyllabus = post?.syllabus || (
             </div>
             <a
               href={`/recruitments/${post.activeRecruitments[0].slug}`}
-              class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm whitespace-nowrap transition-colors"
+              class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm whitespace-nowrap transition-colors inline-flex items-center gap-1.5"
             >
-              View Active Recruitment &rarr;
+              <span>View Active Recruitment</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
         ) : (
@@ -132,8 +133,9 @@ const defaultSyllabus = post?.syllabus || (
               <span class="size-2 rounded-full bg-slate-400"></span>
               <span>No direct recruitment drive currently active. Track notification releases on the calendar.</span>
             </div>
-            <a href="/calendar" class="font-semibold text-primary hover:underline whitespace-nowrap">
-              Exam Calendar &rarr;
+            <a href="/calendar" class="font-semibold text-primary hover:underline whitespace-nowrap inline-flex items-center gap-1">
+              <span>Exam Calendar</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
         )}
@@ -219,7 +221,8 @@ const defaultSyllabus = post?.syllabus || (
               href="/eligibility-checker"
               class="w-full py-2.5 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors"
             >
-              <span>Deterministic Eligibility Engine</span> &rarr;
+              <span>Check Statutory Eligibility</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
 

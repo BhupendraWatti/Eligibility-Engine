@@ -41,7 +41,7 @@ const admitCards = allRecruitments
     }
 
     return {
-      title: `${r.title} — Admit Card`,
+      title: `${r.title} - Admit Card`,
       exam: `${r.postTitle} Written / CBT Examination`,
       org: `${r.organisationName} (${r.organisationShortName})`,
       examDate: formatDate(r.examDate),
@@ -60,39 +60,44 @@ const admitCards = allRecruitments
 ---
 
 <BaseLayout
-  title="Admit Cards & Hall Tickets"
+  title="Admit Cards & Examination Hall Tickets - NIRNAY"
   description="Find exam hall tickets and official direct download links for central, state, and union-territory government examinations."
 >
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
       <span>/</span>
-      <span class="text-foreground font-medium">Admit Cards</span>
+      <span class="text-foreground font-semibold">Admit Cards</span>
     </nav>
 
     <!-- Page Header & Search -->
     <div class="mb-8">
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Admit Cards & Hall Tickets
+      <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+        Official Hall Ticket Tracker
+      </span>
+      <h1 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
+        Admit Cards & Examination Hall Tickets
       </h1>
-      <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Official hall ticket release schedules and verified authority portal links.
+      <p class="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
+        Official hall ticket release schedules, examination venue instructions, and direct authority portal download links.
       </p>
 
       <div class="mt-6 max-w-xl">
         <form method="GET" action="/admit-cards">
-          <label class="rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <label class="rounded-xl bg-card border border-input flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="search"
               name="q"
               value={q}
-              placeholder="Search by exam or post..."
-              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1"
+              placeholder="Search by exam or post name..."
+              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
             />
             {q && (
-              <a href="/admit-cards" class="text-xs text-muted-foreground hover:text-foreground">&times;</a>
+              <a href="/admit-cards" class="text-xs text-muted-foreground hover:text-foreground p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </a>
             )}
           </label>
         </form>
@@ -102,52 +107,58 @@ const admitCards = allRecruitments
     <!-- Cards List -->
     <div class="space-y-4 mb-8">
       {admitCards.length === 0 ? (
-        <div class="p-8 rounded-2xl bg-card border border-border text-center">
+        <div class="p-10 rounded-2xl bg-card border border-border text-center">
           <p class="text-xs text-muted-foreground">No admit card notices match your search criteria.</p>
+          <a href="/admit-cards" class="text-xs text-primary font-bold hover:underline mt-2 inline-block">Reset search</a>
         </div>
       ) : (
         admitCards.map((card) => (
-          <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <div class="flex items-center gap-2">
-                <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${card.statusColor}`}>
-                  {card.status}
-                </span>
-                <span class="text-xs text-muted-foreground font-medium">
-                  {card.org}
-                </span>
+          <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${card.statusColor}`}>
+                    {card.status}
+                  </span>
+                  <span class="text-xs text-muted-foreground font-semibold">
+                    {card.org}
+                  </span>
+                </div>
+                <div class="text-xs font-mono font-medium text-muted-foreground">
+                  Scheduled Exam: <strong class="text-foreground">{card.examDate}</strong>
+                </div>
               </div>
-              <div class="text-xs font-mono font-medium text-muted-foreground">
-                Scheduled Exam: <strong class="text-foreground">{card.examDate}</strong>
-              </div>
-            </div>
 
-            <h2 class="text-base font-bold text-foreground mb-1">
-              <a href={`/recruitments/${card.slug}`} class="hover:text-primary transition-colors">
-                {card.title}
-              </a>
-            </h2>
-            <p class="text-xs text-muted-foreground mb-4">
-              Hall Ticket Window: <strong class="text-foreground font-mono">{card.availableDate}</strong> · Advt: {card.advt}
-            </p>
+              <h2 class="text-base sm:text-lg font-bold text-foreground mb-1 font-heading">
+                <a href={`/recruitments/${card.slug}`} class="hover:text-primary transition-colors">
+                  {card.title}
+                </a>
+              </h2>
+              <p class="text-xs text-muted-foreground mb-4">
+                Hall Ticket Window: <strong class="text-foreground font-mono">{card.availableDate}</strong> · Advt: {card.advt}
+              </p>
+            </div>
 
             <div class="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3">
               <a
                 href={`/recruitments/${card.slug}`}
-                class="text-xs font-medium text-primary hover:underline"
+                class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1.5"
               >
-                &larr; View recruitment syllabus & pattern
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>View Syllabus & Pattern</span>
               </a>
               <div class="flex items-center gap-2">
-                {card.sourceUrl && <a
-                  href={card.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <span>Official Download Portal</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>}
+                {card.sourceUrl && (
+                  <a
+                    href={card.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <span>Download Hall Ticket</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                )}
               </div>
             </div>
           </div>

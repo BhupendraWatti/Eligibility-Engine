@@ -44,7 +44,7 @@ const results = allRecruitments.filter(r =>
   }
 
   return {
-    title: `${r.title} — Official Examination Result & Merit List`,
+    title: `${r.title} - Official Examination Result & Merit List`,
     exam: `${r.postTitle} (${r.advtNumber})`,
     org: `${r.organisationName} (${r.organisationShortName})`,
     orgShort: r.organisationShortName,
@@ -65,36 +65,39 @@ const results = allRecruitments.filter(r =>
 ---
 
 <BaseLayout
-  title="Government Examination Results — NIRNAY"
+  title="Government Examination Results & Merit Lists - NIRNAY"
   description="Find verified central and state government recruitment results, cutoffs, merit lists, and direct official scorecard links."
 >
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
       <a href="/" class="hover:text-foreground">Home</a>
       <span>/</span>
-      <span class="text-foreground font-medium">Results</span>
+      <span class="text-foreground font-semibold">Results & Scorecards</span>
     </nav>
 
     <!-- Page Header & Search -->
     <div class="mb-8">
-      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
+      <span class="text-xs font-bold uppercase tracking-wider text-primary font-mono block mb-1">
+        Official Selection Rosters
+      </span>
+      <h1 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
         Recruitment Results & Merit Lists
       </h1>
-      <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-        Access official examination scorecards, selection cutoffs, and provisional merit rosters.
+      <p class="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
+        Access verified government examination scorecards, selection cutoffs, and provisional selection rosters with direct portal links.
       </p>
 
       <form method="GET" action="/results" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
         <div class="sm:col-span-2">
-          <label class="rounded-xl bg-card border border-border flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <label class="rounded-xl bg-card border border-input flex px-3.5 items-center gap-2.5 h-11 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="search"
               name="q"
               value={q}
-              placeholder="Search results by exam, organisation or post..."
-              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1"
+              placeholder="Search results by exam, authority, or post..."
+              class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
             />
           </label>
         </div>
@@ -103,7 +106,7 @@ const results = allRecruitments.filter(r =>
           <select
             name="org"
             onchange="this.form.submit()"
-            class="w-full h-11 px-3 rounded-xl bg-card border border-border text-foreground text-xs font-medium cursor-pointer"
+            class="w-full h-11 px-3 rounded-xl bg-card border border-input text-foreground text-xs font-semibold cursor-pointer focus:border-primary outline-none"
           >
             <option value="">All Central & State Authorities</option>
             <option value="MPESB" selected={selectedOrg === 'MPESB'}>MPESB (Bhopal)</option>
@@ -117,52 +120,57 @@ const results = allRecruitments.filter(r =>
     <!-- Results Cards List -->
     <div class="space-y-4 mb-10">
       {results.length === 0 ? (
-        <div class="p-8 rounded-2xl bg-card border border-border text-center">
+        <div class="p-10 rounded-2xl bg-card border border-border text-center">
           <p class="text-xs text-muted-foreground">No result declarations match your criteria.</p>
-          <a href="/results" class="text-xs text-primary font-semibold hover:underline mt-2 inline-block">Reset filters</a>
+          <a href="/results" class="text-xs text-primary font-bold hover:underline mt-2 inline-block">Reset filters</a>
         </div>
       ) : (
         results.map((r) => (
-          <div class="bg-card rounded-2xl border border-border p-6 hover:shadow-xs hover:border-border/80 transition-all">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <div class="flex items-center gap-2">
-                <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${r.statusColor}`}>
-                  {r.status}
-                </span>
-                <span class="text-xs text-muted-foreground font-medium">
-                  {r.org}
+          <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${r.statusColor}`}>
+                    {r.status}
+                  </span>
+                  <span class="text-xs text-muted-foreground font-semibold">
+                    {r.org}
+                  </span>
+                </div>
+                <span class="text-xs font-mono font-bold text-foreground">
+                  Total Posts: {r.vacancies?.toLocaleString() || 'N/A'}
                 </span>
               </div>
-              <span class="text-xs font-mono font-bold text-foreground">
-                Total Posts: {r.vacancies?.toLocaleString() || 'N/A'}
-              </span>
-            </div>
 
-            <h2 class="text-base font-bold text-foreground mb-1">
-              <a href={`/recruitments/${r.slug}`} class="hover:text-primary transition-colors">
-                {r.title}
-              </a>
-            </h2>
-            <p class="text-xs text-muted-foreground mb-4">
-              Cadre Examination: <strong class="text-foreground">{r.exam}</strong>
-            </p>
+              <h2 class="text-base sm:text-lg font-bold text-foreground mb-1 font-heading">
+                <a href={`/recruitments/${r.slug}`} class="hover:text-primary transition-colors">
+                  {r.title}
+                </a>
+              </h2>
+              <p class="text-xs text-muted-foreground mb-4">
+                Cadre Examination: <strong class="text-foreground">{r.exam}</strong> · <span class="font-mono">{r.releaseDate}</span>
+              </p>
+            </div>
 
             <div class="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3">
               <a
                 href={`/recruitments/${r.slug}`}
-                class="text-xs text-primary hover:underline"
+                class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1.5"
               >
-                &larr; View recruitment details
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>View Notice Details</span>
               </a>
-              {r.sourceUrl && <a
-                href={r.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
-              >
-                <span>Access official scorecard</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>}
+              {r.sourceUrl && (
+                <a
+                  href={r.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+                >
+                  <span>Official Scorecard Portal</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              )}
             </div>
           </div>
         ))

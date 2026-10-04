@@ -4,34 +4,52 @@ const pathname = Astro.url.pathname;
 ---
 
 <header class="bg-card text-foreground border-b border-border w-full sticky top-0 z-40 backdrop-blur-md bg-white/95 no-print">
+  <!-- Civic National Accent Micro Strip -->
+  <div class="civic-tricolor-bar w-full"></div>
+
   <!-- Top ticker bar -->
-  <div class="bg-muted border-b border-border">
+  <div class="bg-muted/80 border-b border-border/80">
     <div class="text-muted-foreground text-xs tracking-wide flex mx-auto py-1.5 px-4 sm:px-6 justify-between items-center max-w-7xl">
       <div class="flex items-center gap-2">
-        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="font-medium text-[11px] sm:text-xs">Independent public information platform · Always verify with official gazette</span>
+        <span class="inline-block size-2 rounded-full bg-emerald-600 animate-pulse"></span>
+        <span class="font-medium text-[11px] sm:text-xs text-foreground/80">
+          Independent Public Recruitment & Eligibility Platform · Direct Official Gazette Links
+        </span>
       </div>
       <div class="hidden sm:flex items-center gap-3 text-[11px]">
         <a href="/disclaimer" class="hover:text-foreground underline transition-colors">Non-affiliation disclaimer</a>
         <span>·</span>
-        <a href="/admin" class="hover:text-foreground transition-colors font-medium">NIRNAY OPS</a>
+        <a href="/source-policy" class="hover:text-foreground transition-colors">Verification standards</a>
+        <span>·</span>
+        <a href="/admin" class="hover:text-foreground transition-colors font-semibold text-primary">NIRNAY OPS</a>
       </div>
     </div>
   </div>
 
   <!-- Main header -->
-  <div class="flex mx-auto py-3.5 px-4 sm:px-6 items-center justify-between gap-4 max-w-7xl">
+  <div class="flex mx-auto py-3 px-4 sm:px-6 items-center justify-between gap-3 sm:gap-4 max-w-7xl">
     <!-- Brand -->
-    <a href="/" class="flex items-baseline shrink-0 gap-2.5 group" aria-label="NIRNAY home">
-      <div class="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shadow-sm group-hover:bg-blue-700 transition-colors">
-        N
+    <a href="/" class="flex items-center shrink-0 gap-2.5 group" aria-label="NIRNAY home">
+      <div class="size-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-sm ring-1 ring-slate-800 group-hover:bg-primary transition-all">
+        <!-- Crisp Emblem SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-amber-400 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3v18"/>
+          <path d="M3 12h18"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
       </div>
       <div class="flex flex-col">
-        <span class="font-bold text-foreground text-xl tracking-[0.18em] leading-none">
-          NIRNAY
-        </span>
-        <span class="font-medium text-muted-foreground text-[10px] tracking-wider uppercase">
-          India Govt Opportunities
+        <div class="flex items-center gap-1.5">
+          <span class="font-black text-foreground text-xl tracking-[0.16em] leading-none font-heading">
+            NIRNAY
+          </span>
+          <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+            GovTech
+          </span>
+        </div>
+        <span class="font-semibold text-muted-foreground text-[10px] tracking-wider uppercase mt-0.5">
+          Recruitment & Eligibility Discovery
         </span>
       </div>
     </a>
@@ -39,68 +57,70 @@ const pathname = Astro.url.pathname;
     <!-- Desktop nav links -->
     <nav class="hidden lg:flex justify-center items-center flex-1 gap-1 min-w-0" aria-label="Primary navigation">
       <a
-        href="/#closing-soon"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname === '/' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        href="/jobs"
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname === '/jobs' || pathname.startsWith('/recruitments') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
-        Jobs
+        All Jobs
       </a>
       <a
         href="/calendar"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
-        Calendar
+        Exam Calendar
       </a>
       <a
         href="/results"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Results
       </a>
       <a
         href="/admit-cards"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Admit Cards
       </a>
       <a
         href="/answer-keys"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Answer Keys
       </a>
       <a
         href="/jobs"
-        class={`font-medium rounded-md text-sm px-3 py-1.5 transition-colors ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
-        Guides
+        Cadre Guides
       </a>
     </nav>
 
     <!-- Search input & CTA button + Mobile Hamburger -->
-    <div class="flex items-center shrink-0 gap-2.5">
+    <div class="flex items-center shrink-0 gap-2 sm:gap-2.5">
       <form action="/search" method="get" class="hidden md:flex">
-        <label class="rounded-md bg-background text-muted-foreground border border-border flex px-3 items-center gap-2 w-48 lg:w-56 h-9 focus-within:border-primary transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <label class="rounded-lg bg-background text-muted-foreground border border-input flex px-3 items-center gap-2 w-44 lg:w-56 h-9 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
           </svg>
           <input
             type="search"
             name="q"
-            placeholder="Search opportunities..."
+            placeholder="Search exams, posts..."
             aria-label="Search opportunities"
-            class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
+            class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0 placeholder:text-muted-foreground/70"
           />
         </label>
       </form>
 
       <a
         href="/eligibility-checker"
-        class="font-semibold rounded-md bg-primary text-primary-foreground text-xs sm:text-sm inline-flex px-3.5 py-2 items-center gap-1.5 h-9 shadow-sm hover:bg-blue-700 transition-colors"
+        class="font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-xs sm:text-sm inline-flex px-3.5 py-2 items-center gap-1.5 h-9 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        <span>Check eligibility</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M7 17L17 7M17 7H7M17 7V17"/>
+        <!-- Check Shield SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+          <path d="m9 12 2 2 4-4"/>
         </svg>
+        <span class="tracking-tight">Check Eligibility</span>
       </a>
 
       <!-- Mobile Hamburger Button -->
@@ -109,14 +129,14 @@ const pathname = Astro.url.pathname;
         type="button"
         aria-label="Toggle navigation menu"
         aria-expanded="false"
-        class="lg:hidden p-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+        class="lg:hidden p-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors touch-target flex items-center justify-center"
       >
-        <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
-        <svg id="close-icon" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg id="close-icon" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -125,74 +145,74 @@ const pathname = Astro.url.pathname;
   </div>
 
   <!-- Mobile Collapsible Navigation Drawer -->
-  <div id="nirnay-mobile-drawer" class="hidden lg:hidden border-t border-border bg-card px-4 py-4 space-y-3">
+  <div id="nirnay-mobile-drawer" class="hidden lg:hidden border-t border-border bg-card px-4 py-4 space-y-3.5 shadow-md">
     <!-- Mobile Search -->
     <form action="/search" method="get" class="w-full">
-      <label class="rounded-lg bg-background text-muted-foreground border border-border flex px-3 items-center gap-2 h-10 w-full focus-within:border-primary transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <label class="rounded-xl bg-background text-muted-foreground border border-input flex px-3.5 items-center gap-2.5 h-11 w-full focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <input
           type="search"
           name="q"
-          placeholder="Search jobs, exams, posts..."
+          placeholder="Search jobs, exams, posts, states..."
           aria-label="Search opportunities"
-          class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0"
+          class="bg-transparent text-foreground text-sm outline-none flex-1 min-w-0"
         />
       </label>
     </form>
 
     <div class="grid grid-cols-2 gap-2 pt-1">
       <a
-        href="/#closing-soon"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname === '/' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        href="/jobs"
+        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/jobs') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
       >
-        <span>Jobs Directory</span>
-        <span>&rarr;</span>
+        <span>All Jobs</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
       <a
         href="/calendar"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
       >
         <span>Exam Calendar</span>
-        <span>&rarr;</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
       <a
         href="/results"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
       >
         <span>Results & Lists</span>
-        <span>&rarr;</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
       <a
         href="/admit-cards"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
       >
         <span>Admit Cards</span>
-        <span>&rarr;</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
       <a
         href="/answer-keys"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
       >
         <span>Answer Keys</span>
-        <span>&rarr;</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
       <a
-        href="/jobs"
-        class={`font-medium rounded-lg text-xs p-2.5 transition-colors flex items-center justify-between ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted/60 text-foreground hover:bg-muted'}`}
+        href="/eligibility-checker"
+        class="font-bold rounded-xl text-xs p-3 transition-colors flex items-center justify-between bg-amber-500/10 text-amber-900 border border-amber-300/60 hover:bg-amber-500/20"
       >
-        <span>Career Guides</span>
-        <span>&rarr;</span>
+        <span>Eligibility Checker</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
     </div>
 
-    <div class="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+    <div class="pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
       <a href="/disclaimer" class="hover:text-foreground">Disclaimer</a>
       <span>·</span>
       <a href="/source-policy" class="hover:text-foreground">Source Policy</a>
       <span>·</span>
-      <a href="/admin" class="hover:text-foreground font-medium text-primary">NIRNAY OPS</a>
+      <a href="/admin" class="hover:text-foreground font-semibold text-primary">NIRNAY OPS</a>
     </div>
   </div>
 
