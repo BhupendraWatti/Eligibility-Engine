@@ -1576,15 +1576,10 @@ export async function getAllSectors(
       queryOpts.where = eq(schema.sectors.isActive, 1);
     }
     const rows = await db.query.sectors.findMany(queryOpts);
-    if (!rows || rows.length === 0) {
-      const list = includeInactive ? FALLBACK_SECTORS : FALLBACK_SECTORS.filter(s => s.isActive !== 0);
-      return [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
-    }
     return rows;
   } catch (error) {
-    console.warn('Warning fetching sectors from D1, using fallback:', error);
-    const list = includeInactive ? FALLBACK_SECTORS : FALLBACK_SECTORS.filter(s => s.isActive !== 0);
-    return [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
+    console.error('Error fetching sectors from D1:', error);
+    throw error;
   }
 }
 
@@ -1643,11 +1638,10 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
       where: eq(schema.departments.isActive, 1),
       orderBy: [asc(schema.departments.name)],
     });
-    if (!rows || rows.length === 0) return FALLBACK_DEPARTMENTS;
     return rows;
   } catch (error) {
-    console.warn('Warning fetching departments from D1, using fallback:', error);
-    return FALLBACK_DEPARTMENTS;
+    console.error('Error fetching departments from D1:', error);
+    throw error;
   }
 }
 
@@ -1672,10 +1666,6 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       orderBy: [asc(schema.posts.title)],
     });
 
-    if (!rows || rows.length === 0) {
-      return FALLBACK_POSTS;
-    }
-
     return rows.map((p: any) => ({
       id: p.id,
       departmentId: p.departmentId,
@@ -1693,8 +1683,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
-    console.warn('Warning fetching canonical posts from D1, using fallback:', error);
-    return FALLBACK_POSTS;
+    console.error('Error fetching canonical posts from D1:', error);
+    throw error;
   }
 }
 
@@ -1740,8 +1730,11 @@ export async function updateCanonicalPost(
     if (data.summary !== undefined) updateSet.summary = data.summary;
     if (data.isActive !== undefined) updateSet.isActive = data.isActive;
 
-    await db.update(schema.posts).set(updateSet).where(eq(schema.posts.id, data.id));
-    return true;
+    const updated = await db.update(schema.posts)
+      .set(updateSet)
+      .where(eq(schema.posts.id, data.id))
+      .returning({ id: schema.posts.id });
+    return updated.length > 0;
   } catch (error) {
     console.error('Error updating canonical post in D1:', error);
     throw error;
@@ -1925,9 +1918,6 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       where: eq(schema.organisations.isActive, 1),
       orderBy: [asc(schema.organisations.name)],
     });
-    if (!orgs || orgs.length === 0) {
-      return FALLBACK_ORGANISATIONS;
-    }
     return orgs.map((o: any) => {
       return {
         id: o.id,
@@ -1943,8 +1933,8 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       };
     });
   } catch (err) {
-    console.warn('Warning querying organisations from D1, using fallback:', err);
-    return FALLBACK_ORGANISATIONS;
+    console.error('Error querying organisations from D1:', err);
+    throw err;
   }
 }
 
@@ -2110,6 +2100,7 @@ export async function createSector(
   if (existing.length > 0) {
     slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
   }
+  const now = new Date();
   await db.batch([
     db.insert(schema.sectors).values({
       id,
@@ -2120,6 +2111,8 @@ export async function createSector(
       theme: cleanTheme,
       displayOrder,
       isActive,
+      createdAt: now,
+      updatedAt: now,
     }),
     db.insert(schema.auditLogs).values({
       id: `audit_${crypto.randomUUID()}`,
@@ -2213,13 +2206,10 @@ export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id:
       slug: schema.states.slug,
       isActive: schema.states.isActive,
     }).from(schema.states).orderBy(asc(schema.states.name));
-    if (!rows || rows.length === 0) {
-      return INDIA_JURISDICTIONS;
-    }
     return rows;
   } catch (err) {
-    console.warn('Warning loading states from D1, using INDIA_JURISDICTIONS fallback:', err);
-    return INDIA_JURISDICTIONS;
+    console.error('Error loading states from D1:', err);
+    throw err;
   }
 }
 

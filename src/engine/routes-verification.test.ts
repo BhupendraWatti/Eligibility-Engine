@@ -144,6 +144,14 @@ async function runTests() {
   assert(!recruitmentPage.includes("sourceUrl = 'https://esb.mp.gov.in/notifications/official-rulebook.pdf'"), 'recruitment intake never fabricates an official source');
   assert(!recruitmentPage.includes('if (!totalVacancies)'), 'zero-vacancy recruitments remain valid');
 
+  const queries = readFileSync('src/db/queries.ts', 'utf8');
+  assert(!queries.includes('Warning fetching canonical posts from D1, using fallback'), 'production canonical-post reads never expose demo fallback records');
+  assert(!queries.includes('Warning fetching departments from D1, using fallback'), 'production department reads never expose demo fallback records');
+  assert(!queries.includes('Warning querying organisations from D1, using fallback'), 'production organisation reads never expose demo fallback records');
+
+  const sectorsMigration = readFileSync('migrations/0008_sectors_enhancement.sql', 'utf8');
+  assert(!/ADD COLUMN[^;]+DEFAULT\s*\(unixepoch\(\)\)/i.test(sectorsMigration), 'ALTER TABLE migrations use SQLite-compatible constant defaults');
+
   console.log('\n🎉 ALL PUBLIC DETAIL ROUTE LOOKUP TESTS PASSED!\n');
 }
 

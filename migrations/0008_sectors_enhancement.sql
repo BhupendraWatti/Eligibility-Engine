@@ -2,8 +2,11 @@
 ALTER TABLE sectors ADD COLUMN description TEXT;
 ALTER TABLE sectors ADD COLUMN theme TEXT DEFAULT 'blue' NOT NULL;
 ALTER TABLE sectors ADD COLUMN is_active INTEGER DEFAULT 1 NOT NULL;
-ALTER TABLE sectors ADD COLUMN created_at INTEGER DEFAULT (unixepoch()) NOT NULL;
-ALTER TABLE sectors ADD COLUMN updated_at INTEGER DEFAULT (unixepoch()) NOT NULL;
+-- SQLite rejects non-constant defaults when adding columns to an existing table.
+ALTER TABLE sectors ADD COLUMN created_at INTEGER DEFAULT 0 NOT NULL;
+ALTER TABLE sectors ADD COLUMN updated_at INTEGER DEFAULT 0 NOT NULL;
+
+UPDATE sectors SET created_at = unixepoch(), updated_at = unixepoch();
 
 -- Backfill existing sectors with professional descriptions, themes, and lowercase semantic icon keys
 UPDATE sectors SET
