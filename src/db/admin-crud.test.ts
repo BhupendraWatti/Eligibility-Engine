@@ -45,4 +45,42 @@ assertEqual(recruitment.criteria.domicileStateCode, 'RJ', 'Domicile state should
 assert(await updateRecruitmentStatus(recruitment.id, 'DRAFT', adminEmail), 'Recruitment status update failed');
 assertEqual(recruitment.status, 'DRAFT', 'Recruitment status should be persisted');
 
-console.log('Admin master, access, SEO, eligibility, and status CRUD checks passed.');
+// Sector CRUD test
+import { createSector, updateSector, getAllSectors } from './queries';
+const sectorId = await createSector({
+  name: 'Disaster Management & Civil Defence',
+  slug: 'disaster-management-civil-defence',
+  description: 'Emergency response, flood rescue, and disaster relief administration.',
+  icon: 'shield',
+  theme: 'amber',
+  displayOrder: 15,
+  isActive: 1,
+  adminEmail,
+});
+assert(Boolean(sectorId), 'Sector creation failed');
+let allSectors = await getAllSectors(undefined, { includeInactive: true });
+let createdSector = allSectors.find(s => s.id === sectorId);
+assertEqual(createdSector?.name, 'Disaster Management & Civil Defence', 'Sector name should match');
+assertEqual(createdSector?.icon, 'shield', 'Sector icon should be normalized');
+assertEqual(createdSector?.theme, 'amber', 'Sector theme should match');
+
+// Update sector
+assert(await updateSector({
+  id: sectorId,
+  name: 'Disaster Response & Relief',
+  theme: 'red',
+  isActive: 0,
+  adminEmail,
+}), 'Sector update failed');
+
+allSectors = await getAllSectors(undefined, { includeInactive: true });
+let updatedSector = allSectors.find(s => s.id === sectorId);
+assertEqual(updatedSector?.name, 'Disaster Response & Relief', 'Updated sector name should match');
+assertEqual(updatedSector?.theme, 'red', 'Updated sector theme should match');
+assertEqual(updatedSector?.isActive, 0, 'Sector should be marked inactive');
+
+// Public query should omit inactive sector
+const activeOnly = await getAllSectors();
+assert(!activeOnly.some(s => s.id === sectorId), 'Public getAllSectors must exclude inactive sectors');
+
+console.log('Admin master, sector, access, SEO, eligibility, and status CRUD checks passed.');

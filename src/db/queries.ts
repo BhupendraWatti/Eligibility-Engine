@@ -3,6 +3,7 @@ import { eq, desc, asc, sql, and } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates } from '../services/duplicate-detector';
 import { resolveSectorRoute } from '../services/sector-routing';
+import { normalizeSectorIcon, normalizeSectorTheme } from '../services/sector-theme';
 import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
 import {
   resolveRecruitmentLifecycle,
@@ -57,8 +58,13 @@ export interface MasterSector {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
   icon: string | null;
+  theme?: string | null;
   displayOrder: number;
+  isActive?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface MasterDepartment {
@@ -250,16 +256,106 @@ export const FALLBACK_ORGANISATIONS: MasterOrganisation[] = [
 const FALLBACK_ADMIN_USERS: AdminUserItem[] = [];
 
 export const FALLBACK_SECTORS: MasterSector[] = [
-  { id: 'sec_civil_services', name: 'Civil & Administrative Services', slug: 'civil-administrative-services', icon: 'Landmark', displayOrder: 1 },
-  { id: 'sec_police', name: 'Police, Defence & Prisons', slug: 'police-defence-prisons', icon: 'Shield', displayOrder: 2 },
-  { id: 'sec_judiciary', name: 'Judiciary & Legal Services', slug: 'judiciary-legal-services', icon: 'Scale', displayOrder: 3 },
-  { id: 'sec_it_egov', name: 'Information Technology & e-Governance', slug: 'it-egovernance', icon: 'Cpu', displayOrder: 4 },
-  { id: 'sec_admin', name: 'Revenue & Land Administration', slug: 'revenue-land-administration', icon: 'Building2', displayOrder: 5 },
-  { id: 'sec_forest', name: 'Forest, Wildlife & Environment', slug: 'forest-environment', icon: 'Trees', displayOrder: 6 },
-  { id: 'sec_teaching', name: 'Teaching & Higher Education', slug: 'teaching-education', icon: 'GraduationCap', displayOrder: 7 },
-  { id: 'sec_technical', name: 'Engineering & Technical Trades', slug: 'engineering-technical-trades', icon: 'Wrench', displayOrder: 8 },
-  { id: 'sec_health', name: 'Public Health & Medical Services', slug: 'public-health-medical', icon: 'Activity', displayOrder: 9 },
-  { id: 'sec_support', name: 'Support Staff & Allied Services (Class IV)', slug: 'support-staff-class-iv', icon: 'Users', displayOrder: 10 },
+  {
+    id: 'sec_civil_services',
+    name: 'Civil & Administrative Services',
+    slug: 'civil-administrative-services',
+    description: 'State administrative service, executive magistracy, and public governance cadres.',
+    icon: 'landmark',
+    theme: 'blue',
+    displayOrder: 1,
+    isActive: 1,
+  },
+  {
+    id: 'sec_police',
+    name: 'Police, Defence & Prisons',
+    slug: 'police-defence-prisons',
+    description: 'Law enforcement, armed constabulary, state investigation agencies, and prison wardens.',
+    icon: 'shield',
+    theme: 'indigo',
+    displayOrder: 2,
+    isActive: 1,
+  },
+  {
+    id: 'sec_judiciary',
+    name: 'Judiciary & Legal Services',
+    slug: 'judiciary-legal-services',
+    description: 'Subordinate courts, judicial services, prosecution officers, and legal registry.',
+    icon: 'scale',
+    theme: 'slate',
+    displayOrder: 3,
+    isActive: 1,
+  },
+  {
+    id: 'sec_it_egov',
+    name: 'Information Technology & e-Governance',
+    slug: 'it-egovernance',
+    description: 'Digital governance, state IT infrastructure, cybersecurity, and systems engineering.',
+    icon: 'monitor',
+    theme: 'cyan',
+    displayOrder: 4,
+    isActive: 1,
+  },
+  {
+    id: 'sec_admin',
+    name: 'Revenue & Land Administration',
+    slug: 'revenue-land-administration',
+    description: 'Land records, survey settlement, revenue collection, and Patwari administration.',
+    icon: 'building',
+    theme: 'amber',
+    displayOrder: 5,
+    isActive: 1,
+  },
+  {
+    id: 'sec_forest',
+    name: 'Forest, Wildlife & Environment',
+    slug: 'forest-environment',
+    description: 'Forestry preservation, wildlife sanctuary surveillance, and environmental protection.',
+    icon: 'trees',
+    theme: 'green',
+    displayOrder: 6,
+    isActive: 1,
+  },
+  {
+    id: 'sec_teaching',
+    name: 'Teaching & Higher Education',
+    slug: 'teaching-education',
+    description: 'Primary, secondary, collegiate faculty, and university academic administration.',
+    icon: 'graduation-cap',
+    theme: 'purple',
+    displayOrder: 7,
+    isActive: 1,
+  },
+  {
+    id: 'sec_technical',
+    name: 'Engineering & Technical Trades',
+    slug: 'engineering-technical-trades',
+    description: 'Public works, irrigation engineering, polytechnic cadres, and skilled mechanical trades.',
+    icon: 'wrench',
+    theme: 'amber',
+    displayOrder: 8,
+    isActive: 1,
+  },
+  {
+    id: 'sec_health',
+    name: 'Public Health & Medical Services',
+    slug: 'public-health-medical',
+    description: 'Hospital healthcare, clinical nursing, community medicine, and public health cadres.',
+    icon: 'activity',
+    theme: 'red',
+    displayOrder: 9,
+    isActive: 1,
+  },
+  {
+    id: 'sec_support',
+    name: 'Support Staff & Allied Services (Class IV)',
+    slug: 'support-staff-class-iv',
+    description: 'Ministerial staff, multi-tasking staff, drivers, and institutional support cadres.',
+    icon: 'briefcase',
+    theme: 'slate',
+    displayOrder: 10,
+    isActive: 1,
+  },
 ];
 
 export const FALLBACK_DEPARTMENTS: MasterDepartment[] = [
@@ -1459,21 +1555,79 @@ export const FALLBACK_RECRUITMENTS: RecruitmentWithDetails[] = RAW_FALLBACK_RECR
 /**
  * Fetch all master sectors
  */
-export async function getAllSectors(providedD1?: D1Database): Promise<MasterSector[]> {
+export async function getAllSectors(
+  providedD1?: D1Database,
+  options?: { includeInactive?: boolean }
+): Promise<MasterSector[]> {
   const d1 = resolveD1(providedD1, 'loading sectors');
-  if (!d1) return FALLBACK_SECTORS;
+  const includeInactive = options?.includeInactive ?? false;
+
+  if (!d1) {
+    const list = includeInactive ? FALLBACK_SECTORS : FALLBACK_SECTORS.filter(s => s.isActive !== 0);
+    return [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
+  }
 
   try {
     const db = getDb(d1);
-    const rows = await db.query.sectors.findMany({
+    const queryOpts: any = {
       orderBy: [asc(schema.sectors.displayOrder), asc(schema.sectors.name)],
-    });
-    if (!rows || rows.length === 0) return FALLBACK_SECTORS;
+    };
+    if (!includeInactive) {
+      queryOpts.where = eq(schema.sectors.isActive, 1);
+    }
+    const rows = await db.query.sectors.findMany(queryOpts);
+    if (!rows || rows.length === 0) {
+      const list = includeInactive ? FALLBACK_SECTORS : FALLBACK_SECTORS.filter(s => s.isActive !== 0);
+      return [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
+    }
     return rows;
   } catch (error) {
     console.warn('Warning fetching sectors from D1, using fallback:', error);
-    return FALLBACK_SECTORS;
+    const list = includeInactive ? FALLBACK_SECTORS : FALLBACK_SECTORS.filter(s => s.isActive !== 0);
+    return [...list].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
   }
+}
+
+/**
+ * Deterministically calculates active recruitment drive counts per sector
+ */
+export function calculateSectorActiveDrives(
+  sectors: MasterSector[],
+  recruitments: RecruitmentWithDetails[],
+  posts: CanonicalPostWithDetails[]
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const s of sectors) {
+    counts.set(s.id, 0);
+  }
+
+  const postSectorMap = new Map<string, string>();
+  for (const p of posts) {
+    if (p.sectorId) postSectorMap.set(p.id, p.sectorId);
+  }
+
+  for (const r of recruitments) {
+    if (!isActiveDrive(r)) continue;
+
+    let targetSectorId: string | undefined;
+    if (r.postId && postSectorMap.has(r.postId)) {
+      targetSectorId = postSectorMap.get(r.postId);
+    } else if (r.sectorSlug) {
+      const matched = sectors.find(s => s.slug === r.sectorSlug);
+      if (matched) targetSectorId = matched.id;
+    }
+
+    if (!targetSectorId && r.sectorName) {
+      const matched = sectors.find(s => s.name.toLowerCase() === r.sectorName?.toLowerCase());
+      if (matched) targetSectorId = matched.id;
+    }
+
+    if (targetSectorId && counts.has(targetSectorId)) {
+      counts.set(targetSectorId, (counts.get(targetSectorId) || 0) + 1);
+    }
+  }
+
+  return counts;
 }
 
 /**
@@ -1905,19 +2059,45 @@ export async function updateDepartment(
 }
 
 export async function createSector(
-  data: { name: string; slug: string; icon?: string; displayOrder?: number; adminEmail: string },
+  data: {
+    name: string;
+    slug?: string;
+    description?: string;
+    icon?: string;
+    theme?: string;
+    displayOrder?: number;
+    isActive?: number;
+    adminEmail: string;
+  },
   providedD1?: D1Database
 ): Promise<string> {
   const d1 = resolveD1(providedD1, 'creating a sector');
   const id = `sec_${crypto.randomUUID()}`;
-  let slug = data.slug;
+  
+  // Sanitize: strip any raw HTML / scripts to guarantee presentation integrity
+  const cleanName = data.name.replace(/<[^>]*>/g, '').trim();
+  const cleanDesc = data.description ? data.description.replace(/<[^>]*>/g, '').trim() : null;
+  const cleanIcon = normalizeSectorIcon(data.icon);
+  const cleanTheme = normalizeSectorTheme(data.theme);
+  const isActive = data.isActive !== undefined ? (data.isActive ? 1 : 0) : 1;
+  const displayOrder = data.displayOrder ?? 0;
+
+  let slug = data.slug
+    ? data.slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    : cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
   if (!d1) {
     FALLBACK_SECTORS.push({
       id,
-      name: data.name,
+      name: cleanName,
       slug,
-      icon: data.icon || 'Briefcase',
-      displayOrder: data.displayOrder ?? (FALLBACK_SECTORS.length + 1),
+      description: cleanDesc,
+      icon: cleanIcon,
+      theme: cleanTheme,
+      displayOrder: displayOrder || (FALLBACK_SECTORS.length + 1),
+      isActive,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
     return id;
   }
@@ -1928,15 +2108,18 @@ export async function createSector(
     .where(eq(schema.sectors.slug, slug))
     .limit(1);
   if (existing.length > 0) {
-    slug = `${data.slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+    slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
   }
   await db.batch([
     db.insert(schema.sectors).values({
       id,
-      name: data.name,
+      name: cleanName,
       slug,
-      icon: data.icon || 'Briefcase',
-      displayOrder: data.displayOrder ?? 0,
+      description: cleanDesc,
+      icon: cleanIcon,
+      theme: cleanTheme,
+      displayOrder,
+      isActive,
     }),
     db.insert(schema.auditLogs).values({
       id: `audit_${crypto.randomUUID()}`,
@@ -1944,36 +2127,77 @@ export async function createSector(
       entity: 'SECTOR',
       entityId: id,
       action: 'CREATE',
-      newValue: data.name,
+      newValue: JSON.stringify({ name: cleanName, slug, icon: cleanIcon, theme: cleanTheme, isActive, displayOrder }),
     }),
   ]);
   return id;
 }
 
 export async function updateSector(
-  data: { id: string; name?: string; slug?: string; icon?: string; displayOrder?: number; adminEmail: string },
+  data: {
+    id: string;
+    name?: string;
+    slug?: string;
+    description?: string;
+    icon?: string;
+    theme?: string;
+    displayOrder?: number;
+    isActive?: number;
+    adminEmail: string;
+  },
   providedD1?: D1Database
 ): Promise<boolean> {
   const d1 = resolveD1(providedD1, 'updating a sector');
+
+  const cleanName = data.name !== undefined ? data.name.replace(/<[^>]*>/g, '').trim() : undefined;
+  const cleanDesc = data.description !== undefined ? data.description.replace(/<[^>]*>/g, '').trim() : undefined;
+  const cleanIcon = data.icon !== undefined ? normalizeSectorIcon(data.icon) : undefined;
+  const cleanTheme = data.theme !== undefined ? normalizeSectorTheme(data.theme) : undefined;
+  const cleanIsActive = data.isActive !== undefined ? (data.isActive ? 1 : 0) : undefined;
+  const cleanDisplayOrder = data.displayOrder !== undefined ? data.displayOrder : undefined;
+  const cleanSlug = data.slug !== undefined
+    ? data.slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    : undefined;
+
   if (!d1) {
     const idx = FALLBACK_SECTORS.findIndex(s => s.id === data.id);
     if (idx === -1) return false;
     FALLBACK_SECTORS[idx] = {
       ...FALLBACK_SECTORS[idx],
-      ...(data.name ? { name: data.name } : {}),
-      ...(data.slug ? { slug: data.slug } : {}),
-      ...(data.icon ? { icon: data.icon } : {}),
-      ...(data.displayOrder !== undefined ? { displayOrder: data.displayOrder } : {}),
+      ...(cleanName !== undefined ? { name: cleanName } : {}),
+      ...(cleanSlug !== undefined ? { slug: cleanSlug } : {}),
+      ...(cleanDesc !== undefined ? { description: cleanDesc } : {}),
+      ...(cleanIcon !== undefined ? { icon: cleanIcon } : {}),
+      ...(cleanTheme !== undefined ? { theme: cleanTheme } : {}),
+      ...(cleanDisplayOrder !== undefined ? { displayOrder: cleanDisplayOrder } : {}),
+      ...(cleanIsActive !== undefined ? { isActive: cleanIsActive } : {}),
+      updatedAt: new Date(),
     };
     return true;
   }
   const db = getDb(d1);
-  const updateSet: Record<string, any> = {};
-  if (data.name !== undefined) updateSet.name = data.name;
-  if (data.slug !== undefined) updateSet.slug = data.slug;
-  if (data.icon !== undefined) updateSet.icon = data.icon;
-  if (data.displayOrder !== undefined) updateSet.displayOrder = data.displayOrder;
-  await db.update(schema.sectors).set(updateSet).where(eq(schema.sectors.id, data.id));
+  const updateSet: Record<string, any> = {
+    updatedAt: sql`(unixepoch())`,
+  };
+  if (cleanName !== undefined) updateSet.name = cleanName;
+  if (cleanSlug !== undefined) updateSet.slug = cleanSlug;
+  if (cleanDesc !== undefined) updateSet.description = cleanDesc;
+  if (cleanIcon !== undefined) updateSet.icon = cleanIcon;
+  if (cleanTheme !== undefined) updateSet.theme = cleanTheme;
+  if (cleanDisplayOrder !== undefined) updateSet.displayOrder = cleanDisplayOrder;
+  if (cleanIsActive !== undefined) updateSet.isActive = cleanIsActive;
+
+  await db.batch([
+    db.update(schema.sectors).set(updateSet).where(eq(schema.sectors.id, data.id)),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SECTOR',
+      entityId: data.id,
+      action: 'UPDATE',
+      newValue: JSON.stringify(updateSet),
+    }),
+  ]);
   return true;
 }
 

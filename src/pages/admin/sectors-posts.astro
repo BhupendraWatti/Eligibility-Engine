@@ -1,23 +1,40 @@
 ---
-// src/pages/admin/sectors-posts.astro (FlowStep Screen 27)
+// src/pages/admin/sectors-posts.astro (NIRNAY OPS - Sectors & Posts Taxonomy Console)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
 import MasterSubNav from '../../components/admin/MasterSubNav.astro';
+import SectorIcon from '../../components/common/SectorIcon.astro';
+import SectorCard from '../../components/common/SectorCard.astro';
+import {
+  SECTOR_ICON_LIST,
+  SECTOR_THEME_LIST,
+  SECTOR_ICONS,
+  SECTOR_THEMES,
+  getSectorThemeDef,
+  normalizeSectorIcon,
+  normalizeSectorTheme,
+} from '../../services/sector-theme';
 import {
   getAllCanonicalPosts,
   getAllSectors,
   getAllDepartments,
   createCanonicalPost,
   createSector,
+  updateSector,
 } from '../../db/queries';
 import { resolveSectorRoute } from '../../services/sector-routing';
-import { parseIntegerInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
+import {
+  parseBooleanInput,
+  parseIntegerInput,
+  readAdminSubmission,
+  resolveRequiredReference,
+} from '../../services/admin-integrity';
 
 let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
 
 const [posts, sectors, departments] = await Promise.all([
   getAllCanonicalPosts(),
-  getAllSectors(),
+  getAllSectors(undefined, { includeInactive: true }),
   getAllDepartments(),
 ]);
 
@@ -28,22 +45,33 @@ if (Astro.request.method === 'POST') {
   try {
     const input = await readAdminSubmission(Astro.request);
     const action = input.text('_action', 'action') || 'create_post';
+    const adminEmail = Astro.locals.adminEmail || 'admin@nirnay.gov.in';
 
     if (action === 'create_sector') {
       const sectorName = input.text('name', 'title');
       let sectorSlug = input.text('slug');
-      const icon = input.text('icon') || 'Briefcase';
+      const description = input.text('description');
+      const icon = input.text('icon') || 'briefcase';
+      const theme = input.text('theme') || 'blue';
+      const displayOrder = parseIntegerInput(input.value('displayOrder', 'display_order'), sectors.length + 1);
+      const isActive = parseBooleanInput(input.value('isActive', 'is_active'), true) ? 1 : 0;
+
       if (!sectorName) throw new Error('Sector name is required.');
       if (!sectorSlug) {
         sectorSlug = sectorName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       }
-      const adminEmail = Astro.locals.adminEmail || 'admin@nirnay.gov.in';
+
       const createdSectorId = await createSector({
         name: sectorName,
         slug: sectorSlug,
+        description,
         icon,
+        theme,
+        displayOrder,
+        isActive,
         adminEmail,
       });
+
       statusMessage = {
         type: 'success',
         text: `New Government Sector "${sectorName}" created successfully!`,
@@ -60,7 +88,78 @@ if (Astro.request.method === 'POST') {
           headers: { 'Content-Type': 'application/json', 'X-Sector-Id': createdSectorId },
         });
       }
+    } else if (action === 'update_sector') {
+      const sectorId = input.text('id', 'sector_id');
+      const sectorName = input.text('name', 'title');
+      const sectorSlug = input.text('slug');
+      const description = input.text('description');
+      const icon = input.text('icon');
+      const theme = input.text('theme');
+      const displayOrder = parseIntegerInput(input.value('displayOrder', 'display_order'), 0);
+      const isActive = parseBooleanInput(input.value('isActive', 'is_active'), true) ? 1 : 0;
+
+      if (!sectorId || !sectorName) {
+        throw new Error('Sector ID and Sector Name are required for updating.');
+      }
+
+      await updateSector({
+        id: sectorId,
+        name: sectorName,
+        slug: sectorSlug || undefined,
+        description,
+        icon,
+        theme,
+        displayOrder,
+        isActive,
+        adminEmail,
+      });
+
+      statusMessage = {
+        type: 'success',
+        text: `Government Sector "${sectorName}" updated successfully!`,
+      };
+      Astro.response.headers.set('X-Sector-Id', sectorId);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          sector_id: sectorId,
+          id: sectorId,
+          success: true,
+          message: statusMessage.text,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Sector-Id': sectorId },
+        });
+      }
+    } else if (action === 'toggle_sector_status') {
+      const sectorId = input.text('id', 'sector_id');
+      const targetStatus = parseBooleanInput(input.value('isActive', 'is_active'), false) ? 1 : 0;
+      const targetSector = sectors.find(s => s.id === sectorId);
+      if (!targetSector) throw new Error(`Unknown sector ID: ${sectorId}`);
+
+      await updateSector({
+        id: sectorId,
+        isActive: targetStatus,
+        adminEmail,
+      });
+
+      statusMessage = {
+        type: 'success',
+        text: `Sector "${targetSector.name}" status changed to ${targetStatus ? 'Active' : 'Inactive'}.`,
+      };
+      Astro.response.headers.set('X-Sector-Id', sectorId);
+      if (!acceptsHtml) {
+        return new Response(JSON.stringify({
+          sector_id: sectorId,
+          id: sectorId,
+          success: true,
+          message: statusMessage.text,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Sector-Id': sectorId },
+        });
+      }
     } else {
+      // action === 'create_post'
       const title = input.text('title', 'name');
       let sectorId = input.text('sectorId', 'sector_id', 'sector');
       let departmentId = input.text('departmentId', 'department_id', 'department');
@@ -122,16 +221,20 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-
-const selectedSectorSlug = Astro.url.searchParams.get('sector') || sectors[0]?.slug || 'police';
+const selectedSectorSlug = Astro.url.searchParams.get('sector') || sectors[0]?.slug || 'police-defence-prisons';
 const activeSector = resolveSectorRoute(selectedSectorSlug, sectors) || sectors[0] || {
-  id: '1',
-  name: 'Police',
-  slug: 'police',
-  description: 'Law enforcement, armed constabulary, and investigation cadres across government jurisdictions.',
+  id: 'sec_police',
+  name: 'Police, Defence & Prisons',
+  slug: 'police-defence-prisons',
+  description: 'Law enforcement, armed constabulary, state investigation agencies, and prison wardens.',
+  icon: 'shield',
+  theme: 'indigo',
+  displayOrder: 1,
+  isActive: 1,
 };
 
-const linkedPosts = posts.filter(p => p.sectorId === activeSector.id);
+const activeThemeDef = getSectorThemeDef(activeSector?.theme);
+const linkedPosts = posts.filter(p => p.sectorId === activeSector?.id);
 
 // Dynamic Standard Master Qualification Levels
 const qualificationOptions = [
@@ -234,7 +337,7 @@ const standardPayBands = [
     </div>
 
     <!-- Two-Column Taxonomy Workspace -->
-    <div class="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] items-start gap-6">
       <!-- Left Column: Sector List -->
       <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden lg:sticky lg:top-20 flex flex-col max-h-[calc(100vh-6rem)]">
         <div class="p-3 border-b border-zinc-100 bg-zinc-50/50 flex flex-col gap-2 shrink-0">
@@ -257,7 +360,10 @@ const standardPayBands = [
         <div class="divide-y divide-zinc-100 overflow-y-auto" id="sectorsList">
           {sectors.map((sec) => {
             const count = posts.filter(p => p.sectorId === sec.id).length;
-            const isSelected = sec.slug === activeSector.slug;
+            const isSelected = sec.slug === activeSector?.slug;
+            const secTheme = getSectorThemeDef(sec.theme);
+            const isSecActive = sec.isActive !== 0;
+
             return (
               <a
                 href={`/admin/sectors-posts?sector=${sec.slug}`}
@@ -268,16 +374,32 @@ const standardPayBands = [
                     : 'text-zinc-800 hover:bg-zinc-50'
                 }`}
               >
-                <div>
-                  <div class="font-medium">{sec.name}</div>
-                  <div class={`text-[10px] font-mono ${isSelected ? 'text-zinc-400' : 'text-zinc-400'}`}>/{sec.slug}</div>
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class={`size-7 rounded-md border flex items-center justify-center shrink-0 ${
+                    isSelected ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : secTheme.badgeClass
+                  }`}>
+                    <SectorIcon name={sec.icon} class="size-3.5" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="font-medium truncate flex items-center gap-1.5">
+                      <span class="truncate">{sec.name}</span>
+                      {!isSecActive && (
+                        <span class="px-1 py-0.2 rounded text-[9px] font-mono uppercase bg-zinc-200 text-zinc-700 font-bold shrink-0">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div class={`text-[10px] font-mono truncate ${isSelected ? 'text-zinc-400' : 'text-zinc-400'}`}>
+                      /{sec.slug}
+                    </div>
+                  </div>
                 </div>
-                <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                <span class={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-mono shrink-0 ml-2 ${
                   isSelected
                     ? 'bg-zinc-800 text-zinc-200'
                     : 'bg-zinc-100 text-zinc-600'
                 }`}>
-                  {count} posts
+                  {count}
                 </span>
               </a>
             );
@@ -289,19 +411,68 @@ const standardPayBands = [
       <div class="space-y-6">
         <!-- Sector Header Card -->
         <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-4">
-          <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
-            <div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Selected Sector</span>
-              <h2 class="text-xl font-bold text-zinc-950 font-heading">{activeSector.name}</h2>
-              <span class="text-xs font-mono text-zinc-500">slug: /{activeSector.slug}</span>
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-zinc-100 pb-4">
+            <div class="flex items-start gap-3.5 min-w-0">
+              <div class={`size-12 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs ${activeThemeDef.badgeClass}`}>
+                <SectorIcon name={activeSector.icon} class="size-6" />
+              </div>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+                    Order #{activeSector.displayOrder ?? 0}
+                  </span>
+                  <span class={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border font-mono ${
+                    activeSector.isActive !== 0
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                  }`}>
+                    {activeSector.isActive !== 0 ? 'Active on Public Portal' : 'Inactive (Hidden)'}
+                  </span>
+                  <span class={`px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${activeThemeDef.badgeClass}`}>
+                    Theme: {activeThemeDef.label}
+                  </span>
+                </div>
+                <h2 class="text-xl font-bold text-zinc-950 font-heading mt-1">{activeSector.name}</h2>
+                <div class="flex flex-wrap items-center gap-3 text-xs font-mono text-zinc-500 mt-0.5">
+                  <span>slug: /{activeSector.slug}</span>
+                  <span>·</span>
+                  <span>icon: {normalizeSectorIcon(activeSector.icon)}</span>
+                </div>
+              </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <a
-                href={`/admin/masters?sector=${activeSector.id}`}
-                class="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-colors"
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                id="openEditSectorDrawerBtn"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-100 text-xs font-semibold text-zinc-800 shadow-2xs transition-colors cursor-pointer"
               >
-                Manage in Master Grid &rarr;
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                <span>Edit Sector</span>
+              </button>
+              <form method="POST" class="inline">
+                <input type="hidden" name="_action" value="toggle_sector_status" />
+                <input type="hidden" name="id" value={activeSector.id} />
+                <input type="hidden" name="isActive" value={activeSector.isActive !== 0 ? '0' : '1'} />
+                <button
+                  type="submit"
+                  class={`px-3 py-1.5 rounded-lg border text-xs font-semibold shadow-2xs transition-colors cursor-pointer ${
+                    activeSector.isActive !== 0
+                      ? 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900'
+                      : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900'
+                  }`}
+                  title={activeSector.isActive !== 0 ? 'Hide from public discovery' : 'Publish on public discovery'}
+                >
+                  {activeSector.isActive !== 0 ? 'Deactivate' : 'Activate'}
+                </button>
+              </form>
+              <a
+                href={`/sectors/${activeSector.slug}`}
+                target="_blank"
+                class="px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-semibold text-zinc-700 shadow-2xs transition-colors"
+                title="View public sector hub"
+              >
+                Public Hub ↗
               </a>
             </div>
           </div>
@@ -311,12 +482,12 @@ const standardPayBands = [
           </p>
 
           <!-- Protection Safeguard Callout -->
-          <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700 flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-zinc-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <div>
-              <span class="font-bold block">Taxonomy Protection Active</span>
-              <span class="text-[11px] text-amber-800">
-                Cannot archive this sector while published opportunities and canonical posts rely on it for eligibility matching.
+              <span class="font-bold block text-zinc-900">Taxonomy & Presentation Rule</span>
+              <span class="text-[11px] text-zinc-600">
+                Sector metadata directly drives the public homepage "Explore by Sector" cards and sector discovery hubs. All visual rendering remains strictly controlled by frontend code.
               </span>
             </div>
           </div>
@@ -326,7 +497,7 @@ const standardPayBands = [
         <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
           <div class="p-4 border-b border-zinc-100 flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-bold text-zinc-950">Associated Canonical Posts</h3>
+              <h3 class="text-sm font-bold text-zinc-950 font-heading">Associated Canonical Posts</h3>
               <p class="text-xs text-zinc-500">Standardized roles inheriting this sector's pay scale and rules ({linkedPosts.length} posts).</p>
             </div>
             <button type="button" id="addPostBtnInPane" class="text-xs font-semibold text-zinc-950 hover:underline cursor-pointer">
@@ -486,37 +657,142 @@ const standardPayBands = [
     </form>
   </div>
 
-  <!-- Add Sector Drawer -->
+  <!-- Add Sector Drawer with LIVE PREVIEW -->
   <div id="addSectorDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
-    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+    <form method="POST" class="w-full max-w-lg bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <input type="hidden" name="_action" value="create_sector" />
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Catalog</span>
             <h2 class="text-base font-bold text-zinc-950 font-heading">Add Government Sector</h2>
-            <p class="text-xs text-zinc-500">Create a high-level job family (e.g. Police, Education, Health, Banking).</p>
+            <p class="text-xs text-zinc-500">Create a high-level job family with controlled icon & theme tokens.</p>
           </div>
           <button type="button" id="closeAddSectorDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
             &times;
           </button>
         </div>
 
-        <div class="space-y-4 text-xs">
-          <div class="space-y-1.5">
+        <!-- Live Preview Component -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+              Live Homepage Preview
+            </span>
+            <span class="text-[9px] font-mono bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-200">
+              Synced with Production Card
+            </span>
+          </div>
+          <SectorCard
+            sector={{
+              name: 'New Government Sector',
+              slug: 'new-sector',
+              description: 'Brief overview of responsibilities and cadres in this public service domain.',
+              icon: 'briefcase',
+              theme: 'blue',
+            }}
+            activeDrivesCount={0}
+            asLink={false}
+            previewIdPrefix="addSectorPreview"
+          />
+        </div>
+
+        <div class="space-y-3.5 text-xs">
+          <div class="space-y-1">
             <label class="block font-semibold text-zinc-800">Sector Name *</label>
-            <input type="text" id="addSectorName" name="name" required placeholder="e.g. Banking & Financial Services" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input
+              type="text"
+              id="addSectorName"
+              name="name"
+              required
+              placeholder="e.g. Banking & Financial Services"
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+            />
           </div>
 
-          <div class="space-y-1.5">
+          <div class="space-y-1">
             <label class="block font-semibold text-zinc-800">URL Slug *</label>
-            <input type="text" id="addSectorSlug" name="slug" required placeholder="banking-financial-services" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input
+              type="text"
+              id="addSectorSlug"
+              name="slug"
+              required
+              placeholder="banking-financial-services"
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+            />
           </div>
 
-          <div class="space-y-1.5">
-            <label class="block font-semibold text-zinc-800">Sector Icon Name</label>
-            <input type="text" name="icon" placeholder="Briefcase, Landmark, Shield, Activity, GraduationCap..." value="Briefcase" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
-            <span class="text-[10px] text-zinc-400">Used for visual badges across public exploration hubs.</span>
+          <div class="space-y-1">
+            <label class="block font-semibold text-zinc-800">Sector Description (max 300 chars)</label>
+            <textarea
+              id="addSectorDesc"
+              name="description"
+              rows="2"
+              maxlength="300"
+              placeholder="Public service domain covering canonical recruitment roles across India."
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none resize-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Standard SVG Icon *</label>
+              <select
+                id="addSectorIcon"
+                name="icon"
+                required
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                {SECTOR_ICON_LIST.map((ic) => (
+                  <option value={ic.key} selected={ic.key === 'briefcase'}>
+                    {ic.key} — {ic.label.split('(')[0].trim()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Accent Theme *</label>
+              <select
+                id="addSectorTheme"
+                name="theme"
+                required
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                {SECTOR_THEME_LIST.map((th) => (
+                  <option value={th.key} selected={th.key === 'blue'}>
+                    {th.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Display Order</label>
+              <input
+                type="number"
+                id="addSectorOrder"
+                name="displayOrder"
+                value={sectors.length + 1}
+                min="0"
+                max="999"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+              />
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Status</label>
+              <select
+                id="addSectorActive"
+                name="isActive"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                <option value="1" selected>Active (Published)</option>
+                <option value="0">Inactive (Hidden)</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -532,7 +808,152 @@ const standardPayBands = [
     </form>
   </div>
 
-  <script is:inline>
+  <!-- Edit Sector Drawer with LIVE PREVIEW -->
+  <div id="editSectorDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-lg bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="update_sector" />
+      <input type="hidden" name="id" value={activeSector.id} />
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Taxonomy Editor</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Edit Government Sector</h2>
+            <p class="text-xs text-zinc-500">Configure presentation tokens for {activeSector.name}.</p>
+          </div>
+          <button type="button" id="closeEditSectorDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <!-- Live Preview Component for Edit -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+              Live Homepage Preview
+            </span>
+            <span class="text-[9px] font-mono bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded border border-zinc-200">
+              Synced with Production Card
+            </span>
+          </div>
+          <SectorCard
+            sector={activeSector}
+            activeDrivesCount={posts.filter(p => p.sectorId === activeSector.id).length > 0 ? 1 : 0}
+            asLink={false}
+            previewIdPrefix="editSectorPreview"
+          />
+        </div>
+
+        <div class="space-y-3.5 text-xs">
+          <div class="space-y-1">
+            <label class="block font-semibold text-zinc-800">Sector Name *</label>
+            <input
+              type="text"
+              id="editSectorName"
+              name="name"
+              required
+              value={activeSector.name}
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input
+              type="text"
+              id="editSectorSlug"
+              name="slug"
+              required
+              value={activeSector.slug}
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <label class="block font-semibold text-zinc-800">Sector Description (max 300 chars)</label>
+            <textarea
+              id="editSectorDesc"
+              name="description"
+              rows="2"
+              maxlength="300"
+              class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none resize-none"
+            >{activeSector.description || ''}</textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Standard SVG Icon *</label>
+              <select
+                id="editSectorIcon"
+                name="icon"
+                required
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                {SECTOR_ICON_LIST.map((ic) => (
+                  <option value={ic.key} selected={ic.key === normalizeSectorIcon(activeSector.icon)}>
+                    {ic.key} — {ic.label.split('(')[0].trim()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Accent Theme *</label>
+              <select
+                id="editSectorTheme"
+                name="theme"
+                required
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                {SECTOR_THEME_LIST.map((th) => (
+                  <option value={th.key} selected={th.key === normalizeSectorTheme(activeSector.theme)}>
+                    {th.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Display Order</label>
+              <input
+                type="number"
+                id="editSectorOrder"
+                name="displayOrder"
+                value={activeSector.displayOrder ?? 0}
+                min="0"
+                max="999"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+              />
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-semibold text-zinc-800">Status</label>
+              <select
+                id="editSectorActive"
+                name="isActive"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none font-mono"
+              >
+                <option value="1" selected={activeSector.isActive !== 0}>Active (Published)</option>
+                <option value="0" selected={activeSector.isActive === 0}>Inactive (Hidden)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelEditSectorDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Update Sector
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script is:inline define:vars={{ iconsData: SECTOR_ICONS, themesData: SECTOR_THEMES }}>
     // Add Post Drawer controls
     const drawer = document.getElementById('addPostDrawer');
     document.getElementById('openAddPostDrawerBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
@@ -550,6 +971,12 @@ const standardPayBands = [
       sectorDrawer?.classList.remove('hidden');
     });
 
+    // Edit Sector Drawer controls
+    const editSectorDrawer = document.getElementById('editSectorDrawer');
+    document.getElementById('openEditSectorDrawerBtn')?.addEventListener('click', () => editSectorDrawer?.classList.remove('hidden'));
+    document.getElementById('closeEditSectorDrawerBtn')?.addEventListener('click', () => editSectorDrawer?.classList.add('hidden'));
+    document.getElementById('cancelEditSectorDrawerBtn')?.addEventListener('click', () => editSectorDrawer?.classList.add('hidden'));
+
     // Auto-slug generator for new sector
     const sectorNameInput = document.getElementById('addSectorName');
     const sectorSlugInput = document.getElementById('addSectorSlug');
@@ -562,7 +989,7 @@ const standardPayBands = [
       if (sectorSlugInput) sectorSlugInput.dataset.touched = 'true';
     });
 
-    // Dynamic Sector filter in left list
+    // Sector Filter for left sidebar
     const sectorFilterInput = document.getElementById('sectorFilterInput');
     const sectorItems = document.querySelectorAll('.sector-item');
     sectorFilterInput?.addEventListener('input', () => {
@@ -575,6 +1002,62 @@ const standardPayBands = [
           item.classList.add('hidden');
         }
       });
+    });
+
+    // Real-Time Live Preview Synchronization Engine
+    function setupLivePreview(prefix, fieldIds) {
+      const titleEl = document.getElementById(prefix + 'Title');
+      const descEl = document.getElementById(prefix + 'Desc');
+      const badgeEl = document.getElementById(prefix + 'Badge');
+      const cardEl = document.getElementById(prefix + 'Card');
+
+      const nameInput = document.getElementById(fieldIds.name);
+      const descInput = document.getElementById(fieldIds.desc);
+      const iconInput = document.getElementById(fieldIds.icon);
+      const themeInput = document.getElementById(fieldIds.theme);
+
+      function refreshPreview() {
+        if (titleEl && nameInput) {
+          titleEl.textContent = nameInput.value.trim() || 'Sector Name';
+        }
+        if (descEl && descInput) {
+          descEl.textContent = descInput.value.trim() || 'Public service domain covering canonical recruitment roles across India.';
+        }
+        if (badgeEl && iconInput) {
+          const iconKey = iconInput.value.trim().toLowerCase();
+          const iconDef = iconsData[iconKey] || iconsData.briefcase;
+          if (iconDef) {
+            const svg = badgeEl.querySelector('svg');
+            if (svg) svg.innerHTML = iconDef.svgInner;
+          }
+        }
+        if (badgeEl && themeInput) {
+          const themeKey = themeInput.value.trim().toLowerCase();
+          const themeDef = themesData[themeKey] || themesData.blue;
+          if (themeDef) {
+            badgeEl.className = 'size-10 rounded-lg border flex items-center justify-center mb-3.5 transition-colors ' + themeDef.badgeClass;
+          }
+        }
+      }
+
+      nameInput?.addEventListener('input', refreshPreview);
+      descInput?.addEventListener('input', refreshPreview);
+      iconInput?.addEventListener('change', refreshPreview);
+      themeInput?.addEventListener('change', refreshPreview);
+    }
+
+    setupLivePreview('addSectorPreview', {
+      name: 'addSectorName',
+      desc: 'addSectorDesc',
+      icon: 'addSectorIcon',
+      theme: 'addSectorTheme',
+    });
+
+    setupLivePreview('editSectorPreview', {
+      name: 'editSectorName',
+      desc: 'editSectorDesc',
+      icon: 'editSectorIcon',
+      theme: 'editSectorTheme',
     });
   </script>
 

@@ -1,13 +1,17 @@
 ---
 // src/pages/index.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments, getAllSectors } from '../db/queries';
+import SectorCard from '../components/common/SectorCard.astro';
+import { getAllActiveRecruitments, getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
 import { calculateRecruitmentMetrics, isActiveDrive, resolveMilestonePresentation } from '../services/lifecycle';
 
-const [recruitments, dbSectors] = await Promise.all([
+const [recruitments, dbSectors, allPosts] = await Promise.all([
   getAllActiveRecruitments(),
   getAllSectors(),
+  getAllCanonicalPosts(),
 ]);
+
+const activeDrivesBySector = calculateSectorActiveDrives(dbSectors, recruitments, allPosts);
 
 const metrics = calculateRecruitmentMetrics(recruitments);
 
@@ -18,13 +22,6 @@ const closingSoon = recruitments
   .slice(0, 3);
 const recentlyReleased = recruitments.slice(0, 3);
 
-// Sectors grid data
-const sectors = dbSectors.slice(0, 8).map((s) => ({
-  name: s.name.split(',')[0].split('&')[0].trim(),
-  fullName: s.name,
-  slug: s.slug,
-  count: 'State Cadre',
-}));
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return 'TBA';
@@ -297,22 +294,12 @@ recruitments.forEach((r) => {
         </p>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {sectors.map((sec) => (
-          <a
-            href={`/sectors/${sec.slug}`}
-            class="bg-card rounded-xl border border-border p-4 hover:border-primary/40 hover:shadow-sm transition-all group"
-          >
-            <div class="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm mb-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              {sec.name[0]}
-            </div>
-            <h3 class="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-              {sec.name}
-            </h3>
-            <p class="text-xs text-muted-foreground mt-0.5">
-              {sec.count}
-            </p>
-          </a>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {dbSectors.map((sec) => (
+          <SectorCard
+            sector={sec}
+            activeDrivesCount={activeDrivesBySector.get(sec.id) || 0}
+          />
         ))}
       </div>
     </div>

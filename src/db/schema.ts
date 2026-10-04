@@ -43,8 +43,13 @@ export const sectors = sqliteTable('sectors', {
   id: text('id').primaryKey(),
   name: text('name').notNull(), // 'Police & Defence', 'Teaching & Education'
   slug: text('slug').notNull().unique(),
+  description: text('description'),
   icon: text('icon'),
+  theme: text('theme').notNull().default('blue'),
   displayOrder: integer('display_order').notNull().default(0),
+  isActive: integer('is_active').notNull().default(1),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
 
 // 5. Canonical Posts (Evergreen Entity)
