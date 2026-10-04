@@ -125,9 +125,9 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
         <div class="shrink-0 flex items-center gap-2">
           <a
             href="/eligibility-checker"
-            class="px-4 py-2.5 rounded-xl bg-amber-500/10 text-amber-900 border border-amber-300 font-bold text-xs inline-flex items-center gap-2 hover:bg-amber-500/20 transition-colors shadow-2xs"
+            class="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold text-xs inline-flex items-center gap-2 transition-colors shadow-2xs"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
               <path d="m9 12 2 2 4-4"/>
             </svg>
@@ -343,7 +343,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
                           {job.organisationShortName} · {job.postTitle}
                         </span>
                       </div>
-                      <span class="text-xs font-mono font-bold text-amber-700">
+                      <span class="text-xs font-mono font-bold text-slate-700">
                         Deadline: {formatDate(job.applicationEnd)}
                       </span>
                     </div>

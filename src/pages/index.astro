@@ -82,7 +82,7 @@ recruitments.forEach((r) => {
 
         <h1 class="font-black text-foreground text-3xl sm:text-5xl lg:text-6xl leading-[1.1] tracking-tight max-w-2xl font-heading">
           Find government jobs across India <br class="hidden sm:inline" />
-          <span class="text-primary underline decoration-amber-400 decoration-wavy decoration-2 underline-offset-4">you are eligible to apply for.</span>
+          <span class="text-primary">you are eligible to apply for.</span>
         </h1>
 
         <p class="text-sm sm:text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl">
@@ -95,7 +95,7 @@ recruitments.forEach((r) => {
             href="/eligibility-checker"
             class="font-bold rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-sm px-6 py-3.5 shadow-sm transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
               <path d="m9 12 2 2 4-4"/>
             </svg>
@@ -159,7 +159,7 @@ recruitments.forEach((r) => {
             class="w-full font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm py-3 px-4 shadow-sm transition-colors flex items-center justify-center gap-2"
           >
             <span>Start Eligibility Assessment</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
@@ -213,8 +213,8 @@ recruitments.forEach((r) => {
   <section id="closing-soon" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div>
-        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-900 text-xs font-bold mb-2 border border-amber-200">
-          <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-rose-50 text-rose-800 text-xs font-bold mb-2 border border-rose-200">
+          <span class="size-2 rounded-full bg-rose-600 animate-pulse"></span>
           <span>Immediate Deadlines</span>
         </div>
         <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-tight font-heading">
@@ -238,7 +238,7 @@ recruitments.forEach((r) => {
         <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
           <div>
             <div class="flex items-center justify-between gap-2 mb-3">
-              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-slate-100 text-slate-800 border border-slate-200'}`}>
                 {item.presentation?.label || 'Closing Soon'}
               </span>
               <span class="text-xs text-muted-foreground font-semibold">
@@ -265,7 +265,7 @@ recruitments.forEach((r) => {
               </div>
               <div class="flex items-center justify-between">
                 <span>Application Deadline:</span>
-                <span class="font-bold text-amber-700 font-mono">
+                <span class="font-bold text-foreground font-mono">
                   {item.applicationEnd ? formatDate(item.applicationEnd) : 'Refer Notice'}
                 </span>
               </div>
@@ -370,10 +370,10 @@ recruitments.forEach((r) => {
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
     <div class="rounded-3xl bg-slate-900 text-white p-6 sm:p-10 lg:p-12 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8 shadow-md relative overflow-hidden">
       <!-- Decorative micro accent -->
-      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-primary to-emerald-400"></div>
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-primary to-indigo-600"></div>
 
       <div class="max-w-xl text-center md:text-left">
-        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 inline-block mb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-slate-200 border border-white/20 inline-block mb-3">
           Free Aspirant Tool
         </span>
         <h3 class="text-2xl sm:text-3xl font-black mb-2 font-heading tracking-tight">
@@ -387,9 +387,9 @@ recruitments.forEach((r) => {
       <div class="shrink-0 w-full sm:w-auto">
         <a
           href="/eligibility-checker"
-          class="font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm px-7 py-4 shadow-lg transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto"
+          class="font-bold rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-sm px-7 py-4 shadow-md transition-all flex items-center justify-center gap-2.5 w-full sm:w-auto"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
             <path d="m9 12 2 2 4-4"/>
           </svg>
