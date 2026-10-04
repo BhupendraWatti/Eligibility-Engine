@@ -1,0 +1,455 @@
+---
+// src/pages/admin/states.astro (Master Records - States & Jurisdictions)
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminDataTable from '../../components/admin/AdminDataTable.astro';
+import MasterSubNav from '../../components/admin/MasterSubNav.astro';
+import {
+  getAllStates,
+  getAllOrganisations,
+  createState,
+  updateState,
+} from '../../db/queries';
+import { parseBooleanInput, readAdminSubmission } from '../../services/admin-integrity';
+
+const [rawStates, organisations] = await Promise.all([
+  getAllStates(),
+  getAllOrganisations(),
+]);
+
+const adminEmail = Astro.locals.adminEmail || 'admin@nirnay.gov.in';
+let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+let createdStateId = '';
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action') || 'create_state';
+    const id = input.text('id', 'state_id');
+    const name = input.text('name', 'title');
+    const code = input.text('code')?.trim().toUpperCase();
+    let slug = input.text('slug');
+    const isActive = parseBooleanInput(input.value('isActive'), true) ? 1 : 0;
+
+    if (action === 'update_state') {
+      if (!id || !name || !code) {
+        throw new Error('State ID, Name, and Code are required.');
+      }
+      await updateState({
+        id,
+        name,
+        code,
+        slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        isActive,
+        adminEmail,
+      });
+      statusMessage = { type: 'success', text: `Jurisdiction "${name} (${code})" updated successfully!` };
+    } else {
+      if (!name || !code) {
+        throw new Error('State Name and official 2-letter Code are required.');
+      }
+      createdStateId = await createState({
+        name,
+        code,
+        slug: slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        isActive,
+        adminEmail,
+      });
+      statusMessage = { type: 'success', text: `New Jurisdiction "${name} (${code})" created successfully!` };
+    }
+  } catch (error: any) {
+    statusMessage = { type: 'error', text: error.message };
+    Astro.response.status = 400;
+  }
+}
+
+// Categorize States
+const utCodes = new Set(['AN', 'CH', 'DN', 'DL', 'JK', 'LA', 'LD', 'PY']);
+
+const statesWithMeta = rawStates.map((st) => {
+  const code = st.code.toUpperCase();
+  const isCentral = code === 'IN';
+  const isUT = utCodes.has(code);
+  const typeLabel = isCentral ? 'Central Authority' : isUT ? 'Union Territory' : 'State Government';
+  const linkedOrgsCount = organisations.filter(o => o.stateId === st.id).length;
+
+  return {
+    ...st,
+    code,
+    typeLabel,
+    isCentral,
+    isUT,
+    linkedOrgsCount,
+    isActive: st.isActive ?? 1,
+  };
+});
+
+const totalStates = statesWithMeta.filter(s => !s.isCentral && !s.isUT).length;
+const totalUTs = statesWithMeta.filter(s => s.isUT).length;
+const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
+---
+
+<AdminLayout
+  title="States & Jurisdictions | Master Records"
+  currentSection="states"
+  breadcrumbs={[
+    { label: 'Master records', href: '/admin/masters' },
+    { label: 'States & Jurisdictions' },
+  ]}
+>
+  <div class="mx-auto max-w-6xl space-y-4 sm:space-y-6">
+    <!-- Master Records Section Sub-Types Navigation Bar -->
+    <MasterSubNav currentTab="states" />
+
+    {statusMessage && (
+      <div class={`p-3.5 rounded-xl border text-xs flex items-center justify-between shadow-2xs ${
+        statusMessage.type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          : 'bg-rose-50 border-rose-200 text-rose-900'
+      }`}>
+        <div class="flex items-center gap-2 font-medium">
+          {statusMessage.type === 'success' ? (
+            <svg class="size-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          ) : (
+            <svg class="size-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      </div>
+    )}
+
+    <!-- Header with Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
+          States & Territorial Jurisdictions
+        </h1>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Statutory recruitment boundaries across Central Government, 28 States, and 8 Union Territories
+        </p>
+      </div>
+
+      <button
+        type="button"
+        id="openAddStateDrawerBtn"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add Jurisdiction / State</span>
+      </button>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="p-4 rounded-xl bg-white border border-zinc-200 shadow-2xs">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Total Jurisdictions</span>
+        <span class="text-2xl font-extrabold text-zinc-950 font-heading">{statesWithMeta.length}</span>
+        <span class="text-[11px] text-zinc-500 block mt-0.5">National Catalog</span>
+      </div>
+      <div class="p-4 rounded-xl bg-white border border-zinc-200 shadow-2xs">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">State Governments</span>
+        <span class="text-2xl font-extrabold text-indigo-600 font-heading">{totalStates}</span>
+        <span class="text-[11px] text-zinc-500 block mt-0.5">28 Federal States</span>
+      </div>
+      <div class="p-4 rounded-xl bg-white border border-zinc-200 shadow-2xs">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Union Territories</span>
+        <span class="text-2xl font-extrabold text-purple-600 font-heading">{totalUTs}</span>
+        <span class="text-[11px] text-zinc-500 block mt-0.5">8 UT Administrations</span>
+      </div>
+      <div class="p-4 rounded-xl bg-white border border-zinc-200 shadow-2xs">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Central Authority</span>
+        <span class="text-2xl font-extrabold text-emerald-600 font-heading">{totalCentral}</span>
+        <span class="text-[11px] text-zinc-500 block mt-0.5">UPSC, SSC, Railways</span>
+      </div>
+    </div>
+
+    <!-- Search & Filter Toolbar -->
+    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+        <div class="relative flex-1 min-w-[180px]">
+          <input
+            type="text"
+            id="stateSearchInput"
+            placeholder="Search state by name, code (e.g. MP, DL), slug..."
+            class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50/50 focus:bg-white focus:ring-2 focus:ring-zinc-900 outline-none transition-all"
+          />
+          <svg class="size-3.5 text-zinc-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+
+        <select
+          id="stateTypeFilter"
+          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+        >
+          <option value="">All Categories ({statesWithMeta.length})</option>
+          <option value="State Government">State Governments ({totalStates})</option>
+          <option value="Union Territory">Union Territories ({totalUTs})</option>
+          <option value="Central Authority">Central Government ({totalCentral})</option>
+        </select>
+      </div>
+
+      <div class="text-[11px] font-mono text-zinc-500">
+        Showing <span id="filteredStateCount" class="font-bold text-zinc-900">{statesWithMeta.length}</span> of {statesWithMeta.length} jurisdictions
+      </div>
+    </div>
+
+    <!-- States Data Table -->
+    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse" id="statesDataTable">
+          <thead>
+            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4">State / Territory Name</th>
+              <th class="py-3 px-3">Jurisdiction Code</th>
+              <th class="py-3 px-3">Type</th>
+              <th class="py-3 px-3">URL Slug</th>
+              <th class="py-3 px-3">Linked Bodies</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100" id="statesTableBody">
+            {statesWithMeta.map((st) => (
+              <tr
+                class="hover:bg-zinc-50/80 transition-colors state-table-row"
+                data-state-id={st.id}
+                data-name={st.name.toLowerCase()}
+                data-code={st.code.toLowerCase()}
+                data-slug={st.slug.toLowerCase()}
+                data-type={st.typeLabel}
+              >
+                <td class="py-3.5 px-4 font-bold text-zinc-950">
+                  {st.name}
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
+                    {st.code}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                    st.isCentral
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : st.isUT
+                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                  }`}>
+                    {st.typeLabel}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 font-mono text-zinc-600 text-[11px]">{st.slug}</td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-700">
+                    {st.linkedOrgsCount} recruiting {st.linkedOrgsCount === 1 ? 'body' : 'bodies'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-3">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                    st.isActive
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                  }`}>
+                    {st.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <button
+                    type="button"
+                    class="edit-state-btn text-zinc-600 hover:text-zinc-950 font-semibold hover:underline cursor-pointer"
+                    data-state={JSON.stringify({
+                      id: st.id,
+                      name: st.name,
+                      code: st.code,
+                      slug: st.slug,
+                      isActive: st.isActive,
+                    })}
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add State Drawer -->
+  <div id="addStateDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="create_state" />
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Catalog</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Add Territorial Jurisdiction</h2>
+            <p class="text-xs text-zinc-500">Define a state, union territory, or central jurisdiction.</p>
+          </div>
+          <button type="button" id="closeAddStateDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">State / Territory Name *</label>
+            <input type="text" id="addStateName" name="name" required placeholder="e.g. Telangana" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Jurisdiction Code (2 Letters) *</label>
+            <input type="text" id="addStateCode" name="code" required maxlength="5" placeholder="e.g. TG" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono uppercase focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" id="addStateSlug" name="slug" required placeholder="telangana" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" name="isActive" value="1" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Mark jurisdiction active for recruitment filters</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelAddStateDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Save Jurisdiction
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Edit State Drawer -->
+  <div id="editStateDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="update_state" />
+      <input type="hidden" id="editStateId" name="id" value="" />
+
+      <div class="space-y-5">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">Master Workbench</span>
+            <h2 class="text-base font-bold text-zinc-950 font-heading">Edit Jurisdiction</h2>
+            <p class="text-xs text-zinc-500">Update territorial bounds and status.</p>
+          </div>
+          <button type="button" id="closeEditStateDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">State / Territory Name *</label>
+            <input type="text" id="editStateName" name="name" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">Jurisdiction Code *</label>
+            <input type="text" id="editStateCode" name="code" required maxlength="5" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono uppercase focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-semibold text-zinc-800">URL Slug *</label>
+            <input type="text" id="editStateSlug" name="slug" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+          </div>
+
+          <label class="flex items-center gap-2 pt-2 cursor-pointer font-medium text-zinc-800">
+            <input type="checkbox" id="editStateIsActive" name="isActive" value="1" class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+            <span>Mark jurisdiction active</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+        <button type="button" id="cancelEditStateDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script is:inline>
+    // Add Drawer controls
+    const addDrawer = document.getElementById('addStateDrawer');
+    document.getElementById('openAddStateDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.remove('hidden'));
+    document.getElementById('closeAddStateDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+    document.getElementById('cancelAddStateDrawerBtn')?.addEventListener('click', () => addDrawer?.classList.add('hidden'));
+
+    // Auto-slug on Add
+    const addNameInput = document.getElementById('addStateName');
+    const addSlugInput = document.getElementById('addStateSlug');
+    addNameInput?.addEventListener('input', () => {
+      if (addSlugInput && !addSlugInput.dataset.touched) {
+        addSlugInput.value = addNameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+    });
+    addSlugInput?.addEventListener('input', () => {
+      if (addSlugInput) addSlugInput.dataset.touched = 'true';
+    });
+
+    // Edit Drawer controls
+    const editDrawer = document.getElementById('editStateDrawer');
+    document.getElementById('closeEditStateDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+    document.getElementById('cancelEditStateDrawerBtn')?.addEventListener('click', () => editDrawer?.classList.add('hidden'));
+
+    document.querySelectorAll('.edit-state-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        try {
+          const st = JSON.parse(btn.getAttribute('data-state') || '{}');
+          if (st.id) {
+            document.getElementById('editStateId').value = st.id;
+            document.getElementById('editStateName').value = st.name || '';
+            document.getElementById('editStateCode').value = st.code || '';
+            document.getElementById('editStateSlug').value = st.slug || '';
+            document.getElementById('editStateIsActive').checked = st.isActive === 1;
+            editDrawer?.classList.remove('hidden');
+          }
+        } catch (e) {
+          console.error('Failed to parse state data', e);
+        }
+      });
+    });
+
+    // Live search & category filter
+    const searchInput = document.getElementById('stateSearchInput');
+    const typeFilter = document.getElementById('stateTypeFilter');
+    const rows = document.querySelectorAll('.state-table-row');
+    const countBadge = document.getElementById('filteredStateCount');
+
+    function filterStates() {
+      const q = (searchInput?.value || '').toLowerCase().trim();
+      const type = typeFilter?.value || '';
+      let visible = 0;
+
+      rows.forEach((row) => {
+        const name = row.getAttribute('data-name') || '';
+        const code = row.getAttribute('data-code') || '';
+        const slug = row.getAttribute('data-slug') || '';
+        const rowType = row.getAttribute('data-type') || '';
+
+        const matchSearch = !q || name.includes(q) || code.includes(q) || slug.includes(q);
+        const matchType = !type || rowType === type;
+
+        if (matchSearch && matchType) {
+          row.classList.remove('hidden');
+          visible++;
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+
+      if (countBadge) countBadge.textContent = visible;
+    }
+
+    searchInput?.addEventListener('input', filterStates);
+    typeFilter?.addEventListener('change', filterStates);
+  </script>
+</AdminLayout>

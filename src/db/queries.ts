@@ -39,8 +39,7 @@ export {
 let cfEnv: any = undefined;
 try {
   // @ts-ignore
-  const cf = await import('cloudflare:workers');
-  cfEnv = cf.env;
+  import('cloudflare:workers').then(cf => { cfEnv = cf.env; }).catch(() => {});
 } catch {
   // Fallback for environments outside Cloudflare Workers runtime
 }
@@ -1469,10 +1468,11 @@ export async function getAllSectors(providedD1?: D1Database): Promise<MasterSect
     const rows = await db.query.sectors.findMany({
       orderBy: [asc(schema.sectors.displayOrder), asc(schema.sectors.name)],
     });
+    if (!rows || rows.length === 0) return FALLBACK_SECTORS;
     return rows;
   } catch (error) {
-    console.error('Error fetching sectors from D1:', error);
-    throw error;
+    console.warn('Warning fetching sectors from D1, using fallback:', error);
+    return FALLBACK_SECTORS;
   }
 }
 
@@ -1489,10 +1489,11 @@ export async function getAllDepartments(providedD1?: D1Database): Promise<Master
       where: eq(schema.departments.isActive, 1),
       orderBy: [asc(schema.departments.name)],
     });
+    if (!rows || rows.length === 0) return FALLBACK_DEPARTMENTS;
     return rows;
   } catch (error) {
-    console.error('Error fetching departments from D1:', error);
-    throw error;
+    console.warn('Warning fetching departments from D1, using fallback:', error);
+    return FALLBACK_DEPARTMENTS;
   }
 }
 
@@ -1517,6 +1518,10 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       orderBy: [asc(schema.posts.title)],
     });
 
+    if (!rows || rows.length === 0) {
+      return FALLBACK_POSTS;
+    }
+
     return rows.map((p: any) => ({
       id: p.id,
       departmentId: p.departmentId,
@@ -1534,8 +1539,8 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
-    console.error('Error fetching canonical posts from D1:', error);
-    throw error;
+    console.warn('Warning fetching canonical posts from D1, using fallback:', error);
+    return FALLBACK_POSTS;
   }
 }
 
@@ -1766,6 +1771,9 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       where: eq(schema.organisations.isActive, 1),
       orderBy: [asc(schema.organisations.name)],
     });
+    if (!orgs || orgs.length === 0) {
+      return FALLBACK_ORGANISATIONS;
+    }
     return orgs.map((o: any) => {
       return {
         id: o.id,
@@ -1781,8 +1789,8 @@ export async function getAllOrganisations(providedD1?: D1Database): Promise<Mast
       };
     });
   } catch (err) {
-    console.error('Error querying organisations from D1:', err);
-    throw err;
+    console.warn('Warning querying organisations from D1, using fallback:', err);
+    return FALLBACK_ORGANISATIONS;
   }
 }
 
@@ -1969,17 +1977,93 @@ export async function updateSector(
   return true;
 }
 
-export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string }>> {
+export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string; isActive?: number }>> {
   const d1 = resolveD1(providedD1, 'loading states');
   if (!d1) return INDIA_JURISDICTIONS;
   try {
     const db = getDb(d1);
-    const rows = await db.select({ id: schema.states.id, name: schema.states.name, code: schema.states.code, slug: schema.states.slug }).from(schema.states).orderBy(asc(schema.states.name));
+    const rows = await db.select({
+      id: schema.states.id,
+      name: schema.states.name,
+      code: schema.states.code,
+      slug: schema.states.slug,
+      isActive: schema.states.isActive,
+    }).from(schema.states).orderBy(asc(schema.states.name));
+    if (!rows || rows.length === 0) {
+      return INDIA_JURISDICTIONS;
+    }
     return rows;
   } catch (err) {
-    console.error('Error loading states from D1:', err);
-    throw err;
+    console.warn('Warning loading states from D1, using INDIA_JURISDICTIONS fallback:', err);
+    return INDIA_JURISDICTIONS;
   }
+}
+
+export async function createState(
+  data: { code: string; name: string; slug?: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<string> {
+  const d1 = resolveD1(providedD1, 'creating a state');
+  const code = data.code.trim().toUpperCase();
+  const id = `st_${code.toLowerCase()}`;
+  let slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  if (!d1) {
+    const existingIdx = INDIA_JURISDICTIONS.findIndex(s => s.id === id || s.code === code);
+    if (existingIdx >= 0) {
+      INDIA_JURISDICTIONS[existingIdx] = { id, code, name: data.name, slug };
+    } else {
+      INDIA_JURISDICTIONS.push({ id, code, name: data.name, slug });
+    }
+    return id;
+  }
+  const db = getDb(d1);
+  await db.batch([
+    db.insert(schema.states).values({
+      id,
+      code,
+      name: data.name,
+      slug,
+      isActive: data.isActive ?? 1,
+    }).onConflictDoUpdate({
+      target: schema.states.id,
+      set: { name: data.name, slug, isActive: data.isActive ?? 1 },
+    }),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'STATE',
+      entityId: id,
+      action: 'CREATE',
+      newValue: `${data.name} (${code})`,
+    }),
+  ]);
+  return id;
+}
+
+export async function updateState(
+  data: { id: string; name?: string; code?: string; slug?: string; isActive?: number; adminEmail: string },
+  providedD1?: D1Database
+): Promise<boolean> {
+  const d1 = resolveD1(providedD1, 'updating a state');
+  if (!d1) {
+    const idx = INDIA_JURISDICTIONS.findIndex(s => s.id === data.id);
+    if (idx === -1) return false;
+    INDIA_JURISDICTIONS[idx] = {
+      ...INDIA_JURISDICTIONS[idx],
+      ...(data.name ? { name: data.name } : {}),
+      ...(data.code ? { code: data.code.toUpperCase() } : {}),
+      ...(data.slug ? { slug: data.slug } : {}),
+    };
+    return true;
+  }
+  const db = getDb(d1);
+  const updateSet: Record<string, any> = {};
+  if (data.name !== undefined) updateSet.name = data.name;
+  if (data.code !== undefined) updateSet.code = data.code.toUpperCase();
+  if (data.slug !== undefined) updateSet.slug = data.slug;
+  if (data.isActive !== undefined) updateSet.isActive = data.isActive;
+  await db.update(schema.states).set(updateSet).where(eq(schema.states.id, data.id));
+  return true;
 }
 
 export async function getAuditLogs(providedD1?: D1Database, limit = 100): Promise<typeof FALLBACK_AUDIT_LOGS> {

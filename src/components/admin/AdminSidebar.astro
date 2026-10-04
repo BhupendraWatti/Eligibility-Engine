@@ -12,10 +12,12 @@ const isMasterActive =
   current === 'organisations' ||
   current === 'departments' ||
   current === 'sectors-posts' ||
+  current === 'states' ||
   pathname.startsWith('/admin/masters') ||
   pathname.startsWith('/admin/organisations') ||
   pathname.startsWith('/admin/departments') ||
-  pathname.startsWith('/admin/sectors-posts');
+  pathname.startsWith('/admin/sectors-posts') ||
+  pathname.startsWith('/admin/states');
 
 const navSections = [
   {
@@ -39,9 +41,16 @@ const navSections = [
   },
   {
     title: 'Master Records',
-    badge: '4 Sub-types',
+    badge: '5 Sub-types',
     isMasterGroup: true,
     items: [
+      {
+        name: 'States & Jurisdictions',
+        href: '/admin/states',
+        key: 'states',
+        active: current === 'states' || pathname.startsWith('/admin/states'),
+        icon: 'map-pin',
+      },
       {
         name: 'Canonical Posts',
         href: '/admin/masters',
@@ -169,6 +178,9 @@ const navSections = [
                     : 'text-zinc-400 hover:text-white hover:bg-zinc-900/90'
                 }`}
               >
+                {item.icon === 'map-pin' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                )}
                 {item.icon === 'dashboard' && (
                   <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
                 )}

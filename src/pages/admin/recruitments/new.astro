@@ -194,6 +194,9 @@ const postsBySector = sectors.map(sec => ({
   sector: sec,
   posts: posts.filter(p => p.sectorId === sec.id),
 })).filter(group => group.posts.length > 0);
+
+const groupedPostIds = new Set(postsBySector.flatMap(g => g.posts.map(p => p.id)));
+const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
 ---
 
 <AdminLayout
@@ -306,7 +309,10 @@ const postsBySector = sectors.map(sec => ({
               </div>
 
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
+                  <a href="/admin/organisations" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Organisation ↗</a>
+                </div>
                 <select
                   name="organisationId"
                   required
@@ -329,7 +335,10 @@ const postsBySector = sectors.map(sec => ({
               </div>
 
               <div class="sm:col-span-2 space-y-1.5">
-                <label class="block text-xs font-semibold text-zinc-800">Canonical Post Reference *</label>
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-semibold text-zinc-800">Canonical Post Reference *</label>
+                  <a href="/admin/masters" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Canonical Post ↗</a>
+                </div>
                 <select
                   name="postId"
                   required
@@ -343,6 +352,13 @@ const postsBySector = sectors.map(sec => ({
                       ))}
                     </optgroup>
                   ))}
+                  {unassignedPosts.length > 0 && (
+                    <optgroup label="Other Posts">
+                      {unassignedPosts.map(p => (
+                        <option value={p.id}>{p.title} ({p.defaultQualification})</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 

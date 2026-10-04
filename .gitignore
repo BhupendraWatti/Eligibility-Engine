@@ -172,6 +172,7 @@ openapi.json
 openapi.yaml
 testsprite_tests/
 CLAUDE.md
-Eligibility Engine Multi State System Design.docx
+*.docx
 context.md
 *.py
+docs/

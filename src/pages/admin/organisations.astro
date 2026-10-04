@@ -339,7 +339,7 @@ const inactiveCount = organisations.length - activeCount;
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <label class="block font-semibold text-zinc-800">State / Territory Jurisdiction *</label>
-              <span class="text-[10px] text-zinc-400 font-mono">Central + 28 States + 8 UTs</span>
+              <a href="/admin/states" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Manage States ↗</a>
             </div>
             <select name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
               <option value="" disabled selected>-- Select State / Union Territory Jurisdiction --</option>
@@ -347,6 +347,7 @@ const inactiveCount = organisations.length - activeCount;
                 <option value={st.id}>{st.name} ({st.code})</option>
               ))}
             </select>
+            <p class="text-[10px] text-zinc-400 font-mono">Central Government + 28 States + 8 Union Territories</p>
           </div>
 
           <div class="space-y-1.5">
@@ -415,7 +416,7 @@ const inactiveCount = organisations.length - activeCount;
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <label class="block font-semibold text-zinc-800">State / Territory Jurisdiction *</label>
-              <span class="text-[10px] text-zinc-400 font-mono">Central + 28 States + 8 UTs</span>
+              <a href="/admin/states" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Manage States ↗</a>
             </div>
             <select id="editOrgStateId" name="stateId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
               <option value="" disabled>-- Select State / Union Territory Jurisdiction --</option>
@@ -423,6 +424,7 @@ const inactiveCount = organisations.length - activeCount;
                 <option value={st.id}>{st.name} ({st.code})</option>
               ))}
             </select>
+            <p class="text-[10px] text-zinc-400 font-mono">Central Government + 28 States + 8 Union Territories</p>
           </div>
 
           <div class="space-y-1.5">
