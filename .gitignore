@@ -176,3 +176,4 @@ CLAUDE.md
 context.md
 *.py
 docs/
+.gstack/
