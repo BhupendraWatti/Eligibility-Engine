@@ -1,15 +1,39 @@
 ---
 // src/pages/admin/seo.astro (FlowStep Screen 29)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAllActiveRecruitments } from '../../db/queries';
+import { getAllActiveRecruitments, updateRecruitmentSeo } from '../../db/queries';
+import { readAdminSubmission, parseBooleanInput } from '../../services/admin-integrity';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
-const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || 'MP Police Constable Recruitment 2026';
+const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
 const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
 
-const defaultTitle = `${currentRec?.title || 'MP Police Constable Recruitment 2026'} | Eligibility, Dates & Official Link`;
-const defaultDesc = `Explore ${currentRec?.title || 'MP Police Constable'} 2026 recruitment in Madhya Pradesh. Check statutory age, qualification requirements, key exam milestones, and access official notification links.`;
-const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitment-2026'}`;
+const generatedTitle = `${currentRec?.title || 'Government Recruitment'} | Eligibility, Dates & Official Link`;
+const generatedDesc = `Explore ${currentRec?.title || 'this government recruitment'}${currentRec?.stateName ? ` in ${currentRec.stateName}` : ''}. Check eligibility, important dates, vacancies, and direct official links.`;
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+if (Astro.request.method === 'POST') {
+  try {
+    if (!Astro.locals.adminEmail || !currentRec) throw new Error('An authenticated admin and recruitment are required.');
+    const input = await readAdminSubmission(Astro.request);
+    const restore = input.text('_action') === 'restore';
+    await updateRecruitmentSeo({
+      id: currentRec.id,
+      seoTitle: restore ? null : input.text('seoTitle') || null,
+      seoDescription: restore ? null : input.text('seoDescription') || null,
+      robotsIndex: restore ? 1 : (parseBooleanInput(input.value('robotsIndex')) ? 1 : 0),
+      adminEmail: Astro.locals.adminEmail,
+    });
+    message = restore ? 'Generated SEO defaults restored.' : 'SEO metadata saved.';
+  } catch (error: any) {
+    Astro.response.status = 400;
+    messageType = 'error';
+    message = error.message;
+  }
+}
+const defaultTitle = currentRec?.seoTitle || generatedTitle;
+const defaultDesc = currentRec?.seoDescription || generatedDesc;
+const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
 ---
 
 <AdminLayout
@@ -21,6 +45,8 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
   ]}
 >
   <div class="mx-auto max-w-5xl space-y-6">
+    {message && <div role="status" class={`rounded-lg border p-3 text-xs ${messageType === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>{message}</div>}
+    <form method="GET" class="flex justify-end"><select name="recruitment" onchange="this.form.submit()" class="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs">{recruitments.map(rec => <option value={rec.title} selected={rec.id === currentRec?.id}>{rec.title}</option>)}</select></form>
     <!-- Header with Action (FlowStep Screen 29) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div class="space-y-1">
@@ -44,14 +70,18 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
 
       <div class="flex items-center gap-2.5">
         <button
-          type="button"
+          type="submit"
+          form="seoForm"
+          name="_action"
+          value="restore"
           id="restoreDefaultsBtn"
           class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
         >
           Restore defaults
         </button>
         <button
-          type="button"
+          type="submit"
+          form="seoForm"
           id="saveSeoBtn"
           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
         >
@@ -64,7 +94,7 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
     <!-- Two-Column Layout (FlowStep Screen 29) -->
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] items-start gap-6">
       <!-- Left: Form Controls -->
-      <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-5">
+      <form method="POST" id="seoForm" class="rounded-xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-5">
         <div class="border-b border-zinc-100 pb-3">
           <h2 class="text-sm font-bold text-zinc-950">Page Metadata & Open Graph</h2>
           <p class="text-xs text-zinc-500">Defaults are generated automatically from structured recruitment records.</p>
@@ -82,6 +112,7 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
             <input
               type="text"
               id="seoTitleInput"
+              name="seoTitle"
               value={defaultTitle}
               class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
             />
@@ -97,6 +128,7 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
             </div>
             <textarea
               id="seoDescInput"
+              name="seoDescription"
               rows="3"
               class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none leading-relaxed"
             >{defaultDesc}</textarea>
@@ -120,12 +152,13 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
               <span class="text-[11px] text-zinc-500">Allow major search crawlers (Google, Bing) to index page.</span>
             </div>
             <label class="inline-flex items-center gap-2 cursor-pointer font-semibold text-zinc-900">
-              <input type="checkbox" checked class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
+              <input type="checkbox" name="robotsIndex" value="1" checked={currentRec?.robotsIndex !== 0} class="size-4 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-900" />
               <span>index, follow</span>
             </label>
           </div>
         </div>
-      </div>
+        <button type="submit" class="w-full rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white">Save metadata</button>
+      </form>
 
       <!-- Right: Live Google SERP Preview Card (FlowStep Screen 29) -->
       <aside class="sticky top-20 space-y-4">
@@ -139,7 +172,7 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
           <!-- Google Result Mock -->
           <div class="rounded-lg border border-zinc-100 bg-zinc-50/70 p-3 space-y-1 font-sans">
             <div class="text-[11px] text-zinc-600 flex items-center gap-1 font-mono">
-              <span>nirnay.mp.gov.in</span>
+              <span>nirnay.in</span>
               <span>›</span>
               <span>jobs</span>
               <span>›</span>
@@ -187,9 +220,4 @@ const canonicalSlug = `/jobs/${currentRec?.slug || 'mp-police-constable-recruitm
     </div>
   </div>
 
-  <script is:inline>
-    document.getElementById('saveSeoBtn')?.addEventListener('click', () => {
-      alert('SEO metadata and Open Graph tags updated successfully!');
-    });
-  </script>
 </AdminLayout>

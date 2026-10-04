@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { evaluateEligibility, type UserEligibilityProfile, type RecruitmentCriteria } from '../../engine/eligibility';
+import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
 
 interface RecruitmentData {
   id: string;
@@ -29,8 +30,8 @@ export default function EligibilityWizard({ recruitments }: Props) {
   const [stream, setStream] = useState<string>('Computer Science');
   const [passingYear, setPassingYear] = useState<string>('2024');
 
-  const [isMpDomicile, setIsMpDomicile] = useState<boolean | null>(null);
-  const [hasMpRojgarPanjiyan, setHasMpRojgarPanjiyan] = useState<boolean | null>(null);
+  const [domicileStateCode, setDomicileStateCode] = useState<string>('');
+  const [registrations, setRegistrations] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<UserEligibilityProfile['category'] | ''>('');
 
   const [experienceMonths, setExperienceMonths] = useState<string>('');
@@ -50,8 +51,10 @@ export default function EligibilityWizard({ recruitments }: Props) {
       dob: dobInput || undefined,
       gender: (selectedGender || 'MALE') as any,
       category: (selectedCategory || 'UR') as any,
-      isMpDomicile: isMpDomicile ?? false,
-      hasMpRojgarPanjiyan: hasMpRojgarPanjiyan ?? false,
+      domicileStateCode: domicileStateCode || undefined,
+      isMpDomicile: domicileStateCode ? domicileStateCode === 'MP' : undefined,
+      registrations: registrations ? registrations.split(',').map(value => value.trim()).filter(Boolean) : undefined,
+      hasMpRojgarPanjiyan: registrations ? registrations.toUpperCase().split(',').map(value => value.trim()).includes('MP_ROJGAR') : undefined,
       hasCpct: hasTechCert,
       qualificationLevel: (selectedQualification || 'GRADUATION') as any,
       stream: stream || undefined,
@@ -61,7 +64,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
       experienceMonths: experienceMonths ? Number(experienceMonths) : undefined,
       additionalSkills: skills.split(',').map(value => value.trim()).filter(Boolean),
     };
-  }, [dobInput, selectedGender, selectedCategory, isMpDomicile, hasMpRojgarPanjiyan, hasTechCert, selectedQualification, stream, percentage, heightCm, chestCm, experienceMonths, skills]);
+  }, [dobInput, selectedGender, selectedCategory, domicileStateCode, registrations, hasTechCert, selectedQualification, stream, percentage, heightCm, chestCm, experienceMonths, skills]);
 
   // Evaluate candidate results across all recruitments
   const results = useMemo(() => {
@@ -116,12 +119,8 @@ export default function EligibilityWizard({ recruitments }: Props) {
         return;
       }
     } else if (step === 3) {
-      if (isMpDomicile === null) {
-        setValidationError('Please indicate whether you are a resident domicile of Madhya Pradesh.');
-        return;
-      }
-      if (hasMpRojgarPanjiyan === null) {
-        setValidationError('Please indicate whether you have an active MP Rojgar Portal registration.');
+      if (!domicileStateCode) {
+        setValidationError('Please select your domicile state or union territory.');
         return;
       }
     } else if (step === 4) {
@@ -150,7 +149,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   Check what you can apply for
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Answer 5 questions. No account required · Zero ads · Verified against MP official gazettes.
+                  Answer 5 questions. No account required · Zero ads · Evaluated against each authority's stored official rules.
                 </p>
               </div>
               <div className="self-start sm:self-auto">
@@ -377,88 +376,33 @@ export default function EligibilityWizard({ recruitments }: Props) {
               </div>
             )}
 
-            {/* STEP 3: Domicile & Rojgar Panjiyan */}
+            {/* STEP 3: Domicile & employment registrations */}
             {step === 3 && (
               <div className="space-y-6 max-w-2xl">
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-foreground mb-1">
-                    Madhya Pradesh Domicile & Registration <span className="text-red-500">*</span>
+                    Domicile & Employment Registration <span className="text-red-500">*</span>
                   </h2>
                   <p className="text-xs text-muted-foreground mb-4">
-                    State reservations and quota seats require valid domicile documents.
+                    State-specific reservations and registrations vary by notification. We compare your answers with each recruitment independently.
                   </p>
 
                   <div className="space-y-4 mb-6">
                     <div>
                       <label className="text-xs font-bold text-foreground block mb-2">
-                        Are you a domicile of Madhya Pradesh (मूल निवासी)?
+                        Your domicile state or union territory
                       </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsMpDomicile(true);
-                            setValidationError(null);
-                          }}
-                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            isMpDomicile === true
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          Yes, MP Domicile (हाँ, मूल निवासी)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsMpDomicile(false);
-                            setValidationError(null);
-                          }}
-                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            isMpDomicile === false
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          No, Other State (अन्य राज्य)
-                        </button>
-                      </div>
+                      <select value={domicileStateCode} onChange={event => { setDomicileStateCode(event.target.value); setValidationError(null); }} className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground">
+                        <option value="">Select domicile</option>
+                        {INDIA_JURISDICTIONS.filter(item => item.code !== 'IN').map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
+                      </select>
                     </div>
 
                     <div className="pt-2">
                       <label className="text-xs font-bold text-foreground block mb-2">
-                        Do you hold an active MP Employment Portal Registration (रोजगार पंजीयन)?
+                        Employment registrations or certificates held (optional)
                       </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHasMpRojgarPanjiyan(true);
-                            setValidationError(null);
-                          }}
-                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            hasMpRojgarPanjiyan === true
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          Yes, Active Registration (हाँ, पंजीयन है)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setHasMpRojgarPanjiyan(false);
-                            setValidationError(null);
-                          }}
-                          className={`p-3.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                            hasMpRojgarPanjiyan === false
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
-                              : 'border-border bg-card text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          No / Not Yet (नहीं / अभी नहीं)
-                        </button>
-                      </div>
+                      <input type="text" value={registrations} onChange={event => setRegistrations(event.target.value)} placeholder="e.g. MP_ROJGAR, UP_SEWAYOJAN (leave blank if none)" className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground font-mono" />
                     </div>
                   </div>
 
@@ -466,7 +410,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <div>
-                      <strong className="text-foreground font-semibold">Why we ask:</strong> Under MP GAD circulars, MP domicile is mandatory to claim horizontal and vertical category reservations. Active MP Rojgar Panjiyan is mandatory on the date of application for MPESB group posts.
+                      <strong className="text-foreground font-semibold">Why we ask:</strong> Each state and recruiting authority publishes its own domicile, reservation, and employment-registration rules. No MP rule is applied to another state unless that recruitment explicitly stores it.
                     </div>
                   </div>
                 </div>
@@ -514,7 +458,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <div>
-                      <strong className="text-foreground font-semibold">Statutory Rule:</strong> In Madhya Pradesh, SC/ST candidates receive +5 years relaxation; OBC (Non-Creamy Layer) receives +3 years; female candidates receive up to 38 years ceiling. EWS receives 0 years relaxation per state rules.
+                      <strong className="text-foreground font-semibold">Statutory rule:</strong> Age relaxations are read from each recruitment record. The engine does not reuse one state's relaxation matrix for another state.
                     </div>
                   </div>
                 </div>
@@ -588,7 +532,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                       <div>DOB: <strong>{dobInput || 'Not provided'}</strong></div>
                       <div>Gender: <strong>{selectedGender}</strong></div>
                       <div>Category: <strong>{selectedCategory}</strong></div>
-                      <div>Domicile: <strong>{isMpDomicile ? 'MP Resident' : 'Other State'}</strong></div>
+                      <div>Domicile: <strong>{jurisdictionName(domicileStateCode)}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -647,7 +591,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   Your Statutory Opportunities Breakdown
                 </h2>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Evaluated across {recruitments.length} published recruitments based on Madhya Pradesh state gazettes.
+                  Evaluated across {recruitments.length} published recruitments using each authority's stored official criteria.
                 </p>
               </div>
 
@@ -661,9 +605,9 @@ export default function EligibilityWizard({ recruitments }: Props) {
                           dob: dobInput,
                           gender: selectedGender,
                           qualification: selectedQualification,
-                          domicile: isMpDomicile ? 'Madhya Pradesh' : 'Other State',
+                          domicile: jurisdictionName(domicileStateCode),
                           category: selectedCategory,
-                          hasMpRojgarPanjiyan,
+                          registrations: registrations.split(',').map(value => value.trim()).filter(Boolean),
                           hasCpct: hasTechCert,
                           percentage: percentage ? Number(percentage) : undefined,
                           heightCm: heightCm ? Number(heightCm) : undefined,
@@ -681,7 +625,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                             vacancies: r.recruitment.totalVacancies,
                             minAge: r.recruitment.criteria?.minAge,
                             maxAge: r.recruitment.criteria?.maxAgeGeneral,
-                            url: r.recruitment.organisationUrl || 'https://esb.mp.gov.in',
+                            url: r.recruitment.organisationUrl,
                           })),
                         verificationOpportunities: results
                           .filter(r => r.overallStatus === 'NEEDS_VERIFICATION')
@@ -692,6 +636,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                             org: r.recruitment.organisationName,
                             reason: r.items.find(i => i.status === 'UNKNOWN')?.message || 'Candidate must self-verify physical or council criteria.',
                           })),
+                        ineligibleCount: results.filter(r => r.overallStatus === 'NOT_ELIGIBLE').length,
                       };
                       sessionStorage.setItem('nirnay_eval_report', JSON.stringify(reportData));
                     } catch (e) {
@@ -777,7 +722,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div>
                       <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        {r.recruitment.organisationName || 'MP State Authority'}
+                        {r.recruitment.organisationName || 'Government Authority'}
                       </span>
                       <h3 className="text-base sm:text-lg font-bold text-foreground">
                         {r.recruitment.title}

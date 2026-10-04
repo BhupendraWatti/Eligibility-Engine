@@ -1,5 +1,5 @@
 # ==============================================================================
-# NIRNAY MP Eligibility Engine - Production .gitignore
+# NIRNAY Eligibility Engine - Production .gitignore
 # Project Manager Standard: Comprehensive Zero-Leak & Repository Hygiene Policy
 # ==============================================================================
 
@@ -11,6 +11,7 @@ dist/
 build/
 out/
 .astro/
+.vite/
 .output/
 *.tsbuildinfo
 
@@ -21,6 +22,7 @@ out/
 .mf/
 wrangler.log*
 .cloudflare/
+.dev-server/
 
 # ------------------------------------------------------------------------------
 # 3. Node Dependencies & Package Managers
@@ -42,6 +44,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 *.log
+*.pid
+*.pid.lock
 
 # ------------------------------------------------------------------------------
 # 4. Environment Variables & Secrets (CRITICAL FOR ZERO TRUST SECURITY)
@@ -89,6 +93,8 @@ local.db*
 *.bak
 *.orig
 *.patch
+.eslintcache
+.stylelintcache
 
 # ------------------------------------------------------------------------------
 # 7. Operating System Artifacts
@@ -112,6 +118,9 @@ coverage/
 test-results/
 playwright-report/
 .playwright-mcp/
+playwright/.auth/
+*.har
+*.trace.zip
 blob-report/
 cypress/videos/
 cypress/screenshots/
@@ -122,19 +131,27 @@ cypress/screenshots/
 *.tmp
 *.temp
 *.tmp.*
+.tmp/
 .cache/
 .parcel-cache/
 .vinext/
+.vercel/
+.netlify/
 report.md
-*report*.md
-*REPORT*.md
 WEBSITE_AND_BACKEND_AUDIT.md
 ARCHITECTURE_AUDIT_AND_ROADMAP.md
 BACKEND_AUDIT.md
-*AUDIT*.md
-*audit*.md
 tmp/
 temp/
+
+# Python tooling used by local verification scripts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
 
 # Drizzle local meta folder (migrations/ and drizzle.config.ts remain tracked)
 drizzle/
@@ -154,5 +171,7 @@ backend.md
 openapi.json
 openapi.yaml
 testsprite_tests/
-Context.md 
 CLAUDE.md
+Eligibility Engine Multi State System Design.docx
+context.md
+*.py

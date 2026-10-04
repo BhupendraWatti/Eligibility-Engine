@@ -33,7 +33,7 @@ if (Astro.request.method === 'POST') {
     }
     stateId = resolveRequiredReference(stateId, states, 'state').id;
     if (!websiteUrl) {
-      websiteUrl = 'https://mp.gov.in';
+      throw new Error('Official organisation website URL is required.');
     } else if (!/^https?:\/\//i.test(websiteUrl)) {
       websiteUrl = `https://${websiteUrl}`;
     }
@@ -110,7 +110,7 @@ const organisations = rawOrganisations.map(org => {
   }
   return {
     ...org,
-    stateName: stateMap.get(org.stateId) || 'Madhya Pradesh',
+    stateName: stateMap.get(org.stateId) || 'Unknown jurisdiction',
     activeRecruitments: '—',
     domain: hostname,
     status: org.isActive ? 'Active' : 'Inactive',
@@ -322,7 +322,7 @@ const inactiveCount = organisations.length - activeCount;
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Organisation Name *</label>
-            <input type="text" id="addOrgName" name="name" required placeholder="Madhya Pradesh Public Service Commission" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" id="addOrgName" name="name" required placeholder="e.g. State Public Service Commission" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
@@ -347,7 +347,7 @@ const inactiveCount = organisations.length - activeCount;
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Official Website Domain *</label>
-            <input type="url" name="websiteUrl" required placeholder="https://mppsc.mp.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="url" name="websiteUrl" required placeholder="https://official-authority.gov.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">

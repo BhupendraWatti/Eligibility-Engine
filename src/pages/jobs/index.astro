@@ -96,8 +96,8 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
 ---
 
 <BaseLayout
-  title="Government Jobs in Madhya Pradesh — NIRNAY"
-  description="Browse open, upcoming and recently closed Madhya Pradesh government opportunities with deterministic criteria filters."
+  title="Government Jobs Across India — NIRNAY"
+  description="Browse open, upcoming, and recently closed central and state government opportunities with verified official links."
 >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
@@ -110,7 +110,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
     <!-- Page Title & Search Header -->
     <div class="mb-8">
       <h1 class="text-2xl sm:text-3xl font-bold text-foreground">
-        Government Jobs in Madhya Pradesh
+        Government Jobs Across India
       </h1>
       <p class="text-xs sm:text-sm text-muted-foreground mt-1">
         Browse open, upcoming and verified state opportunities from official gazettes.
@@ -344,7 +344,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
                     </div>
                     <div>
                       <span class="text-muted-foreground block text-[10px] uppercase font-semibold">State Domicile</span>
-                      <span class="font-medium text-foreground">{job.criteria.requiresMpDomicile ? 'MP Resident' : 'All India'}</span>
+                      <span class="font-medium text-foreground">{job.criteria.requiresMpDomicile ? `${job.stateCode || 'State'} domicile` : 'All India'}</span>
                     </div>
                   </div>
 

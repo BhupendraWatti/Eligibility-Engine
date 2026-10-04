@@ -1,7 +1,7 @@
 PRAGMA foreign_keys = OFF;
 
 -- ==============================================================================
--- RozgarSetu MP: Master Seed Data (Comprehensive State Government Hierarchy)
+-- NIRNAY: Initial MP reference dataset; nationwide jurisdictions are added by migration 0007.
 -- ==============================================================================
 
 -- 1. States

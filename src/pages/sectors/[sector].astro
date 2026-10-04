@@ -35,7 +35,7 @@ const isMedical = sector ? sector.slug.includes('health') : false;
 
 {!sector ? (
   <BaseLayout
-    title="Sector Not Found — NIRNAY MP"
+    title="Sector Not Found"
     description="The requested public sector or department profile could not be found."
   >
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-sector-not-found>
@@ -58,8 +58,8 @@ const isMedical = sector ? sector.slug.includes('health') : false;
   </BaseLayout>
 ) : (
   <BaseLayout
-    title={`${sector.name} Jobs in Madhya Pradesh — NIRNAY MP`}
-    description={`Explore open and upcoming ${sector.name} opportunities in Madhya Pradesh, eligibility rules, vacancies, and official recruitment notifications.`}
+    title={`${sector.name} Government Jobs — NIRNAY`}
+    description={`Explore open and upcoming ${sector.name} opportunities across India, eligibility rules, vacancies, and official recruitment notifications.`}
   >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-sector-profile={sector.slug} data-sector-title={sector.name}>
     <!-- Breadcrumb -->
@@ -78,7 +78,7 @@ const isMedical = sector ? sector.slug.includes('health') : false;
           Sector Discovery Hub
         </span>
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-          {sector.name} in Madhya Pradesh
+          {sector.name} Government Jobs
         </h1>
         <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed">
           Explore open and upcoming opportunities, statutory qualifications, age relaxations, and official government gazette notices.
@@ -200,10 +200,10 @@ const isMedical = sector ? sector.slug.includes('health') : false;
             Source & Statutory Policy
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-3">
-            All recruitment criteria for {sector.name} adhere strictly to official service rules published in the Madhya Pradesh Gazette.
+            Every recruitment is evaluated using the service rules and official notification stored for that specific authority and jurisdiction.
           </p>
           <p class="text-xs text-muted-foreground leading-relaxed">
-            Statutory age relaxations for SC/ST (+5 yrs), OBC (+3–5 yrs), and Women (+5 yrs) domiciled in Madhya Pradesh are calculated automatically in our engine.
+            Category, gender, domicile, and age-relaxation rules are calculated per recruitment; values are never copied from one state to another.
           </p>
         </div>
 
@@ -285,10 +285,10 @@ const isMedical = sector ? sector.slug.includes('health') : false;
     <!-- Bottom Editorial Section -->
     <div class="mt-12 pt-8 border-t border-border">
       <h3 class="text-lg font-bold text-foreground mb-2">
-        About {sector.name} Recruitments in Madhya Pradesh
+        About {sector.name} Recruitments
       </h3>
       <p class="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-4xl">
-        Recruitment across {sector.name} is conducted through gazetted examinations notified by statutory agencies including the Madhya Pradesh Employees Selection Board (MPESB) and Madhya Pradesh Public Service Commission (MPPSC). Candidates are mandated to hold an active registration with the Madhya Pradesh Rojgar Portal (MP Rojgar Panjiyan) before the closing date.
+        Recruitment in this sector is conducted by central, state, and union-territory authorities. Domicile and employment-registration requirements are shown only when the official notification requires them.
       </p>
     </div>
   </div>

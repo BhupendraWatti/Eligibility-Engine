@@ -1,5 +1,6 @@
 export type RuleStatus = 'MATCH' | 'FAIL' | 'UNKNOWN';
 export type OverallEligibilityStatus = 'ELIGIBLE' | 'NOT_ELIGIBLE' | 'NEEDS_VERIFICATION';
+import { jurisdictionName } from '../data/india-jurisdictions';
 
 export interface UserEligibilityProfile {
   dob?: string; // 'YYYY-MM-DD'
@@ -118,13 +119,13 @@ export function evaluateEligibility(
     }
   }
 
-  // 2. MP Domicile Rule
+  // 2. Recruitment-jurisdiction domicile rule (legacy MP flags remain API-compatible).
   if (criteria.requiresMpDomicile || criteria.domicileStateCode) {
     const requiredState = (criteria.domicileStateCode || 'MP').toUpperCase();
     const candidateState = user.domicileStateCode?.toUpperCase() || (user.isMpDomicile === true ? 'MP' : user.isMpDomicile === false ? 'OTHER' : undefined);
     if (!candidateState) {
       items.push({
-        ruleName: 'MP Domicile',
+        ruleName: 'State Domicile',
         status: 'UNKNOWN',
         userValue: 'Not provided',
         requirement: `Must hold ${requiredState} domicile`,
@@ -132,18 +133,18 @@ export function evaluateEligibility(
       });
     } else if (candidateState !== requiredState) {
       items.push({
-        ruleName: 'MP Domicile',
+        ruleName: 'State Domicile',
         status: 'FAIL',
-        userValue: 'No',
-        requirement: `Must hold ${requiredState} domicile`,
-        message: `This recruitment requires ${requiredState} domicile.`,
+        userValue: jurisdictionName(candidateState),
+        requirement: `Must hold ${jurisdictionName(requiredState)} domicile`,
+        message: `This recruitment requires domicile of ${jurisdictionName(requiredState)}.`,
       });
     } else {
       items.push({
-        ruleName: 'MP Domicile',
+        ruleName: 'State Domicile',
         status: 'MATCH',
-        userValue: 'Yes',
-        requirement: `Must hold ${requiredState} domicile`,
+        userValue: jurisdictionName(candidateState),
+        requirement: `Must hold ${jurisdictionName(requiredState)} domicile`,
         message: 'Domicile requirement satisfied.',
       });
     }
@@ -182,7 +183,7 @@ export function evaluateEligibility(
     }
     // UR: no relaxation (maxAllowed stays as maxAgeGeneral)
 
-    // Female relaxation — applied as max(category-relaxed, female-relaxed) per MP standard
+    // Female relaxation is stored per recruitment and combined without assuming a state policy.
     if (user.gender === 'FEMALE' && criteria.ageRelaxationFemale > 0) {
       const femaleMax = criteria.maxAgeGeneral + criteria.ageRelaxationFemale;
       if (femaleMax > maxAllowed) maxAllowed = femaleMax;
@@ -307,7 +308,7 @@ export function evaluateEligibility(
     }
   }
 
-  // 6. MP Rojgar Panjiyan Rule
+  // 6. Recruitment-specific employment exchange/portal registration.
   if (criteria.requiresMpEmploymentReg) {
     const registration = criteria.employmentRegistrationLabel || 'MP_ROJGAR';
     const hasRegistration = user.registrations
@@ -315,7 +316,7 @@ export function evaluateEligibility(
       : user.hasMpRojgarPanjiyan;
     if (hasRegistration === undefined) {
       items.push({
-        ruleName: 'MP Rojgar Panjiyan',
+        ruleName: 'Employment Registration',
         status: 'UNKNOWN',
         userValue: 'Not provided',
         requirement: `Active ${registration} registration`,
@@ -323,15 +324,15 @@ export function evaluateEligibility(
       });
     } else if (!hasRegistration) {
       items.push({
-        ruleName: 'MP Rojgar Panjiyan',
+        ruleName: 'Employment Registration',
         status: 'FAIL',
         userValue: 'No',
-        requirement: 'Active registration required',
-        message: 'Active MP Rojgar Panjiyan registration is legally mandatory.',
+        requirement: `Active ${registration} registration`,
+        message: `Active ${registration} registration is required by this recruitment.`,
       });
     } else {
       items.push({
-        ruleName: 'MP Rojgar Panjiyan',
+        ruleName: 'Employment Registration',
         status: 'MATCH',
         userValue: 'Yes',
         requirement: 'Active registration',

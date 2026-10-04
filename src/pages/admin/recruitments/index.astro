@@ -2,7 +2,7 @@
 // src/pages/admin/recruitments/index.astro (FlowStep Screen 21)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
-import { getAllActiveRecruitments, updateRecruitmentAtomic } from '../../../db/queries';
+import { getAllActiveRecruitments, updateRecruitmentStatus } from '../../../db/queries';
 
 let statusFeedback = '';
 if (Astro.request.method === 'POST') {
@@ -10,16 +10,17 @@ if (Astro.request.method === 'POST') {
     const formData = await Astro.request.formData();
     const action = formData.get('_action')?.toString();
     const selectedIds = formData.getAll('selectedIds').map(id => id.toString());
+    if (!Astro.locals.adminEmail) throw new Error('Admin identity is required.');
 
     if (selectedIds.length > 0) {
       if (action === 'bulk_publish') {
         for (const id of selectedIds) {
-          await updateRecruitmentAtomic(id, { status: 'PUBLISHED' });
+          await updateRecruitmentStatus(id, 'PUBLISHED', Astro.locals.adminEmail);
         }
         statusFeedback = `Successfully published ${selectedIds.length} recruitment record(s).`;
       } else if (action === 'bulk_archive') {
         for (const id of selectedIds) {
-          await updateRecruitmentAtomic(id, { status: 'ARCHIVED', lifecycleStatus: 'EXPIRED' });
+          await updateRecruitmentStatus(id, 'ARCHIVED', Astro.locals.adminEmail);
         }
         statusFeedback = `Successfully archived ${selectedIds.length} recruitment record(s).`;
       }
@@ -273,7 +274,7 @@ const filterOptions = [
                       </div>
                     </td>
                     <td class="py-3 px-3 font-medium text-zinc-800 font-mono">
-                      {r.organisationShortName || 'MPESB'}
+                      {r.organisationShortName || 'Government authority'}
                     </td>
                     <td class="py-3 px-3 text-zinc-600">
                       {r.postTitle || 'General Cadre'}

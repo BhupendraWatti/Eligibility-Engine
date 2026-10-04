@@ -50,7 +50,7 @@ const defaultSyllabus = post?.syllabus || (
 ---
 
 {!post ? (
-  <BaseLayout title="Canonical Post Not Found — NIRNAY MP">
+  <BaseLayout title="Canonical Post Not Found">
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-post-not-found>
       <div class="size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
         !
@@ -71,8 +71,8 @@ const defaultSyllabus = post?.syllabus || (
   </BaseLayout>
 ) : (
   <BaseLayout
-    title={`${post.title} — Career, Eligibility & Pay Guide | NIRNAY MP`}
-    description={`Comprehensive canonical guide to ${post.title} in Madhya Pradesh. Pay scale, statutory qualifications, age relaxation, syllabus, and active recruitment cycles.`}
+    title={`${post.title} — Career, Eligibility & Pay Guide`}
+    description={`Canonical guide to ${post.title}. Review pay scale, qualifications, age rules, syllabus, and linked government recruitment cycles.`}
   >
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <!-- Breadcrumb -->
@@ -91,7 +91,7 @@ const defaultSyllabus = post?.syllabus || (
             Canonical State Cadre Guide
           </span>
           <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            {post.sectorName || 'Government of Madhya Pradesh'}
+            {post.sectorName || 'Government Service'}
           </span>
           <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
             {post.departmentName || 'State Department'}
@@ -164,7 +164,7 @@ const defaultSyllabus = post?.syllabus || (
               <div class="p-4 rounded-xl bg-muted/40 border border-border">
                 <strong class="text-foreground block font-semibold mb-1">Cadre Pay Scale:</strong>
                 <p class="text-muted-foreground font-mono font-semibold text-primary">
-                  {post.payScale || 'As per Madhya Pradesh 7th Pay Matrix'}
+                  {post.payScale || 'As specified by the recruiting authority'}
                 </p>
               </div>
             </div>
@@ -213,7 +213,7 @@ const defaultSyllabus = post?.syllabus || (
               Check Your Eligibility
             </h3>
             <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-              Verify if your qualification, age, domicile, and category qualify for {post.title} recruitments in Madhya Pradesh.
+              Verify whether your qualification, age, domicile, and category match active {post.title} recruitments.
             </p>
             <a
               href="/eligibility-checker"
@@ -237,7 +237,7 @@ const defaultSyllabus = post?.syllabus || (
             </div>
             <div class="flex justify-between">
               <span>State:</span>
-              <span class="font-semibold text-foreground">Madhya Pradesh</span>
+              <span class="font-semibold text-foreground">Varies by recruitment jurisdiction</span>
             </div>
           </div>
         </div>

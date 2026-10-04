@@ -70,8 +70,8 @@ recruitments.forEach((r) => {
 ---
 
 <BaseLayout
-  title="NIRNAY — Madhya Pradesh Government Opportunities Discovery Platform"
-  description="Explore Madhya Pradesh government opportunities, check eligibility, track important dates and access official recruitment links. Free, deterministic eligibility calculator."
+  title="NIRNAY — Government Jobs & Eligibility Across India"
+  description="Explore verified central and state government recruitments across India, check eligibility, track important dates, and follow direct official job-post links."
 >
   <!-- Hero Section -->
   <section class="bg-gradient-to-b from-blue-50/60 via-slate-50/40 to-background border-b border-border">
@@ -80,16 +80,16 @@ recruitments.forEach((r) => {
       <div class="flex flex-col items-start gap-6">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide">
           <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-          <span>Madhya Pradesh State Advisory</span>
+          <span>Central & State Government Recruitment</span>
         </div>
 
         <h1 class="font-bold text-foreground text-4xl sm:text-5xl lg:text-6xl leading-[1.08] tracking-tight max-w-2xl">
-          Find MP government jobs <br class="hidden sm:inline" />
+          Find government jobs across India <br class="hidden sm:inline" />
           <span class="text-primary">you may be eligible for.</span>
         </h1>
 
         <p class="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
-          Deterministic statutory criteria evaluation, verified official state gazette notices, and direct application links across Madhya Pradesh.
+          Deterministic criteria evaluation, verified official notifications, and direct application links for central and state recruitments.
         </p>
 
         <!-- CTA Buttons: 3 Core Tasks -->
@@ -181,7 +181,7 @@ recruitments.forEach((r) => {
           <input
             type="search"
             name="q"
-            placeholder="Search jobs, exams, departments or organisations (e.g. Police, Forest, MPESB)"
+            placeholder="Search jobs, exams, states or organisations (e.g. SSC, Police, Teaching)"
             class="w-full bg-transparent text-foreground text-sm sm:text-base outline-none py-2 pr-3"
           />
           <button
@@ -241,7 +241,7 @@ recruitments.forEach((r) => {
                 {item.presentation?.label || 'Closing Soon'}
               </span>
               <span class="text-[11px] text-muted-foreground font-medium">
-                {item.organisationShortName || item.authorityCode || 'MPESB'}
+                {item.organisationShortName || item.authorityCode || 'Government Authority'}
               </span>
             </div>
 
@@ -293,7 +293,7 @@ recruitments.forEach((r) => {
           Explore by sector
         </h2>
         <p class="text-xs sm:text-sm text-muted-foreground mt-2">
-          Navigate Madhya Pradesh departments, uniformed forces, administrative wings, and health posts.
+          Navigate government sectors including administration, uniformed services, education, health, railways, banking, and technical posts.
         </p>
       </div>
 
@@ -370,7 +370,7 @@ recruitments.forEach((r) => {
           Not sure what you can apply for?
         </h3>
         <p class="text-xs sm:text-sm text-muted-foreground">
-          Enter your age, highest qualification, and domicile details once. Our deterministic engine computes your legal eligibility across verified Madhya Pradesh gazetted recruitments in milliseconds.
+          Enter your age, qualification, and domicile once. The engine applies each recruitment's own stored rules instead of assuming that one state's policy applies everywhere.
         </p>
       </div>
 

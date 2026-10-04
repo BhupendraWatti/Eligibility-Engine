@@ -36,7 +36,7 @@ if (Astro.request.method === 'POST') {
       try {
         new URL(sourceUrl);
       } catch {
-        throw new Error('Please provide a valid official document URL (e.g. https://esb.mp.gov.in/...).');
+        throw new Error('Please provide a valid official government document URL.');
       }
 
       createdDocumentId = await createDocument({
@@ -425,7 +425,7 @@ const filterTags = [
               type="url"
               name="sourceUrl"
               required
-              placeholder="https://esb.mp.gov.in/notifications/..."
+              placeholder="https://official-authority.gov.in/notifications/..."
               class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
             />
           </div>

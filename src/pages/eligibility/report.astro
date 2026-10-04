@@ -4,8 +4,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout
-  title="Eligibility Assessment Report — NIRNAY MP"
-  description="Official document preview of evaluated Madhya Pradesh recruitment opportunities matching your profile."
+  title="Eligibility Assessment Report"
+  description="Printable assessment of central and state government recruitment opportunities evaluated against your profile."
   isReportPage={true}
 >
   <style>
@@ -52,7 +52,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div>
             <div class="flex items-baseline gap-2 mb-1">
               <span class="font-bold text-xl tracking-[0.18em] text-foreground">NIRNAY</span>
-              <span class="text-xs text-muted-foreground uppercase font-medium">Madhya Pradesh State Advisory</span>
+              <span class="text-xs text-muted-foreground uppercase font-medium">Independent Eligibility Advisory</span>
             </div>
             <h1 class="text-2xl font-bold text-foreground">
               Candidate Eligibility Assessment
@@ -64,8 +64,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
           <div class="text-right text-xs">
             <span class="text-muted-foreground block">Evaluation Timestamp</span>
-            <span id="report-date" class="font-mono font-bold text-foreground">21 September 2026</span>
-            <span id="report-id" class="text-[10px] text-muted-foreground block mt-1">ID: NIR-2026-8842</span>
+            <span id="report-date" class="font-mono font-bold text-foreground">No active evaluation</span>
+            <span id="report-id" class="text-[10px] text-muted-foreground block mt-1">Start from the eligibility calculator</span>
           </div>
         </div>
 
@@ -77,27 +77,27 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border text-xs">
             <div>
               <span class="text-muted-foreground block">Age:</span>
-              <span id="profile-age" class="font-bold text-foreground">21 years</span>
+              <span id="profile-age" class="font-bold text-foreground">—</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Highest Qualification:</span>
-              <span id="profile-qualification" class="font-bold text-foreground">Graduation (Degree)</span>
+              <span id="profile-qualification" class="font-bold text-foreground">—</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Domicile:</span>
-              <span id="profile-domicile" class="font-bold text-foreground">Madhya Pradesh</span>
+              <span id="profile-domicile" class="font-bold text-foreground">—</span>
             </div>
             <div>
               <span class="text-muted-foreground block">Social Category:</span>
-              <span id="profile-category" class="font-bold text-foreground">General (UR)</span>
+              <span id="profile-category" class="font-bold text-foreground">—</span>
             </div>
             <div>
-              <span class="text-muted-foreground block">MP Rojgar Panjiyan:</span>
-              <span id="profile-panjiyan" class="font-bold text-emerald-700">Active</span>
+              <span class="text-muted-foreground block">Employment Registration:</span>
+              <span id="profile-panjiyan" class="font-bold text-foreground">—</span>
             </div>
             <div>
               <span class="text-muted-foreground block">CPCT / Technical:</span>
-              <span id="profile-cpct" class="font-bold text-amber-700">Self-certified</span>
+              <span id="profile-cpct" class="font-bold text-foreground">—</span>
             </div>
           </div>
         </div>
@@ -109,15 +109,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           </h2>
           <div class="grid grid-cols-3 gap-3">
             <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-center">
-              <span id="count-eligible" class="text-2xl font-bold font-mono text-emerald-700 block">4</span>
+              <span id="count-eligible" class="text-2xl font-bold font-mono text-emerald-700 block">0</span>
               <span class="text-xs font-semibold text-emerald-800">Statutory Eligible</span>
             </div>
             <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-center">
-              <span id="count-verification" class="text-2xl font-bold font-mono text-amber-700 block">2</span>
+              <span id="count-verification" class="text-2xl font-bold font-mono text-amber-700 block">0</span>
               <span class="text-xs font-semibold text-amber-800">Needs Verification</span>
             </div>
             <div class="p-3.5 rounded-xl border border-border bg-muted/40 text-center">
-              <span id="count-ineligible" class="text-2xl font-bold font-mono text-muted-foreground block">3</span>
+              <span id="count-ineligible" class="text-2xl font-bold font-mono text-muted-foreground block">0</span>
               <span class="text-xs font-semibold text-muted-foreground">Ineligible</span>
             </div>
           </div>
@@ -129,7 +129,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             3. Verified Eligible Opportunities
           </h2>
           <div id="eligible-list" class="space-y-3">
-            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+            <p class="p-4 rounded-xl border border-dashed border-border text-xs text-muted-foreground">Run the eligibility calculator to populate this report from current recruitment records.</p>
+            <div class="hidden p-3.5 rounded-xl border border-border bg-card items-center justify-between text-xs" aria-hidden="true">
               <div>
                 <a href="/recruitments/mp-police-constable-recruitment-2026" class="font-bold text-foreground hover:text-primary block">
                   MP Police Constable Recruitment 2026
@@ -142,7 +143,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               </a>
             </div>
 
-            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+            <div class="hidden p-3.5 rounded-xl border border-border bg-card items-center justify-between text-xs" aria-hidden="true">
               <div>
                 <a href="/recruitments/mp-assistant-grade-3-recruitment-2026" class="font-bold text-foreground hover:text-primary block">
                   Assistant Grade-III & Steno-Typist Combined Recruitment 2026
@@ -155,7 +156,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               </a>
             </div>
 
-            <div class="p-3.5 rounded-xl border border-border bg-card flex items-center justify-between text-xs">
+            <div class="hidden p-3.5 rounded-xl border border-border bg-card items-center justify-between text-xs" aria-hidden="true">
               <div>
                 <a href="/recruitments/mppsc-state-service-2026" class="font-bold text-foreground hover:text-primary block">
                   MPPSC State Services Examination (SSE) 2026
@@ -176,7 +177,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             4. Opportunities Requiring Self-Verification
           </h2>
           <div id="verification-list" class="space-y-3">
-            <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 text-xs">
+            <p class="p-4 rounded-xl border border-dashed border-border text-xs text-muted-foreground">No active evaluation is loaded.</p>
+            <div class="hidden p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 text-xs" aria-hidden="true">
               <div class="flex items-center justify-between mb-1">
                 <a href="/recruitments/mp-forest-guard-recruitment-2026" class="font-bold text-foreground hover:text-primary">
                   MP Forest Guard & Jail Prahari Combined Recruitment 2026
@@ -191,7 +193,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <!-- Statutory Disclaimer -->
         <div class="pt-6 border-t border-border text-center">
           <p class="text-xs text-muted-foreground italic max-w-lg mx-auto">
-            "This report is generated deterministically from published state gazettes and candidate-provided inputs. Candidates are advised to independently verify all clauses against the official advertisement before submitting applications."
+            "This report is generated deterministically from stored official recruitment rules and candidate-provided inputs. Candidates should independently verify every clause against the linked official advertisement before applying."
           </p>
         </div>
       </div>
@@ -239,32 +241,26 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           if (banner) banner.classList.remove('hidden');
 
           if (data.reportId) document.getElementById('report-id').textContent = `ID: ${data.reportId}`;
-          if (data.evaluatedAt) {
-            const d = new Date(data.evaluatedAt);
+          if (data.timestamp) {
+            const d = new Date(data.timestamp);
             document.getElementById('report-date').textContent = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
           }
 
           if (data.profile.dob) document.getElementById('profile-age').textContent = data.profile.dob;
-          if (data.profile.qualificationLevel) {
-            const qualText = data.profile.degree ? `${data.profile.qualificationLevel} (${data.profile.degree})` : data.profile.qualificationLevel;
+          if (data.profile.qualification) {
+            const qualText = data.profile.degree ? `${data.profile.qualification} (${data.profile.degree})` : data.profile.qualification;
             document.getElementById('profile-qualification').textContent = qualText;
           }
-          if (data.profile.isMpDomicile !== undefined) {
-            document.getElementById('profile-domicile').textContent = data.profile.isMpDomicile ? 'Madhya Pradesh (Resident)' : 'Other Indian State';
-          }
+          if (data.profile.domicile) document.getElementById('profile-domicile').textContent = data.profile.domicile;
           if (data.profile.category) document.getElementById('profile-category').textContent = `${data.profile.category} Category`;
-          if (data.profile.hasMpRojgarPanjiyan !== undefined) {
-            document.getElementById('profile-panjiyan').textContent = data.profile.hasMpRojgarPanjiyan ? 'Active & Registered' : 'Not Registered';
-          }
+          if (Array.isArray(data.profile.registrations)) document.getElementById('profile-panjiyan').textContent = data.profile.registrations.join(', ') || 'None provided';
           if (data.profile.hasCpct !== undefined) {
             document.getElementById('profile-cpct').textContent = data.profile.hasCpct ? 'CPCT Scorecard Available' : 'None';
           }
 
-          if (data.counts) {
-            if (data.counts.eligible !== undefined) document.getElementById('count-eligible').textContent = data.counts.eligible;
-            if (data.counts.verification !== undefined) document.getElementById('count-verification').textContent = data.counts.verification;
-            if (data.counts.ineligible !== undefined) document.getElementById('count-ineligible').textContent = data.counts.ineligible;
-          }
+          document.getElementById('count-eligible').textContent = String(data.eligibleOpportunities?.length || 0);
+          document.getElementById('count-verification').textContent = String(data.verificationOpportunities?.length || 0);
+          document.getElementById('count-ineligible').textContent = String(data.ineligibleCount || 0);
 
           // Populate eligible list
           if (data.eligibleOpportunities && data.eligibleOpportunities.length > 0) {
@@ -283,7 +279,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                 meta.className = 'text-muted-foreground';
                 meta.textContent = `${opp.org || 'Government authority'} · ${opp.vacancies ? `${Number(opp.vacancies).toLocaleString()} Vacancies` : ''} · Age ${opp.minAge || 18}–${opp.maxAge || 40}`;
                 const official = document.createElement('a');
-                official.href = opp.url || '#';
+                official.href = opp.url || `/recruitments/${encodeURIComponent(opp.slug)}`;
                 official.target = '_blank';
                 official.rel = 'noopener noreferrer';
                 official.className = 'text-primary font-semibold hover:underline';

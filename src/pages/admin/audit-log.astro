@@ -4,68 +4,6 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
 import { getAuditLogs } from '../../db/queries';
 
-const unusedDemoAuditEntries = [
-  {
-    id: 'LOG-8941',
-    timestamp: '17 Sep 2026 18:32',
-    user: 'Aarav Mehta',
-    role: 'Super Admin',
-    action: 'Updated',
-    record: 'MP Police Constable Recruitment 2026',
-    field: 'Application deadline',
-    oldVal: '30 Sep 2026',
-    newVal: '06 Oct 2026',
-    reason: 'Departmental extension notice published in state gazette.',
-  },
-  {
-    id: 'LOG-8940',
-    timestamp: '17 Sep 2026 17:04',
-    user: 'Priya Shah',
-    role: 'Reviewer',
-    action: 'Verified',
-    record: 'Assistant Grade III Recruitment 2026',
-    field: 'Source verification status',
-    oldVal: 'Needs verification',
-    newVal: 'Verified',
-    reason: 'Verified official High Court notification PDF clauses.',
-  },
-  {
-    id: 'LOG-8939',
-    timestamp: '16 Sep 2026 11:20',
-    user: 'Aarav Mehta',
-    role: 'Super Admin',
-    action: 'Published',
-    record: 'Forest Guard Recruitment 2026',
-    field: 'Catalog lifecycle status',
-    oldVal: 'Review',
-    newVal: 'Published',
-    reason: 'All 4 verification checks passed with official rulebook.',
-  },
-  {
-    id: 'LOG-8938',
-    timestamp: '15 Sep 2026 14:10',
-    user: 'Rohan Verma',
-    role: 'Editor',
-    action: 'Created',
-    record: 'Lab Technician Recruitment 2026',
-    field: 'Initial ingestion',
-    oldVal: '—',
-    newVal: 'Draft staged',
-    reason: 'Initial data entry from Health Department preliminary notice.',
-  },
-  {
-    id: 'LOG-8937',
-    timestamp: '14 Sep 2026 09:45',
-    user: 'Aarav Mehta',
-    role: 'Super Admin',
-    action: 'Updated',
-    record: 'Canonical Post: Constable',
-    field: 'Default maximum age bounds',
-    oldVal: '30 yrs',
-    newVal: '33 yrs',
-    reason: 'Cabinet decision granting 3-year uniform age relaxation.',
-  },
-];
 let auditLoadError = '';
 const auditLogs = await getAuditLogs().catch(error => {
   console.error('[Audit log] Failed to load entries:', error);
@@ -87,6 +25,13 @@ const auditEntries = auditLogs.map(log => ({
 
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? true;
 const wantsJson = Astro.url.searchParams.get('format') === 'json' || (!acceptsHtml && Astro.request.headers.get('accept')?.includes('application/json'));
+const wantsCsv = Astro.url.searchParams.get('format') === 'csv';
+
+if (wantsCsv) {
+  const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const rows = [['Timestamp','Operator','Action','Record','Field','Previous','New','Reason'], ...auditEntries.map(log => [log.timestamp, log.user, log.action, log.record, log.field, log.oldVal, log.newVal, log.reason])];
+  return new Response(rows.map(row => row.map(csvCell).join(',')).join('\r\n'), { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="nirnay-audit-log.csv"' } });
+}
 
 if (wantsJson) {
   return new Response(JSON.stringify(auditEntries), {
@@ -120,14 +65,13 @@ if (wantsJson) {
         </p>
       </div>
 
-      <button
-        type="button"
-        id="exportCsvBtn"
+      <a
+        href="/admin/audit-log?format=csv"
         class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>Export CSV</span>
-      </button>
+      </a>
     </div>
 
     <!-- Traceable Audit Table (FlowStep Screen 30) -->
@@ -203,7 +147,7 @@ if (wantsJson) {
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
             <h2 class="text-base font-bold text-zinc-950 font-heading">Change Details</h2>
-            <p class="text-xs text-zinc-500" id="drawerLogId">LOG-8941</p>
+            <p class="text-xs text-zinc-500" id="drawerLogId">Select an audit entry</p>
           </div>
           <button type="button" id="closeDetailsDrawerBtn" class="size-8 rounded-lg text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 flex items-center justify-center">
             &times;
@@ -213,24 +157,24 @@ if (wantsJson) {
         <div class="space-y-3.5 text-xs">
           <div>
             <span class="text-zinc-400 block text-[10px] uppercase tracking-wider font-mono">Actor</span>
-            <span class="font-bold text-zinc-900" id="drawerActor">Aarav Mehta (Super Admin)</span>
+            <span class="font-bold text-zinc-900" id="drawerActor">—</span>
           </div>
           <div>
             <span class="text-zinc-400 block text-[10px] uppercase tracking-wider font-mono">Timestamp</span>
-            <span class="font-mono text-zinc-800" id="drawerTime">17 Sep 2026 18:32 IST</span>
+            <span class="font-mono text-zinc-800" id="drawerTime">—</span>
           </div>
           <div>
             <span class="text-zinc-400 block text-[10px] uppercase tracking-wider font-mono">Record</span>
-            <span class="font-medium text-zinc-900" id="drawerRecord">MP Police Constable Recruitment 2026</span>
+            <span class="font-medium text-zinc-900" id="drawerRecord">—</span>
           </div>
           <div>
             <span class="text-zinc-400 block text-[10px] uppercase tracking-wider font-mono">Field Modified</span>
-            <span class="font-mono text-zinc-900" id="drawerField">Application deadline</span>
+            <span class="font-mono text-zinc-900" id="drawerField">—</span>
           </div>
           <div>
             <span class="text-zinc-400 block text-[10px] uppercase tracking-wider font-mono">Administrative Justification</span>
             <p class="mt-1 p-3 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 leading-relaxed" id="drawerReason">
-              Departmental extension notice published in state gazette.
+              Select a row to inspect the recorded change.
             </p>
           </div>
         </div>
@@ -267,6 +211,5 @@ if (wantsJson) {
 
     document.getElementById('closeDetailsDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
     document.getElementById('dismissDetailsBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('exportCsvBtn')?.addEventListener('click', () => alert('Exporting audit log to CSV...'));
   </script>
 </AdminLayout>

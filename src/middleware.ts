@@ -68,7 +68,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       return new Response(
         `<!DOCTYPE html>
         <html>
-          <head><title>Access Restricted | RozgarSetu MP</title></head>
+          <head><title>Access Restricted | NIRNAY</title></head>
           <body style="font-family: sans-serif; display: grid; place-content: center; height: 100vh; text-align: center; background: #0f172a; color: #f8fafc;">
             <h1>403 — Unauthorized</h1>
             <p>Admin portal access is restricted to verified administrators via Cloudflare Zero Trust.</p>

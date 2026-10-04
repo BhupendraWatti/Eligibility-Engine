@@ -95,7 +95,7 @@ const activeSector = resolveSectorRoute(selectedSectorSlug, sectors) || sectors[
   id: '1',
   name: 'Police',
   slug: 'police',
-  description: 'Law enforcement, armed constabulary, and investigation cadres across Madhya Pradesh.',
+  description: 'Law enforcement, armed constabulary, and investigation cadres across government jurisdictions.',
 };
 
 const linkedPosts = posts.filter(p => p.sectorId === activeSector.id);
@@ -266,7 +266,7 @@ const standardPayBands = [
           </div>
 
           <p class="text-xs text-zinc-600 leading-relaxed">
-            {activeSector.description || 'Public service domain covering canonical recruitment roles across Madhya Pradesh.'}
+            {activeSector.description || 'Public service domain covering canonical recruitment roles across India.'}
           </p>
 
           <!-- Protection Safeguard Callout -->

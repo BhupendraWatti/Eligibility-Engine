@@ -91,7 +91,7 @@ allRecruitments.forEach((job) => {
       org: job.organisationShortName,
       desc: p.isPast
         ? `Examination concluded across state centers. Model answer key scrutiny underway.`
-        : `Statewide competitive examination scheduled across designated MP centers.`,
+        : `Competitive examination scheduled across the authority's designated centers.`,
       status: p.label,
       badgeClass: p.badgeClass,
       type: 'Written Exam (CBT)',
@@ -115,8 +115,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
 ---
 
 <BaseLayout
-  title="Recruitment & Exam Calendar 2026 — NIRNAY MP"
-  description="Chronological schedule of Madhya Pradesh government recruitment application deadlines, upcoming drive registrations, and CBT exam dates."
+  title="Government Recruitment & Exam Calendar 2026 — NIRNAY"
+  description="Chronological schedule of central and state government recruitment deadlines, registrations, and examination dates."
 >
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
     <!-- Breadcrumb -->
@@ -137,7 +137,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
           Recruitment & Examination Calendar
         </h1>
         <p class="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
-          Verified timeline of active application deadlines, upcoming opportunities, and scheduled examinations across Madhya Pradesh.
+          Verified timeline of active application deadlines, upcoming opportunities, and scheduled government examinations across India.
         </p>
       </div>
 
@@ -450,7 +450,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
             How dates are tracked
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-            Dates are ingested directly from official Madhya Pradesh state recruitment notifications. Milestones reflect application opening, closing cutoffs, and Computer Based Test (CBT) schedules.
+            Dates are taken from official recruitment notifications and authority portals. Always confirm the final deadline on the linked official job post.
           </p>
           <div class="pt-2 border-t border-border space-y-2 text-xs">
             <div class="flex items-center gap-2">

@@ -2,7 +2,38 @@
 // src/pages/admin/settings.astro (FlowStep Screen 31)
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
-import { getAdminUsers } from '../../db/queries';
+import { createAdminUser, getAdminUsers, updateAdminUser } from '../../db/queries';
+import { readAdminSubmission } from '../../services/admin-integrity';
+
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+if (Astro.request.method === 'POST') {
+  try {
+    if (!Astro.locals.adminEmail) throw new Error('Admin identity is required.');
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action') || 'create';
+    if (action === 'create') {
+      const name = input.text('name');
+      const email = input.text('email');
+      const role = input.text('role').toUpperCase().replace(' ', '_');
+      if (!name || !email || !email.includes('@')) throw new Error('A valid name and email are required.');
+      await createAdminUser({ name, email, role, adminEmail: Astro.locals.adminEmail });
+      message = `Access granted to ${email}.`;
+    } else {
+      const id = input.text('id');
+      if (!id) throw new Error('Admin user ID is required.');
+      const isRevoke = action === 'revoke';
+      const target = (await getAdminUsers()).find(user => user.id === id);
+      if (isRevoke && target?.email.toLowerCase() === Astro.locals.adminEmail.toLowerCase()) throw new Error('You cannot revoke your own access.');
+      await updateAdminUser({ id, role: input.text('role').toUpperCase().replace(' ', '_') || undefined, isActive: isRevoke ? 0 : 1, adminEmail: Astro.locals.adminEmail });
+      message = isRevoke ? 'Administrative access revoked.' : 'Administrative role updated.';
+    }
+  } catch (error: any) {
+    Astro.response.status = 400;
+    messageType = 'error';
+    message = error.message;
+  }
+}
 
 const staffMembers = (await getAdminUsers()).map(member => ({
   ...member,
@@ -22,6 +53,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
   ]}
 >
   <div class="mx-auto max-w-5xl space-y-6">
+    {message && <div role="status" class={`rounded-lg border p-3 text-xs ${messageType === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>{message}</div>}
     <!-- Header with Action (FlowStep Screen 31) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div>
@@ -95,13 +127,8 @@ const staffMembers = (await getAdminUsers()).map(member => ({
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="flex items-center justify-end gap-2">
-                    <button type="button" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline cursor-pointer">
-                      Edit
-                    </button>
-                    <span class="text-zinc-300">·</span>
-                    <button type="button" class="text-rose-600 hover:text-rose-800 font-semibold hover:underline cursor-pointer">
-                      Revoke
-                    </button>
+                    <form method="POST" class="flex items-center gap-1"><input type="hidden" name="_action" value="update" /><input type="hidden" name="id" value={member.id} /><select name="role" aria-label={`Role for ${member.name}`} class="rounded border border-zinc-200 bg-white px-1.5 py-1 text-[10px]"><option value="EDITOR" selected={member.role === 'Editor'}>Editor</option><option value="REVIEWER" selected={member.role === 'Reviewer'}>Reviewer</option><option value="SUPER_ADMIN" selected={member.role === 'Super Admin'}>Super Admin</option></select><button type="submit" class="font-semibold text-zinc-700 hover:underline">Update</button></form>
+                    {member.status === 'Active' && <form method="POST"><input type="hidden" name="_action" value="revoke" /><input type="hidden" name="id" value={member.id} /><button type="submit" class="font-semibold text-rose-600 hover:underline">Revoke</button></form>}
                   </div>
                 </td>
               </tr>
@@ -147,7 +174,8 @@ const staffMembers = (await getAdminUsers()).map(member => ({
 
   <!-- Invite User Drawer (FlowStep Screen 31) -->
   <div id="inviteUserDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
-    <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+    <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+      <input type="hidden" name="_action" value="create" />
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div>
@@ -162,26 +190,26 @@ const staffMembers = (await getAdminUsers()).map(member => ({
         <div class="space-y-4 text-xs">
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Full Name *</label>
-            <input type="text" placeholder="e.g. Vikramaditya Rathore" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="text" name="name" required placeholder="e.g. Vikramaditya Rathore" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Email Address (@nirnay.in or gov domain) *</label>
-            <input type="email" placeholder="vikram@nirnay.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
+            <input type="email" name="email" required placeholder="vikram@example.in" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none" />
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Assigned Workspace Role *</label>
-            <select class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
-              <option value="Reviewer">Reviewer (Verify & Publish claims)</option>
-              <option value="Editor">Editor (Draft & Update content)</option>
-              <option value="Super Admin">Super Admin (Full Workspace Access)</option>
+            <select name="role" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
+              <option value="REVIEWER">Reviewer (Verify & Publish claims)</option>
+              <option value="EDITOR">Editor (Draft & Update content)</option>
+              <option value="SUPER_ADMIN">Super Admin (Full Workspace Access)</option>
             </select>
           </div>
 
           <div class="space-y-1.5">
             <label class="block font-semibold text-zinc-800">Invitation Note</label>
-            <textarea rows="2" placeholder="Brief note explaining assigned department responsibilities..." class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"></textarea>
+            <textarea rows="2" disabled placeholder="Invitation notes are not stored; use your team channel for onboarding context." class="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-xs"></textarea>
           </div>
         </div>
       </div>
@@ -190,11 +218,11 @@ const staffMembers = (await getAdminUsers()).map(member => ({
         <button type="button" id="cancelInviteDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
           Cancel
         </button>
-        <button type="button" id="sendInviteBtn" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
-          Send Invitation
+        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+          Grant Access
         </button>
       </div>
-    </div>
+    </form>
   </div>
 
   <AdminDataTable
@@ -208,9 +236,5 @@ const staffMembers = (await getAdminUsers()).map(member => ({
     document.getElementById('openInviteUserBtn')?.addEventListener('click', () => drawer?.classList.remove('hidden'));
     document.getElementById('closeInviteDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
     document.getElementById('cancelInviteDrawerBtn')?.addEventListener('click', () => drawer?.classList.add('hidden'));
-    document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
-      alert('Invitation dispatched to staff member.');
-      drawer?.classList.add('hidden');
-    });
   </script>
 </AdminLayout>

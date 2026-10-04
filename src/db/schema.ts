@@ -90,6 +90,9 @@ export const recruitments = sqliteTable('recruitments', {
   payScaleOverride: text('pay_scale_override'),
   salaryDetailsMarkdown: text('salary_details_markdown'),
   cadreClassification: text('cadre_classification'),
+  seoTitle: text('seo_title'),
+  seoDescription: text('seo_description'),
+  robotsIndex: integer('robots_index').notNull().default(1),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
@@ -115,7 +118,7 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   allowedStreamsJson: text('allowed_streams_json'), // JSON array e.g. ["ANY"] or ["SCIENCE"]
   requiresMpDomicile: integer('requires_mp_domicile').notNull().default(0),
   domicileStateCode: text('domicile_state_code'),
-  requiresMpEmploymentReg: integer('requires_mp_employment_reg').notNull().default(1),
+  requiresMpEmploymentReg: integer('requires_mp_employment_reg').notNull().default(0),
   employmentRegistrationLabel: text('employment_registration_label'),
   requiresCpct: integer('requires_cpct').notNull().default(0),
   genderAllowed: text('gender_allowed').notNull().default('ALL'), // 'ALL', 'MALE', 'FEMALE'

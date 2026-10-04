@@ -1,11 +1,38 @@
 ---
 // src/pages/admin/eligibility-rules.astro (FlowStep Screen 23)
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAllActiveRecruitments } from '../../db/queries';
+import { getAllActiveRecruitments, getAllStates, updateRecruitmentEligibility } from '../../db/queries';
+import { parseBooleanInput, parseIntegerInput, readAdminSubmission } from '../../services/admin-integrity';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
-const selectedRecruitmentTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || 'MP Police Constable Recruitment 2026';
+const states = await getAllStates();
+const selectedRecruitmentTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
 const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle) || recruitments[0];
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+if (Astro.request.method === 'POST') {
+  try {
+    if (!selectedRec || !Astro.locals.adminEmail) throw new Error('An authenticated admin and recruitment are required.');
+    const input = await readAdminSubmission(Astro.request);
+    const domicileStateCode = input.text('domicileStateCode') || null;
+    await updateRecruitmentEligibility(selectedRec.id, {
+      minAge: parseIntegerInput(input.value('minAge'), selectedRec.criteria.minAge),
+      maxAgeGeneral: parseIntegerInput(input.value('maxAgeGeneral'), selectedRec.criteria.maxAgeGeneral),
+      ageCutoffDate: input.text('ageCutoffDate') || selectedRec.criteria.ageCutoffDate,
+      minQualificationLevel: input.text('minQualificationLevel') || selectedRec.criteria.minQualificationLevel,
+      requiresMpDomicile: Boolean(domicileStateCode),
+      domicileStateCode,
+      requiresMpEmploymentReg: parseBooleanInput(input.value('requiresMpEmploymentReg')),
+      employmentRegistrationLabel: input.text('employmentRegistrationLabel') || null,
+      adminEmail: Astro.locals.adminEmail,
+    });
+    message = 'Eligibility rules saved and the calculation engine will use them immediately.';
+  } catch (error: any) {
+    Astro.response.status = 400;
+    messageType = 'error';
+    message = error.message;
+  }
+}
 ---
 
 <AdminLayout
@@ -60,8 +87,9 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
             Edit Raw Criteria
           </a>
           <button
-            type="button"
             id="saveRulesBtn"
+            form="rulesForm"
+            type="submit"
             class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -71,6 +99,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
       </div>
     </div>
 
+    {message && <div role="status" class={`rounded-lg border p-3 text-xs ${messageType === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>{message}</div>}
     <!-- Target info row -->
     <div class="flex items-center gap-3 text-xs text-zinc-500 -mt-2">
       <span class="font-mono">Target:</span>
@@ -82,6 +111,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
       )}
     </div>
 
+    <form id="rulesForm" method="POST">
     <!-- Main Builder Canvas (FlowStep Screen 23) -->
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] items-start gap-6">
       <!-- Left: Interactive Rules Flow -->
@@ -95,12 +125,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
 
           <div class="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-100 p-1 text-xs">
             <span class="text-[11px] font-medium text-zinc-500 px-2">Mode:</span>
-            <button type="button" class="px-2.5 py-1 rounded font-bold text-xs bg-white text-zinc-950 shadow-xs">
-              AND (All required)
-            </button>
-            <button type="button" class="px-2.5 py-1 rounded text-xs text-zinc-600 hover:text-zinc-950">
-              OR (Any qualified)
-            </button>
+            <span class="px-2.5 py-1 rounded font-bold text-xs bg-white text-zinc-950 shadow-xs">AND (All statutory conditions)</span>
           </div>
         </div>
 
@@ -140,11 +165,8 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
               </div>
               <div>
                 <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Target Value</label>
-                <select class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-mono outline-none">
-                  <option selected>10TH (High School)</option>
-                  <option>12TH (Higher Secondary)</option>
-                  <option>GRADUATION (Bachelor's)</option>
-                  <option>POST_GRADUATION</option>
+                <select name="minQualificationLevel" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-mono outline-none">
+                  {['8TH','10TH','12TH','ITI','DIPLOMA','GRADUATION','POST_GRADUATION'].map(level => <option value={level} selected={selectedRec?.criteria.minQualificationLevel === level}>{level}</option>)}
                 </select>
               </div>
             </div>
@@ -179,12 +201,12 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
               <div class="flex items-center gap-2">
                 <div class="flex-1">
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Min Age</label>
-                  <input type="number" value="18" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
+                  <input type="number" name="minAge" value={selectedRec?.criteria.minAge ?? 18} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
                 </div>
                 <span class="text-zinc-400 pt-4">—</span>
                 <div class="flex-1">
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Max Age</label>
-                  <input type="number" value="33" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
+                  <input type="number" name="maxAgeGeneral" value={selectedRec?.criteria.maxAgeGeneral ?? 33} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
                 </div>
               </div>
             </div>
@@ -218,28 +240,20 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
               </div>
               <div>
                 <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Target Value</label>
-                <input type="text" readonly value="Madhya Pradesh (MP)" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50 text-zinc-800 font-medium" />
+                <select name="domicileStateCode" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-medium"><option value="">Open to all India</option>{states.filter(state => state.code !== 'IN').map(state => <option value={state.code} selected={selectedRec?.criteria.domicileStateCode === state.code}>{state.name} ({state.code})</option>)}</select>
               </div>
             </div>
           </div>
         </div>
 
+        <input type="hidden" name="ageCutoffDate" value={selectedRec?.criteria.ageCutoffDate || ''} />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <label class="flex items-center gap-2"><input type="checkbox" name="requiresMpEmploymentReg" value="1" checked={selectedRec?.criteria.requiresMpEmploymentReg} /> Employment registration required</label>
+          <label class="font-semibold">Registration key<input type="text" name="employmentRegistrationLabel" value={selectedRec?.criteria.employmentRegistrationLabel || ''} placeholder="e.g. MP_ROJGAR" class="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 font-mono" /></label>
+        </div>
         <!-- Add Rule Actions -->
         <div class="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-xs font-semibold text-zinc-800 transition-colors cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>Add rule</span>
-          </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-xs font-semibold text-zinc-800 transition-colors cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-            <span>Add rule group</span>
-          </button>
+          <a href={`/admin/recruitments/${selectedRec?.id}/edit#tab-eligibility`} class="inline-flex items-center px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-xs font-semibold text-zinc-800">Edit advanced criteria</a>
         </div>
       </div>
 
@@ -253,7 +267,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
           </div>
 
           <p class="text-xs text-zinc-700 leading-relaxed bg-zinc-50 p-3 rounded-lg border border-zinc-200 font-sans">
-            "Candidate must have at least a <strong>10th qualification</strong>, be aged <strong>18–33</strong> on closing date, and satisfy the specified <strong>Madhya Pradesh domicile</strong> condition."
+            Candidate must have at least <strong>{selectedRec?.criteria.minQualificationLevel}</strong>, be aged <strong>{selectedRec?.criteria.minAge}–{selectedRec?.criteria.maxAgeGeneral}</strong> on the cutoff date{selectedRec?.criteria.domicileStateCode ? `, and hold ${states.find(state => state.code === selectedRec.criteria.domicileStateCode)?.name || selectedRec.criteria.domicileStateCode} domicile` : ''}.
           </p>
 
           <!-- Validation Notice Callout -->
@@ -282,7 +296,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
             </div>
             <div class="flex justify-between py-1 border-b border-zinc-100">
               <span class="text-zinc-500">Domicile:</span>
-              <span class="font-mono font-semibold">Madhya Pradesh</span>
+              <span class="font-mono font-semibold">{selectedRec?.criteria.domicileStateCode || 'Any Indian state'}</span>
             </div>
             <div class="mt-2 pt-2 flex items-center justify-between font-bold">
               <span class="text-zinc-800">Deterministic Match:</span>
@@ -292,11 +306,7 @@ const selectedRec = recruitments.find(r => r.title === selectedRecruitmentTitle)
         </div>
       </aside>
     </div>
+    </form>
   </div>
 
-  <script is:inline>
-    document.getElementById('saveRulesBtn')?.addEventListener('click', () => {
-      alert('Eligibility rules synchronized with calculation engine!');
-    });
-  </script>
 </AdminLayout>

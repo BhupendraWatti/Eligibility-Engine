@@ -55,7 +55,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
 ---
 
 {!recruitment ? (
-  <BaseLayout title="Recruitment Not Found — NIRNAY MP">
+  <BaseLayout title="Recruitment Not Found">
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-recruitment-not-found>
       <div class="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
         !
@@ -76,8 +76,9 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
   </BaseLayout>
 ) : (
   <BaseLayout
-    title={`${recruitment.title} — NIRNAY MP`}
-    description={`Official details, verified eligibility criteria, category vacancies, and gazetted dates for ${recruitment.title}.`}
+    title={recruitment.seoTitle || recruitment.title}
+    description={recruitment.seoDescription || `Official details, verified eligibility criteria, category vacancies, dates, and direct authority links for ${recruitment.title}.`}
+    robotsIndex={recruitment.robotsIndex !== 0}
   >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Breadcrumb -->
@@ -125,7 +126,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           <div>
             <div class="flex flex-wrap items-center gap-2 mb-3">
               <span class="px-2.5 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground border border-border">
-                {recruitment.departmentName || 'Madhya Pradesh Department'}
+                {recruitment.departmentName || 'Government Department'}
               </span>
               <span class={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
                 recruitment.presentation?.badgeClass || 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -291,7 +292,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
               ) : (
                 <>
                   <p>
-                    The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has officially published online applications for the recruitment of <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under the <strong>{recruitment.departmentName || 'State Government Cadre'}</strong> of Madhya Pradesh.
+                    The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has published this recruitment for <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under <strong>{recruitment.departmentName || 'the relevant government cadre'}</strong>{recruitment.stateName ? ` in ${recruitment.stateName}` : ''}.
                   </p>
                   <p>
                     Candidates possessing recognized statutory educational qualifications ({recruitment.criteria?.minQualificationLevel}) and complying with the state age criteria as of the official cutoff date ({recruitment.criteria?.ageCutoffDate || '01 January 2026'}) may submit applications online via the authoritative state portal.
@@ -358,8 +359,8 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
                       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                       <span>
                         {recruitment.criteria?.requiresMpDomicile
-                          ? 'Madhya Pradesh domicile mandatory for reserved category quotas and age relaxation'
-                          : 'All India open (non-MP residents evaluated under Unreserved / General)'}
+                          ? `${recruitment.stateName || recruitment.criteria.domicileStateCode || 'Specified state'} domicile mandatory under this notification`
+                          : 'All India open (reservation treatment follows the official notification)'}
                       </span>
                     </td>
                   </tr>

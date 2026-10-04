@@ -10,14 +10,16 @@ interface Props {
   canonicalUrl?: string;
   ogType?: string;
   isReportPage?: boolean;
+  robotsIndex?: boolean;
 }
 
 const {
   title,
-  description = 'Explore Madhya Pradesh government opportunities, check eligibility, track important dates and access official recruitment links.',
+  description = 'Explore verified central and state government opportunities across India, check eligibility, track important dates, and use direct official recruitment links.',
   canonicalUrl = Astro.url.href,
   ogType = 'website',
   isReportPage = false,
+  robotsIndex = true,
 } = Astro.props;
 ---
 
@@ -27,7 +29,7 @@ const {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | NIRNAY MP</title>
+    <title>{title} | NIRNAY</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
 
@@ -37,7 +39,7 @@ const {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
 
     <!-- OpenGraph / Social -->
-    <meta property="og:title" content={`${title} | NIRNAY MP`} />
+    <meta property="og:title" content={`${title} | NIRNAY`} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={ogType} />
@@ -47,7 +49,7 @@ const {
     <meta name="twitter:description" content={description} />
 
     <!-- SEO & Indexing -->
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content={robotsIndex ? 'index, follow' : 'noindex, follow'} />
     <meta name="author" content="NIRNAY" />
   </head>
   <body class="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white">
