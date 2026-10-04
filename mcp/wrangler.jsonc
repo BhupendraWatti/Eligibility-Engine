@@ -12,6 +12,9 @@
       "database_id": "a6e065fb-e899-498b-a4e6-e0cb7b1c1e2e"
     }
   ],
+  // Keep the workers.dev URL, but no extra per-version preview URLs (they would share the same secrets).
+  "workers_dev": true,
+  "preview_urls": false,
   "observability": { "enabled": true }
   // Secret (not stored here): npx wrangler secret put MCP_API_TOKEN
 }

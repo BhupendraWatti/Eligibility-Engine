@@ -68,7 +68,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
       <button
         type="button"
         id="openInviteUserBtn"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Invite user</span>
@@ -94,7 +94,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
               <tr class="hover:bg-zinc-50/80 transition-colors">
                 <td class="py-3.5 px-4">
                   <div class="flex items-center gap-2.5">
-                    <span class="size-7 rounded-full bg-zinc-950 text-white text-[10px] font-bold font-mono flex items-center justify-center">
+                    <span class="size-7 rounded-full bg-primary text-white text-[10px] font-bold font-mono flex items-center justify-center">
                       {member.avatar}
                     </span>
                     <span class="font-bold text-zinc-950">{member.name}</span>
@@ -106,7 +106,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
                 <td class="py-3.5 px-3">
                   <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
                     member.role === 'Super Admin'
-                      ? 'bg-zinc-950 text-white border-zinc-950'
+                      ? 'bg-primary text-white border-primary'
                       : member.role === 'Reviewer'
                       ? 'bg-zinc-100 text-zinc-800 border-zinc-300 font-semibold'
                       : 'bg-zinc-50 text-zinc-700 border-zinc-200'
@@ -143,7 +143,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
       <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-1.5">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-zinc-950">Super Admin</span>
-          <span class="size-2 rounded-full bg-zinc-950"></span>
+          <span class="size-2 rounded-full bg-primary"></span>
         </div>
         <p class="text-[11px] text-zinc-500 leading-relaxed">
           Unrestricted access across all recruitments, canonical taxonomies, eligibility engines, and staff management.
@@ -173,7 +173,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
   </div>
 
   <!-- Invite User Drawer (FlowStep Screen 31) -->
-  <div id="inviteUserDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+  <div id="inviteUserDrawer" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex justify-end">
     <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <input type="hidden" name="_action" value="create" />
       <div class="space-y-5">
@@ -218,7 +218,7 @@ const staffMembers = (await getAdminUsers()).map(member => ({
         <button type="button" id="cancelInviteDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs">
           Grant Access
         </button>
       </div>

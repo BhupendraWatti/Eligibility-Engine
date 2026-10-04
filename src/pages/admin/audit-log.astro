@@ -104,7 +104,7 @@ if (wantsJson) {
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : log.action === 'Created'
                       ? 'bg-zinc-100 text-zinc-800 border-zinc-200'
-                      : 'bg-zinc-950 text-white border-zinc-950'
+                      : 'bg-primary text-white border-primary'
                   }`}>
                     {log.action}
                   </span>
@@ -141,7 +141,7 @@ if (wantsJson) {
   </div>
 
   <!-- Change Details Drawer (FlowStep Screen 30) -->
-  <div id="changeDetailsDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+  <div id="changeDetailsDrawer" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex justify-end">
     <div class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <div class="space-y-5">
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
@@ -181,7 +181,7 @@ if (wantsJson) {
       </div>
 
       <div class="border-t border-zinc-100 pt-4">
-        <button type="button" id="dismissDetailsBtn" class="w-full py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs">
+        <button type="button" id="dismissDetailsBtn" class="w-full py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs">
           Close Details
         </button>
       </div>

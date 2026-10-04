@@ -95,7 +95,7 @@ const filterOptions = [
 
       <a
         href="/admin/recruitments/new"
-        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Add recruitment</span>
@@ -165,7 +165,7 @@ const filterOptions = [
           </select>
         </div>
         <div class="flex items-end gap-2">
-          <button type="button" id="applyAdvFiltersBtn" class="w-full py-1.5 px-3 rounded-lg bg-zinc-900 text-white font-semibold text-xs hover:bg-black">
+          <button type="button" id="applyAdvFiltersBtn" class="w-full py-1.5 px-3 rounded-lg bg-primary text-white font-semibold text-xs hover:bg-primary-hover">
             Apply Filters
           </button>
         </div>
@@ -179,7 +179,7 @@ const filterOptions = [
           href={`/admin/recruitments?status=${opt.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           class={`px-3 py-1.5 rounded-md font-medium transition-all whitespace-nowrap ${
             filterStatus === opt.value
-              ? 'bg-zinc-950 text-white font-semibold shadow-xs'
+              ? 'bg-primary text-white font-semibold shadow-xs'
               : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
           }`}
         >

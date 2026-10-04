@@ -129,21 +129,21 @@ const navSections = [
 
 <aside
   id="admin-desktop-sidebar"
-  class="w-60 bg-[#09090b] text-zinc-300 border-r border-zinc-800 shrink-0 hidden md:flex flex-col justify-between p-3 h-screen sticky top-0 z-40 select-none custom-scrollbar overflow-y-auto transition-[width,padding] duration-200 ease-in-out"
+  class="w-60 bg-white text-slate-600 border-r border-slate-200 shrink-0 hidden md:flex flex-col justify-between p-3 h-screen sticky top-0 z-40 select-none custom-scrollbar overflow-y-auto transition-[width,padding] duration-200 ease-in-out"
 >
   <div class="space-y-3.5">
     <!-- Brand Mark -->
-    <div class="sidebar-brand px-2 py-2 flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
+    <div class="sidebar-brand px-2 py-2 flex items-center justify-between border-b border-slate-200 pb-2.5">
       <a href="/admin" class="flex items-center gap-2.5 group">
-        <div class="size-7 rounded bg-white text-zinc-950 font-black text-xs flex items-center justify-center font-mono shadow-xs group-hover:scale-105 transition-transform shrink-0">
+        <div class="size-7 rounded bg-primary text-white font-black text-xs flex items-center justify-center font-mono shadow-xs group-hover:scale-105 transition-transform shrink-0">
           N
         </div>
         <div class="sidebar-label">
-          <div class="font-bold text-xs uppercase tracking-wider text-white font-mono leading-none">NIRNAY OPS</div>
-          <div class="text-[10px] text-zinc-400 mt-0.5">Control Center</div>
+          <div class="font-bold text-xs uppercase tracking-wider text-slate-900 font-mono leading-none">NIRNAY OPS</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Control Center</div>
         </div>
       </a>
-      <span class="sidebar-badge inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+      <span class="sidebar-badge inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
         v2.7
       </span>
     </div>
@@ -152,24 +152,24 @@ const navSections = [
     <div class="space-y-3">
       {navSections.map((section) => (
         <div class="space-y-1">
-          <div class="sidebar-section-title px-2.5 py-0.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+          <div class="sidebar-section-title px-2.5 py-0.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
             <span>{section.title}</span>
             {section.badge && (
-              <span class="text-[9px] font-mono font-medium px-1 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+              <span class="text-[9px] font-mono font-medium px-1 rounded bg-slate-100 text-slate-500 border border-slate-200">
                 {section.badge}
               </span>
             )}
           </div>
 
-          <nav class={`sidebar-nav-group space-y-0.5 text-xs font-medium ${section.isMasterGroup ? 'pl-1 border-l-2 border-zinc-800/80 ml-2' : ''}`} aria-label={`${section.title} navigation`}>
+          <nav class={`sidebar-nav-group space-y-0.5 text-xs font-medium ${section.isMasterGroup ? 'pl-1 border-l-2 border-slate-200 ml-2' : ''}`} aria-label={`${section.title} navigation`}>
             {section.items.map((item) => (
               <a
                 href={item.href}
                 title={item.name}
                 class={`sidebar-link relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-all ${
                   item.active
-                    ? 'bg-zinc-800 text-white font-semibold shadow-xs border border-zinc-700/60'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900/90'
+                    ? 'bg-blue-50 text-primary font-semibold shadow-xs border border-blue-200'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 {item.icon === 'map-pin' && (
@@ -210,7 +210,7 @@ const navSections = [
                 )}
                 <span class="sidebar-label truncate flex-1">{item.name}</span>
                 {item.hasAlert && (
-                  <span class="size-1.5 rounded-full bg-amber-500 ring-2 ring-zinc-900 shrink-0"></span>
+                  <span class="size-1.5 rounded-full bg-rose-500 ring-2 ring-white shrink-0"></span>
                 )}
               </a>
             ))}
@@ -221,12 +221,12 @@ const navSections = [
   </div>
 
   <!-- Bottom Workspace Utilities -->
-  <div class="pt-3 border-t border-zinc-800/80 space-y-2 shrink-0">
+  <div class="pt-3 border-t border-slate-200 space-y-2 shrink-0">
     <!-- Rail Collapse Toggle Button -->
     <button
       type="button"
       id="sidebar-collapse-btn"
-      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs cursor-pointer"
+      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors text-xs cursor-pointer"
       title="Collapse / Expand Sidebar"
     >
       <span class="sidebar-label flex items-center gap-1.5 text-[11px] font-medium">
@@ -242,24 +242,24 @@ const navSections = [
     <a
       href="/"
       target="_blank"
-      class="sidebar-link flex items-center justify-between px-2.5 py-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-[11px]"
+      class="sidebar-link flex items-center justify-between px-2.5 py-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors text-[11px]"
       title="Open Public Discovery Portal"
     >
       <span class="flex items-center gap-1.5">
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         <span class="sidebar-label">Public Portal</span>
       </span>
-      <span class="sidebar-label text-[10px] text-zinc-500 font-mono">&rarr;</span>
+      <span class="sidebar-label text-[10px] text-slate-500 font-mono">&rarr;</span>
     </a>
 
     <!-- Admin Profile Pill -->
-    <div class="sidebar-link flex items-center gap-2.5 px-2 py-1.5 rounded-lg bg-zinc-900/60 border border-zinc-800">
-      <div class="size-7 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-xs font-mono shrink-0">
+    <div class="sidebar-link flex items-center gap-2.5 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+      <div class="size-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs font-mono shrink-0">
         {adminEmail.slice(0, 2).toUpperCase()}
       </div>
       <div class="sidebar-user-details truncate">
-        <div class="text-xs font-semibold text-white truncate">Authenticated admin</div>
-        <div class="text-[10px] text-zinc-400 truncate">{adminEmail}</div>
+        <div class="text-xs font-semibold text-slate-900 truncate">Authenticated admin</div>
+        <div class="text-[10px] text-slate-500 truncate">{adminEmail}</div>
       </div>
     </div>
   </div>

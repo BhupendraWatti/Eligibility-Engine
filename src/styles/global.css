@@ -21,13 +21,13 @@
   --color-border: #e2e8f0;
   --color-input: #cbd5e1;
   --color-ring: #1e40af;
-  --color-sidebar: #09090b;
-  --color-sidebar-foreground: #f8fafc;
-  --color-sidebar-border: #27272a;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #0f172a;
+  --color-sidebar-border: #e2e8f0;
 
   /* Civic & Statutory Accent Tokens */
-  --color-gov-saffron: #d97706;
-  --color-gov-saffron-light: #fffbeb;
+  --color-gov-saffron: #1e40af;
+  --color-gov-saffron-light: #eff6ff;
   --color-gov-emerald: #059669;
   --color-gov-emerald-light: #ecfdf5;
   --color-gov-navy: #0f172a;
@@ -99,7 +99,7 @@
 
 /* Civic subtle national micro strip */
 .civic-tricolor-bar {
-  background: linear-gradient(90deg, #d97706 0%, #1e40af 50%, #059669 100%);
+  background: linear-gradient(90deg, #1e40af 0%, #3b82f6 50%, #0284c7 100%);
   height: 2px;
 }
 
@@ -119,7 +119,7 @@
 /* Custom Sleek Scrollbar (Fixes Windows 17px default gray scrollbars) */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
@@ -129,11 +129,11 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #71717a;
+  background: #94a3b8;
 }
 
 /* Light Mode variant for custom scrollbar */

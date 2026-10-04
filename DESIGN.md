@@ -8,7 +8,7 @@
 
 ## Aesthetic Direction
 - **Direction:** Industrial / Utilitarian Command Center
-- **Decoration level:** Intentional — precision hairline borders (`zinc-200` / `zinc-800`), micro-elevations, dark command sidebar, zero gratuitous gradients.
+- **Decoration level:** Intentional - precision hairline borders (`slate-200`), micro-elevations, light sidebar, zero gratuitous gradients.
 - **Mood:** Authoritative, high-density, rock-solid, focused on rapid data scanning and error-free governance.
 
 ## Typography
@@ -28,7 +28,7 @@
 ## Color
 - **Approach:** Restrained & Authoritative GovTech
 - **Primary:** `#1e40af` (Gov Blue / Cobalt) — authority, clarity, focus rings.
-- **Secondary:** `#09090b` (Obsidian Dark) — sidebar, top brand mark, high-contrast actions.
+- **Secondary:** `#0f172a` (Slate Navy) - text and high-contrast neutrals only. No black surfaces.
 - **Neutrals:**
   - Dark surfaces: `#09090b` (canvas), `#18181b` (surface), `#27272a` (borders), `#a1a1aa` (muted text)
   - Light workspace: `#f8fafc` (canvas), `#ffffff` (cards/tables), `#e2e8f0` (borders), `#090d16` (text)
@@ -66,3 +66,4 @@
 | 2026-10-04 | Initial NIRNAY OPS Design System | Created via /design-consultation to resolve Windows scrollbar layout clipping, tablet squishing, and mobile responsiveness. |
 | 2026-10-04 | Hybrid Collapsible Sidebar Rail | Preserves 700px+ table breathing room on split-screen / tablet viewports. |
 | 2026-10-04 | Dual Desktop/Mobile Table Architecture | Multi-column tables on desktop; structured high-density cards on phones. |
+| 2026-10-05 | White-blue theme lock | User request: removed black sidebar/CTA blocks and gold chrome accents. Primary actions use Gov Blue; amber kept only for Warning semantics. |

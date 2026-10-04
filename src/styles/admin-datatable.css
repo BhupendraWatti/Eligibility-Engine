@@ -56,8 +56,8 @@
 }
 
 .datatable-selector:focus {
-  border-color: #09090b;
-  box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.1);
+  border-color: #1e40af;
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.15);
 }
 
 .datatable-search {
@@ -93,7 +93,7 @@
   min-width: 14rem;
   padding: 0.4rem 0.75rem 0.4rem 2rem;
   font-size: 0.75rem;
-  color: #09090b; /* zinc-950 */
+  color: #1e40af;
   background-color: #ffffff;
   border: 1px solid #e4e4e7; /* zinc-200 */
   border-radius: 0.5rem;
@@ -107,7 +107,7 @@
 }
 
 .datatable-input:focus {
-  border-color: #09090b;
+  border-color: #1e40af;
   box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.12);
 }
 
@@ -201,12 +201,12 @@
 }
 
 .datatable-sorter::before {
-  border-bottom: 4.5px solid #09090b;
+  border-bottom: 4.5px solid #475569;
   bottom: calc(50% + 1px);
 }
 
 .datatable-sorter::after {
-  border-top: 4.5px solid #09090b;
+  border-top: 4.5px solid #475569;
   top: calc(50% + 1px);
 }
 
@@ -287,7 +287,7 @@
 
 .datatable-pagination .datatable-active button,
 .datatable-pagination .datatable-active a {
-  background-color: #09090b; /* zinc-950 */
+  background-color: #1e40af;
   color: #ffffff;
   font-weight: 700;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.15);

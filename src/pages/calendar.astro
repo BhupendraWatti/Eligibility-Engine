@@ -207,8 +207,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
         {closingSoonMilestones.length > 0 && (
           <section class="milestone-section" data-section="closing-soon">
             <div class="flex items-center gap-2 mb-4">
-              <span class="size-2 rounded-full bg-amber-500 animate-ping"></span>
-              <h2 class="text-sm font-bold uppercase tracking-wider text-amber-900">
+              <span class="size-2 rounded-full bg-blue-500 animate-ping"></span>
+              <h2 class="text-sm font-bold uppercase tracking-wider text-blue-900">
                 Immediate Action: Closing Soon (Next 7 Days)
               </h2>
               <span class="text-xs text-muted-foreground font-mono ml-auto font-medium">
@@ -219,16 +219,16 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
             <div class="space-y-4">
               {closingSoonMilestones.map((m) => (
                 <div
-                  class="milestone-card p-5 rounded-2xl bg-amber-50/40 border border-amber-200/80 hover:border-amber-400 hover:shadow-xs transition-all relative"
+                  class="milestone-card p-5 rounded-2xl bg-blue-50/40 border border-blue-200/80 hover:border-blue-400 hover:shadow-xs transition-all relative"
                   data-category="closing-soon"
                 >
                   <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-mono font-bold text-amber-900">
+                      <span class="text-xs font-mono font-bold text-blue-900">
                         {m.formattedDate}
                       </span>
                       {m.weekday && (
-                        <span class="text-[11px] font-semibold text-amber-700/80 bg-amber-100/70 px-1.5 py-0.5 rounded">
+                        <span class="text-[11px] font-semibold text-blue-700/80 bg-blue-100/70 px-1.5 py-0.5 rounded">
                           {m.weekday}
                         </span>
                       )}
@@ -250,8 +250,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
                     {m.desc}
                   </p>
 
-                  <div class="pt-3 border-t border-amber-200/60 flex items-center justify-between">
-                    <span class="text-[11px] text-amber-800 font-medium">Urgent Submission Window</span>
+                  <div class="pt-3 border-t border-blue-200/60 flex items-center justify-between">
+                    <span class="text-[11px] text-blue-800 font-medium">Urgent Submission Window</span>
                     <a
                       href={`/recruitments/${m.slug}`}
                       class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
@@ -454,7 +454,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
           </p>
           <div class="pt-2 border-t border-border space-y-2 text-xs">
             <div class="flex items-center gap-2">
-              <span class="size-2 rounded-full bg-amber-500"></span>
+              <span class="size-2 rounded-full bg-blue-500"></span>
               <span class="font-semibold text-foreground">Closing Soon:</span>
               <span class="text-muted-foreground">&le; 7 days remaining</span>
             </div>
@@ -471,17 +471,17 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
           </div>
         </div>
 
-        <div class="p-6 rounded-2xl bg-slate-900 text-white shadow-md relative overflow-hidden">
-          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-primary to-indigo-600"></div>
+        <div class="p-6 rounded-2xl bg-primary text-white shadow-md relative overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-300 via-blue-200 to-sky-300"></div>
           <h4 class="font-bold text-sm text-white mb-2">
             Never miss an eligible vacancy
           </h4>
-          <p class="text-xs text-slate-300 leading-relaxed mb-4">
+          <p class="text-xs text-blue-100 leading-relaxed mb-4">
             Check your qualifications and age against official statutory criteria in seconds.
           </p>
           <a
             href="/eligibility-checker"
-            class="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs text-center block shadow-sm transition-colors"
+            class="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-blue-50 text-primary font-bold text-xs text-center block shadow-sm transition-colors"
           >
             Check My Eligibility
           </a>

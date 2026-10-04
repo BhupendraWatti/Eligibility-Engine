@@ -284,7 +284,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
 
         <button
           type="submit"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span>Save Changes</span>
@@ -332,7 +332,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
               data-tab={tab.id}
               class={`tab-trigger py-3 px-4 text-xs font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                 idx === 0
-                  ? 'border-zinc-950 text-zinc-950'
+                  ? 'border-primary text-zinc-950'
                   : 'border-transparent text-zinc-500 hover:text-zinc-900'
               }`}
             >
@@ -703,7 +703,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
           </div>
 
           <div class="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
-            <div class="bg-zinc-900 h-1.5 rounded-full" style="width: 88%"></div>
+            <div class="bg-primary h-1.5 rounded-full" style="width: 88%"></div>
           </div>
 
           <!-- Checklist Items with Jump Actions -->
@@ -773,10 +773,10 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
       function switchTab(tabId) {
         triggers.forEach(t => {
           if (t.dataset.tab === tabId) {
-            t.classList.add('border-zinc-950', 'text-zinc-950');
+            t.classList.add('border-primary', 'text-zinc-950');
             t.classList.remove('border-transparent', 'text-zinc-500');
           } else {
-            t.classList.remove('border-zinc-950', 'text-zinc-950');
+            t.classList.remove('border-primary', 'text-zinc-950');
             t.classList.add('border-transparent', 'text-zinc-500');
           }
         });

@@ -225,7 +225,7 @@ const filterTags = [
       <button
         type="button"
         id="openAddDocModalBtn"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Add document link</span>
@@ -242,13 +242,13 @@ const filterTags = [
               href={`?type=${encodeURIComponent(tag.value)}`}
               class={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                 isActive
-                  ? 'bg-zinc-950 text-white font-semibold shadow-2xs'
+                  ? 'bg-primary text-white font-semibold shadow-2xs'
                   : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
               }`}
             >
               <span>{tag.label}</span>
               <span class={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                isActive ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-200/80 text-zinc-700'
+                isActive ? 'bg-primary text-white' : 'bg-zinc-200/80 text-zinc-700'
               }`}>
                 {tag.count}
               </span>
@@ -372,7 +372,7 @@ const filterTags = [
   </div>
 
   <!-- Add Document Modal (FlowStep Screen 28) -->
-  <div id="addDocModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+  <div id="addDocModal" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 space-y-5">
       <form method="POST">
         <input type="hidden" name="_action" value="create_document" />
@@ -444,7 +444,7 @@ const filterTags = [
           <button type="button" id="cancelAddDocModalBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
             Cancel
           </button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs cursor-pointer">
             Save Document Link
           </button>
         </div>
@@ -453,7 +453,7 @@ const filterTags = [
   </div>
 
   <!-- Edit Document Modal -->
-  <div id="editDocModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+  <div id="editDocModal" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 space-y-5">
       <form method="POST">
         <input type="hidden" name="_action" value="update_document" />
@@ -528,7 +528,7 @@ const filterTags = [
           <button type="button" id="cancelEditDocModalBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
             Cancel
           </button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+          <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs cursor-pointer">
             Save Changes
           </button>
         </div>
@@ -537,7 +537,7 @@ const filterTags = [
   </div>
 
   <!-- Delete Document Confirmation Modal -->
-  <div id="deleteDocModal" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+  <div id="deleteDocModal" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
       <form method="POST">
         <input type="hidden" name="_action" value="delete_document" />

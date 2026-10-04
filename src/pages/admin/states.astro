@@ -155,7 +155,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
       <button
         type="button"
         id="openAddStateDrawerBtn"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span>Add Jurisdiction / State</span>
@@ -360,7 +360,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
   </div>
 
   <!-- Add State Drawer -->
-  <div id="addStateDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+  <div id="addStateDrawer" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex justify-end">
     <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <input type="hidden" name="_action" value="create_state" />
       <div class="space-y-5">
@@ -402,7 +402,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
         <button type="button" id="cancelAddStateDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs cursor-pointer">
           Save Jurisdiction
         </button>
       </div>
@@ -410,7 +410,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
   </div>
 
   <!-- Edit State Drawer -->
-  <div id="editStateDrawer" class="fixed inset-0 z-50 hidden bg-zinc-950/40 backdrop-blur-xs flex justify-end">
+  <div id="editStateDrawer" class="fixed inset-0 z-50 hidden bg-slate-900/30 backdrop-blur-xs flex justify-end">
     <form method="POST" class="w-full max-w-md bg-white h-full shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
       <input type="hidden" name="_action" value="update_state" />
       <input type="hidden" id="editStateId" name="id" value="" />
@@ -454,7 +454,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
         <button type="button" id="cancelEditStateDrawerBtn" class="px-4 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-zinc-950 text-white hover:bg-black text-xs font-semibold shadow-xs cursor-pointer">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs cursor-pointer">
           Save Changes
         </button>
       </div>

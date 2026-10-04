@@ -40,7 +40,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
     />
   </head>
 
-  <body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased selection:bg-zinc-900 selection:text-white flex flex-col">
+  <body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased selection:bg-primary selection:text-white flex flex-col">
     <div class="flex min-h-screen w-full">
       <!-- High-Contrast Desktop Sidebar (Hidden on mobile < md) -->
       <AdminSidebar current={currentSection} />
@@ -84,7 +84,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
             <!-- Brand Pill -->
             <a href="/admin" class="flex items-center gap-1.5 font-bold text-xs tracking-wider uppercase text-zinc-900 shrink-0">
-              <span class="flex size-6 items-center justify-center rounded bg-zinc-950 text-[11px] font-black text-white font-mono shadow-2xs">N</span>
+              <span class="flex size-6 items-center justify-center rounded bg-primary text-[11px] font-black text-white font-mono shadow-2xs">N</span>
               <span class="font-mono text-xs hidden xs:inline">NIRNAY OPS</span>
             </a>
 
@@ -127,7 +127,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
             <!-- Admin Profile Badge -->
             <div class="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white py-1 px-1.5 sm:px-2">
-              <span class="flex size-6 items-center justify-center rounded-full bg-zinc-950 text-[10px] font-bold text-white font-mono">
+              <span class="flex size-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white font-mono">
                 {adminEmail.slice(0, 2).toUpperCase()}
               </span>
               <div class="hidden sm:flex flex-col text-left">
