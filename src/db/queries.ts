@@ -1,5 +1,5 @@
 import { getDb, schema } from './client';
-import { eq, desc, asc, sql, and } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, or } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
 import { detectDuplicates } from '../services/duplicate-detector';
 import { resolveSectorRoute } from '../services/sector-routing';
@@ -1628,16 +1628,21 @@ export function calculateSectorActiveDrives(
 /**
  * Fetch all master departments
  */
-export async function getAllDepartments(providedD1?: D1Database): Promise<MasterDepartment[]> {
+export async function getAllDepartments(
+  providedD1?: D1Database,
+  options?: { includeInactive?: boolean },
+): Promise<MasterDepartment[]> {
   const d1 = resolveD1(providedD1, 'loading departments');
-  if (!d1) return FALLBACK_DEPARTMENTS;
+  const includeInactive = options?.includeInactive ?? false;
+  if (!d1) return includeInactive ? FALLBACK_DEPARTMENTS : FALLBACK_DEPARTMENTS.filter(department => department.isActive !== 0);
 
   try {
     const db = getDb(d1);
-    const rows = await db.query.departments.findMany({
-      where: eq(schema.departments.isActive, 1),
+    const queryOpts: any = {
       orderBy: [asc(schema.departments.name)],
-    });
+    };
+    if (!includeInactive) queryOpts.where = eq(schema.departments.isActive, 1);
+    const rows = await db.query.departments.findMany(queryOpts);
     return rows;
   } catch (error) {
     console.error('Error fetching departments from D1:', error);
@@ -1909,15 +1914,20 @@ export const FALLBACK_AUDIT_LOGS: Array<{
 /**
  * Fetch all active statutory organisations
  */
-export async function getAllOrganisations(providedD1?: D1Database): Promise<MasterOrganisation[]> {
+export async function getAllOrganisations(
+  providedD1?: D1Database,
+  options?: { includeInactive?: boolean },
+): Promise<MasterOrganisation[]> {
   const d1 = resolveD1(providedD1, 'loading organisations');
-  if (!d1) return FALLBACK_ORGANISATIONS;
+  const includeInactive = options?.includeInactive ?? false;
+  if (!d1) return includeInactive ? FALLBACK_ORGANISATIONS : FALLBACK_ORGANISATIONS.filter(organisation => organisation.isActive !== 0);
   try {
     const db = getDb(d1);
-    const orgs = await db.query.organisations.findMany({
-      where: eq(schema.organisations.isActive, 1),
+    const queryOpts: any = {
       orderBy: [asc(schema.organisations.name)],
-    });
+    };
+    if (!includeInactive) queryOpts.where = eq(schema.organisations.isActive, 1);
+    const orgs = await db.query.organisations.findMany(queryOpts);
     return orgs.map((o: any) => {
       return {
         id: o.id,
@@ -1947,6 +1957,7 @@ export async function createOrganisation(
   let slug = data.slug;
   if (!d1) {
     FALLBACK_ORGANISATIONS.push({ id, ...data, slug, isActive: data.isActive ?? 1 });
+    FALLBACK_AUDIT_LOGS.unshift({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ORGANISATION', entityId: id, action: 'CREATE', newValue: data.name, createdAt: new Date() } as any);
     return id;
   }
   const db = getDb(d1);
@@ -1980,9 +1991,12 @@ export async function updateOrganisation(
       ...(data.websiteUrl ? { websiteUrl: data.websiteUrl } : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     };
+    FALLBACK_AUDIT_LOGS.unshift({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ORGANISATION', entityId: data.id, action: 'UPDATE', newValue: JSON.stringify(FALLBACK_ORGANISATIONS[idx]), createdAt: new Date() } as any);
     return true;
   }
   const db = getDb(d1);
+  const existing = await db.select({ id: schema.organisations.id }).from(schema.organisations).where(eq(schema.organisations.id, data.id)).limit(1);
+  if (existing.length === 0) return false;
   const updateSet: Record<string, any> = {};
   if (data.name !== undefined) updateSet.name = data.name;
   if (data.shortName !== undefined) updateSet.shortName = data.shortName;
@@ -1990,7 +2004,10 @@ export async function updateOrganisation(
   if (data.stateId !== undefined) updateSet.stateId = data.stateId;
   if (data.websiteUrl !== undefined) updateSet.websiteUrl = data.websiteUrl;
   if (data.isActive !== undefined) updateSet.isActive = data.isActive;
-  await db.update(schema.organisations).set(updateSet).where(eq(schema.organisations.id, data.id));
+  await db.batch([
+    db.update(schema.organisations).set(updateSet).where(eq(schema.organisations.id, data.id)),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ORGANISATION', entityId: data.id, action: 'UPDATE', newValue: JSON.stringify(updateSet) }),
+  ]);
   return true;
 }
 
@@ -2003,6 +2020,7 @@ export async function createDepartment(
   let slug = data.slug;
   if (!d1) {
     FALLBACK_DEPARTMENTS.push({ id, organisationId: data.organisationId, name: data.name, slug, description: data.description || null, isActive: data.isActive ?? 1 });
+    FALLBACK_AUDIT_LOGS.unshift({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'DEPARTMENT', entityId: id, action: 'CREATE', newValue: data.name, createdAt: new Date() } as any);
     return id;
   }
   const db = getDb(d1);
@@ -2035,16 +2053,22 @@ export async function updateDepartment(
       ...(data.description !== undefined ? { description: data.description } : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     };
+    FALLBACK_AUDIT_LOGS.unshift({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'DEPARTMENT', entityId: data.id, action: 'UPDATE', newValue: JSON.stringify(FALLBACK_DEPARTMENTS[idx]), createdAt: new Date() } as any);
     return true;
   }
   const db = getDb(d1);
+  const existing = await db.select({ id: schema.departments.id }).from(schema.departments).where(eq(schema.departments.id, data.id)).limit(1);
+  if (existing.length === 0) return false;
   const updateSet: Record<string, any> = {};
   if (data.name !== undefined) updateSet.name = data.name;
   if (data.slug !== undefined) updateSet.slug = data.slug;
   if (data.organisationId !== undefined) updateSet.organisationId = data.organisationId;
   if (data.description !== undefined) updateSet.description = data.description;
   if (data.isActive !== undefined) updateSet.isActive = data.isActive;
-  await db.update(schema.departments).set(updateSet).where(eq(schema.departments.id, data.id));
+  await db.batch([
+    db.update(schema.departments).set(updateSet).where(eq(schema.departments.id, data.id)),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'DEPARTMENT', entityId: data.id, action: 'UPDATE', newValue: JSON.stringify(updateSet) }),
+  ]);
   return true;
 }
 
@@ -2089,6 +2113,15 @@ export async function createSector(
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SECTOR',
+      entityId: id,
+      action: 'CREATE',
+      newValue: JSON.stringify({ name: cleanName, slug, icon: cleanIcon, theme: cleanTheme, isActive, displayOrder }),
+      createdAt: new Date(),
+    } as any);
     return id;
   }
   const db = getDb(d1);
@@ -2166,19 +2199,29 @@ export async function updateSector(
       ...(cleanIsActive !== undefined ? { isActive: cleanIsActive } : {}),
       updatedAt: new Date(),
     };
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'SECTOR',
+      entityId: data.id,
+      action: 'UPDATE',
+      newValue: JSON.stringify(FALLBACK_SECTORS[idx]),
+      createdAt: new Date(),
+    } as any);
     return true;
   }
   const db = getDb(d1);
-  const updateSet: Record<string, any> = {
-    updatedAt: sql`(unixepoch())`,
-  };
-  if (cleanName !== undefined) updateSet.name = cleanName;
-  if (cleanSlug !== undefined) updateSet.slug = cleanSlug;
-  if (cleanDesc !== undefined) updateSet.description = cleanDesc;
-  if (cleanIcon !== undefined) updateSet.icon = cleanIcon;
-  if (cleanTheme !== undefined) updateSet.theme = cleanTheme;
-  if (cleanDisplayOrder !== undefined) updateSet.displayOrder = cleanDisplayOrder;
-  if (cleanIsActive !== undefined) updateSet.isActive = cleanIsActive;
+  const existing = await db.select({ id: schema.sectors.id }).from(schema.sectors).where(eq(schema.sectors.id, data.id)).limit(1);
+  if (existing.length === 0) return false;
+  const auditedChanges: Record<string, string | number> = {};
+  const updateSet: Record<string, any> = { updatedAt: sql`(unixepoch())` };
+  if (cleanName !== undefined) updateSet.name = auditedChanges.name = cleanName;
+  if (cleanSlug !== undefined) updateSet.slug = auditedChanges.slug = cleanSlug;
+  if (cleanDesc !== undefined) updateSet.description = auditedChanges.description = cleanDesc;
+  if (cleanIcon !== undefined) updateSet.icon = auditedChanges.icon = cleanIcon;
+  if (cleanTheme !== undefined) updateSet.theme = auditedChanges.theme = cleanTheme;
+  if (cleanDisplayOrder !== undefined) updateSet.displayOrder = auditedChanges.displayOrder = cleanDisplayOrder;
+  if (cleanIsActive !== undefined) updateSet.isActive = auditedChanges.isActive = cleanIsActive;
 
   await db.batch([
     db.update(schema.sectors).set(updateSet).where(eq(schema.sectors.id, data.id)),
@@ -2188,24 +2231,29 @@ export async function updateSector(
       entity: 'SECTOR',
       entityId: data.id,
       action: 'UPDATE',
-      newValue: JSON.stringify(updateSet),
+      newValue: JSON.stringify(auditedChanges),
     }),
   ]);
   return true;
 }
 
-export async function getAllStates(providedD1?: D1Database): Promise<Array<{ id: string; name: string; code: string; slug: string; isActive?: number }>> {
+export async function getAllStates(
+  providedD1?: D1Database,
+  options?: { includeInactive?: boolean },
+): Promise<Array<{ id: string; name: string; code: string; slug: string; isActive?: number }>> {
   const d1 = resolveD1(providedD1, 'loading states');
-  if (!d1) return INDIA_JURISDICTIONS;
+  const includeInactive = options?.includeInactive ?? false;
+  if (!d1) return includeInactive ? INDIA_JURISDICTIONS : INDIA_JURISDICTIONS.filter(state => state.isActive !== 0);
   try {
     const db = getDb(d1);
-    const rows = await db.select({
+    const query = db.select({
       id: schema.states.id,
       name: schema.states.name,
       code: schema.states.code,
       slug: schema.states.slug,
       isActive: schema.states.isActive,
-    }).from(schema.states).orderBy(asc(schema.states.name));
+    }).from(schema.states);
+    const rows = await (includeInactive ? query : query.where(eq(schema.states.isActive, 1))).orderBy(asc(schema.states.name));
     return rows;
   } catch (err) {
     console.error('Error loading states from D1:', err);
@@ -2220,17 +2268,30 @@ export async function createState(
   const d1 = resolveD1(providedD1, 'creating a state');
   const code = data.code.trim().toUpperCase();
   const id = `st_${code.toLowerCase()}`;
-  let slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   if (!d1) {
-    const existingIdx = INDIA_JURISDICTIONS.findIndex(s => s.id === id || s.code === code);
-    if (existingIdx >= 0) {
-      INDIA_JURISDICTIONS[existingIdx] = { id, code, name: data.name, slug };
-    } else {
-      INDIA_JURISDICTIONS.push({ id, code, name: data.name, slug });
+    if (INDIA_JURISDICTIONS.some(state => state.id === id || state.code === code || state.slug === slug)) {
+      throw new Error(`State code or slug already exists: ${code}`);
     }
+    INDIA_JURISDICTIONS.push({ id, code, name: data.name, slug, isActive: data.isActive ?? 1 });
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'STATE',
+      entityId: id,
+      action: 'CREATE',
+      newValue: `${data.name} (${code})`,
+      createdAt: new Date(),
+    } as any);
     return id;
   }
   const db = getDb(d1);
+  const existing = await db.select({ id: schema.states.id }).from(schema.states).where(or(
+    eq(schema.states.id, id),
+    eq(schema.states.code, code),
+    eq(schema.states.slug, slug),
+  )).limit(1);
+  if (existing.length > 0) throw new Error(`State code or slug already exists: ${code}`);
   await db.batch([
     db.insert(schema.states).values({
       id,
@@ -2238,9 +2299,6 @@ export async function createState(
       name: data.name,
       slug,
       isActive: data.isActive ?? 1,
-    }).onConflictDoUpdate({
-      target: schema.states.id,
-      set: { name: data.name, slug, isActive: data.isActive ?? 1 },
     }),
     db.insert(schema.auditLogs).values({
       id: `audit_${crypto.randomUUID()}`,
@@ -2267,16 +2325,38 @@ export async function updateState(
       ...(data.name ? { name: data.name } : {}),
       ...(data.code ? { code: data.code.toUpperCase() } : {}),
       ...(data.slug ? { slug: data.slug } : {}),
+      ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     };
+    FALLBACK_AUDIT_LOGS.unshift({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'STATE',
+      entityId: data.id,
+      action: 'UPDATE',
+      newValue: JSON.stringify(INDIA_JURISDICTIONS[idx]),
+      createdAt: new Date(),
+    } as any);
     return true;
   }
   const db = getDb(d1);
+  const existing = await db.select({ id: schema.states.id }).from(schema.states).where(eq(schema.states.id, data.id)).limit(1);
+  if (existing.length === 0) return false;
   const updateSet: Record<string, any> = {};
   if (data.name !== undefined) updateSet.name = data.name;
   if (data.code !== undefined) updateSet.code = data.code.toUpperCase();
   if (data.slug !== undefined) updateSet.slug = data.slug;
   if (data.isActive !== undefined) updateSet.isActive = data.isActive;
-  await db.update(schema.states).set(updateSet).where(eq(schema.states.id, data.id));
+  await db.batch([
+    db.update(schema.states).set(updateSet).where(eq(schema.states.id, data.id)),
+    db.insert(schema.auditLogs).values({
+      id: `audit_${crypto.randomUUID()}`,
+      adminEmail: data.adminEmail,
+      entity: 'STATE',
+      entityId: data.id,
+      action: 'UPDATE',
+      newValue: JSON.stringify(updateSet),
+    }),
+  ]);
   return true;
 }
 

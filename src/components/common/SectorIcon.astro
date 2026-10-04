@@ -5,12 +5,10 @@ import { getSectorIconDef } from '../../services/sector-theme';
 interface Props {
   name?: string | null;
   class?: string;
-  size?: number | string;
 }
 
-const { name, class: className = 'size-5', size } = Astro.props;
+const { name, class: className = 'size-5' } = Astro.props;
 const iconDef = getSectorIconDef(name);
-const style = size ? `width: ${size}px; height: ${size}px;` : undefined;
 ---
 
 <svg
@@ -22,7 +20,6 @@ const style = size ? `width: ${size}px; height: ${size}px;` : undefined;
   stroke-linecap="round"
   stroke-linejoin="round"
   class={className}
-  style={style}
   aria-hidden="true"
   set:html={iconDef.svgInner}
 />

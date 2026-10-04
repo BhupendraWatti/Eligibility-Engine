@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local Cloudflare-compatible development.
+# Never commit real administrator addresses or bypass tokens.
+ADMIN_EMAILS=admin@example.gov.in
+ADMIN_TEST_BYPASS_TOKEN=replace-with-a-long-random-local-secret

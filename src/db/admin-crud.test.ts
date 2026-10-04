@@ -5,10 +5,16 @@ import {
   createOrganisation,
   FALLBACK_RECRUITMENTS,
   getAdminUsers,
+  getAllDepartments,
+  getAllOrganisations,
+  getAllStates,
+  getAuditLogs,
+  createState,
   updateAdminUser,
   updateCanonicalPost,
   updateDepartment,
   updateOrganisation,
+  updateState,
   updateRecruitmentEligibility,
   updateRecruitmentSeo,
   updateRecruitmentStatus,
@@ -24,11 +30,31 @@ const assertEqual = (actual: unknown, expected: unknown, message: string) => {
 
 const adminEmail = 'crud-test@localhost';
 
+const stateId = await createState({ code: 'ZZ', name: 'CRUD Test State', slug: 'crud-test-state', isActive: 1, adminEmail });
+let duplicateStateRejected = false;
+try {
+  await createState({ code: 'ZZ', name: 'Duplicate CRUD Test State', slug: 'duplicate-crud-test-state', adminEmail });
+} catch {
+  duplicateStateRejected = true;
+}
+assert(duplicateStateRejected, 'Duplicate state codes must be rejected instead of overwriting data');
+assert(await updateState({ id: stateId, isActive: 0, adminEmail }), 'State update failed');
+assert(!(await getAllStates()).some(state => state.id === stateId), 'Public state queries must omit inactive states');
+assert((await getAllStates(undefined, { includeInactive: true })).some(state => state.id === stateId && state.isActive === 0), 'Admin state queries must include inactive states');
+assert(!(await updateState({ id: 'st_missing', name: 'Missing', adminEmail })), 'Updating a missing state must report failure');
+assert((await getAuditLogs()).some(log => log.entity === 'STATE' && log.entityId === stateId && log.action === 'UPDATE'), 'State updates must be audited');
+
 const organisationId = await createOrganisation({ stateId: 'st_mp', name: 'CRUD Test Commission', shortName: 'CTC', slug: 'crud-test-commission', websiteUrl: 'https://example.gov.in', isActive: 1, adminEmail });
 assert(await updateOrganisation({ id: organisationId, name: 'CRUD Test Commission Updated', isActive: 0, adminEmail }), 'Organisation update failed');
+assert((await getAuditLogs()).some(log => log.entity === 'ORGANISATION' && log.entityId === organisationId && log.action === 'UPDATE'), 'Organisation updates must be audited');
+assert(!(await getAllOrganisations()).some(organisation => organisation.id === organisationId), 'Public organisation queries must omit inactive records');
+assert((await getAllOrganisations(undefined, { includeInactive: true })).some(organisation => organisation.id === organisationId), 'Admin organisation queries must include inactive records');
 
 const departmentId = await createDepartment({ organisationId, name: 'CRUD Test Department', slug: 'crud-test-department', isActive: 1, adminEmail });
 assert(await updateDepartment({ id: departmentId, description: 'Updated safely', isActive: 0, adminEmail }), 'Department update failed');
+assert((await getAuditLogs()).some(log => log.entity === 'DEPARTMENT' && log.entityId === departmentId && log.action === 'UPDATE'), 'Department updates must be audited');
+assert(!(await getAllDepartments()).some(department => department.id === departmentId), 'Public department queries must omit inactive records');
+assert((await getAllDepartments(undefined, { includeInactive: true })).some(department => department.id === departmentId), 'Admin department queries must include inactive records');
 
 const postId = await createCanonicalPost({ departmentId, sectorId: 'sec_admin', title: 'CRUD Test Post', slug: 'crud-test-post', summary: 'Test-only canonical record', payScale: null, defaultMinAge: 18, defaultMaxAge: 30, defaultQualification: '10TH', isActive: 1 });
 assert(await updateCanonicalPost({ id: postId, defaultMaxAge: 32, isActive: 0 }), 'Canonical post update failed');

@@ -30,7 +30,9 @@ import {
   resolveRequiredReference,
 } from '../../services/admin-integrity';
 
-let statusMessage: { type: 'success' | 'error'; text: string } | null = null;
+let statusMessage: { type: 'success' | 'error'; text: string } | null = Astro.url.searchParams.has('saved')
+  ? { type: 'success', text: 'Sector master data saved successfully.' }
+  : null;
 
 const [posts, sectors, departments] = await Promise.all([
   getAllCanonicalPosts(),
@@ -45,7 +47,8 @@ if (Astro.request.method === 'POST') {
   try {
     const input = await readAdminSubmission(Astro.request);
     const action = input.text('_action', 'action') || 'create_post';
-    const adminEmail = Astro.locals.adminEmail || 'admin@nirnay.gov.in';
+    const adminEmail = Astro.locals.adminEmail;
+    if (!adminEmail) throw new Error('Admin identity is required for mutations.');
 
     if (action === 'create_sector') {
       const sectorName = input.text('name', 'title');
@@ -102,7 +105,7 @@ if (Astro.request.method === 'POST') {
         throw new Error('Sector ID and Sector Name are required for updating.');
       }
 
-      await updateSector({
+      const updated = await updateSector({
         id: sectorId,
         name: sectorName,
         slug: sectorSlug || undefined,
@@ -113,6 +116,7 @@ if (Astro.request.method === 'POST') {
         isActive,
         adminEmail,
       });
+      if (!updated) throw new Error(`Unknown sector ID: ${sectorId}`);
 
       statusMessage = {
         type: 'success',
@@ -136,11 +140,12 @@ if (Astro.request.method === 'POST') {
       const targetSector = sectors.find(s => s.id === sectorId);
       if (!targetSector) throw new Error(`Unknown sector ID: ${sectorId}`);
 
-      await updateSector({
+      const updated = await updateSector({
         id: sectorId,
         isActive: targetStatus,
         adminEmail,
       });
+      if (!updated) throw new Error(`Unknown sector ID: ${sectorId}`);
 
       statusMessage = {
         type: 'success',
@@ -209,6 +214,10 @@ if (Astro.request.method === 'POST') {
         });
       }
     }
+    const selectedSector = Astro.url.searchParams.get('sector');
+    const redirectQuery = new URLSearchParams({ saved: '1' });
+    if (selectedSector) redirectQuery.set('sector', selectedSector);
+    return Astro.redirect(`/admin/sectors-posts?${redirectQuery}`, 303);
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
     Astro.response.status = 400;

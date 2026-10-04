@@ -3,6 +3,7 @@ export interface IndiaJurisdiction {
   code: string;
   name: string;
   slug: string;
+  isActive?: number;
 }
 
 // Central Government + 28 states + 8 union territories.

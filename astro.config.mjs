@@ -12,6 +12,7 @@ export default defineConfig({
   }),
   integrations: [react()],
   vite: {
+    cacheDir: process.argv.includes('build') ? 'node_modules/.vite-build' : 'node_modules/.vite-dev',
     plugins: [tailwindcss()]
   }
 });

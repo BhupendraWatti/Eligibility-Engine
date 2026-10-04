@@ -3,6 +3,7 @@ import {
   isAdminTestBypass,
   isSameOrigin,
 } from './services/admin-integrity';
+import { getHostname } from './lib/hostname';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -34,6 +35,12 @@ assert(
 assert(
   !isAdminRequestAllowed('admin@example.com', []),
   'a missing ADMIN_EMAILS configuration fails closed',
+);
+assert(
+  getHostname(new Request('https://example.com/admin', {
+    headers: { 'x-forwarded-host': 'localhost' },
+  })) === 'example.com',
+  'caller-controlled forwarded host headers cannot masquerade as localhost',
 );
 
 console.log('\n🎉 MIDDLEWARE POLICY TESTS PASSED!');

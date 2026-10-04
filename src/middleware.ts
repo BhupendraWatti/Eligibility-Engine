@@ -1,18 +1,16 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
-import { getHostname, isAdminSubdomain } from './lib/hostname';
+import { isAdminSubdomain } from './lib/hostname';
 import { isAdminRequestAllowed, isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
-  const hostname = getHostname(request) || url.hostname;
+  const hostname = url.hostname.toLowerCase();
 
   const isLocal =
     import.meta.env.DEV ||
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
-    hostname === '0.0.0.0' ||
-    url.port === '4321' ||
-    url.port === '3000';
+    hostname === '0.0.0.0';
 
   const isAdminHost = isAdminSubdomain(hostname);
   const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');

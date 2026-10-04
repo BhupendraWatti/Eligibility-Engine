@@ -1,6 +1,7 @@
 import {
   isAdminTestBypass,
   parseBooleanInput,
+  parseCheckboxInput,
   parseIntegerInput,
   parseOptionalNumberInput,
   parseStringListInput,
@@ -38,6 +39,8 @@ assert(rejectedUnknown, 'unknown references are rejected instead of silently sub
 assert(parseBooleanInput(false) === false, 'boolean false remains false');
 assert(parseBooleanInput('false') === false, 'string false is parsed as false');
 assert(parseBooleanInput('1') === true, 'string 1 is parsed as true');
+assert(parseCheckboxInput(undefined) === false, 'an unchecked HTML checkbox is false');
+assert(parseCheckboxInput('1') === true, 'a checked HTML checkbox is true');
 assert(parseIntegerInput(0, 50) === 0, 'zero remains a valid numeric value');
 assert(parseIntegerInput(undefined, 50) === 50, 'missing numbers use the explicit default');
 assert(parseOptionalNumberInput('0') === 0, 'optional numeric zero remains zero');

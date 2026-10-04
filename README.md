@@ -1,59 +1,77 @@
-# Astro Starter Kit: Minimal
+# NIRNAY Eligibility Engine
 
-```sh
-npm create astro@latest -- --template minimal
+NIRNAY is an Astro SSR application for managing Indian public-recruitment master data, publishing recruitment drives, and evaluating candidate eligibility. It runs on Cloudflare Workers with D1 and uses in-memory data only for local unit tests that do not provide a D1 binding.
+
+## Prerequisites
+
+- Node.js 22.12 or newer
+- npm
+- A Cloudflare account only when testing remote D1 or deploying
+
+## Local setup
+
+```powershell
+npm ci
+Copy-Item .dev.vars.example .dev.vars
+npx wrangler d1 migrations apply EligibilityEngine-db --local
+npx astro dev --background
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The site is available at `http://localhost:4321`. Localhost receives the seeded development administrator identity. Production requests require Cloudflare Access, `ADMIN_EMAILS`, and an active `admin_users` record.
 
-## 🚀 Project Structure
+Manage the background server with:
 
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```powershell
+npx astro dev status
+npx astro dev logs
+npx astro dev stop
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Validation
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+Run the complete local quality gate:
 
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## Admin API test setup
-
-Admin routes require a Cloudflare Access identity backed by an active `admin_users` row. Automated tests against a deployed Worker may instead send a secret test token:
-
-```sh
-npx wrangler secret put ADMIN_TEST_BYPASS_TOKEN
+```powershell
+npm run check
 ```
 
-Send the exact configured value in the `x-admin-bypass` header. The legacy value `true`, query-string bypasses, test user agents, localhost, and `workers.dev` do not bypass authentication.
+This runs the tests, TypeScript checking, and production build. Development and build use separate Vite caches, so validation does not invalidate a running development server.
 
-Apply the D1 migrations before running fixture tests so required state, organisation, sector, and department parents exist:
+Focused commands:
 
-```sh
+```powershell
+npm test
+npm run typecheck
+npm run build
+```
+
+## Database migrations
+
+Always prove migrations locally before applying them remotely:
+
+```powershell
+npx wrangler d1 migrations apply EligibilityEngine-db --local
+npx wrangler d1 migrations list EligibilityEngine-db --local
+```
+
+Only after local validation and release approval should production be changed:
+
+```powershell
 npx wrangler d1 migrations apply EligibilityEngine-db --remote
 ```
 
-## 👀 Want to learn more?
+## Admin API testing
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Deployed automated tests may use `x-admin-bypass` only when its value exactly matches the server-side `ADMIN_TEST_BYPASS_TOKEN` secret:
+
+```powershell
+npx wrangler secret put ADMIN_TEST_BYPASS_TOKEN
+```
+
+Caller-controlled host headers, query parameters, user agents, and the literal value `true` do not bypass authentication.
+
+## Architecture
+
+- [CONTEXT.md](./CONTEXT.md): platform architecture, schema, security, and operating rules.
+- [Recruitment lifecycle domain](./docs/RECRUITMENT_LIFECYCLE_DOMAIN.md): canonical publication and lifecycle behavior.
+- [DESIGN.md](./DESIGN.md): admin-console visual system.

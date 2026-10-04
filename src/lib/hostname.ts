@@ -16,17 +16,17 @@ export function getHostname(request: Request | URL | string): string {
   }
 
   if (request && typeof request === 'object') {
-    if ('headers' in request && typeof request.headers?.get === 'function') {
-      const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
-      if (host) {
-        return host.split(':')[0].toLowerCase();
-      }
-    }
     if ('url' in request && typeof request.url === 'string') {
       try {
         return new URL(request.url).hostname.toLowerCase();
       } catch {
-        // ignore
+        // Fall through for non-standard request objects.
+      }
+    }
+    if ('headers' in request && typeof request.headers?.get === 'function') {
+      const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+      if (host) {
+        return host.split(':')[0].toLowerCase();
       }
     }
   }

@@ -4,7 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../components/admin/AdminDataTable.astro';
 import MasterSubNav from '../../components/admin/MasterSubNav.astro';
 import { createOrganisation, updateOrganisation, getAllOrganisations, getAllStates } from '../../db/queries';
-import { parseBooleanInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
+import { parseCheckboxInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
 
 const states = await getAllStates();
 const adminEmail = Astro.locals.adminEmail;
@@ -23,7 +23,7 @@ if (Astro.request.method === 'POST') {
     let slug = input.text('slug');
     let stateId = input.text('stateId', 'state_id');
     let websiteUrl = input.text('websiteUrl', 'website_url', 'url');
-    const isActive = parseBooleanInput(input.value('isActive'), true) ? 1 : 0;
+    const isActive = parseCheckboxInput(input.value('isActive')) ? 1 : 0;
 
     if (!shortName && name) {
       shortName = name.length <= 15 ? name : name.split(/\s+/).map((w: string) => w[0]).join('').toUpperCase() || name.slice(0, 10);
@@ -44,7 +44,7 @@ if (Astro.request.method === 'POST') {
       }
       new URL(websiteUrl);
 
-      await updateOrganisation({
+      const updated = await updateOrganisation({
         id,
         name,
         shortName,
@@ -54,6 +54,7 @@ if (Astro.request.method === 'POST') {
         isActive,
         adminEmail,
       });
+      if (!updated) throw new Error(`Unknown organisation ID: ${id}`);
       statusMessage = { type: 'success', text: `Organisation "${name}" successfully updated!` };
       Astro.response.headers.set('X-Organisation-Id', id);
       if (!acceptsHtml) {
@@ -98,7 +99,7 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const rawOrganisations = await getAllOrganisations();
+const rawOrganisations = await getAllOrganisations(undefined, { includeInactive: true });
 const stateMap = new Map(states.map(s => [s.id, s.name]));
 
 const organisations = rawOrganisations.map(org => {

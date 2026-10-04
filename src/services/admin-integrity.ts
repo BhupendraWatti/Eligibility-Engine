@@ -11,6 +11,10 @@ export type AdminSubmission = {
   text: (...keys: string[]) => string;
 };
 
+export class AdminValidationError extends Error {
+  readonly code = 'INVALID_ADMIN_INPUT';
+}
+
 export async function readAdminSubmission(request: Request): Promise<AdminSubmission> {
   let values: Record<string, unknown>;
   if ((request.headers.get('content-type') || '').includes('application/json')) {
@@ -42,14 +46,14 @@ export function resolveRequiredReference<T extends ReferenceRecord>(
   label: string,
 ): T {
   const requested = value.trim().toLowerCase();
-  if (!requested) throw new Error(`${label[0].toUpperCase()}${label.slice(1)} is required.`);
+  if (!requested) throw new AdminValidationError(`${label[0].toUpperCase()}${label.slice(1)} is required.`);
 
   const match = records.find(record =>
     [record.id, record.slug, record.name, record.code, record.shortName]
       .some(candidate => candidate?.toLowerCase() === requested),
   );
 
-  if (!match) throw new Error(`Unknown ${label}: ${value}`);
+  if (!match) throw new AdminValidationError(`Unknown ${label}: ${value}`);
   return match;
 }
 
@@ -61,20 +65,24 @@ export function parseBooleanInput(value: unknown, fallback = false): boolean {
   const normalized = String(value).trim().toLowerCase();
   if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
   if (['false', '0', 'no', 'off'].includes(normalized)) return false;
-  throw new Error(`Invalid boolean value: ${value}`);
+  throw new AdminValidationError(`Invalid boolean value: ${value}`);
+}
+
+export function parseCheckboxInput(value: unknown): boolean {
+  return parseBooleanInput(value, false);
 }
 
 export function parseIntegerInput(value: unknown, fallback: number): number {
   if (value === undefined || value === null || value === '') return fallback;
   const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isInteger(parsed)) throw new Error(`Invalid integer value: ${value}`);
+  if (!Number.isInteger(parsed)) throw new AdminValidationError(`Invalid integer value: ${value}`);
   return parsed;
 }
 
 export function parseOptionalNumberInput(value: unknown): number | null {
   if (value === undefined || value === null || value === '') return null;
   const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`Invalid numeric value: ${value}`);
+  if (!Number.isFinite(parsed)) throw new AdminValidationError(`Invalid numeric value: ${value}`);
   return parsed;
 }
 

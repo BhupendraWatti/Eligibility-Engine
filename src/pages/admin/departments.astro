@@ -10,11 +10,11 @@ import {
   getAllOrganisations,
   getAllCanonicalPosts,
 } from '../../db/queries';
-import { parseBooleanInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
+import { parseCheckboxInput, readAdminSubmission, resolveRequiredReference } from '../../services/admin-integrity';
 
 const [organisations, rawDepartments, canonicalPosts] = await Promise.all([
-  getAllOrganisations(),
-  getAllDepartments(),
+  getAllOrganisations(undefined, { includeInactive: true }),
+  getAllDepartments(undefined, { includeInactive: true }),
   getAllCanonicalPosts(),
 ]);
 const adminEmail = Astro.locals.adminEmail;
@@ -33,7 +33,7 @@ if (Astro.request.method === 'POST') {
     let slug = input.text('slug');
     let organisationId = input.text('organisationId', 'organisation_id');
     const description = input.text('description');
-    const isActive = parseBooleanInput(input.value('isActive'), true) ? 1 : 0;
+    const isActive = parseCheckboxInput(input.value('isActive')) ? 1 : 0;
 
     organisationId = resolveRequiredReference(organisationId, organisations, 'organisation').id;
     if (!slug && name) {
@@ -45,7 +45,7 @@ if (Astro.request.method === 'POST') {
         throw new Error('Department ID, name, slug, and organisation are required.');
       }
 
-      await updateDepartment({
+      const updated = await updateDepartment({
         id,
         name,
         slug,
@@ -54,6 +54,7 @@ if (Astro.request.method === 'POST') {
         isActive,
         adminEmail,
       });
+      if (!updated) throw new Error(`Unknown department ID: ${id}`);
       statusMessage = { type: 'success', text: `Department "${name}" successfully updated!` };
       Astro.response.headers.set('X-Department-Id', id);
       if (!acceptsHtml) {
