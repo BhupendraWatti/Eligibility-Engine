@@ -61,7 +61,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
     // A secret-backed test request or local development may use the seeded lead-admin identity.
     if (!userEmail && (isTestBypass || isLocal)) {
-      userEmail = '';
+      userEmail = 'admin@rozgarsetu.in';
     }
 
     if (!isAdminRequestAllowed(userEmail, allowedAdmins, isTestBypass || isLocal)) {
