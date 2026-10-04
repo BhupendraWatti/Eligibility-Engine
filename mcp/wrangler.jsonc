@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nirnay-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  // Same D1 database as the website. Migrations stay owned by the website (../migrations).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "EligibilityEngine-db",
+      "database_id": "a6e065fb-e899-498b-a4e6-e0cb7b1c1e2e"
+    }
+  ],
+  "observability": { "enabled": true }
+  // Secret (not stored here): npx wrangler secret put MCP_API_TOKEN
+}

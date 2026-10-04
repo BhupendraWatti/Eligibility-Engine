@@ -46,7 +46,7 @@ try {
 }
 
 // Cloudflare Workers expose the server-side Cache API; browsers never execute this module.
-const demoFallbackEnabled = import.meta.env?.DEV === true || typeof globalThis.caches === 'undefined';
+const demoFallbackEnabled = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true || typeof globalThis.caches === 'undefined';
 
 function resolveD1(providedD1: D1Database | undefined, operation: string): D1Database | undefined {
   const d1 = providedD1 || cfEnv?.DB;
@@ -1845,6 +1845,7 @@ export async function getAllActiveRecruitments(
       with: {
         post: { with: { department: { with: { organisation: true } }, sector: true } },
         organisation: true,
+        state: true,
         eligibility: true,
         importantDates: true,
         vacancies: true,

@@ -1,0 +1,2 @@
+# Local secret for the MCP Worker (wrangler dev). Min 24 chars. Prod: npx wrangler secret put MCP_API_TOKEN
+MCP_API_TOKEN=replace-with-a-long-random-secret-min-24-chars

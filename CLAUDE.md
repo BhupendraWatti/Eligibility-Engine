@@ -2,7 +2,7 @@
 
 Before making architectural decisions, editing database queries, altering lifecycle states, or modifying eligibility calculation logic, always consult the comprehensive project architecture guide:
 
-- [CONTEXT.md](file:///d:/Personal%20Projects/Eligibility%20Engine/CONTEXT.md) — Complete Platform Memory, Relational Schema, Deterministic Engine Rules, and Operational Playbook.
+- [CONTEXT.md](file:///d:/Personal%20Projects/Eligibility%20Engine/markdown/CONTEXT.md) — Complete Platform Memory, Relational Schema, Deterministic Engine Rules, and Operational Playbook.
 - [RECRUITMENT_LIFECYCLE_DOMAIN.md](file:///d:/Personal%20Projects/Eligibility%20Engine/docs/RECRUITMENT_LIFECYCLE_DOMAIN.md) — Canonical Recruitment Lifecycle & Metric Standards.
 
 
@@ -13,6 +13,8 @@ When starting the dev server, use background mode:
 ```
 astro dev --background
 ```
+
+The private MCP server lives in `mcp/` (own packages and deploy, see `mcp/README.md`). It only reads this app's code (`src/services/recruitment-query.ts`, `src/db/queries.ts`) and must never change website behaviour.
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 

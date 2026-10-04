@@ -127,7 +127,7 @@ cypress/videos/
 cypress/screenshots/
 
 # ------------------------------------------------------------------------------
-# 9. Caches, Temporary Files & Local Audits
+# 9. Caches, Temporary Files & Verification Tooling
 # ------------------------------------------------------------------------------
 *.tmp
 *.temp
@@ -138,12 +138,6 @@ cypress/screenshots/
 .vinext/
 .vercel/
 .netlify/
-report.md
-WEBSITE_AND_BACKEND_AUDIT.md
-ARCHITECTURE_AUDIT_AND_ROADMAP.md
-BACKEND_AUDIT.md
-NIRNAY_AI_OPERATING_SPEC.md
-NIRNAY_FULL_DOMAIN_MODEL_AND_BUSINESS_ARCHITECTURE_DESIGN.md
 tmp/
 temp/
 
@@ -155,12 +149,13 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+*.py
 
 # Drizzle local meta folder (migrations/ and drizzle.config.ts remain tracked)
 drizzle/
 
 # ------------------------------------------------------------------------------
-# 10. AI Agent Working Sessions, Scratchpads & Ephemeral Verification
+# 10. AI Working Sessions, Scratchpads, Tests & Local Documentation
 # ------------------------------------------------------------------------------
 active/
 scratch/
@@ -168,14 +163,17 @@ scratch/
 .agents/
 .gemini/
 .system_generated/
-
-# Generated API documentation and TestSprite output
-backend.md
-openapi.json
-openapi.yaml
-testsprite_tests/
-CLAUDE.md
-*.docx
-context.md
-*.py
 .gstack/
+testsprite_tests/
+
+# Consolidated local markdown specifications, architecture notes & audits
+markdown/
+
+# Office documents
+*.docx
+
+
+# ------------------------------------------------------------------------------
+# 11. Graphify knowledge graph output (local only - visual project map)
+# ------------------------------------------------------------------------------
+graphify-out/
