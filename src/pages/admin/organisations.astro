@@ -174,8 +174,8 @@ const inactiveCount = organisations.length - activeCount;
     </div>
 
     <!-- Dynamic Filter Toolbar (Search + State + Status) -->
-    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1 min-w-0">
         <!-- Dynamic Live Search -->
         <div class="relative flex-1 min-w-[180px]">
           <input
@@ -187,45 +187,47 @@ const inactiveCount = organisations.length - activeCount;
           <svg class="size-3.5 text-zinc-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         </div>
 
-        <!-- Dynamic State Dropdown Filter -->
-        <select
-          id="orgStateFilter"
-          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
-        >
-          <option value="">All States ({states.length})</option>
-          {states.map((st) => (
-            <option value={st.id}>{st.name}</option>
-          ))}
-        </select>
+        <div class="grid grid-cols-2 sm:flex sm:items-center gap-2">
+          <!-- Dynamic State Dropdown Filter -->
+          <select
+            id="orgStateFilter"
+            class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+          >
+            <option value="">All States ({states.length})</option>
+            {states.map((st) => (
+              <option value={st.id}>{st.name}</option>
+            ))}
+          </select>
 
-        <!-- Dynamic Status Dropdown Filter -->
-        <select
-          id="orgStatusFilter"
-          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
-        >
-          <option value="">All Statuses</option>
-          <option value="Active">Active ({activeCount})</option>
-          <option value="Inactive">Inactive ({inactiveCount})</option>
-        </select>
+          <!-- Dynamic Status Dropdown Filter -->
+          <select
+            id="orgStatusFilter"
+            class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+          >
+            <option value="">All Statuses</option>
+            <option value="Active">Active ({activeCount})</option>
+            <option value="Inactive">Inactive ({inactiveCount})</option>
+          </select>
+        </div>
       </div>
 
-      <div class="text-[11px] font-mono text-zinc-500">
+      <div class="text-[11px] font-mono text-zinc-500 text-right sm:text-left shrink-0">
         Showing <span id="filteredOrgCount" class="font-bold text-zinc-900">{organisations.length}</span> of {organisations.length} organisations
       </div>
     </div>
 
-    <!-- Organisations Table -->
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse" id="organisationsDataTable">
+    <!-- Desktop / Tablet Table View (hidden on mobile < md) -->
+    <div class="hidden md:block rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar-light">
+        <table class="w-full text-left text-xs border-collapse min-w-[680px]" id="organisationsDataTable">
           <thead>
-            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
-              <th class="py-3 px-4">Organisation</th>
-              <th class="py-3 px-3">State Jurisdiction</th>
-              <th class="py-3 px-3">Slug</th>
-              <th class="py-3 px-3">Official Domain</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+            <tr class="border-b border-zinc-200 bg-zinc-50/70 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4 min-w-[200px]">Organisation</th>
+              <th class="py-3 px-3 min-w-[140px]">State Jurisdiction</th>
+              <th class="py-3 px-3 min-w-[100px]">Slug</th>
+              <th class="py-3 px-3 min-w-[140px]">Official Domain</th>
+              <th class="py-3 px-3 min-w-[80px]">Status</th>
+              <th class="py-3 px-4 text-right min-w-[120px]">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-100" id="organisationsTableBody">
@@ -300,6 +302,84 @@ const inactiveCount = organisations.length - activeCount;
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- Mobile Adaptive Cards View (visible on < md screens) -->
+    <div class="block md:hidden space-y-3" id="orgMobileCardsContainer">
+      {organisations.map((org) => (
+        <div
+          class="bg-white border border-zinc-200 rounded-xl p-3.5 shadow-2xs space-y-2.5 org-mobile-card"
+          data-org-id={org.id}
+          data-name={org.name.toLowerCase()}
+          data-short-name={org.shortName.toLowerCase()}
+          data-slug={org.slug.toLowerCase()}
+          data-domain={org.domain.toLowerCase()}
+          data-state-id={org.stateId}
+          data-status={org.status}
+          data-website-url={org.websiteUrl}
+          data-is-active={org.isActive ? '1' : '0'}
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-sm text-zinc-950 leading-snug">{org.name}</h3>
+              <div class="flex items-center gap-1.5 mt-1">
+                <span class="font-mono text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
+                  {org.shortName}
+                </span>
+                <span class="text-[10px] font-medium text-zinc-600 bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-200">
+                  {org.stateName}
+                </span>
+              </div>
+            </div>
+            <span class={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border shrink-0 ${
+              org.status === 'Active'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border-amber-200'
+            }`}>
+              {org.status}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
+            <a
+              href={`https://${org.domain}`}
+              target="_blank"
+              rel="noreferrer"
+              class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-500 hover:text-zinc-900 truncate max-w-[160px]"
+            >
+              <span>{org.domain}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                class="edit-org-btn inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold text-xs transition-colors cursor-pointer"
+                data-org={JSON.stringify({
+                  id: org.id,
+                  name: org.name,
+                  shortName: org.shortName,
+                  slug: org.slug,
+                  stateId: org.stateId,
+                  websiteUrl: org.websiteUrl,
+                  isActive: org.isActive,
+                })}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                <span>Edit</span>
+              </button>
+              <a
+                href={`/organisations/${org.slug}`}
+                target="_blank"
+                class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-zinc-500 hover:text-zinc-900 text-xs font-medium"
+              >
+                <span>View</span>
+                <span class="text-[10px]">&rarr;</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   </div>
 
@@ -509,6 +589,7 @@ const inactiveCount = organisations.length - activeCount;
     const statusFilter = document.getElementById('orgStatusFilter');
     const countDisplay = document.getElementById('filteredOrgCount');
     const rows = document.querySelectorAll('.org-table-row');
+    const cards = document.querySelectorAll('.org-mobile-card');
 
     function applyOrgFilters() {
       const q = (searchInput?.value || '').toLowerCase().trim();
@@ -516,24 +597,33 @@ const inactiveCount = organisations.length - activeCount;
       const status = statusFilter?.value || '';
       let visible = 0;
 
-      rows.forEach((row) => {
-        const name = row.getAttribute('data-name') || '';
-        const shortName = row.getAttribute('data-short-name') || '';
-        const slug = row.getAttribute('data-slug') || '';
-        const domain = row.getAttribute('data-domain') || '';
-        const rowState = row.getAttribute('data-state-id') || '';
-        const rowStatus = row.getAttribute('data-status') || '';
+      const filterEl = (el) => {
+        const name = el.getAttribute('data-name') || '';
+        const shortName = el.getAttribute('data-short-name') || '';
+        const slug = el.getAttribute('data-slug') || '';
+        const domain = el.getAttribute('data-domain') || '';
+        const elState = el.getAttribute('data-state-id') || '';
+        const elStatus = el.getAttribute('data-status') || '';
 
         const matchesQuery = !q || name.includes(q) || shortName.includes(q) || slug.includes(q) || domain.includes(q);
-        const matchesState = !state || rowState === state;
-        const matchesStatus = !status || rowStatus === status;
+        const matchesState = !state || elState === state;
+        const matchesStatus = !status || elStatus === status;
 
         if (matchesQuery && matchesState && matchesStatus) {
-          row.classList.remove('hidden');
-          visible++;
+          el.classList.remove('hidden');
+          return true;
         } else {
-          row.classList.add('hidden');
+          el.classList.add('hidden');
+          return false;
         }
+      };
+
+      rows.forEach((row) => {
+        if (filterEl(row)) visible++;
+      });
+
+      cards.forEach((card) => {
+        filterEl(card);
       });
 
       if (countDisplay) countDisplay.textContent = visible.toString();
@@ -544,5 +634,5 @@ const inactiveCount = organisations.length - activeCount;
     statusFilter?.addEventListener('change', applyOrgFilters);
   </script>
 
-  <AdminDataTable tableId="organisationsDataTable" perPage={10} columns={[{ select: 5, sortable: false }]} />
+  <AdminDataTable tableId="organisationsDataTable" perPage={10} searchable={false} columns={[{ select: 5, sortable: false }]} />
 </AdminLayout>

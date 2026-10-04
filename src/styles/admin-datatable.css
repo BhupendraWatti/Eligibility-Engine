@@ -116,10 +116,32 @@
   width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.datatable-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.datatable-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.datatable-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.datatable-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .datatable-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.75rem;
   text-align: left;
@@ -132,7 +154,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #71717a; /* zinc-500 */
-  background-color: rgba(244, 244, 245, 0.6); /* zinc-100/60 */
+  background-color: rgba(244, 244, 245, 0.75); /* zinc-100/75 */
   border-bottom: 1px solid #e4e4e7;
   white-space: nowrap;
   user-select: none;

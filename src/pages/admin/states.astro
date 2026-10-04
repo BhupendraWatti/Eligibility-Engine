@@ -164,8 +164,8 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
     </div>
 
     <!-- Search & Filter Toolbar -->
-    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+    <div class="p-3 bg-white border border-zinc-200 rounded-xl shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1 min-w-0">
         <div class="relative flex-1 min-w-[180px]">
           <input
             type="text"
@@ -178,7 +178,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
 
         <select
           id="stateTypeFilter"
-          class="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
+          class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-700 font-medium outline-none focus:ring-2 focus:ring-zinc-900"
         >
           <option value="">All Categories ({statesWithMeta.length})</option>
           <option value="State Government">State Governments ({totalStates})</option>
@@ -187,24 +187,24 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
         </select>
       </div>
 
-      <div class="text-[11px] font-mono text-zinc-500">
+      <div class="text-[11px] font-mono text-zinc-500 text-right sm:text-left shrink-0">
         Showing <span id="filteredStateCount" class="font-bold text-zinc-900">{statesWithMeta.length}</span> of {statesWithMeta.length} jurisdictions
       </div>
     </div>
 
-    <!-- States Data Table -->
-    <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse" id="statesDataTable">
+    <!-- Desktop / Tablet States Data Table (hidden on mobile < md) -->
+    <div class="hidden md:block rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar-light">
+        <table class="w-full text-left text-xs border-collapse min-w-[700px]" id="statesDataTable">
           <thead>
-            <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
-              <th class="py-3 px-4">State / Territory Name</th>
-              <th class="py-3 px-3">Jurisdiction Code</th>
-              <th class="py-3 px-3">Type</th>
-              <th class="py-3 px-3">URL Slug</th>
-              <th class="py-3 px-3">Linked Bodies</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+            <tr class="border-b border-zinc-200 bg-zinc-50/70 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
+              <th class="py-3 px-4 min-w-[180px]">State / Territory Name</th>
+              <th class="py-3 px-3 min-w-[90px]">Code</th>
+              <th class="py-3 px-3 min-w-[130px]">Type</th>
+              <th class="py-3 px-3 min-w-[110px]">URL Slug</th>
+              <th class="py-3 px-3 min-w-[120px]">Linked Bodies</th>
+              <th class="py-3 px-3 min-w-[80px]">Status</th>
+              <th class="py-3 px-4 text-right min-w-[90px]">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-100" id="statesTableBody">
@@ -271,6 +271,68 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- Mobile Adaptive Cards View (visible on < md screens) -->
+    <div class="block md:hidden space-y-3" id="stateMobileCardsContainer">
+      {statesWithMeta.map((st) => (
+        <div
+          class="bg-white border border-zinc-200 rounded-xl p-3.5 shadow-2xs space-y-2.5 state-mobile-card"
+          data-state-id={st.id}
+          data-name={st.name.toLowerCase()}
+          data-code={st.code.toLowerCase()}
+          data-slug={st.slug.toLowerCase()}
+          data-type={st.typeLabel}
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-bold text-sm text-zinc-950 leading-snug">{st.name}</h3>
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
+                  {st.code}
+                </span>
+              </div>
+              <span class={`inline-flex items-center px-2 py-0.5 mt-1 rounded text-[9px] font-semibold border ${
+                st.isCentral
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : st.isUT
+                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                  : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+              }`}>
+                {st.typeLabel}
+              </span>
+            </div>
+            <span class={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border shrink-0 ${
+              st.isActive
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+            }`}>
+              {st.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
+            <span class="text-[11px] text-zinc-500 font-mono">
+              {st.linkedOrgsCount} bodies registered
+            </span>
+
+            <button
+              type="button"
+              class="edit-state-btn inline-flex items-center gap-1 px-3 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold text-xs transition-colors cursor-pointer"
+              data-state={JSON.stringify({
+                id: st.id,
+                name: st.name,
+                code: st.code,
+                slug: st.slug,
+                isActive: st.isActive,
+              })}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              <span>Edit</span>
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   </div>
 
@@ -422,6 +484,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
     const searchInput = document.getElementById('stateSearchInput');
     const typeFilter = document.getElementById('stateTypeFilter');
     const rows = document.querySelectorAll('.state-table-row');
+    const cards = document.querySelectorAll('.state-mobile-card');
     const countBadge = document.getElementById('filteredStateCount');
 
     function filterStates() {
@@ -429,21 +492,30 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
       const type = typeFilter?.value || '';
       let visible = 0;
 
-      rows.forEach((row) => {
-        const name = row.getAttribute('data-name') || '';
-        const code = row.getAttribute('data-code') || '';
-        const slug = row.getAttribute('data-slug') || '';
-        const rowType = row.getAttribute('data-type') || '';
+      const filterItem = (el) => {
+        const name = el.getAttribute('data-name') || '';
+        const code = el.getAttribute('data-code') || '';
+        const slug = el.getAttribute('data-slug') || '';
+        const rowType = el.getAttribute('data-type') || '';
 
         const matchSearch = !q || name.includes(q) || code.includes(q) || slug.includes(q);
         const matchType = !type || rowType === type;
 
         if (matchSearch && matchType) {
-          row.classList.remove('hidden');
-          visible++;
+          el.classList.remove('hidden');
+          return true;
         } else {
-          row.classList.add('hidden');
+          el.classList.add('hidden');
+          return false;
         }
+      };
+
+      rows.forEach((row) => {
+        if (filterItem(row)) visible++;
+      });
+
+      cards.forEach((card) => {
+        filterItem(card);
       });
 
       if (countBadge) countBadge.textContent = visible;

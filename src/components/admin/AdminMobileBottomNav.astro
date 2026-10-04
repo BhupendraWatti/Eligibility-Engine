@@ -16,7 +16,7 @@ const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/e
 <!-- Mobile Bottom Navigation Dock (Visible only on < md screens) -->
 <nav
   aria-label="Mobile Navigation"
-  class="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 backdrop-blur-lg border-t border-zinc-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-2"
+  class="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 backdrop-blur-lg border-t border-zinc-200/90 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]"
 >
   <div class="flex items-center justify-around max-w-md mx-auto">
     <!-- 1. Dashboard -->

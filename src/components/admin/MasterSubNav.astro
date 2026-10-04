@@ -58,13 +58,13 @@ const subTypes = [
     </span>
   </div>
 
-  <div class="flex items-center gap-1.5 p-1 bg-zinc-200/60 rounded-xl overflow-x-auto no-scrollbar text-xs font-semibold">
+  <div class="flex items-center gap-1.5 p-1 bg-zinc-200/60 rounded-xl overflow-x-auto no-scrollbar text-xs font-semibold [overscroll-behavior-x:contain]">
     {subTypes.map((tab) => {
       const isActive = currentTab === tab.key;
       return (
         <a
           href={tab.href}
-          class={`flex items-center gap-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all ${
+          class={`flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all shrink-0 ${
             isActive
               ? 'bg-white text-zinc-950 shadow-2xs font-bold'
               : 'text-zinc-600 hover:text-zinc-950 hover:bg-white/60 font-medium'
