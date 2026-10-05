@@ -87,8 +87,8 @@ const pathname = Astro.url.pathname;
         Answer Keys
       </a>
       <a
-        href="/jobs"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        href="/#sectors"
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/posts') || pathname.startsWith('/sectors') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Cadre Guides
       </a>
