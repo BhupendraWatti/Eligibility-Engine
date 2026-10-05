@@ -114,17 +114,17 @@ recruitments.forEach((r) => {
       </div>
 
       <!-- Right: Live ledger -->
-      <div class="w-full border-t-2 border-primary bg-card pt-5 sm:pt-6 px-1">
+      <div class="w-full border-t-2 border-primary bg-card pt-5 sm:pt-6 pb-5 sm:pb-6 px-5 sm:px-6">
         <div class="flex items-baseline justify-between gap-3 mb-1">
           <h2 class="text-base font-bold text-foreground font-heading">Open right now</h2>
           <span class="text-xs text-muted-foreground">Updated as drives are published</span>
         </div>
-        <p class="font-heading font-black text-5xl sm:text-6xl text-primary leading-none mt-3">
+        <p class="font-heading font-black text-5xl sm:text-6xl text-primary leading-none mt-5">
           {metrics.activeDriveCount}
           <span class="text-base font-bold text-foreground ml-1">{metrics.activeDriveCount === 1 ? 'drive' : 'drives'} accepting applications</span>
         </p>
 
-        <dl class="mt-6 divide-y divide-border border-y border-border text-sm">
+        <dl class="mt-7 divide-y divide-border border-y border-border text-sm">
           <div class="flex items-baseline justify-between gap-4 py-3">
             <dt class="text-muted-foreground">Vacancies open to apply</dt>
             <dd class="font-bold text-foreground tabular-nums">{metrics.activeVacancyCount.toLocaleString()}</dd>
@@ -143,7 +143,7 @@ recruitments.forEach((r) => {
           </div>
         </dl>
 
-        <a href="/eligibility-checker" class="mt-5 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
+        <a href="/eligibility-checker" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
           <span>Check which of these you qualify for</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
