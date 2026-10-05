@@ -237,7 +237,9 @@ export const changeProposals = sqliteTable('change_proposals', {
   summary: text('summary').notNull(),
   payload: text('payload').notNull(),
   baseSnapshot: text('base_snapshot'),
-  status: text('status').notNull().default('PENDING'), // 'PENDING' | 'APPLYING' | 'APPROVED' | 'REJECTED' | 'FAILED'
+  status: text('status').notNull().default('PENDING'), // 'PENDING' | 'APPLYING' | 'APPROVED' | 'REJECTED' | 'FAILED' | 'WITHDRAWN'
+  supersedesId: text('supersedes_id'),
+  meta: text('meta'), // JSON: { evidence?, duplicate? } beside the allowlisted payload
   proposedBy: text('proposed_by').notNull(),
   decidedBy: text('decided_by'),
   decidedAt: integer('decided_at', { mode: 'timestamp' }),

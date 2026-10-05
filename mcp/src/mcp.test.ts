@@ -145,8 +145,8 @@ async function run() {
 
   const tools = await client.listTools();
   assert(
-    tools.tools.map(t => t.name).sort().join() === 'list_my_proposals,propose_new_recruitment,propose_recruitment_update,search_recruitments',
-    'tools/list exposes search + proposal tools only (no apply/approve/delete)',
+    tools.tools.map(t => t.name).sort().join() === 'get_domain_schema,get_proposal,list_entities,list_my_proposals,propose_new_recruitment,propose_recruitment_update,resolve_entity,search_recruitments,withdraw_proposal',
+    'tools/list exposes read, resolve and propose tools only (no apply/approve/delete)',
   );
   assert(!JSON.stringify(tools).match(/sql|query_table|insert|update_row|delete/i), 'no SQL/CRUD-style tool or parameter exposed');
   assert(!tools.tools.some(t => /approve|apply|publish|delete|execute/i.test(t.name)), 'no tool can approve, apply, publish or delete');
@@ -176,8 +176,15 @@ async function run() {
     loadRecruitment: async (_d, id) => (id === 'a' ? (DATA[0] as any) : undefined),
     insert: async (_d, row) => { inserted.push(row); },
     countPending: async () => 0,
-    list: async (_d, o) => [{ id: 'prop_1', kind: 'UPDATE_RECRUITMENT', recruitmentId: 'a', summary: 's', status: 'PENDING', proposedBy: o.proposedBy, createdAt: new Date('2026-10-05T00:00:00Z'), decidedAt: null, decisionNote: null } as any],
+    list: async (_d, o) => [{ id: 'prop_1', kind: 'UPDATE_RECRUITMENT', recruitmentId: 'a', summary: 's', status: 'PENDING', supersedesId: null, proposedBy: o.proposedBy, createdAt: new Date('2026-10-05T00:00:00Z'), decidedAt: null, decisionNote: null } as any],
+    get: async (_d, id) => (id === 'prop_1' ? { id, kind: 'UPDATE_RECRUITMENT', recruitmentId: 'a', summary: 's', payload: {}, baseSnapshot: null, meta: null, supersedesId: null, status: 'PENDING', proposedBy: 'mcp-client', decidedBy: null, decidedAt: null, decisionNote: null, createdAt: new Date('2026-10-05T00:00:00Z') } : undefined),
+    findOpen: async () => [],
+    withdraw: async () => { withdrawn.push('prop_1'); return true; },
+    supersede: async () => true,
+    postExists: async (_d, id) => id === 'p',
+    checkDuplicate: async () => ({ status: 'NO_DUPLICATE', matches: [], summary: '' }),
   };
+  const withdrawn: string[] = [];
   const pServer = createMcpServer({ d1: fakeD1, actor: { id: 'mcp-client', mode: 'PROPOSE' }, deps, proposalDeps });
   const [c3, s3] = InMemoryTransport.createLinkedPair();
   const client3 = new Client({ name: 'c3', version: '0.0.0' });
@@ -199,6 +206,31 @@ async function run() {
 
   const mine: any = await client3.callTool({ name: 'list_my_proposals', arguments: {} });
   assert(!mine.isError && mine.structuredContent.items[0].id === 'prop_1', 'list_my_proposals returns the proposal status');
+
+  const got: any = await client3.callTool({ name: 'get_proposal', arguments: { id: 'prop_1' } });
+  assert(!got.isError && got.structuredContent.status === 'PENDING', 'get_proposal returns one of my proposals');
+  const notMine: any = await client3.callTool({ name: 'get_proposal', arguments: { id: 'nope' } });
+  assert(notMine.isError && notMine.structuredContent.error.code === 'INVALID_INPUT', 'get_proposal on an unknown id is a safe tool error');
+  const wd: any = await client3.callTool({ name: 'withdraw_proposal', arguments: { id: 'prop_1' } });
+  assert(!wd.isError && wd.structuredContent.status === 'WITHDRAWN' && withdrawn.length === 1, 'withdraw_proposal withdraws my PENDING proposal');
+  const unknownPost: any = await client3.callTool({ name: 'propose_new_recruitment', arguments: { summary: 'x', changes: { title: 'T', postId: 'missing', organisationId: 'o', advtNumber: '9/2026', totalVacancies: 5 } } });
+  assert(unknownPost.isError && unknownPost.structuredContent.error.code === 'UNKNOWN_POST' && inserted.length === 2, 'unknown post surfaces as UNKNOWN_POST and queues nothing');
+  const schemaOut: any = await client3.callTool({ name: 'get_domain_schema', arguments: {} });
+  assert(!schemaOut.isError && schemaOut.structuredContent.updateFields.applicationEnd === 'date' && schemaOut.structuredContent.proposalStatuses.includes('WITHDRAWN') && schemaOut.structuredContent.approvalRequired === true, 'get_domain_schema is generated from the validators');
+
+  // Reference data: a fake master loader stands in for D1.
+  const refServer = createMcpServer({ d1: fakeD1, actor: { id: 'mcp-client', mode: 'PROPOSE' }, deps, proposalDeps, entityLoaders: { post: async () => [{ id: 'p1', name: 'Subedar', slug: 'subedar' }, { id: 'p2', name: 'Constable', slug: 'a' }, { id: 'p3', name: 'Constable', slug: 'b' }] } });
+  const [c5, s5] = InMemoryTransport.createLinkedPair();
+  const client5 = new Client({ name: 'c5', version: '0.0.0' });
+  await Promise.all([refServer.connect(s5), client5.connect(c5)]);
+  const rMatch: any = await client5.callTool({ name: 'resolve_entity', arguments: { type: 'post', query: 'Subedar' } });
+  assert(rMatch.structuredContent.status === 'MATCH' && rMatch.structuredContent.entity.id === 'p1', 'resolve_entity returns MATCH');
+  const rAmb: any = await client5.callTool({ name: 'resolve_entity', arguments: { type: 'post', query: 'Constable' } });
+  assert(rAmb.structuredContent.status === 'AMBIGUOUS', 'resolve_entity returns AMBIGUOUS, not a guess');
+  const rNone: any = await client5.callTool({ name: 'resolve_entity', arguments: { type: 'post', query: 'Subedar Stenographic' } });
+  assert(rNone.structuredContent.status === 'NOT_FOUND' && /Ask an admin/i.test(rNone.structuredContent.next), 'resolve_entity returns NOT_FOUND and tells the model to ask an admin');
+  const listed: any = await client5.callTool({ name: 'list_entities', arguments: { type: 'post', q: 'sube' } });
+  assert(listed.structuredContent.total === 1, 'list_entities filters by substring');
 
   // A READ actor can search but is refused when it tries to propose.
   const roServer = createMcpServer({ d1: fakeD1, actor, deps, proposalDeps });

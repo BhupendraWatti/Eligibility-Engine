@@ -3,11 +3,15 @@ import { readFileSync, readdirSync } from 'node:fs';
 import {
   InvalidProposalError,
   MAX_PENDING_PROPOSALS,
+  ProposalBlockedError,
   buildDiff,
   createProposal,
+  getProposal,
   listProposals,
   sanitizeChanges,
+  sanitizeEvidence,
   staleFields,
+  withdrawProposal,
   type NewProposal,
   type ProposalDeps,
   type ProposalRow,
@@ -19,6 +23,7 @@ import {
   type DecisionDeps,
 } from './change-proposal-decision';
 import type { Actor } from './recruitment-query';
+import { resolveFrom, type Entity } from './reference-data';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -61,15 +66,28 @@ function recruitment(over: Record<string, unknown> = {}): any {
   };
 }
 
-function makeProposalDeps(live: any = recruitment(), pending = 0) {
+const pendingRow = (over: Partial<ProposalRow> = {}): ProposalRow => ({
+  id: 'prop_old', kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 'old', payload: { applicationEnd: '2026-10-12' },
+  baseSnapshot: { applicationEnd: '2026-10-10' }, status: 'PENDING', supersedesId: null, meta: null, proposedBy: 'mcp-client',
+  decidedBy: null, decidedAt: null, decisionNote: null, createdAt: new Date(), ...over,
+});
+
+function makeProposalDeps(live: any = recruitment(), pending = 0, store: ProposalRow[] = [], dup: any = { status: 'NO_DUPLICATE', matches: [], summary: '' }, posts = ['post_1']) {
   const inserted: NewProposal[] = [];
+  const state = { superseded: [] as string[], withdrawn: [] as string[], supersedeOk: true };
   const deps: ProposalDeps = {
     loadRecruitment: async (_d, id) => (id === live?.id ? live : undefined),
     insert: async (_d, row) => { inserted.push(row); },
     countPending: async () => pending,
     list: async (_d, o) => [{ id: 'p1', proposedBy: o.proposedBy } as unknown as ProposalRow],
+    get: async (_d, id) => store.find(r => r.id === id),
+    findOpen: async (_d, rid) => store.filter(r => r.recruitmentId === rid && (r.status === 'PENDING' || r.status === 'APPLYING')),
+    withdraw: async (_d, id) => { state.withdrawn.push(id); return true; },
+    supersede: async (_d, oldId, row) => { if (state.supersedeOk) { state.superseded.push(oldId); inserted.push(row); } return state.supersedeOk; },
+    postExists: async (_d, id) => posts.includes(id),
+    checkDuplicate: async () => dup,
   };
-  return { deps, inserted };
+  return { deps, inserted, state };
 }
 
 async function run() {
@@ -111,6 +129,83 @@ async function run() {
   assert((listed[0] as any).proposedBy === 'mcp-client', 'MCP only lists its own proposals');
   assert(await rejects(() => listProposals(d1, proposer, { limit: 500 }, makeProposalDeps().deps), InvalidProposalError), 'list limit capped');
 
+  // --- Pending-change conflict (Case 7: current 10 Oct, pending 12 Oct, new 15 Oct) ----------------
+  let blocked: any;
+  ({ deps } = makeProposalDeps(recruitment({ applicationEnd: '2026-10-10' }), 0, [pendingRow()]));
+  try { await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 'new', changes: { applicationEnd: '2026-10-15' } }, deps); } catch (e) { blocked = e; }
+  assert(blocked instanceof ProposalBlockedError && blocked.code === 'PENDING_CHANGE_CONFLICT' && (blocked.details as any).conflictingIds[0] === 'prop_old', 'overlapping pending proposal blocks a new one with PENDING_CHANGE_CONFLICT');
+  ({ deps, inserted } = makeProposalDeps(recruitment(), 0, [pendingRow({ status: 'APPLYING' })]));
+  assert(await rejects(() => createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 's', changes: { applicationEnd: '2026-10-15' } }, deps), ProposalBlockedError), 'an APPLYING proposal also conflicts');
+  await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 's', changes: { examDate: '2026-12-01' } }, deps);
+  assert(inserted.length === 1, 'a pending proposal on different fields does not conflict');
+
+  // --- Supersede / withdraw -----------------------------------------------------------------------
+  let sup = makeProposalDeps(recruitment({ applicationEnd: '2026-10-25' }), MAX_PENDING_PROPOSALS, [pendingRow()]);
+  const replaced: any = await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 'fixed', changes: { applicationEnd: '2026-10-15' }, supersedes: 'prop_old' }, sup.deps);
+  assert(sup.state.superseded[0] === 'prop_old' && replaced.supersedes === 'prop_old' && sup.inserted[0].supersedesId === 'prop_old', 'supersede withdraws the old proposal and links the replacement, even with a full queue');
+  assert(sup.inserted[0].baseSnapshot?.applicationEnd === '2026-10-25', 'replacement re-snapshots the live record, not the old snapshot');
+  const supCreate = (over: Partial<ProposalRow>) =>
+    createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 's', changes: { applicationEnd: '2026-10-15' }, supersedes: 'prop_old' }, makeProposalDeps(recruitment(), 0, [pendingRow(over)]).deps);
+  assert(await rejects(() => supCreate({ status: 'APPROVED' }), InvalidProposalError), 'cannot supersede a decided proposal');
+  assert(await rejects(() => supCreate({ proposedBy: 'someone-else' }), InvalidProposalError), 'cannot supersede another actor proposal');
+  assert(await rejects(() => supCreate({ recruitmentId: 'rec_2' }), InvalidProposalError), 'replacement must target the same recruitment');
+  assert(await rejects(() => supCreate({ kind: 'CREATE_RECRUITMENT', recruitmentId: null }), InvalidProposalError), 'replacement must be the same kind');
+  sup = makeProposalDeps(recruitment(), 0, [pendingRow()]);
+  sup.state.supersedeOk = false;
+  assert(await rejects(() => createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 's', changes: { applicationEnd: '2026-10-15' }, supersedes: 'prop_old' }, sup.deps), InvalidProposalError) && sup.inserted.length === 0, 'admin decided it first: supersede fails and nothing is replaced');
+
+  const wd = makeProposalDeps(recruitment(), 0, [pendingRow(), pendingRow({ id: 'prop_done', status: 'APPROVED' }), pendingRow({ id: 'prop_other', proposedBy: 'other' })]);
+  const w = await withdrawProposal(d1, proposer, 'prop_old', wd.deps);
+  assert(w.status === 'WITHDRAWN' && wd.state.withdrawn.join() === 'prop_old', 'own PENDING proposal can be withdrawn');
+  assert(await rejects(() => withdrawProposal(d1, proposer, 'prop_done', wd.deps), InvalidProposalError), 'decided proposal cannot be withdrawn');
+  assert(await rejects(() => withdrawProposal(d1, proposer, 'prop_other', wd.deps), InvalidProposalError), 'another actor proposal cannot be withdrawn');
+  assert(await rejects(() => getProposal(d1, proposer, 'prop_other', wd.deps), InvalidProposalError), 'get_proposal only returns own proposals');
+  assert(await rejects(() => withdrawProposal(d1, { id: 'x', mode: 'READ' }, 'prop_old', wd.deps)), 'READ actor cannot withdraw');
+
+  // --- Duplicate check & unknown post on CREATE ----------------------------------------------------
+  const confirmed = { status: 'CONFIRMED_DUPLICATE', summary: 'dup', matches: [{ matchedRecruitmentId: 'rec_1' }] };
+  const possible = { status: 'POSSIBLE_DUPLICATE', summary: 'maybe', matches: [{ matchedRecruitmentId: 'rec_1' }] };
+  const none = { status: 'NO_DUPLICATE', matches: [], summary: '' };
+  const mk = (dup: any, posts?: string[]) => makeProposalDeps(recruitment(), 0, [], dup, posts);
+  blocked = undefined;
+  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 's', changes: create }, mk(confirmed).deps); } catch (e) { blocked = e; }
+  assert(blocked instanceof ProposalBlockedError && blocked.code === 'CONFIRMED_DUPLICATE', 'confirmed duplicate is blocked');
+  const poss = mk(possible);
+  const possMade: any = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 's', changes: create }, poss.deps);
+  assert(possMade.duplicateWarning?.status === 'POSSIBLE_DUPLICATE' && (poss.inserted[0].meta as any).duplicate.status === 'POSSIBLE_DUPLICATE', 'possible duplicate is queued with a warning stored for the reviewer');
+  blocked = undefined;
+  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 's', changes: create }, mk(none, []).deps); } catch (e) { blocked = e; }
+  assert(blocked instanceof ProposalBlockedError && blocked.code === 'UNKNOWN_POST', 'unknown canonical post is refused, never created');
+
+  // --- Evidence -----------------------------------------------------------------------------------
+  const ev = (over: any = {}) => ({ field: 'applicationEnd', sourceUrl: 'https://esb.mp.gov.in/n.pdf', page: 1, snippet: 'last date 15 Oct', method: 'NATIVE', confidence: 0.9, ...over });
+  const target = { applicationEnd: 'x' };
+  assert(sanitizeEvidence([ev()], target)!.length === 1, 'valid evidence accepted');
+  assert(await rejects(() => sanitizeEvidence([ev({ snippet: 'x'.repeat(501) })], target), InvalidProposalError), 'evidence snippet over 500 chars rejected');
+  assert(await rejects(() => sanitizeEvidence([ev({ field: 'examDate' })], target), InvalidProposalError), 'evidence for a field not in changes rejected');
+  assert(await rejects(() => sanitizeEvidence([ev({ sourceUrl: 'javascript:alert(1)' })], target), InvalidProposalError), 'non-http evidence url rejected');
+  assert(await rejects(() => sanitizeEvidence([ev({ method: 'GUESS' })], target), InvalidProposalError), 'unknown evidence method rejected');
+  assert(await rejects(() => sanitizeEvidence([ev({ confidence: 4 })], target), InvalidProposalError), 'confidence outside 0-1 rejected');
+  assert(await rejects(() => sanitizeEvidence(Array.from({ length: 31 }, () => ev()), target), InvalidProposalError), 'evidence item count capped');
+  assert(await rejects(() => sanitizeChanges('UPDATE_RECRUITMENT', { applicationEnd: '2026-11-05', evidence: [] }), InvalidProposalError), 'evidence cannot be smuggled inside changes');
+  const withEv = makeProposalDeps();
+  await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 's', changes: { applicationEnd: '2026-11-05' }, evidence: [ev()] }, withEv.deps);
+  assert((withEv.inserted[0].meta as any).evidence[0].page === 1 && withEv.inserted[0].payload.evidence === undefined, 'evidence is stored in meta, beside the payload');
+
+  // --- Reference resolution -----------------------------------------------------------------------
+  const posts: Entity[] = [
+    { id: 'p1', name: 'Subedar', slug: 'subedar', departmentId: 'd1' },
+    { id: 'p2', name: 'Constable', slug: 'mp-police-constable', departmentId: 'd1' },
+    { id: 'p3', name: 'Constable', slug: 'jail-constable', departmentId: 'd2' },
+  ];
+  const m: any = resolveFrom(posts, 'subedar');
+  assert(m.status === 'MATCH' && m.entity.id === 'p1', 'resolve: exact name is a MATCH');
+  assert((resolveFrom(posts, 'MP Police Constable') as any).entity?.id === 'p2', 'resolve: slug match ignores case and punctuation');
+  const amb: any = resolveFrom(posts, 'Constable');
+  assert(amb.status === 'AMBIGUOUS' && amb.matches.length === 2, 'resolve: two exact matches are AMBIGUOUS, never auto-picked');
+  const nf: any = resolveFrom(posts, 'Subedar Stenographic');
+  assert(nf.status === 'NOT_FOUND' && nf.suggestions[0].id === 'p1' && !nf.entity, 'resolve: unknown is NOT_FOUND with suggestions only for a human');
+
   // --- Diff & stale guard --------------------------------------------------------------------------
   const live = recruitment();
   const diff = buildDiff({ applicationEnd: '2026-11-05', totalVacancies: 100 }, live);
@@ -134,7 +229,7 @@ async function run() {
   const baseRow = (over: Partial<ProposalRow>): ProposalRow => ({
     id: 'prop_1', kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 'Deadline extended', payload: { applicationEnd: '2026-11-05' },
     baseSnapshot: { applicationEnd: '2026-10-20' }, status: 'PENDING', proposedBy: 'mcp-client', decidedBy: null, decidedAt: null,
-    decisionNote: null, createdAt: new Date(), ...over,
+    decisionNote: null, createdAt: new Date(), supersedesId: null, meta: null, ...over,
   });
   let liveNow: any = recruitment();
   const dd: DecisionDeps = {
@@ -195,7 +290,7 @@ async function run() {
   // --- Structural guard: the MCP can never reach the writers ---------------------------------------
   const forbidden = /createRecruitmentAtomic|updateRecruitmentAtomic|updateRecruitmentStatus|change-proposal-decision/;
   const mcpFiles: string[] = readdirSync('mcp/src').filter((f: string) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
-  const offenders = [...mcpFiles.map(f => `mcp/src/${f}`), 'src/services/change-proposals.ts'].filter(f => forbidden.test(readFileSync(f, 'utf8')));
+  const offenders = [...mcpFiles.map(f => `mcp/src/${f}`), 'src/services/change-proposals.ts', 'src/services/reference-data.ts'].filter(f => forbidden.test(readFileSync(f, 'utf8')));
   assert(offenders.length === 0, `MCP and the shared proposal module never reference the writers or the decision module (${offenders.join(', ') || 'clean'})`);
 
   console.log('\nAll change-proposal tests passed.');

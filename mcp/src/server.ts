@@ -13,17 +13,24 @@ import {
   EDITABLE_FIELDS,
   InvalidProposalError,
   PROPOSAL_STATUSES,
+  ProposalBlockedError,
   createProposal,
+  getProposal,
   listProposals,
+  withdrawProposal,
   type ProposalDeps,
   type ProposalInput,
 } from '../../src/services/change-proposals';
+
+import { ENTITY_TYPES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
 
 export interface ServerContext {
   d1: D1Database | undefined;
   actor: Actor;
   deps?: RecruitmentQueryDeps;
   proposalDeps?: ProposalDeps;
+  /** Test seam: replaces the master-data loaders. */
+  entityLoaders?: Partial<Record<EntityType, EntityLoader>>;
 }
 
 const text = z.string().trim().min(1).max(100);
@@ -81,19 +88,30 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const proposeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
   const summaryField = z.string().trim().min(1).max(300).describe('One line for the reviewer: what changes and why, ideally citing the official source.');
 
-  const propose = async (tool: string, input: ProposalInput) => {
-    console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, kind: input.kind, fields: input.changes && typeof input.changes === 'object' ? Object.keys(input.changes) : [] }));
+  const evidenceField = z.array(z.record(z.string(), z.unknown())).optional().describe(
+    'Optional field-level evidence, one item per changed field: {field, sourceUrl, page, snippet (<=500 chars), method: NATIVE|OCR|VISION, confidence 0-1}. ' +
+    'Shown to the reviewer; confidence is advisory, not verification. Never invent values: leave a field out if the official source does not state it.',
+  );
+  const supersedesField = z.string().trim().min(1).max(100).optional().describe('id of your own PENDING proposal that this one replaces (it is withdrawn atomically). Same kind and target.');
+
+  /** Run a proposal-service call and map its errors to stable codes. Internals are never leaked. */
+  const guarded = async (tool: string, run: () => Promise<Record<string, unknown>>, failure: string) => {
     try {
-      const created = await createProposal(ctx.d1, ctx.actor, input, ctx.proposalDeps);
-      return result({
-        ...created,
-        message: 'Proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.',
-      });
+      return result(await run());
     } catch (error) {
+      if (error instanceof ProposalBlockedError) return result({ error: { code: error.code, message: error.message, ...error.details } }, true);
       if (error instanceof InvalidProposalError) return result({ error: { code: 'INVALID_INPUT', message: error.message } }, true);
       console.error(`[mcp] ${tool} failed:`, error);
-      return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not queue the proposal.' } }, true);
+      return result({ error: { code: 'INTERNAL_ERROR', message: failure } }, true);
     }
+  };
+
+  const propose = async (tool: string, input: ProposalInput) => {
+    console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, kind: input.kind, fields: input.changes && typeof input.changes === 'object' ? Object.keys(input.changes) : [] }));
+    return guarded(tool, async () => ({
+      ...(await createProposal(ctx.d1, ctx.actor, input, ctx.proposalDeps)),
+      message: 'Proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.',
+    }), 'Could not queue the proposal.');
   };
 
   server.registerTool(
@@ -105,15 +123,18 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         `Allowed fields in "changes": ${editable}. ` +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
-        'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first.',
+        'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
+        'Returns PENDING_CHANGE_CONFLICT if an open proposal already changes the same fields (withdraw or supersede it). Call get_domain_schema for exact formats.',
       inputSchema: {
         recruitmentId: z.string().trim().min(1).max(100).describe('id from search_recruitments'),
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()).describe('Object of field -> new value'),
+        evidence: evidenceField,
+        supersedes: supersedesField,
       },
       annotations: proposeAnnotations,
     },
-    async (args) => propose('propose_recruitment_update', { kind: 'UPDATE_RECRUITMENT', recruitmentId: args.recruitmentId, summary: args.summary, changes: args.changes }),
+    async (args) => propose('propose_recruitment_update', { kind: 'UPDATE_RECRUITMENT', recruitmentId: args.recruitmentId, summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
   );
 
   server.registerTool(
@@ -123,21 +144,26 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       description:
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
         `Required in "changes": title, postId (canonical post id), organisationId, advtNumber, totalVacancies. Optional: ${editable}. ` +
-        `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify.`,
+        `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
+        'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
+        'If the official notice has no advertisement number, do NOT use a letter or reference number in its place: ask the owner. ' +
+        'A CONFIRMED_DUPLICATE is refused; a possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()).describe('Object of field -> value'),
+        evidence: evidenceField,
+        supersedes: supersedesField,
       },
       annotations: proposeAnnotations,
     },
-    async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes }),
+    async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
   );
 
   server.registerTool(
     'list_my_proposals',
     {
       title: 'List my proposals',
-      description: 'List proposals this MCP queued and their status (PENDING until the owner decides). READ-only.',
+      description: 'List proposals this MCP queued and their status (PENDING until the owner decides; WITHDRAWN if you took it back). Filter status=PENDING for the open queue. READ-only.',
       inputSchema: {
         status: z.enum(PROPOSAL_STATUSES).optional(),
         limit: z.number().int().optional().describe('Default 20, max 50'),
@@ -150,7 +176,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         const rows = await listProposals(ctx.d1, ctx.actor, args, ctx.proposalDeps);
         return result({
           items: rows.map(r => ({
-            id: r.id, kind: r.kind, recruitmentId: r.recruitmentId, summary: r.summary, status: r.status,
+            id: r.id, kind: r.kind, recruitmentId: r.recruitmentId, summary: r.summary, status: r.status, supersedesId: r.supersedesId,
             createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null, decisionNote: r.decisionNote,
           })),
         });
@@ -159,6 +185,98 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         console.error('[mcp] list_my_proposals failed:', error);
         return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not list proposals.' } }, true);
       }
+    },
+  );
+
+  const read = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+  const entityType = z.enum(ENTITY_TYPES);
+  const loader = (type: EntityType) => ctx.entityLoaders?.[type];
+  const audit = (tool: string, args: object) => console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, filters: Object.keys(args) }));
+
+  server.registerTool(
+    'resolve_entity',
+    {
+      title: 'Resolve a master entity',
+      description:
+        'Look up a state, organisation, department, sector or canonical post by exact name, slug, short name or code. READ-only. ' +
+        'Returns status MATCH (use entity.id), AMBIGUOUS (several exact matches: ask, never pick) or NOT_FOUND (suggestions are for a human; the master must be added by an admin, never invented).',
+      inputSchema: { type: entityType, query: text },
+      annotations: read,
+    },
+    async (args) => {
+      audit('resolve_entity', args);
+      try {
+        return result(await resolveEntity(ctx.d1, args.type, args.query, loader(args.type)) as unknown as Record<string, unknown>);
+      } catch (error) {
+        console.error('[mcp] resolve_entity failed:', error);
+        return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not resolve the entity.' } }, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_entities',
+    {
+      title: 'List master entities',
+      description: 'List active states, organisations, departments, sectors or canonical posts, optionally filtered by a substring. READ-only. Max 100 items; narrow with q.',
+      inputSchema: { type: entityType, q: text.optional().describe('Substring of name, slug, short name or code') },
+      annotations: read,
+    },
+    async (args) => {
+      audit('list_entities', args);
+      try {
+        return result(await listEntities(ctx.d1, args.type, args.q, loader(args.type)) as unknown as Record<string, unknown>);
+      } catch (error) {
+        console.error('[mcp] list_entities failed:', error);
+        return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not list entities.' } }, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_domain_schema',
+    {
+      title: 'Get proposal schema and allowed values',
+      description: 'Allowed fields, formats, enums, lifecycle values and evidence format for proposals. READ-only. Call once before proposing instead of reading source code.',
+      inputSchema: {},
+      annotations: read,
+    },
+    async () => {
+      audit('get_domain_schema', {});
+      return result(getDomainSchema() as unknown as Record<string, unknown>);
+    },
+  );
+
+  server.registerTool(
+    'get_proposal',
+    {
+      title: 'Get one of my proposals',
+      description: 'Full detail of a proposal this MCP queued: payload, evidence, duplicate warning, status and decision. READ-only.',
+      inputSchema: { id: z.string().trim().min(1).max(100) },
+      annotations: read,
+    },
+    async (args) => {
+      audit('get_proposal', args);
+      return guarded('get_proposal', async () => {
+        const r = await getProposal(ctx.d1, ctx.actor, args.id, ctx.proposalDeps);
+        return { ...r, createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null };
+      }, 'Could not load the proposal.');
+    },
+  );
+
+  server.registerTool(
+    'withdraw_proposal',
+    {
+      title: 'Withdraw a proposal',
+      description:
+        'Take back one of your own PENDING proposals (for example it was wrong). Status becomes WITHDRAWN; the record stays and is never edited. ' +
+        'To correct a proposal, prefer the "supersedes" argument on the propose tools, which withdraws and replaces atomically.',
+      inputSchema: { id: z.string().trim().min(1).max(100) },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      audit('withdraw_proposal', args);
+      return guarded('withdraw_proposal', async () => ({ ...(await withdrawProposal(ctx.d1, ctx.actor, args.id, ctx.proposalDeps)), message: 'Proposal withdrawn.' }), 'Could not withdraw the proposal.');
     },
   );
 

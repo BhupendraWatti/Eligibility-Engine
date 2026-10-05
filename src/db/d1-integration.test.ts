@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 // @ts-expect-error Node built-ins are available to the tsx test runner, not the Worker bundle.
 import { join } from 'node:path';
 
+import { SUPERSEDE_INSERT_SQL, WITHDRAW_AUDIT_SQL, WITHDRAW_SQL } from '../services/change-proposals';
+
 const persistenceDirectory = mkdtempSync(join(tmpdir(), 'nirnay-d1-'));
 const wranglerCli = join(process.cwd(), 'node_modules', 'wrangler', 'bin', 'wrangler.js');
 const wranglerLogDirectory = join(persistenceDirectory, 'logs');
@@ -53,6 +55,32 @@ try {
   const proposal = query("SELECT status, decided_by FROM change_proposals WHERE id = 'prop_qa'")[0];
   assert(proposal?.status === 'PENDING' && proposal?.decided_by === null, 'A new change proposal defaults to PENDING and undecided');
   query("DELETE FROM change_proposals WHERE id = 'prop_qa'");
+
+  // MCP withdraw / supersede: run the real statements. Each `?` is replaced in order by a quoted literal.
+  const bind = (sql: string, ...params: Array<string | null>) => {
+    let i = 0;
+    return sql.replace(/\?/g, () => {
+      const value = params[i++];
+      return value === null ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
+    });
+  };
+  const changes = (sql: string) => {
+    const out = JSON.parse(wrangler('d1', 'execute', 'EligibilityEngine-db', '--local', '--persist-to', persistenceDirectory, '--command', `${sql}; SELECT changes() AS n`, '--json'));
+    return out[out.length - 1]?.results?.[0]?.n;
+  };
+  query("INSERT INTO change_proposals (id, kind, recruitment_id, summary, payload, proposed_by) VALUES ('prop_a', 'UPDATE_RECRUITMENT', 'rec_qa', 'a', '{}', 'mcp-client'), ('prop_b', 'UPDATE_RECRUITMENT', 'rec_qa', 'b', '{}', 'mcp-client'), ('prop_c', 'UPDATE_RECRUITMENT', 'rec_qa', 'c', '{}', 'other')");
+  const note = 'Superseded by prop_new';
+  assert(changes(bind(WITHDRAW_SQL, 'mcp-client', 'x', 'prop_c', 'mcp-client')) === 0, 'Withdraw is refused for another actor proposal');
+  assert(changes(bind(WITHDRAW_SQL, 'mcp-client', note, 'prop_a', 'mcp-client')) === 1, 'Withdraw flips an own PENDING proposal to WITHDRAWN');
+  assert(changes(bind(WITHDRAW_SQL, 'mcp-client', note, 'prop_a', 'mcp-client')) === 0, 'A second withdraw changes nothing (guarded on PENDING)');
+  query(bind(SUPERSEDE_INSERT_SQL, 'prop_new', 'UPDATE_RECRUITMENT', 'rec_qa', 's', '{}', null, 'prop_a', null, 'mcp-client', 'prop_a', note));
+  assert(query("SELECT supersedes_id, status FROM change_proposals WHERE id = 'prop_new'")[0]?.supersedes_id === 'prop_a', 'Replacement is inserted and linked once the old row is WITHDRAWN');
+  query(bind(SUPERSEDE_INSERT_SQL, 'prop_bad', 'UPDATE_RECRUITMENT', 'rec_qa', 's', '{}', null, 'prop_b', null, 'mcp-client', 'prop_b', note));
+  assert(query("SELECT id FROM change_proposals WHERE id = 'prop_bad'").length === 0, 'No replacement is inserted when the old proposal was not withdrawn');
+  query(bind(WITHDRAW_AUDIT_SQL, 'audit_qa', 'mcp-client', 'prop_a', note, 'prop_a', note));
+  query(bind(WITHDRAW_AUDIT_SQL, 'audit_qb', 'mcp-client', 'prop_b', note, 'prop_b', note));
+  assert(query("SELECT id FROM audit_logs WHERE id IN ('audit_qa','audit_qb')").map(r => r.id).join() === 'audit_qa', 'Audit row is written only for a withdraw that landed');
+  query("DELETE FROM change_proposals WHERE id LIKE 'prop_%'; DELETE FROM audit_logs WHERE id LIKE 'audit_q%'");
 
   query(`
     DELETE FROM recruitments WHERE id = 'rec_qa';

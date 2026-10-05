@@ -50,7 +50,7 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const FILTERS: Array<ProposalStatus | 'ALL'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'ALL'];
+const FILTERS: Array<ProposalStatus | 'ALL'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'WITHDRAWN', 'ALL'];
 const requested = Astro.url.searchParams.get('status')?.toUpperCase() as ProposalStatus | 'ALL' | undefined;
 const filter = requested && FILTERS.includes(requested) ? requested : 'PENDING';
 
@@ -59,7 +59,7 @@ let proposals: ProposalRow[] = [];
 if (d1) {
   proposals = await listProposalRows(d1, { status: filter === 'ALL' ? undefined : filter, limit: 50 }).catch(error => {
     console.error('[admin/pending-changes] load failed', error);
-    loadError = 'Proposals are temporarily unavailable. Has migration 0010 been applied?';
+    loadError = 'Proposals are temporarily unavailable. Have migrations 0010 and 0013 been applied?';
     return [];
   });
 }
@@ -73,6 +73,8 @@ const items = await Promise.all(proposals.map(async (p) => {
     stale: staleFields(p.baseSnapshot, current),
     currentTitle: current?.title,
     missingTarget,
+    evidence: evidenceOf(p),
+    duplicate: duplicateOf(p),
   };
 }));
 
@@ -89,7 +91,14 @@ const badge: Record<string, string> = {
   APPROVED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   REJECTED: 'bg-slate-100 text-slate-700 border-slate-200',
   FAILED: 'bg-rose-50 text-rose-800 border-rose-200',
+  WITHDRAWN: 'bg-slate-100 text-slate-500 border-slate-200',
 };
+
+type Evidence = { field: string; sourceUrl: string; page?: number; snippet?: string; method: string; confidence?: number };
+type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string; reasons: string[] }> };
+const evidenceOf = (p: ProposalRow) => (Array.isArray(p.meta?.evidence) ? (p.meta!.evidence as Evidence[]) : []);
+const duplicateOf = (p: ProposalRow) => (p.meta?.duplicate ? (p.meta.duplicate as DuplicateWarning) : null);
+const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
 ---
 
 <AdminLayout
@@ -126,7 +135,7 @@ const badge: Record<string, string> = {
       </div>
     )}
 
-    {items.map(({ p, diff, stale, currentTitle, missingTarget }) => (
+    {items.map(({ p, diff, stale, currentTitle, missingTarget, evidence, duplicate }) => (
       <article class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
         <header class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
           <div class="min-w-0 space-y-1">
@@ -137,7 +146,7 @@ const badge: Record<string, string> = {
             <h2 class="text-sm font-bold text-slate-950">{p.summary}</h2>
             <p class="text-[11px] text-slate-500 font-mono">
               {p.kind === 'UPDATE_RECRUITMENT' && <span>{currentTitle ?? p.recruitmentId} · </span>}
-              {p.id} · proposed by {p.proposedBy} · {when(p.createdAt)}
+              {p.id} · proposed by {p.proposedBy} · {when(p.createdAt)}{p.supersedesId && <> · replaces <span>{p.supersedesId}</span></>}
             </p>
           </div>
         </header>
@@ -145,6 +154,14 @@ const badge: Record<string, string> = {
         {stale.length > 0 && (
           <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
             <strong>The live record changed since this was proposed</strong> ({stale.join(', ')}). Review the “Live now” column before approving.
+          </div>
+        )}
+        {duplicate && (
+          <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <strong>Possible duplicate.</strong> {duplicate.summary}
+            <ul class="mt-1 list-disc pl-4">
+              {duplicate.matches.map(m => <li>{m.matchedTitle} ({m.matchedAdvtNumber}) <span class="font-mono">{m.matchedRecruitmentId}</span>: {m.reasons.join(' ')}</li>)}
+            </ul>
           </div>
         )}
         {missingTarget && (
@@ -171,6 +188,21 @@ const badge: Record<string, string> = {
             </tbody>
           </table>
         </div>
+
+        {evidence.length > 0 && (
+          <div class="px-4 pb-4">
+            <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Evidence claimed by the proposer (not verified)</h3>
+            <ul class="space-y-1.5 text-[11px] text-slate-700">
+              {evidence.map(e => (
+                <li class="rounded border border-slate-100 bg-slate-50 p-2">
+                  <span class="font-mono font-semibold">{e.field}</span> · {e.method}{e.page ? ` · page ${e.page}` : ''}{typeof e.confidence === 'number' ? ` · confidence ${Math.round(e.confidence * 100)}%` : ''}
+                  {safeHref(e.sourceUrl) ? <> · <a href={safeHref(e.sourceUrl)} class="text-primary underline" rel="noopener noreferrer" target="_blank">source</a></> : null}
+                  {e.snippet && <blockquote class="mt-1 whitespace-pre-wrap break-words text-slate-600">{e.snippet}</blockquote>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {p.status === 'PENDING' ? (
           <footer class="flex flex-wrap items-end justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/60">

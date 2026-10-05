@@ -12,7 +12,30 @@ interface Env {
   MCP_API_TOKEN?: string;
 }
 
-const MAX_BODY_BYTES = 16 * 1024;
+// Above the 40KB proposal payload cap so a full proposal plus evidence fits. Enforced on the bytes actually read.
+const MAX_BODY_BYTES = 64 * 1024;
+
+/** Read the body but give up past the cap, whatever Content-Length claims (it can be absent or wrong). */
+async function readCapped(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) { out.set(c, at); at += c.byteLength; }
+  return out;
+}
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
@@ -35,6 +58,10 @@ export default {
       await request.arrayBuffer().catch(() => undefined);
       return json(auth.status, { error: auth.message }, auth.status === 401 ? { 'www-authenticate': 'Bearer' } : {});
     }
+
+    const body = await readCapped(request);
+    if (!body) return json(413, { error: 'Request too large.' });
+    request = new Request(request, { body });
 
     // Stateless: a fresh server + transport per request, JSON responses (no SSE session state).
     const server = createMcpServer({ d1: env.DB, actor: auth.actor });

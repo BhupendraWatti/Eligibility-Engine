@@ -7,27 +7,45 @@
  * This module must NOT import or call those writers (the MCP bundles it). A test enforces that.
  * Field allowlists keep publication status, ids, slugs and audit data out of anything the MCP can propose.
  */
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb, schema } from '../db/client';
-import { getRecruitmentById, type RecruitmentWithDetails } from '../db/queries';
+import { getAllActiveRecruitments, getAllCanonicalPosts, getAllOrganisations, getRecruitmentById, type RecruitmentWithDetails } from '../db/queries';
+import { detectDuplicates, type DuplicateCheckResult, type RecruitmentCandidate } from './duplicate-detector';
 import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
-/** APPLYING is a short-lived claim held while an admin approval is being written (stops double-approve). */
-export const PROPOSAL_STATUSES = ['PENDING', 'APPLYING', 'APPROVED', 'REJECTED', 'FAILED'] as const;
+/**
+ * APPLYING is a short-lived claim held while an admin approval is being written (stops double-approve).
+ * WITHDRAWN is the proposer taking back (or superseding) its own PENDING proposal.
+ */
+export const PROPOSAL_STATUSES = ['PENDING', 'APPLYING', 'APPROVED', 'REJECTED', 'FAILED', 'WITHDRAWN'] as const;
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
 export class InvalidProposalError extends Error {}
 
+/** A well-formed proposal that must not be queued (pending conflict, confirmed duplicate, unknown post). */
+export class ProposalBlockedError extends InvalidProposalError {
+  constructor(
+    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST',
+    message: string,
+    readonly details: Record<string, unknown> = {},
+  ) {
+    super(message);
+  }
+}
+
 export const MAX_PENDING_PROPOSALS = 50;
 export const MAX_PAYLOAD_BYTES = 40_000;
 export const MAX_SUMMARY = 300;
+export const MAX_EVIDENCE = 30;
+export const MAX_EVIDENCE_BYTES = 20_000;
+export const EVIDENCE_METHODS = ['NATIVE', 'OCR', 'VISION'] as const;
 
-const QUALIFICATIONS = ['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'];
-const EXAM_STATUSES = ['NOT_SCHEDULED', 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'POSTPONED'];
-const RESULT_STATUSES = ['NOT_DECLARED', 'DECLARED'];
-const GENDERS = ['ALL', 'MALE', 'FEMALE'];
+export const QUALIFICATIONS = ['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'];
+export const EXAM_STATUSES = ['NOT_SCHEDULED', 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'POSTPONED'];
+export const RESULT_STATUSES = ['NOT_DECLARED', 'DECLARED'];
+export const GENDERS = ['ALL', 'MALE', 'FEMALE'];
 
 type FieldSpec =
   | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList'
@@ -167,6 +185,37 @@ export function sanitizeChanges(kind: ProposalKind, changes: unknown): Record<st
   return out;
 }
 
+export interface EvidenceItem {
+  field: string;
+  sourceUrl: string;
+  page?: number;
+  snippet?: string;
+  method: (typeof EVIDENCE_METHODS)[number];
+  /** The proposer's own estimate. Advisory only; it is not human verification. */
+  confidence?: number;
+}
+
+/** Evidence travels beside `changes` (never inside it) and must point at a field that is being changed. */
+export function sanitizeEvidence(evidence: unknown, changes: Record<string, unknown>): EvidenceItem[] | undefined {
+  if (evidence === undefined) return undefined;
+  const items = list(evidence, 'evidence', MAX_EVIDENCE, (e, i): EvidenceItem => {
+    const field = str(e.field, `evidence[${i}].field`, 100);
+    if (!(field in changes)) throw new InvalidProposalError(`evidence[${i}].field "${field}" is not in changes.`);
+    if (!(EVIDENCE_METHODS as readonly unknown[]).includes(e.method)) throw new InvalidProposalError(`evidence[${i}].method must be one of: ${EVIDENCE_METHODS.join(', ')}.`);
+    if (e.confidence !== undefined && (typeof e.confidence !== 'number' || e.confidence < 0 || e.confidence > 1)) throw new InvalidProposalError(`evidence[${i}].confidence must be a number from 0 to 1.`);
+    return {
+      field,
+      sourceUrl: httpUrl(e.sourceUrl, `evidence[${i}].sourceUrl`),
+      page: e.page === undefined ? undefined : int(e.page, `evidence[${i}].page`),
+      snippet: e.snippet === undefined ? undefined : str(e.snippet, `evidence[${i}].snippet`, 500),
+      method: e.method as EvidenceItem['method'],
+      confidence: e.confidence as number | undefined,
+    };
+  });
+  if (new TextEncoder().encode(JSON.stringify(items)).length > MAX_EVIDENCE_BYTES) throw new InvalidProposalError('Evidence is too large.');
+  return items;
+}
+
 // ── Reading current values (for the stale guard and the before/after diff) ──────────────────────────
 
 const norm = (v: unknown) => (v === undefined ? null : v);
@@ -222,6 +271,9 @@ export interface ProposalRow {
   payload: Record<string, unknown>;
   baseSnapshot: Record<string, unknown> | null;
   status: ProposalStatus;
+  supersedesId: string | null;
+  /** Reviewer-facing extras: { evidence?: EvidenceItem[]; duplicate?: possible-duplicate warning }. */
+  meta: Record<string, unknown> | null;
   proposedBy: string;
   decidedBy: string | null;
   decidedAt: Date | null;
@@ -229,7 +281,7 @@ export interface ProposalRow {
   createdAt: Date;
 }
 
-export type NewProposal = Pick<ProposalRow, 'id' | 'kind' | 'recruitmentId' | 'summary' | 'payload' | 'baseSnapshot' | 'proposedBy'>;
+export type NewProposal = Pick<ProposalRow, 'id' | 'kind' | 'recruitmentId' | 'summary' | 'payload' | 'baseSnapshot' | 'meta' | 'supersedesId' | 'proposedBy'>;
 
 export interface ListOptions { status?: ProposalStatus; proposedBy?: string; limit?: number }
 
@@ -238,6 +290,15 @@ export interface ProposalDeps {
   insert: (d1: D1Database, row: NewProposal) => Promise<void>;
   countPending: (d1: D1Database) => Promise<number>;
   list: (d1: D1Database, options: ListOptions) => Promise<ProposalRow[]>;
+  get: (d1: D1Database, id: string) => Promise<ProposalRow | undefined>;
+  /** PENDING and APPLYING proposals for one recruitment (the pending-conflict check). */
+  findOpen: (d1: D1Database, recruitmentId: string) => Promise<ProposalRow[]>;
+  /** Guarded PENDING -> WITHDRAWN for the proposer's own row. False when it was no longer PENDING. */
+  withdraw: (d1: D1Database, id: string, by: string) => Promise<boolean>;
+  /** Atomically withdraw `oldId` and insert the replacement. False when the old row was no longer PENDING. */
+  supersede: (d1: D1Database, oldId: string, row: NewProposal) => Promise<boolean>;
+  postExists: (d1: D1Database, postId: string) => Promise<boolean>;
+  checkDuplicate: (d1: D1Database, candidate: RecruitmentCandidate) => Promise<DuplicateCheckResult>;
 }
 
 function parseJson<T>(raw: string | null): T | null {
@@ -254,6 +315,8 @@ export function toProposalRow(r: typeof schema.changeProposals.$inferSelect): Pr
     payload: parseJson<Record<string, unknown>>(r.payload) ?? {},
     baseSnapshot: parseJson<Record<string, unknown>>(r.baseSnapshot),
     status: r.status as ProposalStatus,
+    supersedesId: r.supersedesId,
+    meta: parseJson<Record<string, unknown>>(r.meta),
     proposedBy: r.proposedBy,
     decidedBy: r.decidedBy,
     decidedAt: r.decidedAt,
@@ -287,6 +350,8 @@ export const defaultProposalDeps: ProposalDeps = {
       payload: JSON.stringify(row.payload),
       baseSnapshot: row.baseSnapshot ? JSON.stringify(row.baseSnapshot) : null,
       status: 'PENDING',
+      supersedesId: row.supersedesId,
+      meta: row.meta ? JSON.stringify(row.meta) : null,
       proposedBy: row.proposedBy,
     });
   },
@@ -295,7 +360,56 @@ export const defaultProposalDeps: ProposalDeps = {
     return Number(row?.n ?? 0);
   },
   list: listProposalRows,
+  get: async (d1, id) => {
+    const [row] = await getDb(d1).select().from(schema.changeProposals).where(eq(schema.changeProposals.id, id)).limit(1);
+    return row ? toProposalRow(row) : undefined;
+  },
+  findOpen: async (d1, recruitmentId) => {
+    const t = schema.changeProposals;
+    const rows = await getDb(d1).select().from(t).where(and(eq(t.recruitmentId, recruitmentId), inArray(t.status, ['PENDING', 'APPLYING'])));
+    return rows.map(toProposalRow);
+  },
+  withdraw: async (d1, id, by) => {
+    const results = await d1.batch(withdrawStatements(d1, id, by, WITHDRAWN_BY_PROPOSER));
+    return (results[0].meta?.changes ?? 0) === 1;
+  },
+  supersede: async (d1, oldId, row) => {
+    const note = `Superseded by ${row.id}`;
+    const [withdraw, audit] = withdrawStatements(d1, oldId, row.proposedBy, note);
+    const insert = d1.prepare(SUPERSEDE_INSERT_SQL).bind(row.id, row.kind, row.recruitmentId, row.summary, JSON.stringify(row.payload), row.baseSnapshot ? JSON.stringify(row.baseSnapshot) : null, row.supersedesId, row.meta ? JSON.stringify(row.meta) : null, row.proposedBy, oldId, note);
+    // One D1 batch is one transaction: the guarded withdraw, the replacement (inserted only if the withdraw landed) and the audit row.
+    const results = await d1.batch([withdraw, insert, audit]);
+    return (results[0].meta?.changes ?? 0) === 1 && (results[1].meta?.changes ?? 0) === 1;
+  },
+  postExists: async (d1, postId) => (await getAllCanonicalPosts(d1)).some(p => p.id === postId && p.isActive !== 0),
+  checkDuplicate: async (d1, candidate) => {
+    const [existing, orgs] = await Promise.all([getAllActiveRecruitments(d1, { includeUnpublished: true, limit: 250 }), getAllOrganisations(d1)]);
+    const org = orgs.find(o => o.id === candidate.organisationId);
+    return detectDuplicates(
+      { ...candidate, organisationShortName: org?.shortName },
+      existing.map(r => ({ id: r.id, title: r.title, advtNumber: r.advtNumber, organisationShortName: r.organisationShortName, sourceUrl: r.sourcesList?.[0]?.sourceUrl, postId: r.postId, cycleYear: r.cycleYear })),
+    );
+  },
 };
+
+const WITHDRAWN_BY_PROPOSER = 'Withdrawn by proposer';
+
+// Exported so the D1 integration test runs the exact statements production runs. Params: see withdrawStatements / supersede.
+export const WITHDRAW_SQL = "UPDATE change_proposals SET status = 'WITHDRAWN', decided_by = ?, decided_at = unixepoch(), decision_note = ? WHERE id = ? AND status = 'PENDING' AND proposed_by = ?";
+export const WITHDRAW_AUDIT_SQL =
+  "INSERT INTO audit_logs (id, admin_email, entity, entity_id, action, field, new_value, reason, source) " +
+  "SELECT ?, ?, 'PROPOSAL', ?, 'WITHDRAW', 'status', 'WITHDRAWN', ?, 'MCP' WHERE EXISTS (SELECT 1 FROM change_proposals WHERE id = ? AND status = 'WITHDRAWN' AND decision_note = ?)";
+export const SUPERSEDE_INSERT_SQL =
+  "INSERT INTO change_proposals (id, kind, recruitment_id, summary, payload, base_snapshot, status, supersedes_id, meta, proposed_by) " +
+  "SELECT ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ? WHERE EXISTS (SELECT 1 FROM change_proposals WHERE id = ? AND status = 'WITHDRAWN' AND decision_note = ?)";
+
+/** [guarded withdraw, audit row]. The audit row is written only if the withdraw actually landed. */
+function withdrawStatements(d1: D1Database, id: string, by: string, note: string) {
+  return [
+    d1.prepare(WITHDRAW_SQL).bind(by, note, id, by),
+    d1.prepare(WITHDRAW_AUDIT_SQL).bind(`audit_${crypto.randomUUID()}`, by, id, note, id, note),
+  ];
+}
 
 export interface ProposalInput {
   kind: ProposalKind;
@@ -303,6 +417,10 @@ export interface ProposalInput {
   recruitmentId?: string;
   summary: string;
   changes: unknown;
+  /** Optional field-level provenance; see sanitizeEvidence. */
+  evidence?: unknown;
+  /** Id of one of the caller's own PENDING proposals that this one replaces (same kind and target). */
+  supersedes?: string;
 }
 
 function requirePropose(actor: Actor, d1: D1Database | undefined): D1Database {
@@ -317,30 +435,89 @@ export async function createProposal(
   actor: Actor,
   input: ProposalInput,
   deps: ProposalDeps = defaultProposalDeps,
-): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null }> {
+): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; supersedes?: string; duplicateWarning?: DuplicateCheckResult }> {
   const db = requirePropose(actor, d1);
   if (!PROPOSAL_KINDS.includes(input.kind)) throw new InvalidProposalError('Unknown proposal kind.');
   const summary = str(input.summary, 'summary', MAX_SUMMARY);
   const payload = sanitizeChanges(input.kind, input.changes);
+  const evidence = sanitizeEvidence(input.evidence, payload);
+  const meta: Record<string, unknown> = {};
+  if (evidence?.length) meta.evidence = evidence;
+
+  let old: ProposalRow | undefined;
+  if (input.supersedes) {
+    old = await deps.get(db, input.supersedes);
+    if (!old || old.proposedBy !== actor.id) throw new InvalidProposalError('Proposal to supersede was not found.');
+    if (old.status !== 'PENDING') throw new InvalidProposalError(`Only a PENDING proposal can be superseded (this one is ${old.status}).`);
+    if (old.kind !== input.kind) throw new InvalidProposalError('A replacement must have the same kind as the proposal it supersedes.');
+  }
 
   let recruitmentId: string | null = null;
   let baseSnapshot: Record<string, unknown> | null = null;
+  let duplicateWarning: DuplicateCheckResult | undefined;
   if (input.kind === 'UPDATE_RECRUITMENT') {
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
+    if (old && old.recruitmentId !== recruitmentId) throw new InvalidProposalError('A replacement must target the same recruitment.');
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
+    // Re-snapshot the live record, never reuse the superseded proposal's snapshot.
     baseSnapshot = snapshotFields(current, Object.keys(payload));
-  } else if (input.recruitmentId) {
-    throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
-  }
-
-  if ((await deps.countPending(db)) >= MAX_PENDING_PROPOSALS) {
-    throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
+    // Best-effort (D1 has no cross-statement transaction); the admin stale-guard remains the backstop.
+    const clash = (await deps.findOpen(db, recruitmentId)).filter(p => p.id !== old?.id && Object.keys(p.payload).some(f => f in payload));
+    if (clash.length) {
+      const fields = [...new Set(clash.flatMap(p => Object.keys(p.payload).filter(f => f in payload)))];
+      throw new ProposalBlockedError('PENDING_CHANGE_CONFLICT', `Open proposal(s) already change ${fields.join(', ')} on this recruitment. Withdraw or supersede them first.`, { conflictingIds: clash.map(p => p.id), fields });
+    }
+  } else {
+    if (input.recruitmentId) throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
+    const postId = payload.postId as string;
+    if (!(await deps.postExists(db, postId))) {
+      throw new ProposalBlockedError('UNKNOWN_POST', `postId "${postId}" is not a canonical post. Use resolve_entity(post); if NOT_FOUND, ask an admin to add the post.`, { postId });
+    }
+    const sources = payload.sources as Array<{ sourceUrl: string }> | undefined;
+    const dup = await deps.checkDuplicate(db, {
+      title: payload.title as string,
+      advtNumber: payload.advtNumber as string,
+      organisationId: payload.organisationId as string,
+      postId,
+      cycleYear: (payload.cycleYear as number | undefined) ?? new Date().getFullYear(),
+      sourceUrl: sources?.[0]?.sourceUrl,
+    });
+    if (dup.status === 'CONFIRMED_DUPLICATE') throw new ProposalBlockedError('CONFIRMED_DUPLICATE', dup.summary, { matches: dup.matches });
+    if (dup.status === 'POSSIBLE_DUPLICATE') {
+      duplicateWarning = dup;
+      meta.duplicate = dup;
+    }
   }
 
   const id = `prop_${crypto.randomUUID()}`;
-  await deps.insert(db, { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, proposedBy: actor.id });
-  return { id, status: 'PENDING', kind: input.kind, recruitmentId };
+  const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: old?.id ?? null, proposedBy: actor.id };
+  if (old) {
+    // The withdraw frees the slot the replacement takes, so the pending cap is not re-checked.
+    if (!(await deps.supersede(db, old.id, row))) throw new InvalidProposalError('Proposal to supersede is no longer PENDING (an admin may have just decided it).');
+  } else {
+    if ((await deps.countPending(db)) >= MAX_PENDING_PROPOSALS) {
+      throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
+    }
+    await deps.insert(db, row);
+  }
+  return { id, status: 'PENDING', kind: input.kind, recruitmentId, ...(old ? { supersedes: old.id } : {}), ...(duplicateWarning ? { duplicateWarning } : {}) };
+}
+
+/** One of the caller's own proposals, in full. */
+export async function getProposal(d1: D1Database | undefined, actor: Actor, id: string, deps: ProposalDeps = defaultProposalDeps): Promise<ProposalRow> {
+  const db = requirePropose(actor, d1);
+  const row = await deps.get(db, str(id, 'id', 100));
+  if (!row || row.proposedBy !== actor.id) throw new InvalidProposalError('Proposal not found.');
+  return row;
+}
+
+/** Take back one of the caller's own PENDING proposals. Status transition only; payload and history are never edited. */
+export async function withdrawProposal(d1: D1Database | undefined, actor: Actor, id: string, deps: ProposalDeps = defaultProposalDeps): Promise<{ id: string; status: 'WITHDRAWN' }> {
+  const row = await getProposal(d1, actor, id, deps);
+  if (row.status !== 'PENDING') throw new InvalidProposalError(`Only a PENDING proposal can be withdrawn (this one is ${row.status}).`);
+  if (!(await deps.withdraw(d1!, row.id, actor.id))) throw new InvalidProposalError('Proposal is no longer PENDING (an admin may have just decided it).');
+  return { id: row.id, status: 'WITHDRAWN' };
 }
 
 export async function listProposals(
