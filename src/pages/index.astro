@@ -233,6 +233,16 @@ recruitments.forEach((r) => {
       </a>
     </div>
 
+    {closingSoon.length === 0 && (
+      <div class="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
+        <p class="font-bold text-foreground font-heading">No applications are closing soon</p>
+        <p class="text-sm text-muted-foreground mt-1 max-w-md mx-auto">Drives with an open application window appear here, soonest deadline first. Browse the full directory or check your eligibility in the meantime.</p>
+        <div class="mt-4 flex flex-wrap justify-center gap-3">
+          <a href="/jobs" class="text-xs font-bold px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted transition-colors">Browse all recruitments</a>
+          <a href="/eligibility-checker" class="text-xs font-bold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors">Check my eligibility</a>
+        </div>
+      </div>
+    )}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {closingSoon.map((item: any) => (
         <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
@@ -339,6 +349,12 @@ recruitments.forEach((r) => {
     </div>
 
     <!-- Timeline Grid -->
+    {milestones.length === 0 && (
+      <div class="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
+        <p class="font-bold text-foreground font-heading">No upcoming milestones yet</p>
+        <p class="text-sm text-muted-foreground mt-1 max-w-md mx-auto">Application deadlines and exam dates show up here as soon as they are published.</p>
+      </div>
+    )}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {milestones.map((m) => (
         <a
