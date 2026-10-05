@@ -58,37 +58,37 @@ const pathname = Astro.url.pathname;
     <nav class="hidden lg:flex justify-center items-center flex-1 gap-1 min-w-0" aria-label="Primary navigation">
       <a
         href="/jobs"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname === '/jobs' || pathname.startsWith('/recruitments') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname === '/jobs' || pathname.startsWith('/recruitments') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         All Jobs
       </a>
       <a
         href="/calendar"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Exam Calendar
       </a>
       <a
         href="/results"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Results
       </a>
       <a
         href="/admit-cards"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Admit Cards
       </a>
       <a
         href="/answer-keys"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Answer Keys
       </a>
       <a
         href="/jobs"
-        class={`font-semibold rounded-lg text-xs px-3 py-2 transition-all ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
+        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/posts') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
       >
         Cadre Guides
       </a>
@@ -96,8 +96,8 @@ const pathname = Astro.url.pathname;
 
     <!-- Search input & CTA button + Mobile Hamburger -->
     <div class="flex items-center shrink-0 gap-2 sm:gap-2.5">
-      <form action="/search" method="get" class="hidden md:flex">
-        <label class="rounded-lg bg-background text-muted-foreground border border-input flex px-3 items-center gap-2 w-44 lg:w-56 h-9 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+      <form action="/search" method="get" class="hidden xl:flex">
+        <label class="rounded-lg bg-background text-muted-foreground border border-input flex px-3 items-center gap-2 w-44 2xl:w-56 h-9 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
           </svg>
