@@ -5,7 +5,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAdminD1, getRecruitmentById } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
 import { buildDiff, listProposalRows, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
-import { approveProposal, rejectProposal } from '../../services/change-proposal-decision';
+import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
 
 const adminEmail = Astro.locals.adminEmail;
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
@@ -26,6 +26,8 @@ if (Astro.request.method === 'POST') {
 
     const outcome = action === 'reject'
       ? await rejectProposal(d1, id, adminEmail, input.text('note'))
+      : action === 'edit'
+        ? await editProposal(d1, id, adminEmail, (() => { try { return JSON.parse(input.text('payload')); } catch { throw new Error('The edited values are not valid JSON.'); } })())
       : action === 'approve'
         ? await approveProposal(d1, id, adminEmail, { publish: checked('publish'), confirmStale: checked('confirmStale') })
         : (() => { throw new Error('Unknown action.'); })();
@@ -50,6 +52,9 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+const BY_FILTERS = [['', 'Everyone'], ['pipeline', 'Pipeline'], ['mcp-client', 'MCP']] as const;
+const requestedBy = Astro.url.searchParams.get('by') ?? '';
+const by = BY_FILTERS.some(([v]) => v === requestedBy) ? requestedBy : '';
 const FILTERS: Array<ProposalStatus | 'ALL'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'WITHDRAWN', 'ALL'];
 const requested = Astro.url.searchParams.get('status')?.toUpperCase() as ProposalStatus | 'ALL' | undefined;
 const filter = requested && FILTERS.includes(requested) ? requested : 'PENDING';
@@ -57,7 +62,7 @@ const filter = requested && FILTERS.includes(requested) ? requested : 'PENDING';
 let loadError = '';
 let proposals: ProposalRow[] = [];
 if (d1) {
-  proposals = await listProposalRows(d1, { status: filter === 'ALL' ? undefined : filter, limit: 50 }).catch(error => {
+  proposals = await listProposalRows(d1, { status: filter === 'ALL' ? undefined : filter, proposedBy: by || undefined, limit: 50 }).catch(error => {
     console.error('[admin/pending-changes] load failed', error);
     loadError = 'Proposals are temporarily unavailable. Have migrations 0010 and 0013 been applied?';
     return [];
@@ -94,9 +99,13 @@ const badge: Record<string, string> = {
   WITHDRAWN: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
-type Evidence = { field: string; sourceUrl: string; page?: number; snippet?: string; method: string; confidence?: number };
-type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string; reasons: string[] }> };
+type Evidence = { field: string; sourceUrl: string; page?: number; section?: string; snippet?: string; method: string; confidence?: number };
+type Pipeline = { documentUrl?: string; documentType?: string; model?: string; warnings?: string[] };
+type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string | null; reasons: string[] }> };
 const evidenceOf = (p: ProposalRow) => (Array.isArray(p.meta?.evidence) ? (p.meta!.evidence as Evidence[]) : []);
+const confidenceOf = (p: ProposalRow) => (typeof p.meta?.confidence === 'number' ? (p.meta.confidence as number) : null);
+const pipelineOf = (p: ProposalRow) => (p.meta?.pipeline ? (p.meta.pipeline as Pipeline) : null);
+const evidenceFor = (list: Evidence[], field: string) => list.filter(e => e.field === field);
 const duplicateOf = (p: ProposalRow) => (p.meta?.duplicate ? (p.meta.duplicate as DuplicateWarning) : null);
 const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
 ---
@@ -117,12 +126,16 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Pending changes</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Changes proposed through the private MCP. Nothing goes live until you approve it here.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Review queue</h1>
+        <p class="text-xs text-slate-500 mt-0.5">Changes proposed by the data pipeline and the private MCP. Evidence sits beside each field. Nothing goes live until you approve it here.</p>
       </div>
       <nav class="flex flex-wrap gap-1.5" aria-label="Filter by status">
+        {BY_FILTERS.map(([v, l]) => (
+          <a href={`/admin/pending-changes?status=${filter}${v ? `&by=${v}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${v === by ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'}`}>{l}</a>
+        ))}
+        <span class="w-px bg-slate-200 mx-1" aria-hidden="true"></span>
         {FILTERS.map(f => (
-          <a href={`/admin/pending-changes?status=${f}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${f === filter ? 'bg-blue-50 text-primary border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+          <a href={`/admin/pending-changes?status=${f}${by ? `&by=${by}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${f === filter ? 'bg-blue-50 text-primary border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
             {f.charAt(0) + f.slice(1).toLowerCase()}
           </a>
         ))}
@@ -142,8 +155,16 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
             <div class="flex items-center gap-2 flex-wrap">
               <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : 'Update'}</span>
+              {confidenceOf(p) !== null && (
+                <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceOf(p)! >= 0.9 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : confidenceOf(p)! >= 0.7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-rose-50 text-rose-800 border-rose-200'}`}>confidence {Math.round(confidenceOf(p)! * 100)}%</span>
+              )}
+              {p.meta?.edited && <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border bg-sky-50 text-sky-800 border-sky-200">edited by reviewer</span>}
             </div>
             <h2 class="text-sm font-bold text-slate-950">{p.summary}</h2>
+            {pipelineOf(p)?.documentUrl && safeHref(pipelineOf(p)!.documentUrl!) && (
+              <p class="text-[11px] text-slate-600">Original document: <a href={safeHref(pipelineOf(p)!.documentUrl!)} rel="noopener noreferrer" target="_blank" class="text-primary underline break-all">{pipelineOf(p)!.documentUrl}</a>{pipelineOf(p)!.documentType ? ` (${pipelineOf(p)!.documentType!.toLowerCase().replace(/_/g, ' ')})` : ''}</p>
+            )}
+            {(pipelineOf(p)?.warnings?.length ?? 0) > 0 && <p class="text-[11px] text-amber-800">Checks: {pipelineOf(p)!.warnings!.join(' ')}</p>}
             <p class="text-[11px] text-slate-500 font-mono">
               {p.kind === 'UPDATE_RECRUITMENT' && <span>{currentTitle ?? p.recruitmentId} · </span>}
               {p.id} · proposed by {p.proposedBy} · {when(p.createdAt)}{p.supersedesId && <> · replaces <span>{p.supersedesId}</span></>}
@@ -160,7 +181,7 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
           <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
             <strong>Possible duplicate.</strong> {duplicate.summary}
             <ul class="mt-1 list-disc pl-4">
-              {duplicate.matches.map(m => <li>{m.matchedTitle} ({m.matchedAdvtNumber}) <span class="font-mono">{m.matchedRecruitmentId}</span>: {m.reasons.join(' ')}</li>)}
+              {duplicate.matches.map(m => <li>{m.matchedTitle} ({m.matchedAdvtNumber ?? 'no advt number'}) <span class="font-mono">{m.matchedRecruitmentId}</span>: {m.reasons.join(' ')}</li>)}
             </ul>
           </div>
         )}
@@ -182,27 +203,20 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
                 <tr class="border-b border-slate-100 align-top">
                   <td class="py-2 pr-3 font-mono font-semibold text-slate-800 whitespace-nowrap">{row.field}</td>
                   <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind === 'CREATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
-                  <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre></td>
+                  <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre>
+                    {evidenceFor(evidence, row.field).map(e => (
+                      <div class="mt-1.5 rounded border border-slate-100 bg-slate-50 p-1.5 text-[10px] text-slate-600 font-sans">
+                        <span class="font-semibold">Evidence</span> · {e.method}{e.page ? ` · page ${e.page}` : ''}{e.section ? ` · ${e.section}` : ''}{typeof e.confidence === 'number' ? ` · ${Math.round(e.confidence * 100)}%` : ''}
+                        {safeHref(e.sourceUrl) ? <> · <a href={safeHref(e.sourceUrl)} class="text-primary underline" rel="noopener noreferrer" target="_blank">source</a></> : null}
+                        {e.snippet && <blockquote class="mt-0.5 whitespace-pre-wrap break-words">“{e.snippet}”</blockquote>}
+                      </div>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        {evidence.length > 0 && (
-          <div class="px-4 pb-4">
-            <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Evidence claimed by the proposer (not verified)</h3>
-            <ul class="space-y-1.5 text-[11px] text-slate-700">
-              {evidence.map(e => (
-                <li class="rounded border border-slate-100 bg-slate-50 p-2">
-                  <span class="font-mono font-semibold">{e.field}</span> · {e.method}{e.page ? ` · page ${e.page}` : ''}{typeof e.confidence === 'number' ? ` · confidence ${Math.round(e.confidence * 100)}%` : ''}
-                  {safeHref(e.sourceUrl) ? <> · <a href={safeHref(e.sourceUrl)} class="text-primary underline" rel="noopener noreferrer" target="_blank">source</a></> : null}
-                  {e.snippet && <blockquote class="mt-1 whitespace-pre-wrap break-words text-slate-600">{e.snippet}</blockquote>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {p.status === 'PENDING' ? (
           <footer class="flex flex-wrap items-end justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/60">
@@ -242,6 +256,16 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
               </button>
             </form>
           </footer>
+          <details class="px-4 pb-4 bg-slate-50/60 border-t border-slate-100">
+            <summary class="cursor-pointer py-2 text-[11px] font-semibold text-slate-600">Edit proposed values</summary>
+            <form method="POST" class="space-y-2">
+              <input type="hidden" name="_action" value="edit" />
+              <input type="hidden" name="proposalId" value={p.id} />
+              <textarea name="payload" rows="10" spellcheck="false" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 bg-white text-[11px] font-mono outline-none focus:ring-2 focus:ring-primary">{JSON.stringify(p.payload, null, 2)}</textarea>
+              <p class="text-[10px] text-slate-500">Values are validated like any proposal. Array fields (dates, links, vacancies) replace the whole list. After saving, check the diff above, then approve.</p>
+              <button type="submit" class="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold cursor-pointer">Save edits</button>
+            </form>
+          </details>
         ) : (
           <footer class="p-4 border-t border-slate-100 bg-slate-50/60 text-[11px] text-slate-600">
             {p.status === 'APPLYING'

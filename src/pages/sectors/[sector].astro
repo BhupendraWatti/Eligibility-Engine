@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/sectors/[sector].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectorIcon from '../../components/common/SectorIcon.astro';
@@ -162,7 +163,7 @@ const isMedical = sector ? sector.slug.includes('health') : false;
                     </div>
 
                     <div class="pt-3 border-t border-border flex items-center justify-between">
-                      <span class="text-[11px] text-muted-foreground font-mono">{r.advtNumber}</span>
+                      <span class="text-[11px] text-muted-foreground font-mono">{advtLabel(r.advtNumber)}</span>
                       <a
                         href={`/recruitments/${r.slug}`}
                         class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"

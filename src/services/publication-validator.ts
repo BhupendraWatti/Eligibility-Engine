@@ -25,7 +25,8 @@ export interface RecruitmentValidationInput {
   id?: string;
   title: string;
   slug: string;
-  advtNumber: string;
+  /** null is valid: the official notice may state no advertisement number. */
+  advtNumber?: string | null;
   cycleYear: number;
   totalVacancies: number;
   status?: string;
@@ -110,11 +111,6 @@ export function validateRecruitmentForPublication(
 
   if (!record.slug || record.slug.trim().length < 3) {
     blockingErrors.push('Recruitment URL slug is required.');
-    checks.recruitment = 'FAIL';
-  }
-
-  if (!record.advtNumber || record.advtNumber.trim().length === 0) {
-    blockingErrors.push('Advertisement number (Advt No.) is required for official government recruitment.');
     checks.recruitment = 'FAIL';
   }
 

@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/jobs/index.astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments, getAllSectors } from '../../db/queries';
@@ -382,7 +383,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
                   <div class="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <span class="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
                       <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      Verified Notice ({job.advtNumber})
+                      Verified Notice ({advtLabel(job.advtNumber)})
                     </span>
                     <div class="flex items-center gap-2">
                       <a

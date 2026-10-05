@@ -117,6 +117,20 @@ const navGroups = [
         icon: 'inbox',
       },
       {
+        name: 'Pipeline',
+        href: '/admin/pipeline',
+        key: 'pipeline',
+        active: current === 'pipeline' || pathname.startsWith('/admin/pipeline'),
+        icon: 'list-checks',
+      },
+      {
+        name: 'Source registry',
+        href: '/admin/source-registry',
+        key: 'source-registry',
+        active: current === 'source-registry' || pathname.startsWith('/admin/source-registry'),
+        icon: 'link',
+      },
+      {
         name: 'Audit log',
         href: '/admin/audit-log',
         key: 'audit-log',

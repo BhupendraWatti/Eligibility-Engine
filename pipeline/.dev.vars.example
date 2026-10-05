@@ -1,0 +1,4 @@
+# Local secrets for the pipeline Worker (wrangler dev). Never commit the real file.
+ANTHROPIC_API_KEY=
+PIPELINE_TOKEN=replace-with-a-long-random-secret-min-24-chars
+RESEND_API_KEY=

@@ -1,0 +1,60 @@
+---
+// src/pages/admin/recruitments/[id]/versions.astro
+// Version history of one recruitment: every change stores the record as it was before. Restore undoes a change.
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { getAdminD1, getRecruitmentById } from '../../../../db/queries';
+import { readAdminSubmission } from '../../../../services/admin-integrity';
+import { listVersions, restoreVersion } from '../../../../services/record-versions';
+
+const { id } = Astro.params;
+const adminEmail = Astro.locals.adminEmail;
+const d1 = getAdminD1('viewing record history');
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!adminEmail) throw new Error('Admin identity is required.');
+    if (!d1 || !id) throw new Error('Database is unavailable.');
+    const input = await readAdminSubmission(Astro.request);
+    const result = await restoreVersion(d1, id, Number(input.text('version')), adminEmail);
+    message = result.message;
+    messageType = result.ok ? 'success' : 'error';
+    if (!result.ok) Astro.response.status = 400;
+  } catch (error: any) {
+    message = error?.message || 'Restore failed.';
+    messageType = 'error';
+    Astro.response.status = 400;
+  }
+}
+
+const recruitment = d1 && id ? await getRecruitmentById(id, d1).catch(() => undefined) : undefined;
+if (d1 && id && !recruitment) return new Response('Recruitment not found', { status: 404 });
+const versions = d1 && id ? await listVersions(d1, id).catch(() => []) : [];
+const when = (t: number) => new Date(t * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+---
+
+<AdminLayout title="Version history" currentSection="recruitments" breadcrumbs={[{ label: 'Recruitments', href: '/admin/recruitments' }, { label: recruitment?.title ?? 'Recruitment', href: `/admin/recruitments/${id}/edit` }, { label: 'History' }]}>
+  <div class="mx-auto max-w-4xl space-y-6">
+    {message && <div class={`p-3 rounded-lg border text-xs ${messageType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`} role="status">{message}</div>}
+    <div class="border-b border-slate-200 pb-4">
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Version history</h1>
+      <p class="text-xs text-slate-500 mt-0.5">{recruitment?.title}. Each row is the record as it was <em>before</em> a change. Restoring one puts those values back and keeps today's state as a new version, so a restore can be undone too. Publication status is never changed by a restore.</p>
+    </div>
+    {versions.length === 0 ? (
+      <div class="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400 text-xs">No earlier versions yet. A version is stored the first time this record is changed.</div>
+    ) : (
+      <ul class="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">{versions.map(v => (
+        <li class="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-slate-950">Version {v.version} <span class="text-[11px] font-normal text-slate-500">· {v.status}</span></div>
+            <div class="text-[11px] text-slate-500 truncate">{v.title} · replaced by {v.changedBy ?? 'unknown'} on {when(v.createdAt)}</div>
+          </div>
+          <form method="POST" onsubmit={`return confirm(${JSON.stringify(`Restore version ${v.version}? This overwrites the current values with that earlier state.`)})`}>
+            <input type="hidden" name="version" value={v.version} />
+            <button type="submit" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold cursor-pointer">Restore</button>
+          </form>
+        </li>))}</ul>
+    )}
+  </div>
+</AdminLayout>

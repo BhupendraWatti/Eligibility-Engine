@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/organisations/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getOrganisationBySlug, getAllOrganisations } from '../../db/queries';
@@ -156,7 +157,7 @@ function formatDate(dateStr?: string): string {
                       </div>
 
                       <div class="pt-3 border-t border-border flex items-center justify-between">
-                        <span class="text-[11px] text-muted-foreground font-mono">{job.advtNumber}</span>
+                        <span class="text-[11px] text-muted-foreground font-mono">{advtLabel(job.advtNumber)}</span>
                         <a
                           href={`/recruitments/${job.slug}`}
                           class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"

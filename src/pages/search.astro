@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../services/advt-number';
 // src/pages/search.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors, getAllOrganisations } from '../db/queries';
@@ -22,7 +23,7 @@ const jobResults = allRecruitments.filter(r => {
     r.title.toLowerCase().includes(qLower) ||
     r.postTitle.toLowerCase().includes(qLower) ||
     r.shortSummary.toLowerCase().includes(qLower) ||
-    r.advtNumber.toLowerCase().includes(qLower) ||
+    (r.advtNumber ?? '').toLowerCase().includes(qLower) ||
     r.organisationShortName.toLowerCase().includes(qLower) ||
     r.organisationName.toLowerCase().includes(qLower)
   );
@@ -180,7 +181,7 @@ const categories = [
                           {r.shortSummary}
                         </p>
                         <span class="text-[11px] font-mono text-muted-foreground block mt-2">
-                          {r.totalVacancies.toLocaleString()} Vacancies · {r.criteria.minQualificationLevel} · {r.organisationShortName} · {r.advtNumber}
+                          {r.totalVacancies.toLocaleString()} Vacancies · {r.criteria.minQualificationLevel} · {r.organisationShortName} · {advtLabel(r.advtNumber)}
                         </span>
                       </div>
                       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
@@ -256,7 +257,7 @@ const categories = [
                         </h3>
                         <p class="text-xs text-muted-foreground mt-1">Conducted by {r.organisationName} ({r.organisationShortName})</p>
                         <span class="text-[11px] font-mono text-muted-foreground block mt-2">
-                          Scheduled Exam Date: <strong class="text-foreground">{r.examDate}</strong> · Advt: {r.advtNumber}
+                          Scheduled Exam Date: <strong class="text-foreground">{r.examDate}</strong> · Advt: {advtLabel(r.advtNumber)}
                         </span>
                       </div>
                       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>

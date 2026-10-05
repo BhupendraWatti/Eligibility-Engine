@@ -1,6 +1,9 @@
 ---
 // src/components/common/Footer.astro
+import { getLastVerifiedAt } from '../../db/queries';
 const currentYear = new Date().getFullYear();
+const lastVerified = await getLastVerifiedAt();
+const lastVerifiedLabel = lastVerified ? lastVerified.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' }) : null;
 ---
 
 <footer class="bg-card text-foreground border-t border-border mt-16 sm:mt-20 no-print">
@@ -62,6 +65,7 @@ const currentYear = new Date().getFullYear();
     <!-- Bottom Bar -->
     <div class="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-4">
       <p>&copy; {currentYear} NIRNAY. All recruitment notifications remain property of respective government boards.</p>
+      {lastVerifiedLabel && <p>Last verified: <time datetime={lastVerified!.toISOString()}>{lastVerifiedLabel}</time>. Dates change; always confirm on the official notice.</p>}
       <div class="flex items-center gap-4 text-[11px]">
         <a href="/disclaimer" class="hover:underline">Disclaimer</a>
         <a href="/privacy" class="hover:underline">Privacy Policy</a>

@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../services/advt-number';
 // src/pages/eligibility-checker.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import EligibilityWizard from '../components/eligibility/EligibilityWizard';
@@ -11,7 +12,7 @@ const wizardData = recruitments.map((r: any) => ({
   id: r.id,
   title: r.title,
   slug: r.slug,
-  advtNumber: r.advtNumber,
+  advtNumber: advtLabel(r.advtNumber),
   totalVacancies: r.totalVacancies,
   postTitle: r.postTitle,
   organisationName: r.organisationName,

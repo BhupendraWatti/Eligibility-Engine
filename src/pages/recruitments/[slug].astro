@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/recruitments/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getRecruitmentWithRelations } from '../../db/queries';
@@ -42,6 +43,10 @@ const selectionStages = recruitment?.selectionStages && recruitment.selectionSta
   ? recruitment.selectionStages
   : recruitment?.canonicalPost?.selectionStages || [];
 
+const recordLastVerified = (() => {
+  const times = (recruitment?.sourcesList ?? []).map((src: any) => (src.lastVerifiedAt ? new Date(src.lastVerifiedAt).getTime() : 0)).filter((t: number) => t > 0);
+  return times.length ? new Date(Math.max(...times)) : null;
+})();
 const officialSource = recruitment?.sourcesList?.[0] || {
   sourceTitle: `${recruitment?.organisationShortName || 'Official'} Rulebook Gazette`,
   sourceUrl: recruitment?.organisationUrl || 'https://esb.mp.gov.in',
@@ -134,7 +139,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
                 {recruitment.presentation?.label || recruitment.lifecycleStatus}
               </span>
               <span class="text-xs font-mono text-muted-foreground">
-                {recruitment.advtNumber}
+                {advtLabel(recruitment.advtNumber)}
               </span>
             </div>
 
@@ -506,6 +511,7 @@ const officialLink = recruitment?.officialLinksList?.[0] || {
           <!-- Documents & Official Sources (NEW Section: Fixes Anchor #documents) -->
           <section id="documents" class="scroll-mt-36 pt-8 border-t border-border">
             <h2 class="text-xl font-bold text-foreground mb-4">Official Documents & Verification Sources</h2>
+            {recordLastVerified && <p class="text-[11px] text-muted-foreground -mt-2 mb-4">Last verified: <time datetime={recordLastVerified.toISOString()}>{recordLastVerified.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' })}</time> against the official source.</p>}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Gazette / Notification Sources */}
               {recruitment.sourcesList && recruitment.sourcesList.length > 0 ? (

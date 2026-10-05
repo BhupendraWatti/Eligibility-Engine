@@ -77,7 +77,7 @@ export const recruitments = sqliteTable('recruitments', {
   postId: text('post_id').notNull().references(() => posts.id, { onDelete: 'restrict' }),
   organisationId: text('organisation_id').notNull().references(() => organisations.id, { onDelete: 'restrict' }),
   stateId: text('state_id').notNull().references(() => states.id, { onDelete: 'restrict' }),
-  advtNumber: text('advt_number').notNull(), // '05/2026'
+  advtNumber: text('advt_number'), // '05/2026'; NULL when the official notice states none
   title: text('title').notNull(), // 'MP Police Constable Recruitment 2026'
   slug: text('slug').notNull().unique(),
   shortSummary: text('short_summary').notNull(),
@@ -308,3 +308,13 @@ export const sourcesRelations = relations(sources, ({ one }) => ({
 export const officialLinksRelations = relations(officialLinks, ({ one }) => ({
   recruitment: one(recruitments, { fields: [officialLinks.recruitmentId], references: [recruitments.id] }),
 }));
+
+/** Snapshot of a recruitment BEFORE each change (migration 0015), so any change can be undone from /admin. */
+export const recordVersions = sqliteTable('record_versions', {
+  id: text('id').primaryKey(),
+  recruitmentId: text('recruitment_id').notNull(),
+  version: integer('version').notNull(),
+  snapshot: text('snapshot').notNull(),
+  changedBy: text('changed_by'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});

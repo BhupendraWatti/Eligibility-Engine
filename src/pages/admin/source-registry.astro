@@ -1,0 +1,131 @@
+---
+// src/pages/admin/source-registry.astro
+// Registry of OFFICIAL sources the pipeline checks. Aggregator or "Sarkari"-style sites must never be added here.
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAdminD1, getAllOrganisations } from '../../db/queries';
+import { readAdminSubmission } from '../../services/admin-integrity';
+import {
+  REGISTRY_CATEGORIES, SOURCE_STATUSES, SOURCE_TYPES, deleteSource, listSources, recordSettingAudit, saveSource, setSourceStatus,
+  type SourceInput, type SourceRow,
+} from '../../services/pipeline-store';
+
+const adminEmail = Astro.locals.adminEmail;
+const d1 = getAdminD1('managing the source registry');
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!adminEmail) throw new Error('Admin identity is required.');
+    if (!d1) throw new Error('Database is unavailable.');
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action');
+    const id = input.text('id');
+    const read = (): SourceInput => ({
+      name: input.text('name'), url: input.text('url'), sourceType: input.text('sourceType') || 'NOTICE_PAGE', category: input.text('category'),
+      stateCode: input.text('stateCode').toUpperCase() || null, department: input.text('department') || null, organisationId: input.text('organisationId') || null,
+      frequencyHours: Number(input.text('frequencyHours') || 3),
+    });
+    if (action === 'create' || action === 'update') {
+      const data = read();
+      await saveSource(d1, data, action === 'update' ? id : undefined);
+      await recordSettingAudit(d1, adminEmail, `source:${data.url}`, action, `Source registry ${action}: ${data.name}`);
+      message = action === 'create' ? 'Source added. It becomes active after its first successful check.' : 'Source updated.';
+    } else if (action === 'status') {
+      const status = input.text('status');
+      if (!(SOURCE_STATUSES as readonly string[]).includes(status)) throw new Error('Unknown status.');
+      await setSourceStatus(d1, id, status as (typeof SOURCE_STATUSES)[number]);
+      await recordSettingAudit(d1, adminEmail, `source:${id}`, status, `Source status set to ${status}`);
+      message = `Source ${status.toLowerCase().replace('_', ' ')}.`;
+    } else if (action === 'delete') {
+      await deleteSource(d1, id);
+      await recordSettingAudit(d1, adminEmail, `source:${id}`, 'deleted', 'Source removed from the registry');
+      message = 'Source removed.';
+    } else throw new Error('Unknown action.');
+  } catch (error: any) {
+    message = /UNIQUE/i.test(error?.message ?? '') ? 'That URL is already in the registry.' : error?.message || 'Action failed.';
+    messageType = 'error';
+    Astro.response.status = 400;
+  }
+}
+
+let loadError = '';
+const sources: SourceRow[] = d1 ? await listSources(d1).catch(e => { console.error('[admin/source-registry]', e); loadError = 'The registry is unavailable. Has migration 0015 been applied?'; return []; }) : [];
+const organisations = d1 ? await getAllOrganisations(d1).catch(() => []) : [];
+
+const when = (t: number | null) => t ? new Date(t * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+const badge: Record<string, string> = {
+  ACTIVE: 'bg-emerald-50 text-emerald-800 border-emerald-200', NEEDS_VERIFICATION: 'bg-sky-50 text-sky-800 border-sky-200',
+  PAUSED: 'bg-slate-100 text-slate-600 border-slate-200', FAILING: 'bg-rose-50 text-rose-800 border-rose-200',
+};
+const field = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs outline-none focus:ring-2 focus:ring-primary';
+const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1';
+const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
+---
+
+<AdminLayout title="Source registry" currentSection="source-registry" breadcrumbs={[{ label: 'Pipeline', href: '/admin/pipeline' }, { label: 'Source registry' }]}>
+  <div class="mx-auto max-w-6xl space-y-6">
+    {message && <div class={`p-3 rounded-lg border text-xs ${messageType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`} role="status">{message}</div>}
+    {loadError && <div class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">{loadError}</div>}
+
+    <div class="border-b border-slate-200 pb-4">
+      <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Source registry</h1>
+      <p class="text-xs text-slate-500 mt-0.5">Official sources only (government, commissions, boards, public-sector banks, NCERT, PIB). The pipeline refuses any domain outside its allow-list and respects robots.txt.</p>
+    </div>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="text-sm font-bold text-slate-950 mb-3">Add a source</h2>
+      <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <input type="hidden" name="_action" value="create" />
+        <div class="lg:col-span-2"><label class={label} for="n">Name</label><input id="n" name="name" required maxlength="120" class={field} placeholder="e.g. RPSC - Notices" /></div>
+        <div class="lg:col-span-2"><label class={label} for="u">Official URL</label><input id="u" name="url" type="url" required class={field} placeholder="https://…" /></div>
+        <div><label class={label} for="t">Type</label><select id="t" name="sourceType" class={field}>{SOURCE_TYPES.map(t => <option value={t}>{t.replace('_', ' ')}</option>)}</select></div>
+        <div><label class={label} for="c">Feeds category</label><select id="c" name="category" class={field}>{REGISTRY_CATEGORIES.map(c => <option value={c}>{c.replace('_', ' ')}</option>)}</select></div>
+        <div><label class={label} for="s">State code (optional)</label><input id="s" name="stateCode" maxlength="4" class={field} placeholder="MP" /></div>
+        <div><label class={label} for="d">Department</label><input id="d" name="department" maxlength="120" class={field} /></div>
+        <div><label class={label} for="o">Organisation master</label><select id="o" name="organisationId" class={field}><option value="">(resolve from document)</option>{organisations.map(o => <option value={o.id}>{o.name}</option>)}</select></div>
+        <div><label class={label} for="f">Check every (hours)</label><input id="f" name="frequencyHours" type="number" min="1" max="168" value="3" class={field} /></div>
+        <div class="flex items-end"><button type="submit" class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold cursor-pointer">Add source</button></div>
+      </form>
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <h2 class="text-sm font-bold text-slate-950 p-4 border-b border-slate-100">{sources.length} sources</h2>
+      {sources.length === 0 ? <p class="p-6 text-xs text-slate-400 text-center">No sources yet.</p> : (
+        <ul class="divide-y divide-slate-100">{sources.map(s => (
+          <li class="p-4 space-y-2">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[s.status] ?? badge.PAUSED}`}>{s.status.replace('_', ' ')}</span>
+                  <span class="text-sm font-semibold text-slate-950">{s.name}</span>
+                  <span class="text-[10px] font-mono text-slate-500">{s.category} · {s.sourceType.replace('_', ' ')} · every {s.frequencyHours}h{s.stateCode ? ` · ${s.stateCode}` : ''}</span>
+                </div>
+                <a href={safeHref(s.url)} rel="noopener noreferrer" target="_blank" class="text-[11px] font-mono text-primary underline break-all">{s.url}</a>
+                <p class="text-[11px] text-slate-500">Last checked {when(s.lastCheckedAt)}{s.lastContentHash ? '' : ' · no content seen yet'}{s.lastError ? <> · <span class="text-rose-700">{s.lastError}</span> ({s.consecutiveFailures} in a row)</> : null}</p>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <form method="POST"><input type="hidden" name="_action" value="status" /><input type="hidden" name="id" value={s.id} /><input type="hidden" name="status" value={s.status === 'PAUSED' ? 'NEEDS_VERIFICATION' : 'PAUSED'} /><button type="submit" class="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-semibold cursor-pointer">{s.status === 'PAUSED' ? 'Resume' : 'Pause'}</button></form>
+                <form method="POST" onsubmit={`return confirm(${JSON.stringify(`Remove "${s.name}" from the registry? Its run history is removed too.`)})`}><input type="hidden" name="_action" value="delete" /><input type="hidden" name="id" value={s.id} /><button type="submit" class="px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold cursor-pointer">Remove</button></form>
+              </div>
+            </div>
+            <details class="text-xs">
+              <summary class="cursor-pointer text-[11px] text-slate-500">Edit</summary>
+              <form method="POST" class="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <input type="hidden" name="_action" value="update" /><input type="hidden" name="id" value={s.id} />
+                <div class="lg:col-span-2"><label class={label}>Name</label><input name="name" value={s.name} required class={field} /></div>
+                <div class="lg:col-span-2"><label class={label}>Official URL</label><input name="url" type="url" value={s.url} required class={field} /></div>
+                <div><label class={label}>Type</label><select name="sourceType" class={field}>{SOURCE_TYPES.map(t => <option value={t} selected={t === s.sourceType}>{t.replace('_', ' ')}</option>)}</select></div>
+                <div><label class={label}>Category</label><select name="category" class={field}>{REGISTRY_CATEGORIES.map(c => <option value={c} selected={c === s.category}>{c.replace('_', ' ')}</option>)}</select></div>
+                <div><label class={label}>State code</label><input name="stateCode" value={s.stateCode ?? ''} maxlength="4" class={field} /></div>
+                <div><label class={label}>Department</label><input name="department" value={s.department ?? ''} class={field} /></div>
+                <div><label class={label}>Organisation master</label><select name="organisationId" class={field}><option value="">(resolve from document)</option>{organisations.map(o => <option value={o.id} selected={o.id === s.organisationId}>{o.name}</option>)}</select></div>
+                <div><label class={label}>Every (hours)</label><input name="frequencyHours" type="number" min="1" max="168" value={s.frequencyHours} class={field} /></div>
+                <div class="flex items-end"><button type="submit" class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold cursor-pointer">Save</button></div>
+              </form>
+            </details>
+          </li>))}</ul>
+      )}
+    </section>
+  </div>
+</AdminLayout>

@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../../services/advt-number';
 // src/pages/admin/recruitments/index.astro (FlowStep Screen 21)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AdminDataTable from '../../../components/admin/AdminDataTable.astro';
@@ -270,7 +271,7 @@ const filterOptions = [
                         {r.title}
                       </a>
                       <div class="text-[10px] text-zinc-400 font-mono mt-0.5">
-                        ID · {r.advtNumber || recId}
+                        Advt: {advtLabel(r.advtNumber)} · ID {recId}
                       </div>
                     </td>
                     <td class="py-3 px-3 font-medium text-zinc-800 font-mono">

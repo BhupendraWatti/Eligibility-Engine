@@ -10,7 +10,7 @@ export type DuplicateStatus = 'NO_DUPLICATE' | 'POSSIBLE_DUPLICATE' | 'CONFIRMED
 export interface DuplicateMatch {
   matchedRecruitmentId: string;
   matchedTitle: string;
-  matchedAdvtNumber: string;
+  matchedAdvtNumber: string | null;
   matchedOrganisation: string;
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   reasons: string[];
@@ -24,7 +24,8 @@ export interface DuplicateCheckResult {
 
 export interface RecruitmentCandidate {
   id?: string;
-  advtNumber: string;
+  /** null when the notice states none: the advt rule is skipped and the other identity signals decide. */
+  advtNumber: string | null;
   title: string;
   organisationShortName?: string;
   organisationId?: string;
@@ -35,7 +36,7 @@ export interface RecruitmentCandidate {
 
 export interface ExistingRecruitmentRecord {
   id: string;
-  advtNumber: string;
+  advtNumber: string | null;
   title: string;
   organisationShortName?: string;
   organisationId?: string;
@@ -44,7 +45,7 @@ export interface ExistingRecruitmentRecord {
   cycleYear?: number;
 }
 
-function normalize(str?: string): string {
+function normalize(str?: string | null): string {
   if (!str) return '';
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

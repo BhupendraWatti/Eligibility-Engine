@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/admit-cards/index.astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments } from '../../db/queries';
@@ -50,7 +51,7 @@ const admitCards = allRecruitments
       statusColor,
       sourceUrl: admitLink?.url,
       slug: r.slug,
-      advt: r.advtNumber,
+      advt: advtLabel(r.advtNumber),
     };
   })
   .filter(card => {

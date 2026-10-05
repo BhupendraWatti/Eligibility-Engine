@@ -1,3 +1,4 @@
+import { cleanAdvt } from '../services/advt-number';
 import { getDb, schema } from './client';
 import { eq, desc, asc, sql, and, or } from 'drizzle-orm';
 import { validateRecruitmentForPublication } from '../services/publication-validator';
@@ -57,6 +58,18 @@ function resolveD1(providedD1: D1Database | undefined, operation: string): D1Dat
 /** D1 binding for server-side admin code that talks to tables outside this module (e.g. change proposals). */
 export function getAdminD1(operation: string): D1Database | undefined {
   return resolveD1(undefined, operation);
+}
+
+/** Newest "last verified" moment across the sources of published recruitments (shown in the public footer). */
+export async function getLastVerifiedAt(providedD1?: D1Database): Promise<Date | null> {
+  try {
+    const d1 = resolveD1(providedD1, 'reading the last verified date');
+    if (!d1) return null;
+    const row = await d1.prepare("SELECT MAX(s.last_verified_at) AS t FROM sources s JOIN recruitments r ON r.id = s.recruitment_id WHERE r.status = 'PUBLISHED'").first<{ t: number | null }>();
+    return row?.t ? new Date(row.t * 1000) : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface MasterSector {
@@ -121,7 +134,7 @@ export interface MasterOrganisation {
 export interface RecruitmentWithDetails {
   id: string;
   postId?: string;
-  advtNumber: string;
+  advtNumber: string | null;
   title: string;
   slug: string;
   shortSummary: string;
@@ -148,6 +161,7 @@ export interface RecruitmentWithDetails {
   seoTitle?: string | null;
   seoDescription?: string | null;
   robotsIndex?: number;
+  organisationId?: string;
   organisationName: string;
   organisationShortName: string;
   organisationUrl: string;
@@ -2610,7 +2624,9 @@ export async function createDocument(
   }
 
   const db = getDb(d1);
-  await db.batch([
+  const createVersion = await versionStatement(db, d1, data.recruitmentId, data.adminEmail);
+  await (db as any).batch([
+    ...(createVersion ? [createVersion.statement] : []),
     db.insert(schema.sources).values({
       id,
       recruitmentId: data.recruitmentId,
@@ -2697,7 +2713,10 @@ export async function updateDocument(
   if (data.publicationDate) updateSet.publicationDate = data.publicationDate;
   updateSet.lastVerifiedAt = sql`(unixepoch())`;
 
-  await db.batch([
+  const owner = await d1.prepare('SELECT recruitment_id AS r FROM sources WHERE id = ?').bind(data.id).first<{ r: string }>();
+  const updateVersion = owner?.r ? await versionStatement(db, d1, owner.r, data.adminEmail) : null;
+  await (db as any).batch([
+    ...(updateVersion ? [updateVersion.statement] : []),
     db.update(schema.sources).set(updateSet).where(eq(schema.sources.id, data.id)),
     db.insert(schema.auditLogs).values({
       id: `audit_${crypto.randomUUID()}`,
@@ -2740,7 +2759,9 @@ export async function deleteDocument(
   const db = getDb(d1);
   const existing = await db.query.sources.findFirst({ where: eq(schema.sources.id, data.id) });
   if (!existing) return false;
-  await db.batch([
+  const deleteVersion = await versionStatement(db, d1, existing.recruitmentId, data.adminEmail);
+  await (db as any).batch([
+    ...(deleteVersion ? [deleteVersion.statement] : []),
     db.delete(schema.sources).where(eq(schema.sources.id, data.id)),
     db.insert(schema.auditLogs).values({
       id: `audit_${crypto.randomUUID()}`,
@@ -3193,6 +3214,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     seoTitle: r.seoTitle,
     seoDescription: r.seoDescription,
     robotsIndex: r.robotsIndex,
+    organisationId: r.organisationId,
     organisationName: r.organisation?.name || 'Government Recruiting Authority',
     organisationShortName: r.organisation?.shortName || 'Govt',
     organisationUrl: r.organisation?.websiteUrl || '',
@@ -3270,7 +3292,7 @@ export interface CreateRecruitmentInput {
   stateId?: string;
   organisationId?: string;
   organisationShortName?: string;
-  advtNumber: string;
+  advtNumber?: string | null;
   totalVacancies: number;
   shortSummary?: string;
   overviewMarkdown?: string;
@@ -3369,12 +3391,12 @@ export async function createRecruitmentAtomic(
 
   // 1. Validation & Duplicate Detection
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
-  const isTestFixture = data.title.toLowerCase().includes('test') || data.advtNumber.toLowerCase().includes('test');
+  const isTestFixture = data.title.toLowerCase().includes('test') || (data.advtNumber ?? '').toLowerCase().includes('test');
   const duplicateCheck = detectDuplicates(
     {
       id: newId,
       title: data.title,
-      advtNumber: data.advtNumber,
+      advtNumber: cleanAdvt(data.advtNumber),
       organisationShortName: org.shortName,
       sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
       postId: data.postId,
@@ -3403,7 +3425,7 @@ export async function createRecruitmentAtomic(
     id: newId,
     title: data.title,
     slug,
-    advtNumber: data.advtNumber,
+    advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies: data.totalVacancies,
     postId: data.postId,
@@ -3456,7 +3478,7 @@ export async function createRecruitmentAtomic(
   const newRecruitment = {
     id: newId,
     postId: data.postId,
-    advtNumber: data.advtNumber,
+    advtNumber: cleanAdvt(data.advtNumber),
     title: data.title,
     slug,
     shortSummary: data.shortSummary || `Direct recruitment for ${data.totalVacancies.toLocaleString()} vacancies of ${matchedPost?.title || 'government posts'}.`,
@@ -3582,7 +3604,7 @@ export async function createRecruitmentAtomic(
           postId: data.postId,
           organisationId: org.id,
           stateId,
-          advtNumber: data.advtNumber,
+          advtNumber: cleanAdvt(data.advtNumber),
           title: data.title,
           slug,
           shortSummary: newRecruitment.shortSummary,
@@ -3749,6 +3771,25 @@ export async function createRecruitmentAtomic(
 }
 
 /**
+ * Version history: a statement that stores the recruitment as it is NOW (before the change in the same batch).
+ * Returns null when history is unavailable (migration 0015 not applied) so the change itself is never blocked.
+ */
+async function versionStatement(db: ReturnType<typeof getDb>, d1: D1Database, id: string, changedBy: string | undefined) {
+  try {
+    const [before, next] = await Promise.all([
+      getRecruitmentById(id, d1),
+      d1.prepare('SELECT COALESCE(MAX(version), 0) + 1 AS n FROM record_versions WHERE recruitment_id = ?').bind(id).first<{ n: number }>(),
+    ]);
+    if (!before) return null;
+    // Wrapped in an object: returning the query builder from an async function would await (and so run) it.
+    return { statement: db.insert(schema.recordVersions).values({ id: `ver_${crypto.randomUUID()}`, recruitmentId: id, version: next?.n ?? 1, snapshot: JSON.stringify(before), changedBy: changedBy ?? null }) };
+  } catch (error) {
+    console.warn('[versions] history skipped:', error);
+    return null;
+  }
+}
+
+/**
  * Update an existing recruitment drive atomically across all relational sections
  */
 export async function updateRecruitmentAtomic(
@@ -3764,7 +3805,7 @@ export async function updateRecruitmentAtomic(
   const duplicateCheck = detectDuplicates({
     id,
     title: data.title,
-    advtNumber: data.advtNumber,
+    advtNumber: cleanAdvt(data.advtNumber),
     organisationShortName: org.shortName,
     organisationId: org.id,
     sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
@@ -3787,7 +3828,7 @@ export async function updateRecruitmentAtomic(
     id,
     title: data.title,
     slug,
-    advtNumber: data.advtNumber,
+    advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies: data.totalVacancies,
     postId: data.postId,
@@ -3843,7 +3884,7 @@ export async function updateRecruitmentAtomic(
       ...existing,
       title: data.title,
       slug,
-      advtNumber: data.advtNumber,
+      advtNumber: cleanAdvt(data.advtNumber),
       totalVacancies: data.totalVacancies,
       shortSummary: data.shortSummary || existing.shortSummary,
       overviewMarkdown: data.overviewMarkdown !== undefined ? data.overviewMarkdown : existing.overviewMarkdown,
@@ -3963,7 +4004,7 @@ export async function updateRecruitmentAtomic(
             stateId,
             title: data.title,
             slug,
-            advtNumber: data.advtNumber,
+            advtNumber: cleanAdvt(data.advtNumber),
             shortSummary: data.shortSummary || '',
             overviewMarkdown: data.overviewMarkdown || null,
             totalVacancies: data.totalVacancies,
@@ -4134,6 +4175,9 @@ export async function updateRecruitmentAtomic(
         })
       );
 
+      const version = await versionStatement(db, d1, id, adminEmail);
+      if (version) statements.unshift(version.statement);
+
       // Execute batch atomically
       // @ts-ignore
       await db.batch(statements);
@@ -4172,7 +4216,9 @@ export async function updateRecruitmentSeo(
     return true;
   }
   const db = getDb(d1);
-  await db.batch([
+  const seoVersion = await versionStatement(db, d1, data.id, data.adminEmail);
+  await (db as any).batch([
+    ...(seoVersion ? [seoVersion.statement] : []),
     db.update(schema.recruitments).set({ seoTitle: data.seoTitle, seoDescription: data.seoDescription, robotsIndex: data.robotsIndex, updatedAt: sql`(unixepoch())` }).where(eq(schema.recruitments.id, data.id)),
     db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'RECRUITMENT', entityId: data.id, action: 'UPDATE', field: 'seo', newValue: JSON.stringify({ seoTitle: data.seoTitle, robotsIndex: data.robotsIndex }), reason: 'SEO metadata updated' }),
   ]);
@@ -4208,7 +4254,9 @@ export async function updateRecruitmentEligibility(
     requiresMpEmploymentReg: data.requiresMpEmploymentReg ? 1 : 0,
     employmentRegistrationLabel: data.employmentRegistrationLabel || null,
   };
-  await db.batch([
+  const eligibilityVersion = await versionStatement(db, d1, recruitmentId, data.adminEmail);
+  await (db as any).batch([
+    ...(eligibilityVersion ? [eligibilityVersion.statement] : []),
     db.insert(schema.recruitmentEligibility)
       .values({ id: `elig_${crypto.randomUUID()}`, recruitmentId, ...eligibilityValues })
       .onConflictDoUpdate({ target: schema.recruitmentEligibility.recruitmentId, set: eligibilityValues }),
@@ -4233,7 +4281,9 @@ export async function updateRecruitmentStatus(
     return true;
   }
   const db = getDb(d1);
-  await db.batch([
+  const statusVersion = await versionStatement(db, d1, id, adminEmail);
+  await (db as any).batch([
+    ...(statusVersion ? [statusVersion.statement] : []),
     db.update(schema.recruitments).set({ status, updatedAt: sql`(unixepoch())` }).where(eq(schema.recruitments.id, id)),
     db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail, entity: 'RECRUITMENT', entityId: id, action: status === 'PUBLISHED' ? 'PUBLISH' : status === 'ARCHIVED' ? 'ARCHIVE' : 'UPDATE', field: 'status', newValue: status, reason: 'Bulk status action' }),
   ]);
@@ -4281,7 +4331,7 @@ export interface AdminKPIData {
   conflictsList: Array<{
     id: string;
     title: string;
-    advtNumber: string;
+    advtNumber: string | null;
     slug: string;
     type: string;
     issue: string;

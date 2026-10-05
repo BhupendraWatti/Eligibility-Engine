@@ -1,4 +1,5 @@
 ---
+import { advtLabel } from '../../services/advt-number';
 // src/pages/answer-keys/index.astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments } from '../../db/queries';
@@ -47,7 +48,7 @@ const keys = allRecruitments.filter(r =>
 
   return {
     title: `${r.title} - Model Answer Key & Question Paper`,
-    exam: `${r.postTitle} Examination (${r.advtNumber})`,
+    exam: `${r.postTitle} Examination (${advtLabel(r.advtNumber)})`,
     org: `${r.organisationShortName} · ${r.organisationName}`,
     publishedDate: publishedDateText,
     status: statusText,

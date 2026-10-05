@@ -14,7 +14,7 @@ import {
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
-import { currentFieldValue, staleFields, toProposalRow, type ProposalRow } from './change-proposals';
+import { currentFieldValue, InvalidProposalError, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow } from './change-proposals';
 
 export interface DecisionOptions {
   /** CREATE only: publish immediately (the validator may still block it). Default is DRAFT. */
@@ -24,7 +24,7 @@ export interface DecisionOptions {
 }
 
 export type DecisionResult =
-  | { ok: true; status: 'APPROVED' | 'REJECTED'; recruitmentId?: string; message: string }
+  | { ok: true; status: 'APPROVED' | 'REJECTED' | 'EDITED'; recruitmentId?: string; message: string }
   | { ok: false; code: 'NOT_FOUND' | 'NOT_PENDING' | 'STALE' | 'FAILED'; message: string; staleFields?: string[]; errors?: string[] };
 
 interface AuditEntry { adminEmail: string; entityId: string; action: string; field: string; newValue: string | null; reason: string; source: string }
@@ -235,4 +235,43 @@ export async function rejectProposal(
   });
   if (!done) return { ok: false, code: 'NOT_PENDING', message: 'Proposal was just decided by someone else.' };
   return { ok: true, status: 'REJECTED', message: 'Proposal rejected. Nothing was changed.' };
+}
+
+/**
+ * The reviewer corrects a PENDING proposal before approving it. The new values go through the same validation as any proposal,
+ * the stale-guard snapshot is re-taken from the live record, and evidence for fields that were removed is dropped.
+ */
+export async function editProposal(
+  d1: D1Database | undefined,
+  id: string,
+  adminEmail: string,
+  rawChanges: unknown,
+  deps: DecisionDeps = defaultDecisionDeps,
+): Promise<DecisionResult> {
+  if (!adminEmail) throw new Error('Admin identity is required to edit a proposal.');
+  if (!d1) throw new Error('D1 binding unavailable.');
+  const proposal = await deps.get(d1, id);
+  if (!proposal) return { ok: false, code: 'NOT_FOUND', message: 'Proposal not found.' };
+  if (proposal.status !== 'PENDING') return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${proposal.status}.` };
+  let payload: Record<string, unknown>;
+  try { payload = sanitizeChanges(proposal.kind, rawChanges); }
+  catch (e) { if (e instanceof InvalidProposalError) return { ok: false, code: 'FAILED', message: e.message }; throw e; }
+
+  let baseSnapshot = proposal.baseSnapshot;
+  if (proposal.kind === 'UPDATE_RECRUITMENT' && proposal.recruitmentId) {
+    const current = await deps.loadRecruitment(d1, proposal.recruitmentId);
+    if (!current) return { ok: false, code: 'FAILED', message: 'The target recruitment no longer exists.' };
+    baseSnapshot = snapshotFields(current, Object.keys(payload));
+  }
+  const meta = { ...(proposal.meta ?? {}), edited: { by: adminEmail, at: new Date().toISOString() } } as Record<string, unknown>;
+  if (Array.isArray(meta.evidence)) meta.evidence = (meta.evidence as Array<{ field: string }>).filter(e => e.field in payload);
+
+  const [res] = await d1.batch([
+    d1.prepare("UPDATE change_proposals SET payload = ?, base_snapshot = ?, meta = ? WHERE id = ? AND status = 'PENDING'")
+      .bind(JSON.stringify(payload), baseSnapshot ? JSON.stringify(baseSnapshot) : null, JSON.stringify(meta), id),
+    d1.prepare("INSERT INTO audit_logs (id, admin_email, entity, entity_id, action, field, new_value, reason, source) SELECT ?, ?, 'PROPOSAL', ?, 'EDIT', ?, ?, 'Reviewer edited the proposal before deciding', ? WHERE EXISTS (SELECT 1 FROM change_proposals WHERE id = ? AND status = 'PENDING')")
+      .bind(`audit_${crypto.randomUUID()}`, adminEmail, id, proposal.kind, Object.keys(payload).join(',').slice(0, 200), `mcp:${proposal.proposedBy}`, id),
+  ]);
+  if ((res.meta?.changes ?? 0) !== 1) return { ok: false, code: 'NOT_PENDING', message: 'Proposal was just decided by someone else.' };
+  return { ok: true, status: 'EDITED', message: 'Proposal updated. Review the diff, then approve.' };
 }

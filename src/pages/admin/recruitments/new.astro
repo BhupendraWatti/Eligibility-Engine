@@ -1,4 +1,5 @@
 ---
+import { advtLabel, cleanAdvt } from '../../../services/advt-number';
 // src/pages/admin/recruitments/new.astro (FlowStep Screen 22)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../components/admin/AgeRangeGuard.astro';
@@ -50,7 +51,7 @@ if (Astro.request.method === 'POST' && masterDataError) {
     const title = input.text('title', 'name');
     let postId = input.text('postId', 'post_id');
     const organisationId = input.text('organisationId', 'organisation_id');
-    const advtNumber = input.text('advtNumber', 'advt_number', 'advt');
+    const advtNumber = cleanAdvt(input.text('advtNumber', 'advt_number', 'advt'));
     const totalVacancies = parseIntegerInput(input.value('totalVacancies', 'total_vacancies', 'vacancies'), 0);
     const shortSummary = input.text('shortSummary', 'short_summary', 'summary');
     const overviewMarkdown = input.text('overviewMarkdown', 'overview_markdown', 'overview');
@@ -106,7 +107,7 @@ if (Astro.request.method === 'POST' && masterDataError) {
     ];
     const status = saveDraft ? 'DRAFT' : 'PUBLISHED';
 
-    if (title && postId && organisation && advtNumber && totalVacancies >= 0) {
+    if (title && postId && organisation && totalVacancies >= 0) {
       const result = await createRecruitmentAtomic({
         title,
         postId,
@@ -354,12 +355,11 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
               </div>
 
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-zinc-800">Advertisement Number *</label>
+                <label class="block text-xs font-semibold text-zinc-800">Advertisement Number</label>
                 <input
                   type="text"
                   name="advtNumber"
-                  required
-                  placeholder="e.g. ESB/2026/04"
+                  placeholder="Leave blank if the notice states none"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none"
                 />
               </div>
@@ -796,7 +796,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
   <AgeRangeGuard />
   <script is:inline>
     (function () {
-      var fields = ['title', 'organisationId', 'advtNumber', 'postId', 'totalVacancies', 'ageCutoffDate'];
+      var fields = ['title', 'organisationId', 'postId', 'totalVacancies', 'ageCutoffDate'];
       function update() {
         var done = fields.filter(function (n) {
           var el = document.querySelector('[name="' + n + '"]');

@@ -177,3 +177,7 @@ markdown/
 # 11. Graphify knowledge graph output (local only - visual project map)
 # ------------------------------------------------------------------------------
 graphify-out/
+
+# Tests are local-only, not part of the deployed code
+*.test.ts
+*.spec.ts

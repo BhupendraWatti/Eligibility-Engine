@@ -23,9 +23,9 @@ The conflict and duplicate checks are best-effort (D1 has no cross-statement tra
 
 **Known limits.** Every authenticated client is the same actor (`mcp-client`), so any MCP client can see and withdraw
 any MCP proposal, and the pending cap (50) is shared. Add per-client tokens before running a second agent. Tool
-deferral/loading in the AI client is client-side and cannot be changed from this server. An official notice without an
-advertisement number cannot be proposed yet, because `advt_number` is NOT NULL in the schema (ask the owner; never put an
-unrelated letter number there).
+deferral/loading in the AI client is client-side and cannot be changed from this server. A notice with no
+advertisement number is proposed by omitting `advtNumber` (stored as NULL after migration 0014, shown as "Not stated");
+never put an unrelated letter number there.
 
 ```
 AI client -> mcp/ (bearer auth) -> search:   ../src/services/recruitment-query.ts   -> D1 (read)

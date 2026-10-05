@@ -17,11 +17,13 @@ import {
   createProposal,
   getProposal,
   listProposals,
+  previewProposal,
   withdrawProposal,
   type ProposalDeps,
   type ProposalInput,
 } from '../../src/services/change-proposals';
 
+import { checkLink } from './links';
 import { ENTITY_TYPES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
 
 export interface ServerContext {
@@ -44,6 +46,9 @@ const searchInput = {
   post: text.optional().describe('Canonical post title or slug (substring)'),
   title: text.optional().describe('Recruitment title (substring)'),
   cycleYear: z.number().int().optional(),
+  advtNumber: text.optional().describe('Advertisement number (substring, ignores spaces and punctuation)'),
+  sourceUrl: z.string().trim().min(1).max(1000).optional().describe('An official source or link URL already recorded on the recruitment'),
+  includeUnpublished: z.boolean().optional().describe('Also search drafts and pending-verification records (use before creating, to avoid duplicates)'),
   lifecycle: z.enum(LIFECYCLES as [string, ...string[]]).optional().describe('Canonical lifecycle state'),
   applicationStatus: z.enum(APPLICATION_STATUSES).optional(),
   limit: z.number().int().optional().describe('Page size, default 20, max 50'),
@@ -89,7 +94,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const summaryField = z.string().trim().min(1).max(300).describe('One line for the reviewer: what changes and why, ideally citing the official source.');
 
   const evidenceField = z.array(z.record(z.string(), z.unknown())).optional().describe(
-    'Optional field-level evidence, one item per changed field: {field, sourceUrl, page, snippet (<=500 chars), method: NATIVE|OCR|VISION, confidence 0-1}. ' +
+    'Field-level evidence (strongly expected for dates, vacancies, age, qualification and advtNumber; missing ones are listed in evidenceMissing), one item per changed field: {field, sourceUrl, page, section, snippet (<=500 chars), method: NATIVE|OCR|VISION, confidence 0-1}. ' +
     'Shown to the reviewer; confidence is advisory, not verification. Never invent values: leave a field out if the official source does not state it.',
   );
   const supersedesField = z.string().trim().min(1).max(100).optional().describe('id of your own PENDING proposal that this one replaces (it is withdrawn atomically). Same kind and target.');
@@ -143,10 +148,10 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Propose a new recruitment',
       description:
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
-        `Required in "changes": title, postId (canonical post id), organisationId, advtNumber, totalVacancies. Optional: ${editable}. ` +
+        `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
         `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
-        'If the official notice has no advertisement number, do NOT use a letter or reference number in its place: ask the owner. ' +
+        'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
         'A CONFIRMED_DUPLICATE is refused; a possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
@@ -157,6 +162,51 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       annotations: proposeAnnotations,
     },
     async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
+  );
+
+  server.registerTool(
+    'preview_proposal',
+    {
+      title: 'Preview a proposal (dry run)',
+      description:
+        'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION), ' +
+        'a before/after row per field, evidenceMissing and approval. Always preview before proposing.',
+      inputSchema: {
+        kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),
+        recruitmentId: z.string().trim().min(1).max(100).optional().describe('Required for UPDATE_RECRUITMENT'),
+        summary: summaryField,
+        changes: z.record(z.string(), z.unknown()),
+        evidence: evidenceField,
+        supersedes: supersedesField,
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'preview_proposal', actor: ctx.actor.id, mode: ctx.actor.mode, kind: args.kind }));
+      try {
+        return result({ ...(await previewProposal(ctx.d1, ctx.actor, args as ProposalInput, ctx.proposalDeps)) });
+      } catch (error) {
+        if (error instanceof ProposalBlockedError) return result({ action: error.code, message: error.message, ...error.details });
+        if (error instanceof InvalidProposalError) return result({ error: { code: 'INVALID_INPUT', message: error.message } }, true);
+        console.error('[mcp] preview_proposal failed:', error);
+        return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not preview the proposal.' } }, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'check_links',
+    {
+      title: 'Check official links',
+      description: 'Check up to 10 URLs are reachable (HTTP status and content type). READ-only. Run before citing a source; a dead link must not be proposed.',
+      inputSchema: { urls: z.array(z.string().max(1000)).min(1).max(10) },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'check_links', actor: ctx.actor.id, mode: ctx.actor.mode, count: args.urls.length }));
+      return result({ items: await Promise.all(args.urls.map(u => checkLink(u))) });
+    },
   );
 
   server.registerTool(

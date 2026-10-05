@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nirnay-pipeline",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  // Same D1 database as the website. Migrations stay owned by the website (../migrations).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "EligibilityEngine-db",
+      "database_id": "a6e065fb-e899-498b-a4e6-e0cb7b1c1e2e"
+    }
+  ],
+  // 3-hourly notices | daily syllabus/books/knowledge | weekly dead-link check (Mondays)
+  "triggers": { "crons": ["0 */3 * * *", "30 2 * * *", "30 3 * * 1"] },
+  // PDF handling and polite per-domain pacing make runs long; needs the Workers Paid plan.
+  "limits": { "cpu_ms": 120000 },
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true }
+  // Secrets (not stored here):
+  //   npx wrangler secret put ANTHROPIC_API_KEY
+  //   npx wrangler secret put PIPELINE_TOKEN      (min 24 chars; protects POST /run)
+  //   npx wrangler secret put RESEND_API_KEY      (optional; failure alert emails)
+}

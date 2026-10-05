@@ -42,6 +42,12 @@ export interface RecruitmentSearchFilters {
   /** Recruitment title (substring). */
   title?: string;
   cycleYear?: number;
+  /** Substring of the advertisement number, ignoring case, spaces and punctuation. */
+  advtNumber?: string;
+  /** Exact URL of a recorded source or official link. */
+  sourceUrl?: string;
+  /** Also search drafts and pending-verification records. Default false. */
+  includeUnpublished?: boolean;
   lifecycle?: CanonicalLifecycle;
   applicationStatus?: ApplicationStatus;
   limit?: number;
@@ -52,7 +58,8 @@ export interface RecruitmentSummary {
   id: string;
   title: string;
   slug: string;
-  advtNumber: string;
+  /** null when the official notice states none. */
+  advtNumber: string | null;
   organisation: { name: string; shortName: string; slug: string | null };
   department: { name: string; slug: string | null } | null;
   sector: { name: string; slug: string | null } | null;
@@ -121,6 +128,8 @@ function includes(haystack: Array<string | null | undefined>, needle: string | u
   return haystack.some(h => (h ?? '').toLowerCase().includes(n));
 }
 
+const alnum = (v: string | null | undefined) => (v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);
@@ -176,6 +185,11 @@ export function matchesFilters(r: RecruitmentWithDetails, f: RecruitmentSearchFi
   if (!includes([r.postTitle, r.postSlug], f.post)) return false;
   if (!includes([r.title, r.slug], f.title)) return false;
   if (f.cycleYear !== undefined && r.cycleYear !== f.cycleYear) return false;
+  if (f.advtNumber && !alnum(r.advtNumber).includes(alnum(f.advtNumber))) return false;
+  if (f.sourceUrl) {
+    const u = f.sourceUrl.trim();
+    if (![...(r.sourcesList ?? []).map(s => s.sourceUrl), ...(r.officialLinksList ?? []).map(l => l.url)].includes(u)) return false;
+  }
   if (f.lifecycle && r.resolvedLifecycle !== f.lifecycle) return false;
   if (f.applicationStatus && toApplicationStatus(r.resolvedLifecycle) !== f.applicationStatus) return false;
   return true;
@@ -198,10 +212,11 @@ export async function searchRecruitments(
   }
   const offset = decodeCursor(filters.cursor);
 
-  // includeUnpublished is hard-wired to false: PUBLISHED only.
-  const rows = await deps.load(d1, { includeUnpublished: false, limit: SCAN_WINDOW });
+  // PUBLISHED only unless the caller explicitly asks for drafts (read-only either way).
+  const includeUnpublished = filters.includeUnpublished === true;
+  const rows = await deps.load(d1, { includeUnpublished, limit: SCAN_WINDOW });
   const matched = rows
-    .filter(r => r.status === 'PUBLISHED' && matchesFilters(r, filters))
+    .filter(r => (includeUnpublished || r.status === 'PUBLISHED') && matchesFilters(r, filters))
     // Deterministic order so offset cursors are stable: newest cycle first, then id.
     .sort((a, b) => b.cycleYear - a.cycleYear || a.id.localeCompare(b.id));
 
