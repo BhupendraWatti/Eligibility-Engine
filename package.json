@@ -10,7 +10,7 @@
     "dev:vinext": "vinext dev --port 3001",
     "build": "astro build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx src/engine/multistate-eligibility.test.ts && tsx src/db/admin-crud.test.ts && tsx src/engine/regression.test.ts && tsx src/engine/extract-notification.test.ts && tsx src/services/lifecycle.test.ts && tsx src/services/sector-routing.test.ts && tsx src/services/admin-integrity.test.ts && tsx src/middleware.test.ts && tsx src/db/documents.test.ts && tsx src/engine/routes-verification.test.ts",
+    "test": "tsx src/engine/multistate-eligibility.test.ts && tsx src/engine/eligibility-rules.test.ts &&tsx src/db/admin-crud.test.ts && tsx src/engine/regression.test.ts && tsx src/engine/extract-notification.test.ts && tsx src/services/lifecycle.test.ts && tsx src/services/sector-routing.test.ts && tsx src/services/admin-integrity.test.ts && tsx src/middleware.test.ts && tsx src/db/documents.test.ts && tsx src/engine/routes-verification.test.ts && tsx src/services/change-proposals.test.ts",
     "test:d1": "tsx src/db/d1-integration.test.ts",
     "check": "npm test && npm run test:d1 && npm run typecheck && npm run build",
     "build:vinext": "vinext build",

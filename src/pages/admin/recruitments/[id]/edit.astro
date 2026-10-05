@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/recruitments/[id]/edit.astro (FlowStep Screen 22)
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import AgeRangeGuard from '../../../../components/admin/AgeRangeGuard.astro';
 import {
   getRecruitmentById,
   getAllCanonicalPosts,
@@ -528,11 +529,11 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label class="block text-xs font-semibold text-zinc-800 mb-1">Min Age</label>
-                <input type="number" name="minAge" value={recruitment.criteria?.minAge ?? 18} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                <input type="number" name="minAge" min="14" max="45" value={recruitment.criteria?.minAge ?? 18} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
               </div>
               <div>
                 <label class="block text-xs font-semibold text-zinc-800 mb-1">Max Age General</label>
-                <input type="number" name="maxAgeGeneral" value={recruitment.criteria?.maxAgeGeneral ?? 33} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                <input type="number" name="maxAgeGeneral" min="18" max="65" value={recruitment.criteria?.maxAgeGeneral ?? 33} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
               </div>
               <div>
                 <label class="block text-xs font-semibold text-zinc-800 mb-1">Age Cutoff Date</label>
@@ -804,4 +805,5 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
       });
     });
   </script>
+  <AgeRangeGuard />
 </AdminLayout>

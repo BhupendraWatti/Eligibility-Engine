@@ -34,5 +34,6 @@ export async function authenticateMcpRequest(
     return { ok: false, status: 401, message: 'Unauthorized.' };
   }
   // Single shared token today; per-client tokens would yield distinct actor ids here.
-  return { ok: true, actor: { id: 'mcp-client', mode: 'READ' } };
+  // PROPOSE = read + queue change proposals. It can never write live data; an admin approves in /admin.
+  return { ok: true, actor: { id: 'mcp-client', mode: 'PROPOSE' } };
 }

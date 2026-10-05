@@ -1,0 +1,25 @@
+---
+// Keeps maxAgeGeneral >= minAge in any admin form that has both inputs.
+// Bounds mirror src/services/publication-validator.ts (min 14-45, max 18-65).
+---
+<script is:inline>
+  (function () {
+    function wire(form) {
+      var min = form.querySelector('input[name="minAge"]');
+      var max = form.querySelector('input[name="maxAgeGeneral"]');
+      if (!min || !max || min.dataset.ageGuard) return;
+      min.dataset.ageGuard = '1';
+      function check() {
+        var lo = parseInt(min.value, 10);
+        var hi = parseInt(max.value, 10);
+        max.setCustomValidity(!isNaN(lo) && !isNaN(hi) && hi < lo ? 'Max age must be at least min age (' + lo + ').' : '');
+      }
+      min.addEventListener('input', check);
+      max.addEventListener('input', check);
+      check();
+    }
+    function init() { document.querySelectorAll('form').forEach(wire); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+    document.addEventListener('astro:page-load', init);
+  })();
+</script>

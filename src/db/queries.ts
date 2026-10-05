@@ -54,6 +54,11 @@ function resolveD1(providedD1: D1Database | undefined, operation: string): D1Dat
   return d1;
 }
 
+/** D1 binding for server-side admin code that talks to tables outside this module (e.g. change proposals). */
+export function getAdminD1(operation: string): D1Database | undefined {
+  return resolveD1(undefined, operation);
+}
+
 export interface MasterSector {
   id: string;
   name: string;
@@ -4336,9 +4341,12 @@ export async function updateAdminUser(
   if (data.name !== undefined) updateSet.name = data.name;
   if (role !== undefined) updateSet.role = role;
   if (data.isActive !== undefined) updateSet.isActive = data.isActive;
+  const [existing] = await db.select().from(schema.adminUsers).where(eq(schema.adminUsers.id, data.id)).limit(1);
+  const previousSet: Record<string, unknown> = {};
+  if (existing) for (const key of Object.keys(updateSet)) previousSet[key] = (existing as Record<string, unknown>)[key];
   await db.batch([
     db.update(schema.adminUsers).set(updateSet).where(eq(schema.adminUsers.id, data.id)),
-    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ADMIN_USER', entityId: data.id, action: 'UPDATE', newValue: JSON.stringify(updateSet), reason: data.isActive === 0 ? 'Administrative access revoked' : 'Administrative access updated' }),
+    db.insert(schema.auditLogs).values({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ADMIN_USER', entityId: data.id, action: 'UPDATE', field: Object.keys(updateSet).join(', ') || null, oldValue: existing ? JSON.stringify(previousSet) : null, newValue: JSON.stringify(updateSet), reason: data.isActive === 0 ? 'Administrative access revoked' : 'Administrative access updated' }),
   ]);
   return true;
 }

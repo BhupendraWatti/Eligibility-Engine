@@ -170,35 +170,38 @@ export function evaluateEligibility(
         message: 'Date of birth or age cutoff date is invalid.',
       });
     } else {
-    let maxAllowed = criteria.maxAgeGeneral;
+    // Indian notices compare COMPLETED years on the cutoff date against the limits
+    // (33y 11m counts as 33). Fractional age is for display only.
+    const completedYears = completedYearsAtCutoff(user.dob, criteria.ageCutoffDate);
+    const categoryRelax = (category?: string) =>
+      category === 'SC' || category === 'ST' ? (criteria.ageRelaxationScSt ?? 0)
+      : category === 'OBC' ? (criteria.ageRelaxationObc ?? 0)
+      : category === 'EWS' ? (criteria.ageRelaxationEws ?? 0)
+      : 0;
+    // Female relaxation is stored per recruitment; it does not stack with category (max of the two).
+    const maxAgeFor = (category?: string, gender?: string) => {
+      let max = criteria.maxAgeGeneral + categoryRelax(category);
+      if (gender === 'FEMALE' && (criteria.ageRelaxationFemale ?? 0) > 0) {
+        max = Math.max(max, criteria.maxAgeGeneral + criteria.ageRelaxationFemale);
+      }
+      return max;
+    };
 
-    // Category-specific age relaxation
-    if (user.category === 'SC' || user.category === 'ST') {
-      maxAllowed += criteria.ageRelaxationScSt;
-    } else if (user.category === 'OBC') {
-      maxAllowed += criteria.ageRelaxationObc;
-    } else if (user.category === 'EWS') {
-      // EWS gets explicit relaxation (typically 0, same as UR)
-      maxAllowed += (criteria.ageRelaxationEws ?? 0);
-    }
-    // UR: no relaxation (maxAllowed stays as maxAgeGeneral)
-
-    // Female relaxation is stored per recruitment and combined without assuming a state policy.
-    if (user.gender === 'FEMALE' && criteria.ageRelaxationFemale > 0) {
-      const femaleMax = criteria.maxAgeGeneral + criteria.ageRelaxationFemale;
-      if (femaleMax > maxAllowed) maxAllowed = femaleMax;
-    }
-
-    const isMatch = ageAtCutoff >= criteria.minAge && ageAtCutoff <= maxAllowed;
+    const maxAllowed = maxAgeFor(user.category, user.gender);
+    const isMatch = completedYears >= criteria.minAge && completedYears <= maxAllowed;
     const formattedAge = ageAtCutoff.toFixed(1);
 
-    let categoryRelaxation = 0;
-    if (user.category === 'SC' || user.category === 'ST') categoryRelaxation = criteria.ageRelaxationScSt;
-    else if (user.category === 'OBC') categoryRelaxation = criteria.ageRelaxationObc;
-    else if (user.category === 'EWS') categoryRelaxation = criteria.ageRelaxationEws ?? 0;
+    // A missing category or gender must not cause a premature rejection: if the candidate
+    // would pass under some possible answer, the result is NEEDS_VERIFICATION, not FAIL.
+    const possibleMax = Math.max(
+      ...(user.category ? [user.category] : ['UR', 'SC', 'OBC', 'EWS']).flatMap(c =>
+        (user.gender ? [user.gender] : ['MALE', 'FEMALE']).map(g => maxAgeFor(c, g))
+      )
+    );
+    const depends = !isMatch && completedYears >= criteria.minAge && completedYears <= possibleMax;
 
-    let femaleRelaxation = 0;
-    if (user.gender === 'FEMALE') femaleRelaxation = criteria.ageRelaxationFemale;
+    const categoryRelaxation = categoryRelax(user.category);
+    const femaleRelaxation = user.gender === 'FEMALE' ? (criteria.ageRelaxationFemale ?? 0) : 0;
 
     ageBreakdown = {
       baseMinAge: criteria.minAge,
@@ -214,11 +217,13 @@ export function evaluateEligibility(
 
     items.push({
       ruleName: 'Age Requirement',
-      status: isMatch ? 'MATCH' : 'FAIL',
+      status: isMatch ? 'MATCH' : depends ? 'UNKNOWN' : 'FAIL',
       userValue: `${formattedAge} years (as of ${criteria.ageCutoffDate})`,
       requirement: `${criteria.minAge}-${maxAllowed} years (as of ${criteria.ageCutoffDate})`,
       message: isMatch
         ? `Age (${formattedAge} yrs) is within eligible limits.`
+        : depends
+        ? `Age (${formattedAge} yrs) exceeds the general limit but may qualify with a category or gender relaxation (up to ${possibleMax} yrs). Provide category and gender to confirm.`
         : `Age (${formattedAge} yrs) falls outside the allowed limit (${criteria.minAge}-${maxAllowed} yrs).`,
     });
     }
@@ -236,16 +241,20 @@ export function evaluateEligibility(
   } else {
     const userRank = QUALIFICATION_RANK[user.qualificationLevel] || 0;
     const requiredRank = QUALIFICATION_RANK[criteria.minQualificationLevel] || 0;
+    // A non-empty requirement we cannot rank must never pass silently (rank 0 would accept everyone).
+    const unrecognisedRequirement = !!criteria.minQualificationLevel && QUALIFICATION_RANK[criteria.minQualificationLevel] === undefined;
     const isMatch = criteria.minQualificationLevel === 'ITI'
       ? user.qualificationLevel === 'ITI'
       : userRank >= requiredRank;
 
     items.push({
       ruleName: 'Educational Qualification',
-      status: isMatch ? 'MATCH' : 'FAIL',
+      status: unrecognisedRequirement ? 'UNKNOWN' : isMatch ? 'MATCH' : 'FAIL',
       userValue: user.qualificationLevel,
       requirement: `Minimum ${criteria.minQualificationLevel}`,
-      message: isMatch
+      message: unrecognisedRequirement
+        ? `Required qualification "${criteria.minQualificationLevel}" is not a recognised level. Verify against the notice.`
+        : isMatch
         ? `Qualification (${user.qualificationLevel}) satisfies minimum (${criteria.minQualificationLevel}).`
         : `Qualification (${user.qualificationLevel}) is below required (${criteria.minQualificationLevel}).`,
     });
@@ -265,10 +274,15 @@ export function evaluateEligibility(
           message: `Notice specifies degree specialization (${criteria.allowedStreams.join(', ')}). Candidate did not provide stream.`,
         });
       } else {
-        const streamLower = user.stream.toLowerCase();
+        const streamLower = user.stream.toLowerCase().trim();
+        const streamTokens = streamLower.split(/[^a-z0-9]+/).filter(Boolean);
+        // Substring matching only for 3+ chars so a one/two-letter entry cannot match every stream.
         const hasMatchingStream = criteria.allowedStreams.some(allowed => {
-          const aLower = allowed.toLowerCase();
-          return streamLower.includes(aLower) || aLower.includes(streamLower);
+          const aLower = allowed.toLowerCase().trim();
+          return aLower === streamLower
+            || streamTokens.includes(aLower)
+            || (aLower.length >= 3 && streamLower.includes(aLower))
+            || (streamLower.length >= 3 && aLower.includes(streamLower));
         });
 
         items.push({
@@ -311,8 +325,11 @@ export function evaluateEligibility(
   // 6. Recruitment-specific employment exchange/portal registration.
   if (criteria.requiresMpEmploymentReg) {
     const registration = criteria.employmentRegistrationLabel || 'MP_ROJGAR';
-    const hasRegistration = user.registrations
-      ? user.registrations.some(value => value.toUpperCase() === registration.toUpperCase())
+    const listMatch = user.registrations?.some(value => value.toUpperCase() === registration.toUpperCase());
+    const hasRegistration = listMatch
+      ? true
+      : user.registrations
+      ? registration.toUpperCase() === 'MP_ROJGAR' && user.hasMpRojgarPanjiyan === true
       : user.hasMpRojgarPanjiyan;
     if (hasRegistration === undefined) {
       items.push({
@@ -371,8 +388,18 @@ export function evaluateEligibility(
   }
 
   // 8. Physical Standards — Height
+  const genderUnknown = !user.gender;
+  const heightsDiffer = (criteria.minHeightMaleCm ?? 0) !== (criteria.minHeightFemaleCm ?? 0);
   const minHeight = user.gender === 'FEMALE' ? criteria.minHeightFemaleCm : criteria.minHeightMaleCm;
-  if (minHeight && minHeight > 0) {
+  if (genderUnknown && heightsDiffer && ((criteria.minHeightMaleCm ?? 0) > 0 || (criteria.minHeightFemaleCm ?? 0) > 0)) {
+    items.push({
+      ruleName: 'Physical Standards (Height)',
+      status: 'UNKNOWN',
+      userValue: 'Gender not provided',
+      requirement: `Male ${criteria.minHeightMaleCm ?? '-'} cm / Female ${criteria.minHeightFemaleCm ?? '-'} cm`,
+      message: 'Height standard differs by gender and gender was not provided.',
+    });
+  } else if (minHeight && minHeight > 0) {
     if (user.heightCm === undefined) {
       items.push({
         ruleName: 'Physical Standards (Height)',
@@ -401,7 +428,15 @@ export function evaluateEligibility(
   }
 
   // 9. Physical Standards — Chest (Male only for uniformed posts)
-  if (criteria.minChestMaleCm && criteria.minChestMaleCm > 0 && user.gender !== 'FEMALE') {
+  if (criteria.minChestMaleCm && criteria.minChestMaleCm > 0 && genderUnknown) {
+    items.push({
+      ruleName: 'Physical Standards (Chest)',
+      status: 'UNKNOWN',
+      userValue: 'Gender not provided',
+      requirement: `Minimum ${criteria.minChestMaleCm} cm (male candidates)`,
+      message: 'Chest standard applies to male candidates and gender was not provided.',
+    });
+  } else if (criteria.minChestMaleCm && criteria.minChestMaleCm > 0 && user.gender !== 'FEMALE') {
     if (user.chestCm === undefined) {
       items.push({
         ruleName: 'Physical Standards (Chest)',
@@ -508,23 +543,34 @@ export function evaluateEligibility(
   };
 }
 
+function parseIsoDate(value: string): { y: number; m: number; d: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? ''));
+  if (!match) return null;
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const check = new Date(Date.UTC(y, m - 1, d));
+  // Reject rolled-over dates such as 2000-02-31.
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
+  return { y, m, d };
+}
+
+/** Whole years completed on the cutoff date (timezone-independent). NaN for invalid input or DOB after cutoff. */
+export function completedYearsAtCutoff(dobStr: string, cutoffStr: string): number {
+  const dob = parseIsoDate(dobStr);
+  const cutoff = parseIsoDate(cutoffStr);
+  if (!dob || !cutoff) return Number.NaN;
+  if (Date.UTC(dob.y, dob.m - 1, dob.d) > Date.UTC(cutoff.y, cutoff.m - 1, cutoff.d)) return Number.NaN;
+  let years = cutoff.y - dob.y;
+  if (cutoff.m < dob.m || (cutoff.m === dob.m && cutoff.d < dob.d)) years--;
+  return years;
+}
+
+/** Fractional age on the cutoff date, for display. Eligibility compares completedYearsAtCutoff. */
 export function calculateAgeAtCutoff(dobStr: string, cutoffStr: string): number {
-  const dob = new Date(dobStr);
-  const cutoff = new Date(cutoffStr);
-  if (!Number.isFinite(dob.getTime()) || !Number.isFinite(cutoff.getTime()) || dob > cutoff) return Number.NaN;
-
-  let years = cutoff.getFullYear() - dob.getFullYear();
-  const monthDiff = cutoff.getMonth() - dob.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && cutoff.getDate() < dob.getDate())) {
-    years--;
-  }
-
-  // Add precise fractional months
-  const tempDate = new Date(dob);
-  tempDate.setFullYear(dob.getFullYear() + years);
-  const diffDays = (cutoff.getTime() - tempDate.getTime()) / (1000 * 60 * 60 * 24);
-  const fractionalYear = diffDays / 365.25;
-
-  return Math.max(0, years + fractionalYear);
+  const years = completedYearsAtCutoff(dobStr, cutoffStr);
+  if (!Number.isFinite(years)) return Number.NaN;
+  const dob = parseIsoDate(dobStr)!;
+  const cutoff = parseIsoDate(cutoffStr)!;
+  const anniversary = Date.UTC(dob.y + years, dob.m - 1, dob.d);
+  const diffDays = (Date.UTC(cutoff.y, cutoff.m - 1, cutoff.d) - anniversary) / 86_400_000;
+  return Math.max(0, years + diffDays / 365.25);
 }

@@ -1,12 +1,27 @@
 # NIRNAY MCP (private AI control plane)
 
-Standalone Cloudflare Worker, separate from the website. READ-only for now: one tool, `search_recruitments`.
+Standalone Cloudflare Worker, separate from the website. It can read and PROPOSE, never apply.
+
+| Tool | What it does |
+|---|---|
+| `search_recruitments` | READ published recruitments (filters only, no SQL). |
+| `propose_recruitment_update` | Queue a field-level change to an existing recruitment. |
+| `propose_new_recruitment` | Queue a brand-new recruitment. |
+| `list_my_proposals` | Check the status of proposals this MCP queued. |
 
 ```
-AI client -> mcp/ (bearer auth) -> ../src/services/recruitment-query.ts -> Drizzle -> D1
+AI client -> mcp/ (bearer auth) -> search:   ../src/services/recruitment-query.ts   -> D1 (read)
+                                -> propose:  ../src/services/change-proposals.ts    -> change_proposals (PENDING)
+Owner -> /admin/pending-changes -> Approve -> existing atomic writers -> live tables + audit_logs
 ```
 
-This folder has its own `package.json`, `node_modules` and `wrangler.jsonc`. It only READS the website's
+Nothing is live until the owner approves it in `/admin/pending-changes` (before/after diff, stale-record
+warning, approve/reject). Proposals cannot set publication status, ids or slugs, and a new recruitment is
+saved as a DRAFT unless the owner ticks "Publish now". The MCP never calls the recruitment writers (a test
+enforces this). Apply migration `0010_change_proposals.sql` (`npx wrangler d1 migrations apply EligibilityEngine-db --remote`)
+before using the proposal tools.
+
+This folder has its own `package.json`, `node_modules` and `wrangler.jsonc`. It only imports the website's
 code (`../src/...`); it never edits it, and the website's Cloudflare build ignores this folder.
 Both use the same D1 database. It exposes no SQL and no generic CRUD.
 

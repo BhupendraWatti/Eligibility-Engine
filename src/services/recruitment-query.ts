@@ -8,10 +8,13 @@
  */
 import { getAllActiveRecruitments, type RecruitmentWithDetails, type CanonicalLifecycle } from '../db/queries';
 
-/** Who is calling and in which operating mode. Future DRAFT/PROPOSE/EXECUTE_APPROVED hooks attach here. */
+/**
+ * Who is calling and in which operating mode. PROPOSE implies READ plus the right to queue change
+ * proposals (src/services/change-proposals.ts). No mode may write live recruitment data.
+ */
 export interface Actor {
   id: string;
-  mode: 'READ';
+  mode: 'READ' | 'PROPOSE';
 }
 
 export const APPLICATION_STATUSES = ['UPCOMING', 'OPEN', 'CLOSED'] as const;
@@ -184,8 +187,8 @@ export async function searchRecruitments(
   filters: RecruitmentSearchFilters,
   deps: RecruitmentQueryDeps = defaultDeps,
 ): Promise<RecruitmentSearchResult> {
-  // READ mode only; reject anything else so a future mode cannot reach this path by accident.
-  if (actor.mode !== 'READ') throw new Error('Operating mode not permitted for recruitment search.');
+  // READ (and PROPOSE, which includes read access) only; reject anything else so a future mode cannot reach this path by accident.
+  if (actor.mode !== 'READ' && actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for recruitment search.');
   // Explicit D1 only: never fall back to the demo data set that the shared query layer serves in dev.
   if (!d1) throw new Error('D1 binding unavailable.');
 

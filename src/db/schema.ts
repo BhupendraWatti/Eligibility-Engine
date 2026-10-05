@@ -229,6 +229,25 @@ export const records = sqliteTable('records', {
   index('idx_records_type').on(table.type),
 ]);
 
+// 15. Change Proposals (MCP proposes, a human admin approves; see src/services/change-proposals.ts)
+export const changeProposals = sqliteTable('change_proposals', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(), // 'CREATE_RECRUITMENT' | 'UPDATE_RECRUITMENT'
+  recruitmentId: text('recruitment_id'),
+  summary: text('summary').notNull(),
+  payload: text('payload').notNull(),
+  baseSnapshot: text('base_snapshot'),
+  status: text('status').notNull().default('PENDING'), // 'PENDING' | 'APPLYING' | 'APPROVED' | 'REJECTED' | 'FAILED'
+  proposedBy: text('proposed_by').notNull(),
+  decidedBy: text('decided_by'),
+  decidedAt: integer('decided_at', { mode: 'timestamp' }),
+  decisionNote: text('decision_note'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_proposals_status').on(table.status, table.createdAt),
+  index('idx_proposals_recruitment').on(table.recruitmentId),
+]);
+
 // Relationships
 export const statesRelations = relations(states, ({ many }) => ({
   organisations: many(organisations),

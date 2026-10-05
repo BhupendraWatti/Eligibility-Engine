@@ -1,0 +1,223 @@
+---
+// src/pages/admin/pending-changes.astro
+// Human approval queue for changes proposed by the private MCP. Nothing here is live until an admin approves it.
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAdminD1, getRecruitmentById } from '../../db/queries';
+import { readAdminSubmission } from '../../services/admin-integrity';
+import { buildDiff, listProposalRows, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
+import { approveProposal, rejectProposal } from '../../services/change-proposal-decision';
+
+const adminEmail = Astro.locals.adminEmail;
+const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
+const d1 = getAdminD1('reviewing change proposals');
+
+let message = '';
+let messageType: 'success' | 'error' = 'success';
+
+if (Astro.request.method === 'POST') {
+  try {
+    if (!adminEmail) throw new Error('Admin identity is required for mutations.');
+    if (!d1) throw new Error('Database is unavailable.');
+    const input = await readAdminSubmission(Astro.request);
+    const action = input.text('_action', 'action');
+    const id = input.text('proposalId', 'proposal_id', 'id');
+    if (!id) throw new Error('proposalId is required.');
+    const checked = (key: string) => ['on', 'true', '1'].includes(input.text(key).toLowerCase());
+
+    const outcome = action === 'reject'
+      ? await rejectProposal(d1, id, adminEmail, input.text('note'))
+      : action === 'approve'
+        ? await approveProposal(d1, id, adminEmail, { publish: checked('publish'), confirmStale: checked('confirmStale') })
+        : (() => { throw new Error('Unknown action.'); })();
+
+    message = outcome.message;
+    messageType = outcome.ok ? 'success' : 'error';
+    if (!outcome.ok) Astro.response.status = outcome.code === 'NOT_FOUND' ? 404 : 409;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ success: outcome.ok, ...outcome }), {
+        status: outcome.ok ? 200 : Astro.response.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  } catch (error: any) {
+    console.error('[admin/pending-changes]', error);
+    message = error?.message || 'Action failed.';
+    messageType = 'error';
+    Astro.response.status = 400;
+    if (!acceptsHtml) {
+      return new Response(JSON.stringify({ error: message }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+}
+
+const FILTERS: Array<ProposalStatus | 'ALL'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'ALL'];
+const requested = Astro.url.searchParams.get('status')?.toUpperCase() as ProposalStatus | 'ALL' | undefined;
+const filter = requested && FILTERS.includes(requested) ? requested : 'PENDING';
+
+let loadError = '';
+let proposals: ProposalRow[] = [];
+if (d1) {
+  proposals = await listProposalRows(d1, { status: filter === 'ALL' ? undefined : filter, limit: 50 }).catch(error => {
+    console.error('[admin/pending-changes] load failed', error);
+    loadError = 'Proposals are temporarily unavailable. Has migration 0010 been applied?';
+    return [];
+  });
+}
+
+const items = await Promise.all(proposals.map(async (p) => {
+  const current = p.recruitmentId && p.status === 'PENDING' ? await getRecruitmentById(p.recruitmentId, d1).catch(() => undefined) : undefined;
+  const missingTarget = p.kind === 'UPDATE_RECRUITMENT' && p.status === 'PENDING' && !current;
+  return {
+    p,
+    diff: buildDiff(p.payload, current),
+    stale: staleFields(p.baseSnapshot, current),
+    currentTitle: current?.title,
+    missingTarget,
+  };
+}));
+
+const fmt = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return JSON.stringify(v, null, 2);
+};
+const when = (d: Date | null) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—';
+const badge: Record<string, string> = {
+  PENDING: 'bg-amber-50 text-amber-800 border-amber-200',
+  APPLYING: 'bg-sky-50 text-sky-800 border-sky-200',
+  APPROVED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  REJECTED: 'bg-slate-100 text-slate-700 border-slate-200',
+  FAILED: 'bg-rose-50 text-rose-800 border-rose-200',
+};
+---
+
+<AdminLayout
+  title="Pending changes"
+  currentSection="pending-changes"
+  breadcrumbs={[{ label: 'Pending changes' }]}
+>
+  <div class="mx-auto max-w-5xl space-y-6">
+    {message && (
+      <div class={`p-3 rounded-lg border text-xs ${messageType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`} role="status">
+        {message}
+      </div>
+    )}
+    {loadError && <div class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">{loadError}</div>}
+    {!d1 && <div class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">No database binding in this environment, so the proposals queue is unavailable.</div>}
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Pending changes</h1>
+        <p class="text-xs text-slate-500 mt-0.5">Changes proposed through the private MCP. Nothing goes live until you approve it here.</p>
+      </div>
+      <nav class="flex flex-wrap gap-1.5" aria-label="Filter by status">
+        {FILTERS.map(f => (
+          <a href={`/admin/pending-changes?status=${f}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${f === filter ? 'bg-blue-50 text-primary border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+            {f.charAt(0) + f.slice(1).toLowerCase()}
+          </a>
+        ))}
+      </nav>
+    </div>
+
+    {items.length === 0 && !loadError && (
+      <div class="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400 text-xs">
+        No {filter === 'ALL' ? '' : filter.toLowerCase()} proposals.
+      </div>
+    )}
+
+    {items.map(({ p, diff, stale, currentTitle, missingTarget }) => (
+      <article class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+        <header class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
+          <div class="min-w-0 space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : 'Update'}</span>
+            </div>
+            <h2 class="text-sm font-bold text-slate-950">{p.summary}</h2>
+            <p class="text-[11px] text-slate-500 font-mono">
+              {p.kind === 'UPDATE_RECRUITMENT' && <span>{currentTitle ?? p.recruitmentId} · </span>}
+              {p.id} · proposed by {p.proposedBy} · {when(p.createdAt)}
+            </p>
+          </div>
+        </header>
+
+        {stale.length > 0 && (
+          <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <strong>The live record changed since this was proposed</strong> ({stale.join(', ')}). Review the “Live now” column before approving.
+          </div>
+        )}
+        {missingTarget && (
+          <div class="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">The target recruitment no longer exists. Reject this proposal.</div>
+        )}
+
+        <div class="p-4 overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                <th class="py-1.5 pr-3 font-bold">Field</th>
+                <th class="py-1.5 pr-3 font-bold">{p.kind === 'CREATE_RECRUITMENT' ? '—' : 'Live now'}</th>
+                <th class="py-1.5 font-bold">Proposed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diff.map(row => (
+                <tr class="border-b border-slate-100 align-top">
+                  <td class="py-2 pr-3 font-mono font-semibold text-slate-800 whitespace-nowrap">{row.field}</td>
+                  <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind === 'CREATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
+                  <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {p.status === 'PENDING' ? (
+          <footer class="flex flex-wrap items-end justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/60">
+            <form
+              method="POST"
+              class="flex flex-wrap items-center gap-3"
+              onsubmit={`return confirm(${JSON.stringify(`Approve proposal ${p.id}${currentTitle ? ` (${currentTitle})` : ''}?\n\nThis writes the proposed changes to LIVE data.`)})`}
+            >
+              <input type="hidden" name="_action" value="approve" />
+              <input type="hidden" name="proposalId" value={p.id} />
+              {p.kind === 'CREATE_RECRUITMENT' && (
+                <label class="flex items-center gap-1.5 text-[11px] text-slate-700">
+                  <input type="checkbox" name="publish" class="size-3.5 rounded border-slate-300" />
+                  Publish now (otherwise saved as draft)
+                </label>
+              )}
+              {stale.length > 0 && (
+                <label class="flex items-center gap-1.5 text-[11px] text-amber-900">
+                  <input type="checkbox" name="confirmStale" class="size-3.5 rounded border-slate-300" required />
+                  Apply anyway
+                </label>
+              )}
+              <button type="submit" disabled={missingTarget} class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                Approve
+              </button>
+            </form>
+            <form
+              method="POST"
+              class="flex items-center gap-2"
+              onsubmit={`return confirm(${JSON.stringify(`Reject proposal ${p.id}? It will be closed and nothing will change in live data.`)})`}
+            >
+              <input type="hidden" name="_action" value="reject" />
+              <input type="hidden" name="proposalId" value={p.id} />
+              <input type="text" name="note" maxlength="500" placeholder="Reason (optional)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs w-48 outline-none focus:ring-2 focus:ring-primary" />
+              <button type="submit" class="px-3.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-colors cursor-pointer">
+                Reject
+              </button>
+            </form>
+          </footer>
+        ) : (
+          <footer class="p-4 border-t border-slate-100 bg-slate-50/60 text-[11px] text-slate-600">
+            {p.status === 'APPLYING'
+              ? 'Being applied. If this stays here, the write was interrupted; check the audit log before retrying.'
+              : <>Decided by <span class="font-mono">{p.decidedBy ?? '—'}</span> on {when(p.decidedAt)}{p.decisionNote ? ` · ${p.decisionNote}` : ''}</>}
+          </footer>
+        )}
+      </article>
+    ))}
+  </div>
+</AdminLayout>

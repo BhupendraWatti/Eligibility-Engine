@@ -17,7 +17,7 @@ const auditEntries = auditLogs.map(log => ({
   role: 'Admin',
   action: log.action.charAt(0) + log.action.slice(1).toLowerCase(),
   record: `${log.entity}: ${log.entityId}`,
-  field: log.field || 'record',
+  field: log.field || 'whole record',
   oldVal: log.oldValue || '—',
   newVal: log.newValue || '—',
   reason: log.reason || 'No reason recorded.',
@@ -114,7 +114,9 @@ if (wantsJson) {
                   <div class="text-[11px] text-zinc-500">{log.field}</div>
                 </td>
                 <td class="py-3.5 px-3 font-mono text-[11px]">
-                  <span class="line-through text-rose-600 mr-1">{log.oldVal}</span>
+                  {log.oldVal === '—'
+                    ? <span class="text-zinc-400 mr-1" title="No previous value recorded">(none)</span>
+                    : <span class="line-through text-rose-600 mr-1">{log.oldVal}</span>}
                   <span class="text-zinc-400 mr-1">&rarr;</span>
                   <span class="text-emerald-700 font-bold">{log.newVal}</span>
                 </td>

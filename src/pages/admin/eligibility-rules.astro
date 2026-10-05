@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/eligibility-rules.astro (FlowStep Screen 23)
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AgeRangeGuard from '../../components/admin/AgeRangeGuard.astro';
 import { getAllActiveRecruitments, getAllStates, updateRecruitmentEligibility } from '../../db/queries';
 import { parseBooleanInput, parseIntegerInput, readAdminSubmission } from '../../services/admin-integrity';
 
@@ -201,12 +202,12 @@ if (Astro.request.method === 'POST') {
               <div class="flex items-center gap-2">
                 <div class="flex-1">
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Min Age</label>
-                  <input type="number" name="minAge" value={selectedRec?.criteria.minAge ?? 18} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
+                  <input type="number" name="minAge" min="14" max="45" value={selectedRec?.criteria.minAge ?? 18} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
                 </div>
                 <span class="text-zinc-400 pt-4">—</span>
                 <div class="flex-1">
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Max Age</label>
-                  <input type="number" name="maxAgeGeneral" value={selectedRec?.criteria.maxAgeGeneral ?? 33} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
+                  <input type="number" name="maxAgeGeneral" min="18" max="65" value={selectedRec?.criteria.maxAgeGeneral ?? 33} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums" />
                 </div>
               </div>
             </div>
@@ -309,4 +310,5 @@ if (Astro.request.method === 'POST') {
     </form>
   </div>
 
+  <AgeRangeGuard />
 </AdminLayout>

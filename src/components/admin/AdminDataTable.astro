@@ -67,6 +67,13 @@ const configJson = JSON.stringify({
           },
         });
 
+        // A lone colspan row is a server-rendered empty state, not data: hide the misleading "1 of 1" counter.
+        const bodyRows = tableEl.querySelectorAll('tbody tr');
+        if (bodyRows.length === 1 && bodyRows[0].querySelector('td[colspan]')) {
+          const wrapper = tableEl.closest('.datatable-wrapper') ?? tableEl.parentElement;
+          wrapper?.querySelectorAll('.datatable-info, .datatable-bottom').forEach((el) => (el as HTMLElement).style.display = 'none');
+        }
+
         (tableEl as any).__datatableInstance = dt;
         tableEl.setAttribute('data-datatable-ready', 'true');
       } catch (err) {

@@ -73,9 +73,15 @@ export interface BatchEligibilityResult {
  * produced wrong keys (cpct_mandatory → cpct, but profile uses hasCpct).
  * This map ensures correct lookup.
  */
+// Keys MUST equal the `ruleName` strings emitted by evaluateEligibility(); a mismatch silently
+// drops the question (the old 'MP Domicile' / 'MP Rojgar Panjiyan' keys never matched).
 const RULE_TO_PROFILE_FIELD: Record<string, keyof UserEligibilityProfile> = {
-  'MP Domicile': 'isMpDomicile',
-  'MP Rojgar Panjiyan': 'hasMpRojgarPanjiyan',
+  'State Domicile': 'isMpDomicile',
+  'Employment Registration': 'hasMpRojgarPanjiyan',
+  'Gender': 'gender',
+  'Educational Qualification': 'qualificationLevel',
+  'Degree Subject / Stream': 'stream',
+  'Experience': 'experienceMonths',
   'CPCT Scorecard': 'hasCpct',
   'Physical Standards (Height)': 'heightCm',
   'Physical Standards (Chest)': 'chestCm',
@@ -119,6 +125,42 @@ const FIELD_QUESTION_META: Record<string, Omit<StructuredQuestion, 'fieldKey' | 
     labelHindi: 'आपके अंकों का प्रतिशत?',
     labelEnglish: 'Your percentage of marks in qualifying examination?',
     description: 'Some posts require a minimum percentage in the qualifying degree.',
+    inputType: 'number',
+  },
+  dob: {
+    labelHindi: 'आपकी जन्म तिथि?',
+    labelEnglish: 'Your date of birth?',
+    description: 'Age is calculated on each recruitment’s own cutoff date.',
+    inputType: 'text',
+  },
+  category: {
+    labelHindi: 'आपकी श्रेणी (UR / OBC / SC / ST / EWS)?',
+    labelEnglish: 'Your category (UR / OBC / SC / ST / EWS)?',
+    description: 'Age relaxation depends on category.',
+    inputType: 'select',
+  },
+  gender: {
+    labelHindi: 'आपका लिंग?',
+    labelEnglish: 'Your gender?',
+    description: 'Some posts are gender-specific, and age relaxation and physical standards differ by gender.',
+    inputType: 'select',
+  },
+  qualificationLevel: {
+    labelHindi: 'आपकी सर्वोच्च शैक्षणिक योग्यता?',
+    labelEnglish: 'Your highest educational qualification?',
+    description: 'Every post sets a minimum qualification.',
+    inputType: 'select',
+  },
+  stream: {
+    labelHindi: 'आपकी डिग्री का विषय / स्ट्रीम?',
+    labelEnglish: 'Your degree subject or stream?',
+    description: 'Some posts accept only specific degree streams.',
+    inputType: 'text',
+  },
+  experienceMonths: {
+    labelHindi: 'आपका कार्य अनुभव (महीनों में)?',
+    labelEnglish: 'Your relevant work experience in months?',
+    description: 'Some posts require prior experience.',
     inputType: 'number',
   },
   additionalSkills: {
@@ -179,7 +221,10 @@ export function getEligibleJobs(
       // Track which fields are unknown for progressive questioning
       for (const item of evalResult.items) {
         if (item.status === 'UNKNOWN') {
-          const fieldKey = RULE_TO_PROFILE_FIELD[item.ruleName];
+          // Age can be unknown for three different reasons; ask for the one that is actually missing.
+          const fieldKey = item.ruleName === 'Age Requirement'
+            ? (!userProfile.dob ? 'dob' : !userProfile.category ? 'category' : 'gender')
+            : RULE_TO_PROFILE_FIELD[item.ruleName];
           if (fieldKey) {
             if (!missingFieldToJobs.has(fieldKey)) {
               missingFieldToJobs.set(fieldKey, new Set());

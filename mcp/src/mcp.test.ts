@@ -1,6 +1,6 @@
 /**
- * Verification suite for the READ-only NIRNAY MCP slice:
- * auth boundary -> MCP server -> search_recruitments -> RecruitmentQueryService (fake loader).
+ * Verification suite for the NIRNAY MCP (read + propose-only):
+ * auth boundary -> MCP server -> search_recruitments / proposal tools -> services (fake loaders and stores).
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -13,6 +13,7 @@ import {
   type Actor,
   type RecruitmentQueryDeps,
 } from '../../src/services/recruitment-query';
+import type { ProposalDeps } from '../../src/services/change-proposals';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -89,7 +90,7 @@ async function run() {
   r = await authenticateMcpRequest(mk(`Basic ${TOKEN}`), TOKEN);
   assert(!r.ok && r.status === 401, 'non-bearer scheme -> 401');
   r = await authenticateMcpRequest(mk(`Bearer ${TOKEN}`), TOKEN);
-  assert(r.ok && r.actor.mode === 'READ', 'valid token -> READ actor');
+  assert(r.ok && r.actor.mode === 'PROPOSE', 'valid token -> PROPOSE actor (read + queue proposals, never write live data)');
 
   // --- Service -------------------------------------------------------------
   let res = await searchRecruitments(fakeD1, actor, {}, deps);
@@ -143,8 +144,15 @@ async function run() {
   await Promise.all([server.connect(serverT), client.connect(clientT)]);
 
   const tools = await client.listTools();
-  assert(tools.tools.map(t => t.name).join() === 'search_recruitments', 'tools/list exposes only search_recruitments');
+  assert(
+    tools.tools.map(t => t.name).sort().join() === 'list_my_proposals,propose_new_recruitment,propose_recruitment_update,search_recruitments',
+    'tools/list exposes search + proposal tools only (no apply/approve/delete)',
+  );
   assert(!JSON.stringify(tools).match(/sql|query_table|insert|update_row|delete/i), 'no SQL/CRUD-style tool or parameter exposed');
+  assert(!tools.tools.some(t => /approve|apply|publish|delete|execute/i.test(t.name)), 'no tool can approve, apply, publish or delete');
+  const byName = Object.fromEntries(tools.tools.map(t => [t.name, t]));
+  assert(byName.search_recruitments.annotations?.readOnlyHint === true && byName.list_my_proposals.annotations?.readOnlyHint === true, 'read tools are annotated read-only');
+  assert(byName.propose_recruitment_update.annotations?.destructiveHint === false && byName.propose_new_recruitment.annotations?.destructiveHint === false, 'proposal tools are annotated non-destructive');
 
   const ok: any = await client.callTool({ name: 'search_recruitments', arguments: { state: 'MP', limit: 1 } });
   assert(!ok.isError && ok.structuredContent.items.length === 1 && ok.structuredContent.total === 2, 'tools/call returns structured results');
@@ -161,6 +169,47 @@ async function run() {
   await Promise.all([failing.connect(s2), client2.connect(c2)]);
   const boom: any = await client2.callTool({ name: 'search_recruitments', arguments: {} });
   assert(boom.isError && !JSON.stringify(boom).includes('SELECT'), 'internal errors do not leak details');
+
+  // --- Proposal tools (fake store; nothing live is reachable) ----------------------------------------
+  const inserted: unknown[] = [];
+  const proposalDeps: ProposalDeps = {
+    loadRecruitment: async (_d, id) => (id === 'a' ? (DATA[0] as any) : undefined),
+    insert: async (_d, row) => { inserted.push(row); },
+    countPending: async () => 0,
+    list: async (_d, o) => [{ id: 'prop_1', kind: 'UPDATE_RECRUITMENT', recruitmentId: 'a', summary: 's', status: 'PENDING', proposedBy: o.proposedBy, createdAt: new Date('2026-10-05T00:00:00Z'), decidedAt: null, decisionNote: null } as any],
+  };
+  const pServer = createMcpServer({ d1: fakeD1, actor: { id: 'mcp-client', mode: 'PROPOSE' }, deps, proposalDeps });
+  const [c3, s3] = InMemoryTransport.createLinkedPair();
+  const client3 = new Client({ name: 'c3', version: '0.0.0' });
+  await Promise.all([pServer.connect(s3), client3.connect(c3)]);
+
+  const queued: any = await client3.callTool({ name: 'propose_recruitment_update', arguments: { recruitmentId: 'a', summary: 'Deadline extended', changes: { applicationEnd: '2026-11-05' } } });
+  assert(!queued.isError && queued.structuredContent.status === 'PENDING' && inserted.length === 1, 'propose_recruitment_update queues a PENDING proposal');
+  assert(/not live|Nothing is live/i.test(queued.structuredContent.message), 'response tells the model nothing is live until approved');
+
+  const forbiddenStatus: any = await client3.callTool({ name: 'propose_recruitment_update', arguments: { recruitmentId: 'a', summary: 'Publish it', changes: { status: 'PUBLISHED' } } });
+  assert(forbiddenStatus.isError && forbiddenStatus.structuredContent.error.code === 'INVALID_INPUT' && inserted.length === 1, 'cannot propose a publication status change');
+  const unknownTarget: any = await client3.callTool({ name: 'propose_recruitment_update', arguments: { recruitmentId: 'zzz', summary: 'x', changes: { totalVacancies: 5 } } });
+  assert(unknownTarget.isError && inserted.length === 1, 'unknown recruitment is a safe tool error');
+
+  const newRec: any = await client3.callTool({ name: 'propose_new_recruitment', arguments: { summary: 'New drive', changes: { title: 'T', postId: 'p', organisationId: 'o', advtNumber: '9/2026', totalVacancies: 5 } } });
+  assert(!newRec.isError && inserted.length === 2, 'propose_new_recruitment queues a proposal');
+  const incomplete: any = await client3.callTool({ name: 'propose_new_recruitment', arguments: { summary: 'x', changes: { title: 'T' } } });
+  assert(incomplete.isError && inserted.length === 2, 'incomplete new recruitment rejected');
+
+  const mine: any = await client3.callTool({ name: 'list_my_proposals', arguments: {} });
+  assert(!mine.isError && mine.structuredContent.items[0].id === 'prop_1', 'list_my_proposals returns the proposal status');
+
+  // A READ actor can search but is refused when it tries to propose.
+  const roServer = createMcpServer({ d1: fakeD1, actor, deps, proposalDeps });
+  const [c4, s4] = InMemoryTransport.createLinkedPair();
+  const client4 = new Client({ name: 'c4', version: '0.0.0' });
+  await Promise.all([roServer.connect(s4), client4.connect(c4)]);
+  const refused: any = await client4.callTool({ name: 'propose_new_recruitment', arguments: { summary: 'x', changes: { title: 'T', postId: 'p', organisationId: 'o', advtNumber: '9/2026', totalVacancies: 5 } } });
+  assert(refused.isError && inserted.length === 2 && !JSON.stringify(refused).includes('Operating mode'), 'READ actor cannot queue proposals and no internals leak');
+
+  const searchAsPropose: any = await client3.callTool({ name: 'search_recruitments', arguments: { state: 'MP', limit: 1 } });
+  assert(!searchAsPropose.isError && searchAsPropose.structuredContent.items.length === 1, 'PROPOSE actor can still search');
 
   console.log('\nAll MCP tests passed.');
 }

@@ -14,7 +14,7 @@ When starting the dev server, use background mode:
 astro dev --background
 ```
 
-The private MCP server lives in `mcp/` (own packages and deploy, see `mcp/README.md`). It only reads this app's code (`src/services/recruitment-query.ts`, `src/db/queries.ts`) and must never change website behaviour.
+The private MCP server lives in `mcp/` (own packages and deploy, see `mcp/README.md`). It only reads this app's code (`src/services/recruitment-query.ts`, `src/db/queries.ts`) and must never change website behaviour. It may READ (`search_recruitments`) and PROPOSE changes (`src/services/change-proposals.ts` inserts into `change_proposals`); it must never call the recruitment writers. Only an admin approving in `/admin/pending-changes` (`src/services/change-proposal-decision.ts`) can make a proposal live.
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 

@@ -49,6 +49,11 @@ try {
   assert(query("SELECT COUNT(*) AS count FROM recruitments WHERE id = 'rec_qa'")[0]?.count === 1, 'A recruitment can be created against freshly migrated master data');
   assert(query('PRAGMA foreign_key_check').length === 0, 'Fresh migrations and representative CRUD preserve foreign keys');
 
+  query("INSERT INTO change_proposals (id, kind, summary, payload, proposed_by) VALUES ('prop_qa', 'UPDATE_RECRUITMENT', 'QA proposal', '{}', 'mcp-client')");
+  const proposal = query("SELECT status, decided_by FROM change_proposals WHERE id = 'prop_qa'")[0];
+  assert(proposal?.status === 'PENDING' && proposal?.decided_by === null, 'A new change proposal defaults to PENDING and undecided');
+  query("DELETE FROM change_proposals WHERE id = 'prop_qa'");
+
   query(`
     DELETE FROM recruitments WHERE id = 'rec_qa';
     DELETE FROM posts WHERE id = 'post_qa';

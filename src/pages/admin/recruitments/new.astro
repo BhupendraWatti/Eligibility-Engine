@@ -1,6 +1,7 @@
 ---
 // src/pages/admin/recruitments/new.astro (FlowStep Screen 22)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AgeRangeGuard from '../../../components/admin/AgeRangeGuard.astro';
 import { getAllCanonicalPosts, getAllSectors, getAllOrganisations, getAllStates, createRecruitmentAtomic } from '../../../db/queries';
 import {
   AdminValidationError,
@@ -494,7 +495,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
                   type="number"
                   name="minAge"
                   defaultValue="18"
-                  min="16"
+                  min="14"
                   max="45"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums focus:ring-2 focus:ring-zinc-900 outline-none"
                 />
@@ -507,7 +508,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
                   name="maxAgeGeneral"
                   defaultValue="33"
                   min="18"
-                  max="50"
+                  max="65"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono tabular-nums focus:ring-2 focus:ring-zinc-900 outline-none"
                 />
               </div>
@@ -676,13 +677,13 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
         <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs space-y-4">
           <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
             <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-950">Completeness</h3>
-            <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              45% Ready
+            <span id="completenessLabel" class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              0% Ready
             </span>
           </div>
 
           <div class="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
-            <div class="bg-primary h-1.5 rounded-full" style="width: 45%"></div>
+            <div id="completenessBar" class="bg-primary h-1.5 rounded-full transition-all" style="width: 0%"></div>
           </div>
 
           <!-- Checklist Items with Jump Actions -->
@@ -791,5 +792,25 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
         });
       });
     });
+  </script>
+  <AgeRangeGuard />
+  <script is:inline>
+    (function () {
+      var fields = ['title', 'organisationId', 'advtNumber', 'postId', 'totalVacancies', 'ageCutoffDate'];
+      function update() {
+        var done = fields.filter(function (n) {
+          var el = document.querySelector('[name="' + n + '"]');
+          return el && String(el.value).trim() !== '';
+        }).length;
+        var pct = Math.round((done / fields.length) * 100);
+        var label = document.getElementById('completenessLabel');
+        var bar = document.getElementById('completenessBar');
+        if (label) label.textContent = pct + '% Ready';
+        if (bar) bar.style.width = pct + '%';
+      }
+      document.addEventListener('input', update);
+      document.addEventListener('change', update);
+      update();
+    })();
   </script>
 </AdminLayout>
