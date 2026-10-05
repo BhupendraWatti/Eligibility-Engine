@@ -1,8 +1,3 @@
--- Required parents for admin fixture creation. Keep FK order explicit.
-INSERT OR IGNORE INTO admin_users (id, email, name, role, is_active) VALUES
-('adm_super', 'admin@rozgarsetu.in', 'Lead Administrator', 'SUPER_ADMIN', 1),
-('adm_aarav', 'aarav@nirnay.in', 'Aarav Sharma', 'SUPER_ADMIN', 1);
-
 INSERT OR IGNORE INTO states (id, code, name, slug, is_active) VALUES
 ('st_mp', 'MP', 'Madhya Pradesh', 'madhya-pradesh', 1);
 

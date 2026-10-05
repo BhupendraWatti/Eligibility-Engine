@@ -1,7 +1,8 @@
 import { defineMiddleware } from 'astro:middleware';
 import { env } from 'cloudflare:workers';
 import { isAdminSubdomain } from './lib/hostname';
-import { isAdminRequestAllowed, isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
+import { isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
+import { verifyAccessJwt } from './services/cf-access';
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
   const hostname = url.hostname.toLowerCase();
@@ -33,36 +34,37 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
   // Authenticate both /admin/* paths and clean URLs served from the admin subdomain.
   if (isAdminPath || isAdminHost) {
-    let userEmail = request.headers.get('cf-access-authenticated-user-email');
+    const readEnv = (name: string): string | undefined => {
+      let value = (import.meta.env as Record<string, string | undefined>)[name];
+      try {
+        value ||= (env as unknown as Record<string, string | undefined>)[name];
+      } catch {
+        // Cloudflare bindings are unavailable outside the worker runtime.
+      }
+      return value;
+    };
 
-    let configuredAdmins = import.meta.env.ADMIN_EMAILS as string | undefined;
-    try {
-      configuredAdmins ||= (env as unknown as { ADMIN_EMAILS?: string }).ADMIN_EMAILS;
-    } catch {
-      // Cloudflare bindings are unavailable outside the worker runtime.
-    }
-    const allowedAdmins = (configuredAdmins || '')
-      .split(',')
-      .map((e: string) => e.trim().toLowerCase())
-      .filter(Boolean);
-
-    let configuredBypassToken = import.meta.env.ADMIN_TEST_BYPASS_TOKEN as string | undefined;
-    try {
-      configuredBypassToken ||= (env as unknown as { ADMIN_TEST_BYPASS_TOKEN?: string }).ADMIN_TEST_BYPASS_TOKEN;
-    } catch {
-      // Cloudflare bindings are unavailable outside the worker runtime.
-    }
     const isTestBypass = isAdminTestBypass(
-      configuredBypassToken,
+      readEnv('ADMIN_TEST_BYPASS_TOKEN'),
       request.headers.get('x-admin-bypass'),
     );
+    const isTrustedLocal = isTestBypass || isLocal;
 
-    // A secret-backed test request or local development may use the seeded lead-admin identity.
-    if (!userEmail && (isTestBypass || isLocal)) {
-      userEmail = 'admin@rozgarsetu.in';
+    let userEmail: string | null = null;
+    if (isTrustedLocal) {
+      userEmail = 'local-dev@localhost';
+    } else {
+      const teamDomain = readEnv('CF_ACCESS_TEAM_DOMAIN');
+      const audience = readEnv('CF_ACCESS_AUD');
+      if (!teamDomain || !audience) {
+        console.error('[Middleware] CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD are not configured; admin is locked.');
+        return new Response('Admin authentication is not configured.', { status: 503 });
+      }
+      // Identity comes only from the signed Access JWT, never from a plain header.
+      userEmail = await verifyAccessJwt(request.headers.get('cf-access-jwt-assertion'), teamDomain, audience);
     }
 
-    if (!isAdminRequestAllowed(userEmail, allowedAdmins, isTestBypass || isLocal)) {
+    if (!userEmail) {
       return new Response(
         `<!DOCTYPE html>
         <html>
@@ -86,18 +88,25 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
       // not in worker runtime
     }
 
-    if (!isTestBypass && !isLocal && !db) {
+    if (!isTrustedLocal && !db) {
       return new Response('Admin authorization unavailable.', { status: 503 });
     }
 
-    if (!isTestBypass && !isLocal && db) {
+    if (!isTrustedLocal && db) {
       try {
+        // Cloudflare Access is the gate: anyone it admits is a member. Roles and revocation live in
+        // admin_users; a first-time member is provisioned with the least-privileged role.
+        const localPart = userEmail.split('@')[0];
+        await db
+          .prepare('INSERT OR IGNORE INTO admin_users (id, email, name, role, is_active) VALUES (?, ?, ?, ?, 1)')
+          .bind(`admin_${crypto.randomUUID()}`, userEmail, localPart, 'EDITOR')
+          .run();
         const admin = await db
           .prepare('SELECT is_active FROM admin_users WHERE lower(email) = lower(?) LIMIT 1')
           .bind(userEmail)
           .first<{ is_active: number }>();
         if (!admin || admin.is_active !== 1) {
-          return new Response('Admin account is inactive or not provisioned.', { status: 403 });
+          return new Response('Admin account has been revoked.', { status: 403 });
         }
       } catch (error) {
         console.error('[Middleware] Admin authorization lookup failed:', error);
@@ -107,7 +116,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const origin = request.headers.get('origin');
-      if (origin ? !isSameOrigin(origin, url.host) : !isTestBypass && !isLocal) {
+      if (origin ? !isSameOrigin(origin, url.host) : !isTrustedLocal) {
         return new Response('Invalid request origin.', { status: 403 });
       }
     }

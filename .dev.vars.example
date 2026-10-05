@@ -1,4 +1,6 @@
 # Copy to .dev.vars for local Cloudflare-compatible development.
-# Never commit real administrator addresses or bypass tokens.
-ADMIN_EMAILS=admin@example.gov.in
+# Never commit real bypass tokens.
 ADMIN_TEST_BYPASS_TOKEN=replace-with-a-long-random-local-secret
+# Production only (set as Worker variables in the Cloudflare dashboard):
+# CF_ACCESS_TEAM_DOMAIN=your-team.cloudflareaccess.com
+# CF_ACCESS_AUD=<Application Audience (AUD) tag from the Access application>

@@ -19,7 +19,7 @@ npx astro dev --background
 
 The private MCP server for AI clients lives in a separate folder, `mcp/`, with its own packages and deploy (see `mcp/README.md`). It only reads this app's code and is excluded from the website build.
 
-The site is available at `http://localhost:4321`. Localhost receives the seeded development administrator identity. Production requests require Cloudflare Access, `ADMIN_EMAILS`, and an active `admin_users` record.
+The site is available at `http://localhost:4321`. Localhost uses a local-dev identity. Production requests must carry a valid, signed Cloudflare Access JWT (verified against `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`); anyone Access admits is auto-provisioned in `admin_users` as an Editor on first sign-in, and a Super Admin can change their role or revoke them in Settings. If those two variables are missing, admin fails closed (503).
 
 Manage the background server with:
 

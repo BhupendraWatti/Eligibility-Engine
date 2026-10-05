@@ -355,7 +355,5 @@ INSERT OR IGNORE INTO official_links (id, recruitment_id, link_type, title, url,
 ('lnk_j_apply', 'rec_mp_jja_court_2026', 'APPLY_ONLINE', 'Apply Online (High Court of MP Portal)', 'https://mphc.gov.in', 1),
 ('lnk_j_pdf',   'rec_mp_jja_court_2026', 'NOTIFICATION_PDF', 'Download MPHC JJA Notification PDF', 'https://mphc.gov.in/PDF/web_pdf/RE/JJA_2026_Notification.pdf', 1);
 
--- 12. Admin Users
-INSERT OR IGNORE INTO admin_users (id, email, name, role, is_active, created_at) VALUES
-('adm_super', 'admin@rozgarsetu.in', 'Lead Administrator', 'SUPER_ADMIN', 1, unixepoch()),
-('adm_aarav', 'aarav@nirnay.in', 'Aarav Sharma', 'SUPER_ADMIN', 1, unixepoch());
+-- 12. Admin Users: intentionally not seeded. Members are authorised by Cloudflare Access
+-- and provisioned in admin_users on first verified sign-in.
