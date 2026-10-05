@@ -1,6 +1,7 @@
 @import "tailwindcss";
+@import "./dark-theme.css";
 
-/* Public site is light-locked (DESIGN.md white-blue theme). `dark:` only applies under an explicit .dark ancestor, never from the OS preference. */
+/* Theme is class-driven: `.dark` on <html> (set by the init script in BaseLayout, persisted in localStorage, defaults to the OS preference). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -45,13 +46,48 @@
 
   html {
     color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+
+    --color-background: #09090b;
+    --color-foreground: #fafafa;
+    --color-card: #18181b;
+    --color-card-foreground: #fafafa;
+    --color-popover: #18181b;
+    --color-popover-foreground: #fafafa;
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-primary-foreground: #ffffff;
+    --color-secondary: #e4e4e7;
+    --color-secondary-foreground: #09090b;
+    --color-muted: #1f1f23;
+    --color-muted-foreground: #a1a1aa;
+    --color-accent: #1f1f23;
+    --color-accent-foreground: #fafafa;
+    --color-destructive: #ef4444;
+    --color-border: #27272a;
+    --color-input: #3f3f46;
+    --color-ring: #60a5fa;
+    --color-sidebar: #18181b;
+    --color-sidebar-foreground: #fafafa;
+    --color-sidebar-border: #27272a;
+    --color-gov-saffron: #60a5fa;
+    --color-gov-saffron-light: #172554;
+    --color-gov-emerald: #34d399;
+    --color-gov-emerald-light: #052e22;
+    --color-gov-navy: #e4e4e7;
+  }
+
+  html {
     text-rendering: optimizeLegibility;
   }
 
   body {
     font-family: var(--font-sans);
-    color: #090d16;
-    background-color: #f8fafc;
+    color: var(--color-foreground);
+    background-color: var(--color-background);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -82,15 +118,15 @@
 }
 
 .gov-card {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.02);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .gov-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--color-input);
   box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.05), 0 4px 6px -4px rgb(15 23 42 / 0.02);
 }
 
@@ -108,14 +144,14 @@
 
 /* Polished Card Elevation */
 .premium-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
   box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 1px 2px -1px rgb(15 23 42 / 0.02);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .premium-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--color-input);
   box-shadow: 0 8px 20px -4px rgb(15 23 42 / 0.06), 0 4px 6px -2px rgb(15 23 42 / 0.03);
 }
 
@@ -157,6 +193,19 @@
 }
 .custom-scrollbar-light::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.dark .custom-scrollbar,
+.dark .custom-scrollbar-light {
+  scrollbar-color: #3f3f46 transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark .custom-scrollbar-light::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .custom-scrollbar-light::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
 /* Hide scrollbar utility */

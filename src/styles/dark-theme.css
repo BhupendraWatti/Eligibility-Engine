@@ -1,0 +1,97 @@
+/* Dark theme overrides for hard-coded Tailwind palette classes on the public site.
+   Scoped under .dark so the light theme and /admin are untouched. Solid fills (bg-*-500..700) and
+   text-white are intentionally NOT remapped so primary/status buttons keep their contrast.
+   Regenerate when new light-tint classes (bg/border/text-<hue>-50..950) are introduced. */
+.dark .bg-amber-200\/80{background-color:color-mix(in srgb, var(--color-amber-500) 28%, var(--color-card))}
+.dark .bg-amber-200{background-color:color-mix(in srgb, var(--color-amber-500) 28%, var(--color-card))}
+.dark .bg-amber-50\/40{background-color:color-mix(in srgb, var(--color-amber-500) 12%, var(--color-card))}
+.dark .bg-amber-50\/50{background-color:color-mix(in srgb, var(--color-amber-500) 12%, var(--color-card))}
+.dark .bg-amber-50{background-color:color-mix(in srgb, var(--color-amber-500) 12%, var(--color-card))}
+.dark .bg-blue-100\/70{background-color:color-mix(in srgb, var(--color-blue-500) 18%, var(--color-card))}
+.dark .bg-blue-100\/80{background-color:color-mix(in srgb, var(--color-blue-500) 18%, var(--color-card))}
+.dark .bg-blue-200{background-color:color-mix(in srgb, var(--color-blue-500) 28%, var(--color-card))}
+.dark .bg-blue-50\/40{background-color:color-mix(in srgb, var(--color-blue-500) 12%, var(--color-card))}
+.dark .bg-blue-50\/80{background-color:color-mix(in srgb, var(--color-blue-500) 12%, var(--color-card))}
+.dark .bg-blue-50{background-color:color-mix(in srgb, var(--color-blue-500) 12%, var(--color-card))}
+.dark .bg-cyan-50{background-color:color-mix(in srgb, var(--color-cyan-500) 12%, var(--color-card))}
+.dark .bg-emerald-50\/50{background-color:color-mix(in srgb, var(--color-emerald-500) 12%, var(--color-card))}
+.dark .bg-emerald-50{background-color:color-mix(in srgb, var(--color-emerald-500) 12%, var(--color-card))}
+.dark .bg-indigo-50{background-color:color-mix(in srgb, var(--color-indigo-500) 12%, var(--color-card))}
+.dark .bg-purple-50{background-color:color-mix(in srgb, var(--color-purple-500) 12%, var(--color-card))}
+.dark .bg-red-50\/50{background-color:color-mix(in srgb, var(--color-red-500) 12%, var(--color-card))}
+.dark .bg-red-50{background-color:color-mix(in srgb, var(--color-red-500) 12%, var(--color-card))}
+.dark .bg-rose-50{background-color:color-mix(in srgb, var(--color-rose-500) 12%, var(--color-card))}
+.dark .bg-slate-100{background-color:#27272a}
+.dark .bg-teal-50{background-color:color-mix(in srgb, var(--color-teal-500) 12%, var(--color-card))}
+.dark .bg-zinc-100{background-color:#27272a}
+.dark .bg-zinc-50\/60{background-color:#1f1f23}
+.dark .bg-zinc-50{background-color:#1f1f23}
+.dark .border-amber-200{border-color:color-mix(in srgb, var(--color-amber-500) 30%, var(--color-card))}
+.dark .border-amber-300{border-color:color-mix(in srgb, var(--color-amber-500) 42%, var(--color-card))}
+.dark .border-blue-200\/60{border-color:color-mix(in srgb, var(--color-blue-500) 30%, var(--color-card))}
+.dark .border-blue-200\/80{border-color:color-mix(in srgb, var(--color-blue-500) 30%, var(--color-card))}
+.dark .border-blue-200{border-color:color-mix(in srgb, var(--color-blue-500) 30%, var(--color-card))}
+.dark .border-blue-300\/60{border-color:color-mix(in srgb, var(--color-blue-500) 42%, var(--color-card))}
+.dark .border-cyan-200{border-color:color-mix(in srgb, var(--color-cyan-500) 30%, var(--color-card))}
+.dark .border-emerald-200{border-color:color-mix(in srgb, var(--color-emerald-500) 30%, var(--color-card))}
+.dark .border-emerald-300\/80{border-color:color-mix(in srgb, var(--color-emerald-500) 42%, var(--color-card))}
+.dark .border-indigo-200{border-color:color-mix(in srgb, var(--color-indigo-500) 30%, var(--color-card))}
+.dark .border-purple-200{border-color:color-mix(in srgb, var(--color-purple-500) 30%, var(--color-card))}
+.dark .border-red-200{border-color:color-mix(in srgb, var(--color-red-500) 30%, var(--color-card))}
+.dark .border-rose-200{border-color:color-mix(in srgb, var(--color-rose-500) 30%, var(--color-card))}
+.dark .border-slate-200{border-color:#27272a}
+.dark .border-slate-300{border-color:#3f3f46}
+.dark .border-teal-200{border-color:color-mix(in srgb, var(--color-teal-500) 30%, var(--color-card))}
+.dark .border-zinc-200{border-color:#27272a}
+.dark .group:hover .group-hover\:text-primary{color:#60a5fa}
+.dark .hover\:bg-blue-50:hover{background-color:color-mix(in srgb, var(--color-blue-500) 20%, var(--color-card))}
+.dark .hover\:bg-emerald-100:hover{background-color:color-mix(in srgb, var(--color-emerald-500) 26%, var(--color-card))}
+.dark .hover\:bg-zinc-100:hover{background-color:#27272a}
+.dark .hover\:border-amber-300:hover{border-color:color-mix(in srgb, var(--color-amber-500) 42%, var(--color-card))}
+.dark .hover\:border-blue-300:hover{border-color:color-mix(in srgb, var(--color-blue-500) 42%, var(--color-card))}
+.dark .hover\:border-cyan-300:hover{border-color:color-mix(in srgb, var(--color-cyan-500) 42%, var(--color-card))}
+.dark .hover\:border-emerald-300:hover{border-color:color-mix(in srgb, var(--color-emerald-500) 42%, var(--color-card))}
+.dark .hover\:border-indigo-300:hover{border-color:color-mix(in srgb, var(--color-indigo-500) 42%, var(--color-card))}
+.dark .hover\:border-purple-300:hover{border-color:color-mix(in srgb, var(--color-purple-500) 42%, var(--color-card))}
+.dark .hover\:border-rose-300:hover{border-color:color-mix(in srgb, var(--color-rose-500) 42%, var(--color-card))}
+.dark .hover\:border-zinc-300:hover{border-color:#3f3f46}
+.dark .hover\:text-blue-950:hover{color:var(--color-blue-300)}
+.dark .hover\:text-primary:hover{color:#60a5fa}
+.dark .hover\:text-zinc-950:hover{color:#fafafa}
+.dark .ring-blue-100{--tw-ring-color:color-mix(in srgb, var(--color-blue-500) 25%, var(--color-card))}
+.dark .text-amber-600{color:var(--color-amber-400)}
+.dark .text-amber-700{color:var(--color-amber-300)}
+.dark .text-amber-800{color:var(--color-amber-300)}
+.dark .text-amber-900{color:var(--color-amber-300)}
+.dark .text-amber-950{color:var(--color-amber-300)}
+.dark .text-blue-600{color:var(--color-blue-400)}
+.dark .text-blue-700\/80{color:var(--color-blue-300)}
+.dark .text-blue-700{color:var(--color-blue-300)}
+.dark .text-blue-800{color:var(--color-blue-300)}
+.dark .text-blue-900{color:var(--color-blue-300)}
+.dark .text-blue-950{color:var(--color-blue-300)}
+.dark .text-cyan-700{color:var(--color-cyan-300)}
+.dark .text-emerald-600{color:var(--color-emerald-400)}
+.dark .text-emerald-700{color:var(--color-emerald-300)}
+.dark .text-emerald-800{color:var(--color-emerald-300)}
+.dark .text-emerald-900{color:var(--color-emerald-300)}
+.dark .text-indigo-700{color:var(--color-indigo-300)}
+.dark .text-primary{color:#60a5fa}
+.dark .text-purple-700{color:var(--color-purple-300)}
+.dark .text-purple-900{color:var(--color-purple-300)}
+.dark .text-red-600{color:var(--color-red-400)}
+.dark .text-red-700{color:var(--color-red-300)}
+.dark .text-red-800{color:var(--color-red-300)}
+.dark .text-rose-600{color:var(--color-rose-400)}
+.dark .text-rose-700{color:var(--color-rose-300)}
+.dark .text-slate-600{color:#d4d4d8}
+.dark .text-slate-700{color:#e4e4e7}
+.dark .text-slate-800{color:#f4f4f5}
+.dark .text-slate-900{color:#fafafa}
+.dark .text-teal-700{color:var(--color-teal-300)}
+.dark .text-zinc-500{color:#a1a1aa}
+.dark .text-zinc-600{color:#d4d4d8}
+.dark .text-zinc-700{color:#e4e4e7}
+.dark .text-zinc-800{color:#f4f4f5}
+.dark .text-zinc-900{color:#fafafa}
+.dark .text-zinc-950{color:#fafafa}

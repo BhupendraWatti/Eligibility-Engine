@@ -67,3 +67,4 @@
 | 2026-10-04 | Hybrid Collapsible Sidebar Rail | Preserves 700px+ table breathing room on split-screen / tablet viewports. |
 | 2026-10-04 | Dual Desktop/Mobile Table Architecture | Multi-column tables on desktop; structured high-density cards on phones. |
 | 2026-10-05 | White-blue theme lock | User request: removed black sidebar/CTA blocks and gold chrome accents. Primary actions use Gov Blue; amber kept only for Warning semantics. |
+| 2026-10-05 | Public-site dark mode (light/dark toggle) | User request. Class-driven `.dark` on `<html>`; header toggle persists to `localStorage('nirnay-theme')`, defaults to OS preference. Dark neutrals from the palette above; Gov Blue lifted to `#2563eb` (fills) / `#60a5fa` (text). Admin console stays light. |

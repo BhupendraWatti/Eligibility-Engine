@@ -3,7 +3,7 @@
 const pathname = Astro.url.pathname;
 ---
 
-<header class="bg-card text-foreground border-b border-border w-full sticky top-0 z-40 backdrop-blur-md bg-white/95 no-print">
+<header class="bg-card text-foreground border-b border-border w-full sticky top-0 z-40 backdrop-blur-md bg-card/95 no-print">
   <!-- Civic National Accent Micro Strip -->
   <div class="civic-tricolor-bar w-full"></div>
 
@@ -111,6 +111,18 @@ const pathname = Astro.url.pathname;
         </label>
       </form>
 
+<button
+        type="button"
+        class="theme-toggle hidden sm:inline-flex size-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+        aria-label="Switch to dark mode"
+        title="Toggle light / dark theme"
+      >
+        <!-- Moon (shown in light mode) -->
+        <svg class="size-[18px] dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <!-- Sun (shown in dark mode) -->
+        <svg class="size-[18px] hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+
       <a
         href="/eligibility-checker"
         class="font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-xs sm:text-sm inline-flex px-3.5 py-2 items-center gap-1.5 h-9 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -207,6 +219,14 @@ const pathname = Astro.url.pathname;
       </a>
     </div>
 
+    <button type="button" class="theme-toggle sm:hidden w-full rounded-xl border border-border bg-muted/70 text-foreground hover:bg-muted transition-colors h-11 px-3.5 flex items-center justify-between text-xs font-semibold" aria-label="Switch to dark mode">
+      <span class="theme-toggle-label">Theme</span>
+      <span class="inline-flex">
+        <svg class="size-[18px] dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="size-[18px] hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </span>
+    </button>
+
     <div class="pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
       <a href="/disclaimer" class="hover:text-foreground">Disclaimer</a>
       <span>·</span>
@@ -217,6 +237,27 @@ const pathname = Astro.url.pathname;
   </div>
 
   <script is:inline>
+    (function () {
+      var root = document.documentElement;
+      function sync() {
+        var dark = root.classList.contains('dark');
+        document.querySelectorAll('.theme-toggle').forEach(function (b) {
+          b.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+          b.setAttribute('aria-pressed', String(dark));
+          var l = b.querySelector('.theme-toggle-label');
+          if (l) l.textContent = dark ? 'Light mode' : 'Dark mode';
+        });
+      }
+      document.querySelectorAll('.theme-toggle').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var dark = root.classList.toggle('dark');
+          try { localStorage.setItem('nirnay-theme', dark ? 'dark' : 'light'); } catch (e) {}
+          sync();
+        });
+      });
+      sync();
+    })();
+
     const btn = document.getElementById('nirnay-mobile-menu-btn');
     const drawer = document.getElementById('nirnay-mobile-drawer');
     const hamburger = document.getElementById('hamburger-icon');
