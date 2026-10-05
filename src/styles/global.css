@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Public site is light-locked (DESIGN.md white-blue theme). `dark:` only applies under an explicit .dark ancestor, never from the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: #f8fafc;
   --color-foreground: #090d16;
