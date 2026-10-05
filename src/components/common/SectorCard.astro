@@ -36,7 +36,7 @@ const opportunityLabel = activeDrivesCount === 1
 const descriptionText = sector.description || 'Public service domain covering canonical recruitment roles across India.';
 const Root = asLink ? 'a' : 'div';
 
-const rootClasses = `group relative flex flex-col justify-between p-5 rounded-xl border border-slate-200 bg-white shadow-2xs hover:shadow-md hover:shadow-blue-900/5 hover:-translate-y-0.5 active:translate-y-0 ${themeDef.hoverBorderClass} transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${className}`;
+const rootClasses = `group relative flex items-start gap-4 py-5 border-b border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${className}`;
 ---
 
 <Root
@@ -46,45 +46,36 @@ const rootClasses = `group relative flex flex-col justify-between p-5 rounded-xl
   data-sector-card-preview={!asLink ? true : undefined}
   id={previewIdPrefix ? `${previewIdPrefix}Card` : undefined}
 >
-  <div>
-    <div
-      class={`size-10 rounded-lg border flex items-center justify-center mb-3.5 transition-colors ${themeDef.badgeClass}`}
-      data-sector-icon-badge
-      id={previewIdPrefix ? `${previewIdPrefix}Badge` : undefined}
-    >
-      <SectorIcon name={sector.icon} class="size-5" />
-    </div>
+  <div
+    class={`size-9 shrink-0 rounded-md border flex items-center justify-center mt-0.5 ${themeDef.badgeClass}`}
+    data-sector-icon-badge
+    id={previewIdPrefix ? `${previewIdPrefix}Badge` : undefined}
+  >
+    <SectorIcon name={sector.icon} class="size-[18px]" />
+  </div>
+  <div class="min-w-0 flex-1">
     <h3
-      class={`font-bold text-sm sm:text-base text-zinc-950 dark:text-zinc-100 font-heading tracking-tight transition-colors ${asLink ? 'group-hover:text-primary' : ''}`}
+      class={`font-bold text-base text-foreground font-heading leading-snug ${asLink ? 'group-hover:text-primary group-hover:underline underline-offset-4 decoration-1' : ''}`}
       data-sector-title
       id={previewIdPrefix ? `${previewIdPrefix}Title` : undefined}
     >
       {sector.name}
     </h3>
     <p
-      class="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed"
+      class="text-sm text-muted-foreground mt-1 line-clamp-2 leading-relaxed"
       data-sector-desc
       id={previewIdPrefix ? `${previewIdPrefix}Desc` : undefined}
     >
       {descriptionText}
     </p>
   </div>
-
-  <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
-    <span
-      class={`font-mono text-[11px] font-semibold transition-colors ${hasDrives ? `text-zinc-800 dark:text-zinc-200 font-bold ${asLink ? 'group-hover:text-primary' : ''}` : 'text-zinc-500 dark:text-zinc-400'}`}
-      data-sector-metric
-      id={previewIdPrefix ? `${previewIdPrefix}Metric` : undefined}
-    >
-      {opportunityLabel}
-    </span>
-    <span
-      class={`text-zinc-400 dark:text-zinc-500 transition-all ${asLink ? 'group-hover:text-primary group-hover:translate-x-0.5' : ''}`}
-      aria-hidden="true"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    </span>
-  </div>
+  {(hasDrives || !asLink) && (
+  <span
+    class={`shrink-0 text-xs mt-1 whitespace-nowrap ${hasDrives ? 'font-bold text-primary' : 'text-muted-foreground'}`}
+    data-sector-metric
+    id={previewIdPrefix ? `${previewIdPrefix}Metric` : undefined}
+  >
+    {opportunityLabel}
+  </span>
+  )}
 </Root>
