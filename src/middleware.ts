@@ -3,8 +3,16 @@ import { env } from 'cloudflare:workers';
 import { isAdminSubdomain } from './lib/hostname';
 import { isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
 import { verifyAccessJwt } from './services/cf-access';
+import {
+  homeValueToSave,
+  resolveViewerState,
+  VIEWER_STATE_COOKIE,
+  VIEWER_STATE_MAX_AGE,
+  NATIONAL_VIEW,
+  type GeoHint,
+} from './services/viewer-state';
 
-export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite }, next) => {
+export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite, cookies }, next) => {
   const hostname = url.hostname.toLowerCase();
 
   const isLocal =
@@ -127,6 +135,32 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     if (isAdminHost && !isAdminPath) {
       return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
     }
+  } else {
+    // Public pages: which state's recruitments to rank first (see src/services/viewer-state.ts).
+    const cf = (request as Request & { cf?: GeoHint }).cf;
+    const home = url.searchParams.get('home');
+    const savedCookie = cookies.get(VIEWER_STATE_COOKIE)?.value;
+    const toSave = homeValueToSave(home, url.searchParams.get('remember'));
+
+    if (toSave) {
+      const before = resolveViewerState({ cookie: savedCookie, cf });
+      cookies.set(VIEWER_STATE_COOKIE, toSave, {
+        path: '/',
+        maxAge: VIEWER_STATE_MAX_AGE,
+        sameSite: 'lax',
+        secure: !isLocal,
+        httpOnly: false,
+      });
+      // How often the detected state is overridden, and to what. State codes only, no IP.
+      console.log(JSON.stringify({
+        event: 'viewer_state_saved',
+        fromSource: before.source,
+        fromCode: before.code,
+        toCode: toSave === NATIONAL_VIEW ? null : toSave,
+      }));
+    }
+
+    locals.viewerState = resolveViewerState({ home, cookie: savedCookie, cf });
   }
 
   return next();

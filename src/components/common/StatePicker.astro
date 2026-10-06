@@ -1,0 +1,64 @@
+---
+// State chip + picker: shows which state's jobs are ranked first and lets the visitor change it.
+// A native <details> with a labelled <select> and an explicit submit (no auto-submit), so it works
+// with keyboard, screen readers and JS off. Submitting saves the choice (remember=1).
+import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
+import type { ViewerState } from '../../services/viewer-state';
+
+interface Props {
+  viewerState?: ViewerState;
+  /** Path the form submits to. */
+  action: string;
+  /** Current filters to keep when the state changes. */
+  keep?: Record<string, string | undefined>;
+  id?: string;
+}
+
+const { viewerState = { code: null, source: 'none' }, action, keep = {}, id = 'state-picker' } = Astro.props;
+const states = INDIA_JURISDICTIONS.filter(item => item.code !== 'IN');
+const stateName = viewerState.code ? jurisdictionName(viewerState.code) : null;
+---
+
+<section aria-label="Job order" class="text-xs">
+  <details class="group">
+    <summary class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-h-11 px-3 py-2 rounded-xl bg-primary/10 text-primary font-semibold cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      {stateName ? (
+        <span>
+          Showing jobs for <strong class="font-black">{stateName}</strong> first
+          {viewerState.source === 'geo' && <span class="font-medium text-primary/80"> (detected)</span>}
+        </span>
+      ) : (
+        <span>Showing all-India jobs</span>
+      )}
+      <span aria-hidden="true">·</span>
+      <span class="underline underline-offset-2">{stateName ? 'Change' : 'Choose your state'}</span>
+    </summary>
+
+    <form method="GET" action={action} class="mt-2 p-3 rounded-xl bg-card border border-border max-w-md">
+      {Object.entries(keep).map(([name, value]) => value && <input type="hidden" name={name} value={value} />)}
+      <input type="hidden" name="remember" value="1" />
+      <label for={id} class="font-bold text-foreground block mb-1.5">Your state</label>
+      <div class="flex gap-2">
+        <select
+          id={id}
+          name="home"
+          class="flex-1 min-w-0 min-h-11 p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
+        >
+          <option value="none" selected={!viewerState.code}>All India (no state first)</option>
+          {states.map(item => (
+            <option value={item.code} selected={item.code === viewerState.code}>{item.name}</option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          class="min-h-11 px-4 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Show jobs
+        </button>
+      </div>
+    </form>
+  </details>
+</section>

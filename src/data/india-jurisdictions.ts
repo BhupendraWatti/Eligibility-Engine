@@ -47,6 +47,26 @@ export const INDIA_JURISDICTIONS: IndiaJurisdiction[] = [
   ['py', 'PY', 'Puducherry', 'puducherry'],
 ].map(([key, code, name, slug]) => ({ id: `st_${key}`, code, name, slug }));
 
+// ISO 3166-2:IN codes that differ from ours. Geo databases may return either the old or the
+// current ISO code (the 2023-11-23 and 2020-11-11 revisions), so both map to our code.
+const REGION_ALIASES: Record<string, string> = {
+  TS: 'TG', // Telangana (ISO since 2023)
+  DH: 'DN', // Dadra and Nagar Haveli and Daman and Diu (ISO since 2020)
+  DD: 'DN',
+  OR: 'OD', // Odisha (pre-2023 ISO)
+  CT: 'CG', // Chhattisgarh (pre-2023 ISO)
+  UT: 'UK', // Uttarakhand (pre-2023 ISO)
+  UL: 'UK',
+};
+
+/** Maps an ISO/geo region code (any case) to a NIRNAY jurisdiction code, or null if unknown. */
+export function resolveRegionAlias(code?: string | null): string | null {
+  const upper = code?.trim().toUpperCase();
+  if (!upper) return null;
+  const mapped = REGION_ALIASES[upper] ?? upper;
+  return INDIA_JURISDICTIONS.some(item => item.code === mapped) ? mapped : null;
+}
+
 export function jurisdictionName(code?: string | null): string {
   return INDIA_JURISDICTIONS.find(item => item.code === code?.toUpperCase())?.name || code || 'the required jurisdiction';
 }

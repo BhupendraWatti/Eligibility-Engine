@@ -10,6 +10,7 @@
     "dev:vinext": "vinext dev --port 3001",
     "build": "astro build",
     "typecheck": "tsc --noEmit",
+    "test": "tsx src/engine/eligibility.test.ts && tsx src/services/viewer-state.test.ts && tsx src/services/public-listing.test.ts",
     "check": "npm run typecheck && npm run build",
     "build:vinext": "vinext build",
     "preview": "astro preview",

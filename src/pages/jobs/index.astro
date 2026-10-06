@@ -2,90 +2,64 @@
 import { advtLabel } from '../../services/advt-number';
 // src/pages/jobs/index.astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments, getAllSectors } from '../../db/queries';
+import StatePicker from '../../components/common/StatePicker.astro';
+import { listPublicRecruitments, type RelevanceTiers } from '../../services/public-listing';
+import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
+import type { RecruitmentWithDetails } from '../../db/queries';
+
+// Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 const url = new URL(Astro.request.url);
 const q = (url.searchParams.get('q') || '').trim();
 const qualification = url.searchParams.get('qualification') || '';
-const sector = url.searchParams.get('sector') || '';
 const org = url.searchParams.get('org') || '';
 const status = url.searchParams.get('status') || '';
 const sort = url.searchParams.get('sort') || 'closing_asc';
+// Filter (explicit choice): only this jurisdiction. Different from the Home State, which only reorders.
+const stateParam = (url.searchParams.get('state') || '').toUpperCase();
+const state = INDIA_JURISDICTIONS.some(item => item.code === stateParam) ? stateParam : '';
+// A shared ?home= link shows that state first for this view; middleware already resolved it.
+const homeParam = url.searchParams.get('home') || '';
+const viewerState = Astro.locals.viewerState;
+const homeCode = viewerState?.code ?? null;
 
-const [allRecruitments, allSectors] = await Promise.all([
-  getAllActiveRecruitments(),
-  getAllSectors(),
-]);
+const listing = await listPublicRecruitments({ q, qualification, org, status, state, sort }, homeCode);
+const filteredRecruitments = listing.items;
 
 // Recruiting authorities come from the data (all states + centre), not a fixed list.
 const orgOptions = [...new Map(
-  allRecruitments
+  listing.all
     .filter((r) => r.organisationShortName)
     .map((r) => [r.organisationShortName, r.organisationName || r.organisationShortName] as const),
 ).entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-// Filter recruitments dynamically
-let filteredRecruitments = allRecruitments.filter((job) => {
-  if (q) {
-    const query = q.toLowerCase();
-    const matchTitle = job.title.toLowerCase().includes(query);
-    const matchPost = job.postTitle?.toLowerCase().includes(query);
-    const matchOrg = job.organisationShortName?.toLowerCase().includes(query) || job.organisationName?.toLowerCase().includes(query);
-    const matchAdvt = job.advtNumber?.toLowerCase().includes(query);
-    const matchSummary = job.shortSummary?.toLowerCase().includes(query);
-    if (!matchTitle && !matchPost && !matchOrg && !matchAdvt && !matchSummary) {
-      return false;
-    }
+// Relevance Tiers as page sections. Empty tiers are skipped, except the visitor's own state.
+type JobSection = { key: keyof RelevanceTiers | 'all'; label: string | null; rows: RecruitmentWithDetails[]; collapsed: boolean };
+const tiers = listing.tiers;
+const sections: JobSection[] = tiers
+  ? [
+      { key: 'home' as const, label: jurisdictionName(homeCode), rows: tiers.home, collapsed: false },
+      { key: 'central' as const, label: 'Central Government', rows: tiers.central, collapsed: false },
+      { key: 'open' as const, label: 'Other states — open to all', rows: tiers.open, collapsed: false },
+      { key: 'locked' as const, label: 'Other states — domicile required', rows: tiers.locked, collapsed: true },
+    ].filter(section => section.rows.length > 0 || section.key === 'home')
+  : [{ key: 'all', label: null, rows: filteredRecruitments, collapsed: false }];
+
+// Current query, used to keep filters when one changes.
+const current: Record<string, string> = { q, qualification, org, status, state, sort, home: homeParam };
+function hrefWithout(name: string): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(current)) {
+    if (value && key !== name) params.set(key, value);
   }
+  const query = params.toString();
+  return query ? `/jobs?${query}` : '/jobs';
+}
 
-  if (qualification && job.criteria.minQualificationLevel !== qualification) {
-    return false;
-  }
-
-  if (org && job.organisationShortName !== org) {
-    return false;
-  }
-
-  if (status) {
-    if (status === 'OPEN') {
-      if (job.resolvedLifecycle !== 'APPLICATION_OPEN' && job.resolvedLifecycle !== 'APPLICATION_CLOSING' && job.lifecycleStatus !== 'OPEN') {
-        return false;
-      }
-    } else if (status === 'CLOSING_SOON') {
-      if (job.resolvedLifecycle !== 'APPLICATION_CLOSING') {
-        return false;
-      }
-    } else if (status === 'UPCOMING') {
-      if (job.resolvedLifecycle !== 'NOT_STARTED' && job.lifecycleStatus !== 'UPCOMING') {
-        return false;
-      }
-    } else if (status === 'CLOSED' || status === 'CONCLUDED') {
-      if (
-        job.resolvedLifecycle === 'APPLICATION_OPEN' ||
-        job.resolvedLifecycle === 'APPLICATION_CLOSING' ||
-        job.resolvedLifecycle === 'NOT_STARTED'
-      ) {
-        return false;
-      }
-    } else if (job.resolvedLifecycle !== status && job.lifecycleStatus !== status) {
-      return false;
-    }
-  }
-
-  return true;
-});
-
-// Sort recruitments
-if (sort === 'vacancies_desc') {
-  filteredRecruitments.sort((a, b) => (b.totalVacancies || 0) - (a.totalVacancies || 0));
-} else if (sort === 'closing_asc') {
-  filteredRecruitments.sort((a, b) => {
-    const dateA = a.applicationEnd || '9999-12-31';
-    const dateB = b.applicationEnd || '9999-12-31';
-    return dateA.localeCompare(dateB);
-  });
-} else if (sort === 'recent') {
-  filteredRecruitments.sort((a, b) => b.cycleYear - a.cycleYear);
+function domicileLabel(job: RecruitmentWithDetails): string {
+  const domicile = job.criteria.domicileStateCode || (job.criteria.requiresMpDomicile ? job.stateCode : null);
+  return domicile ? `${domicile} Domicile` : 'Open All-India';
 }
 
 // Format date helper
@@ -100,7 +74,7 @@ function formatDate(dateStr?: string): string {
 }
 
 // Active filters count
-const hasActiveFilters = Boolean(q || qualification || org || status);
+const hasActiveFilters = Boolean(q || qualification || org || status || state);
 ---
 
 <BaseLayout
@@ -150,7 +124,9 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
           {qualification && <input type="hidden" name="qualification" value={qualification} />}
           {org && <input type="hidden" name="org" value={org} />}
           {status && <input type="hidden" name="status" value={status} />}
+          {state && <input type="hidden" name="state" value={state} />}
           {sort && <input type="hidden" name="sort" value={sort} />}
+          {homeParam && <input type="hidden" name="home" value={homeParam} />}
           <label class="flex-1 min-w-0 rounded-2xl bg-card border border-input flex px-4 items-center gap-3 h-12 shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
@@ -194,7 +170,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
             <div class="flex flex-wrap gap-1.5">
               {q && (
                 <a
-                  href={`/jobs?${new URLSearchParams({ ...(qualification ? { qualification } : {}), ...(org ? { org } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
+                  href={hrefWithout('q')}
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
                   <span>"{q}"</span>
@@ -203,7 +179,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               )}
               {qualification && (
                 <a
-                  href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(org ? { org } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
+                  href={hrefWithout('qualification')}
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
                   <span>{qualification}</span>
@@ -212,7 +188,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               )}
               {org && (
                 <a
-                  href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(qualification ? { qualification } : {}), ...(status ? { status } : {}), ...(sort ? { sort } : {}) })}`}
+                  href={hrefWithout('org')}
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
                 >
                   <span>{org}</span>
@@ -221,11 +197,20 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               )}
               {status && (
                 <a
-                  href={`/jobs?${new URLSearchParams({ ...(q ? { q } : {}), ...(qualification ? { qualification } : {}), ...(org ? { org } : {}), ...(sort ? { sort } : {}) })}`}
+                  href={hrefWithout('status')}
                   class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200 hover:bg-emerald-100 transition-colors"
                 >
                   <span>{status}</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </a>
+              )}
+              {state && (
+                <a
+                  href={hrefWithout('state')}
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  <span>Only {jurisdictionName(state)}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </a>
               )}
             </div>
@@ -236,6 +221,22 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
         <form method="GET" action="/jobs" class="space-y-4 text-xs">
           {q && <input type="hidden" name="q" value={q} />}
           {sort && <input type="hidden" name="sort" value={sort} />}
+          {homeParam && <input type="hidden" name="home" value={homeParam} />}
+
+          <div>
+            <label for="jobs-state-filter" class="font-bold text-foreground block mb-1.5">State / Jurisdiction</label>
+            <select
+              id="jobs-state-filter"
+              name="state"
+              onchange="this.form.submit()"
+              class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
+            >
+              <option value="">All of India</option>
+              {INDIA_JURISDICTIONS.map((item) => (
+                <option value={item.code} selected={state === item.code}>{item.name}</option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label class="font-bold text-foreground block mb-1.5">Educational Qualification</label>
@@ -296,6 +297,8 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
 
       <!-- Right Content Area: Opportunities List -->
       <div class="lg:col-span-3 space-y-5">
+        <StatePicker viewerState={viewerState} action="/jobs" id="jobs-state-picker" keep={{ q, qualification, org, status, state, sort }} />
+
         <!-- Content Header & Sort -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
           <span class="text-xs font-bold text-foreground">
@@ -308,6 +311,8 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               {qualification && <input type="hidden" name="qualification" value={qualification} />}
               {org && <input type="hidden" name="org" value={org} />}
               {status && <input type="hidden" name="status" value={status} />}
+              {state && <input type="hidden" name="state" value={state} />}
+              {homeParam && <input type="hidden" name="home" value={homeParam} />}
               <select
                 name="sort"
                 onchange="this.form.submit()"
@@ -337,72 +342,102 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
             </a>
           </div>
         ) : (
-          <div class="space-y-4">
-            {filteredRecruitments.map((job) => {
-              return (
-                <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
-                  <div>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                      <div class="flex flex-wrap items-center gap-2">
-                        <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
-                          {job.presentation?.label || job.lifecycleStatus}
-                        </span>
-                        <span class="text-xs font-semibold text-muted-foreground">
-                          {job.organisationShortName} · {job.postTitle}
-                        </span>
+          <div class="space-y-6">
+            {sections.map((section) => {
+              const cards = section.rows.map((job) => (
+                    <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 hover:shadow-md hover:border-border/80 transition-all flex flex-col justify-between">
+                      <div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${job.presentation?.badgeClass || 'bg-muted text-muted-foreground border-border'}`}>
+                              {job.presentation?.label || job.lifecycleStatus}
+                            </span>
+                            <span class="text-xs font-semibold text-muted-foreground">
+                              {job.organisationShortName} · {job.postTitle}
+                            </span>
+                          </div>
+                          <span class="text-xs font-mono font-bold text-slate-700">
+                            Deadline: {formatDate(job.applicationEnd)}
+                          </span>
+                        </div>
+
+                        <h3 class="text-base sm:text-xl font-bold text-foreground mb-2 font-heading">
+                          <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
+                            {job.title}
+                          </a>
+                        </h3>
+
+                        <p class="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                          {job.shortSummary || 'Official public recruitment drive with verified statutory quotas and examination syllabus.'}
+                        </p>
+
+                        <!-- Key Metadata Row -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-3 px-3.5 sm:px-4 rounded-xl bg-muted/40 border border-border/70 mb-4 text-xs">
+                          <div>
+                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">Total Vacancies</span>
+                            <span class="font-bold text-foreground font-mono text-sm">{job.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
+                          </div>
+                          <div>
+                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">Min Education</span>
+                            <span class="font-semibold text-foreground">{job.criteria.minQualificationLevel ? job.criteria.minQualificationLevel.replace(/_/g, ' ') : 'Refer Notice'}</span>
+                          </div>
+                          <div>
+                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">Age Bracket</span>
+                            <span class="font-semibold text-foreground font-mono">{job.criteria.minAge}-{job.criteria.maxAgeGeneral} Yrs</span>
+                          </div>
+                          <div>
+                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">Domicile Scope</span>
+                            <span class="font-semibold text-foreground">{domicileLabel(job)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <span class="text-xs font-mono font-bold text-slate-700">
-                        Deadline: {formatDate(job.applicationEnd)}
+
+                      <div class="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <span class="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          Verified Notice ({advtLabel(job.advtNumber)})
+                        </span>
+                        <div class="flex items-center gap-2">
+                          <a
+                            href={`/recruitments/${job.slug}`}
+                            class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <span>View Details</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+              ));
+              if (section.collapsed) {
+                return (
+                  <details class="group space-y-4">
+                    <summary class="min-h-11 flex items-center justify-between gap-2 px-3 rounded-xl border border-border bg-card text-[11px] font-bold uppercase tracking-wider text-muted-foreground cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <h2>{section.label}</h2>
+                      <span class="inline-flex items-center gap-2">
+                        <span class="font-mono">{section.rows.length}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                       </span>
+                    </summary>
+                    <div class="space-y-4">{cards}</div>
+                  </details>
+                );
+              }
+              return (
+                <section class="space-y-4">
+                  {section.label && (
+                    <div class="flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <h2>{section.label}</h2>
+                      <span class="font-mono">{section.rows.length}</span>
                     </div>
-
-                    <h2 class="text-base sm:text-xl font-bold text-foreground mb-2 font-heading">
-                      <a href={`/recruitments/${job.slug}`} class="hover:text-primary transition-colors">
-                        {job.title}
-                      </a>
-                    </h2>
-
-                    <p class="text-xs text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                      {job.shortSummary || 'Official public recruitment drive with verified statutory quotas and examination syllabus.'}
+                  )}
+                  {section.key === 'home' && section.rows.length === 0 && (
+                    <p class="text-xs text-muted-foreground">
+                      No current recruitments from <strong class="text-foreground">{section.label}</strong>. Central and open-to-all posts below.
                     </p>
-
-                    <!-- Key Metadata Row -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-3 px-3.5 sm:px-4 rounded-xl bg-muted/40 border border-border/70 mb-4 text-xs">
-                      <div>
-                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Total Vacancies</span>
-                        <span class="font-bold text-foreground font-mono text-sm">{job.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
-                      </div>
-                      <div>
-                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Min Education</span>
-                        <span class="font-semibold text-foreground">{job.criteria.minQualificationLevel ? job.criteria.minQualificationLevel.replace(/_/g, ' ') : 'Refer Notice'}</span>
-                      </div>
-                      <div>
-                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Age Bracket</span>
-                        <span class="font-semibold text-foreground font-mono">{job.criteria.minAge}-{job.criteria.maxAgeGeneral} Yrs</span>
-                      </div>
-                      <div>
-                        <span class="text-muted-foreground block text-[10px] uppercase font-bold">Domicile Scope</span>
-                        <span class="font-semibold text-foreground">{job.criteria.requiresMpDomicile ? `${job.stateCode || 'State'} Domicile` : 'Open All-India'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <span class="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                      Verified Notice ({advtLabel(job.advtNumber)})
-                    </span>
-                    <div class="flex items-center gap-2">
-                      <a
-                        href={`/recruitments/${job.slug}`}
-                        class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <span>View Details</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                      </a>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                  {cards}
+                </section>
               );
             })}
           </div>

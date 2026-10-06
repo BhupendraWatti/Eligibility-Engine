@@ -2,25 +2,33 @@
 // src/pages/index.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectorCard from '../components/common/SectorCard.astro';
-import { getAllActiveRecruitments, getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
+import StatePicker from '../components/common/StatePicker.astro';
+import { getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
 import { calculateRecruitmentMetrics, isActiveDrive, resolveMilestonePresentation } from '../services/lifecycle';
+import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
+import { jurisdictionName } from '../data/india-jurisdictions';
+
+// Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const viewerState = Astro.locals.viewerState;
+const homeCode = viewerState?.code ?? null;
 
 const [recruitments, dbSectors, allPosts] = await Promise.all([
-  getAllActiveRecruitments(),
+  loadPublicRecruitments(homeCode),
   getAllSectors(),
   getAllCanonicalPosts(),
 ]);
 
+// Stats count every loaded recruitment once, independent of the visitor's state.
 const activeDrivesBySector = calculateSectorActiveDrives(dbSectors, recruitments, allPosts);
 
 const metrics = calculateRecruitmentMetrics(recruitments);
 
-// Categorize recruitments: active drives sorted by urgency (soonest closing date)
-const closingSoon = recruitments
-  .filter(r => isActiveDrive(r))
-  .sort((a, b) => (a.applicationEnd || '9999').localeCompare(b.applicationEnd || '9999'))
-  .slice(0, 3);
-const recentlyReleased = recruitments.slice(0, 3);
+// Active drives by urgency (soonest closing date), the visitor's state first.
+const closingSoonListing = queryListing(recruitments.filter(r => isActiveDrive(r)), { sort: 'closing_asc' }, homeCode);
+const closingSoon = inRelevanceOrder(closingSoonListing).slice(0, 3);
+const homeHasNoActiveDrives = Boolean(homeCode) && closingSoonListing.tiers?.home.length === 0;
+const recentlyReleased = inRelevanceOrder(queryListing(recruitments, {}, homeCode)).slice(0, 3);
 
 
 function formatDate(dateStr?: string): string {
@@ -84,6 +92,8 @@ recruitments.forEach((r) => {
         <p class="text-sm sm:text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl">
           Verified official gazette notifications, statutory age relaxations, and direct application links for all central and state recruitment drives.
         </p>
+
+        <StatePicker viewerState={viewerState} action="/" id="home-state-picker" />
 
         <!-- CTA Buttons: 3 Core Tasks -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto">
@@ -208,6 +218,12 @@ recruitments.forEach((r) => {
         </svg>
       </a>
     </div>
+
+    {homeHasNoActiveDrives && closingSoon.length > 0 && (
+      <p class="mb-4 text-xs text-muted-foreground">
+        No current recruitments from <strong class="text-foreground">{jurisdictionName(homeCode)}</strong>. Central and open-to-all posts below.
+      </p>
+    )}
 
     {closingSoon.length === 0 && (
       <div class="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">

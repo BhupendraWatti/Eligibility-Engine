@@ -17,9 +17,14 @@ interface RecruitmentData {
 
 interface Props {
   recruitments: RecruitmentData[];
+  /** A state the visitor chose themselves (picker or link), used to pre-fill domicile. Never the geo guess. */
+  chosenStateCode?: string | null;
 }
 
-export default function EligibilityWizard({ recruitments }: Props) {
+// Same cookie the StatePicker writes (src/services/viewer-state.ts): a declared domicile ranks that state first.
+const VIEWER_STATE_COOKIE = 'nirnay_state';
+
+export default function EligibilityWizard({ recruitments, chosenStateCode }: Props) {
   const [step, setStep] = useState<number>(1);
 
   // Pure empty starting states — no silent defaults
@@ -30,7 +35,7 @@ export default function EligibilityWizard({ recruitments }: Props) {
   const [stream, setStream] = useState<string>('Computer Science');
   const [passingYear, setPassingYear] = useState<string>('2024');
 
-  const [domicileStateCode, setDomicileStateCode] = useState<string>('');
+  const [domicileStateCode, setDomicileStateCode] = useState<string>(chosenStateCode ?? '');
   const [registrations, setRegistrations] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<UserEligibilityProfile['category'] | ''>('');
 
@@ -135,6 +140,14 @@ export default function EligibilityWizard({ recruitments }: Props) {
 
   const handleFinishEvaluation = () => {
     setHasEvaluated(true);
+    if (domicileStateCode && domicileStateCode !== 'IN') {
+      try {
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `${VIEWER_STATE_COOKIE}=${encodeURIComponent(domicileStateCode)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+      } catch (e) {
+        // Cookies blocked: the report still works, the state just isn't remembered.
+      }
+    }
   };
 
   return (

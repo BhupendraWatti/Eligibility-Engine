@@ -18,6 +18,11 @@ const wizardData = recruitments.map((r: any) => ({
   organisationName: r.organisationName,
   criteria: r.criteria,
 }));
+
+// Pre-fill domicile only from a state the visitor chose (picker or link), never from the geo guess.
+const viewerState = Astro.locals.viewerState;
+const chosenStateCode = viewerState && (viewerState.source === 'cookie' || viewerState.source === 'url') ? viewerState.code : null;
+if (chosenStateCode) Astro.response.headers.set('Cache-Control', 'private, no-store');
 ---
 
 <BaseLayout
@@ -25,6 +30,6 @@ const wizardData = recruitments.map((r: any) => ({
   description="Check eligibility across verified central and state government recruitments using each notification's own age, qualification, domicile, and registration rules."
 >
   <div class="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-    <EligibilityWizard client:load recruitments={wizardData} />
+    <EligibilityWizard client:load recruitments={wizardData} chosenStateCode={chosenStateCode} />
   </div>
 </BaseLayout>
