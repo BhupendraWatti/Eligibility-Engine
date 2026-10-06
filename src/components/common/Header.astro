@@ -128,9 +128,10 @@ const mobileItems = [...navItems, { href: '/eligibility-checker', label: 'Eligib
   </div>
 
   <!-- Mobile menu: overlays the page instead of pushing it down -->
+  <div id="nirnay-mobile-backdrop" aria-hidden="true" class="absolute inset-x-0 top-full hidden h-dvh bg-black/40 lg:hidden"></div>
   <div
     id="nirnay-mobile-drawer"
-    class="absolute inset-x-0 top-full hidden max-h-[calc(100dvh-7rem)] overflow-y-auto border-b border-border bg-card lg:hidden"
+    class="absolute inset-x-0 top-full hidden max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain border-b border-border bg-card lg:hidden"
   >
     <div class="mx-auto max-w-7xl px-4 pb-5 pt-3 sm:px-6">
       <form action="/search" method="get" role="search">
@@ -199,17 +200,24 @@ const mobileItems = [...navItems, { href: '/eligibility-checker', label: 'Eligib
       var drawer = document.getElementById('nirnay-mobile-drawer');
       var openIcon = document.getElementById('hamburger-icon');
       var closeIcon = document.getElementById('close-icon');
+      var backdrop = document.getElementById('nirnay-mobile-backdrop');
       function setOpen(open) {
         if (!btn || !drawer) return;
         btn.setAttribute('aria-expanded', String(open));
         btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
         drawer.classList.toggle('hidden', !open);
+        if (backdrop) backdrop.classList.toggle('hidden', !open);
+        // Keep the page behind the menu from scrolling while it is open
+        root.style.overflow = open ? 'hidden' : '';
         if (openIcon) openIcon.classList.toggle('hidden', open);
         if (closeIcon) closeIcon.classList.toggle('hidden', !open);
       }
       if (btn && drawer) {
         btn.addEventListener('click', function () { setOpen(btn.getAttribute('aria-expanded') !== 'true'); });
         drawer.addEventListener('click', function (e) { if (e.target.closest('a')) setOpen(false); });
+        if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
+        // Drawer is lg:hidden; don't leave the page scroll-locked after rotating/resizing to desktop
+        window.matchMedia('(min-width: 1024px)').addEventListener('change', function (m) { if (m.matches) setOpen(false); });
       }
 
       document.addEventListener('keydown', function (e) {
