@@ -2,6 +2,7 @@
 // src/layouts/AdminLayout.astro
 import '../styles/global.css';
 import '../styles/admin-datatable.css';
+import '../styles/admin-dark.css';
 import AdminSidebar from '../components/admin/AdminSidebar.astro';
 import AdminMobileDrawer from '../components/admin/AdminMobileDrawer.astro';
 import AdminMobileBottomNav from '../components/admin/AdminMobileBottomNav.astro';
@@ -23,13 +24,26 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 ---
 
 <!doctype html>
-<html lang="en" class="min-h-full bg-zinc-50">
+<html lang="en" class="min-h-full bg-background">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} | NIRNAY OPS</title>
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Apply saved (or OS-preferred) theme before first paint; same key as the public site -->
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('nirnay-theme');
+          if (t !== 'dark' && t !== 'light') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.toggle('dark', t === 'dark');
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,7 +54,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
     />
   </head>
 
-  <body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased selection:bg-primary selection:text-white flex flex-col">
+  <body class="admin-app min-h-screen bg-background font-sans text-zinc-900 antialiased selection:bg-primary selection:text-white flex flex-col">
     <div class="flex min-h-screen w-full">
       <!-- High-Contrast Desktop Sidebar (Hidden on mobile < md) -->
       <AdminSidebar current={currentSection} />
@@ -49,7 +63,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
       <AdminMobileDrawer current={currentSection} />
 
       <!-- Main Operational Viewport -->
-      <div class="flex min-w-0 flex-1 flex-col bg-zinc-50">
+      <div class="flex min-w-0 flex-1 flex-col bg-background">
         <!-- Top Operations Bar -->
         <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white/95 px-3.5 sm:px-6 backdrop-blur-md">
           <!-- Left: Mobile Menu Button & Workspace Breadcrumbs -->
@@ -121,6 +135,17 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
           <!-- Right: Authenticated profile -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+            <!-- Light / dark theme toggle -->
+            <button
+              type="button"
+              class="theme-toggle inline-flex size-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 transition-colors cursor-pointer shrink-0"
+              aria-label="Switch to dark mode"
+              title="Toggle light / dark theme"
+            >
+              <svg class="size-4 dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              <svg class="size-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            </button>
+
             <span class="hidden sm:inline-flex rounded border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-800">
               Admin
             </span>
@@ -139,7 +164,7 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
         </header>
 
         <!-- Main Workspace Surface with safe padding for Mobile Bottom Dock -->
-        <main class="flex-1 bg-zinc-50/60 p-3 sm:p-5 lg:p-7 pb-24 md:pb-12 min-w-0 max-w-full overflow-x-hidden">
+        <main class="flex-1 bg-background p-3 sm:p-5 lg:p-7 pb-24 md:pb-12 min-w-0 max-w-full overflow-x-hidden">
           <slot />
         </main>
       </div>
@@ -150,7 +175,27 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
     <!-- Script to wire header buttons & events -->
     <script>
+      function setupThemeToggle() {
+        const root = document.documentElement;
+        document.querySelectorAll<HTMLElement>('.theme-toggle').forEach((b) => {
+          if (b.dataset.bound) return;
+          b.dataset.bound = '1';
+          const sync = () => {
+            const dark = root.classList.contains('dark');
+            b.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+            b.setAttribute('aria-pressed', String(dark));
+          };
+          b.addEventListener('click', () => {
+            const dark = root.classList.toggle('dark');
+            try { localStorage.setItem('nirnay-theme', dark ? 'dark' : 'light'); } catch (e) {}
+            sync();
+          });
+          sync();
+        });
+      }
+
       function setupHeaderButtons() {
+        setupThemeToggle();
         const mobileMenuBtn = document.getElementById('admin-header-menu-btn');
         if (mobileMenuBtn) {
           mobileMenuBtn.addEventListener('click', (e) => {

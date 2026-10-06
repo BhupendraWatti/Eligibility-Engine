@@ -1,0 +1,149 @@
+/* Dark theme for the admin panel (/admin). Scoped to `.dark .admin-app` (class on <body> in AdminLayout)
+   so the public site is untouched. Builds on dark-theme.css, which already remaps the shared
+   zinc/slate/tint classes; this file covers the classes only the admin uses (bg-white, border-zinc-100,
+   text-zinc-400, indigo/sky tints, ...) plus the DataTable widget. Solid fills (bg-*-500..700) and
+   text-white are left alone so buttons keep their contrast. */
+
+/* ---- Surfaces ---- */
+.dark .admin-app .bg-white{background-color:var(--color-card)}
+.dark .admin-app .bg-white\/95{background-color:color-mix(in srgb, var(--color-card) 95%, transparent)}
+.dark .admin-app .bg-white\/60,
+.dark .admin-app .hover\:bg-white\/60:hover{background-color:color-mix(in srgb, var(--color-card) 60%, transparent)}
+.dark .admin-app .focus\:bg-white:focus{background-color:var(--color-card)}
+.dark .admin-app .bg-zinc-50\/50,
+.dark .admin-app .bg-zinc-50\/60,
+.dark .admin-app .bg-zinc-50\/70,
+.dark .admin-app .bg-zinc-50\/80,
+.dark .admin-app .bg-slate-50,
+.dark .admin-app .bg-slate-50\/60{background-color:#1f1f23}
+.dark .admin-app .bg-zinc-200,
+.dark .admin-app .bg-zinc-200\/60,
+.dark .admin-app .bg-zinc-200\/80,
+.dark .admin-app .bg-slate-200{background-color:#2e2e33}
+.dark .admin-app .bg-zinc-400{background-color:#71717a}
+.dark .admin-app .bg-sky-50,
+.dark .admin-app .bg-indigo-50\/80,
+.dark .admin-app .bg-blue-50\/30,
+.dark .admin-app .bg-blue-50\/50{background-color:color-mix(in srgb, var(--color-blue-500) 12%, var(--color-card))}
+.dark .admin-app .bg-indigo-100,
+.dark .admin-app .bg-blue-100,
+.dark .admin-app .bg-blue-200\/80{background-color:color-mix(in srgb, var(--color-blue-500) 20%, var(--color-card))}
+.dark .admin-app .bg-emerald-50\/20,
+.dark .admin-app .bg-emerald-100\/80{background-color:color-mix(in srgb, var(--color-emerald-500) 14%, var(--color-card))}
+.dark .admin-app .bg-rose-50\/20{background-color:color-mix(in srgb, var(--color-rose-500) 10%, var(--color-card))}
+
+/* Hover surfaces */
+.dark .admin-app .hover\:bg-zinc-50:hover,
+.dark .admin-app .hover\:bg-zinc-50\/60:hover,
+.dark .admin-app .hover\:bg-zinc-50\/70:hover,
+.dark .admin-app .hover\:bg-zinc-50\/80:hover,
+.dark .admin-app .hover\:bg-slate-50:hover,
+.dark .admin-app .hover\:bg-slate-50\/60:hover{background-color:#1f1f23}
+.dark .admin-app .hover\:bg-slate-100:hover,
+.dark .admin-app .hover\:bg-zinc-200:hover{background-color:#27272a}
+.dark .admin-app .hover\:bg-rose-100:hover{background-color:color-mix(in srgb, var(--color-rose-500) 26%, var(--color-card))}
+.dark .admin-app .hover\:bg-amber-100:hover{background-color:color-mix(in srgb, var(--color-amber-500) 26%, var(--color-card))}
+.dark .admin-app .hover\:bg-blue-100\/50:hover,
+.dark .admin-app .hover\:bg-indigo-50\/40:hover{background-color:color-mix(in srgb, var(--color-blue-500) 18%, var(--color-card))}
+
+/* Gradient banners (indigo-50 -> white -> slate-50) */
+.dark .admin-app .from-indigo-50\/50,
+.dark .admin-app .from-indigo-50\/70{--tw-gradient-from:color-mix(in srgb, var(--color-blue-500) 14%, var(--color-card))}
+.dark .admin-app .via-white{--tw-gradient-via:var(--color-card)}
+.dark .admin-app .to-slate-50\/90{--tw-gradient-to:var(--color-card)}
+
+/* ---- Borders / dividers / rings ---- */
+.dark .admin-app .border-zinc-100,
+.dark .admin-app .border-slate-100,
+.dark .admin-app .border-zinc-200\/80,
+.dark .admin-app .border-zinc-200\/90,
+.dark .admin-app .border-slate-200\/80{border-color:#27272a}
+.dark .admin-app .border-zinc-300{border-color:#3f3f46}
+.dark .admin-app .border-slate-800{border-color:#3f3f46}
+.dark .admin-app .divide-zinc-100>:not(:last-child),
+.dark .admin-app .divide-slate-100>:not(:last-child){border-color:#27272a}
+.dark .admin-app .border-sky-200,
+.dark .admin-app .border-blue-100,
+.dark .admin-app .border-indigo-100,
+.dark .admin-app .border-indigo-100\/80,
+.dark .admin-app .border-indigo-200\/60,
+.dark .admin-app .border-indigo-200\/90,
+.dark .admin-app .border-blue-200\/90{border-color:color-mix(in srgb, var(--color-blue-500) 30%, var(--color-card))}
+.dark .admin-app .border-rose-100,
+.dark .admin-app .border-rose-200\/80{border-color:color-mix(in srgb, var(--color-rose-500) 30%, var(--color-card))}
+.dark .admin-app .border-emerald-100\/60,
+.dark .admin-app .border-emerald-200\/80{border-color:color-mix(in srgb, var(--color-emerald-500) 30%, var(--color-card))}
+.dark .admin-app .hover\:border-zinc-400\/80:hover{border-color:#52525b}
+.dark .admin-app .hover\:border-rose-300:hover{border-color:color-mix(in srgb, var(--color-rose-500) 42%, var(--color-card))}
+.dark .admin-app .ring-white{--tw-ring-color:var(--color-card)}
+.dark .admin-app .ring-blue-200,
+.dark .admin-app .ring-emerald-200,
+.dark .admin-app .ring-rose-200{--tw-ring-color:color-mix(in srgb, var(--color-blue-500) 30%, var(--color-card))}
+/* Focus rings: zinc-900 is invisible on dark surfaces */
+.dark .admin-app .focus\:ring-zinc-900:focus,
+.dark .admin-app .focus\:ring-zinc-400:focus{--tw-ring-color:#60a5fa}
+.dark .admin-app .focus\:border-zinc-900:focus{border-color:#60a5fa}
+
+/* ---- Text ---- */
+.dark .admin-app .text-zinc-300,
+.dark .admin-app .text-slate-400,
+.dark .admin-app .text-zinc-400{color:#71717a}
+.dark .admin-app .text-slate-500{color:#a1a1aa}
+.dark .admin-app .text-slate-950{color:#fafafa}
+.dark .admin-app .placeholder\:text-zinc-400::placeholder{color:#71717a}
+.dark .admin-app .hover\:text-zinc-900:hover,
+.dark .admin-app .hover\:text-slate-900:hover,
+.dark .admin-app .group:hover .group-hover\:text-zinc-950{color:#fafafa}
+.dark .admin-app .hover\:text-zinc-800:hover,
+.dark .admin-app .hover\:text-zinc-700:hover,
+.dark .admin-app .hover\:text-slate-600:hover{color:#e4e4e7}
+.dark .admin-app .text-indigo-600,
+.dark .admin-app .text-blue-600,
+.dark .admin-app .text-purple-600,
+.dark .admin-app .hover\:text-indigo-600:hover{color:var(--color-blue-400)}
+.dark .admin-app .text-indigo-800,
+.dark .admin-app .hover\:text-indigo-800:hover,
+.dark .admin-app .text-sky-700,
+.dark .admin-app .text-sky-800,
+.dark .admin-app .text-blue-800\/90,
+.dark .admin-app .text-cyan-900{color:var(--color-blue-300)}
+.dark .admin-app .text-purple-800{color:var(--color-purple-300)}
+.dark .admin-app .text-rose-500{color:var(--color-rose-400)}
+.dark .admin-app .text-rose-900,
+.dark .admin-app .hover\:text-rose-800:hover{color:var(--color-rose-300)}
+.dark .admin-app .text-emerald-950,
+.dark .admin-app .hover\:text-emerald-950:hover{color:var(--color-emerald-300)}
+
+/* Native form controls: keep them on dark surfaces even when no bg class is set */
+.dark .admin-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark .admin-app select,
+.dark .admin-app textarea{background-color:var(--color-card);color:var(--color-foreground);border-color:#3f3f46}
+.dark .admin-app input::placeholder,
+.dark .admin-app textarea::placeholder{color:#71717a}
+
+/* ---- DataTable (admin-datatable.css) ---- */
+.dark .admin-app .datatable-wrapper{background:var(--color-card)}
+.dark .admin-app .datatable-top,
+.dark .admin-app .datatable-bottom{background-color:#1f1f23;border-color:#27272a}
+.dark .admin-app .datatable-dropdown,
+.dark .admin-app .datatable-info,
+.dark .admin-app .datatable-empty{color:#a1a1aa}
+.dark .admin-app .datatable-selector,
+.dark .admin-app .datatable-input{background-color:var(--color-card);color:#fafafa;border-color:#3f3f46}
+.dark .admin-app .datatable-selector:focus,
+.dark .admin-app .datatable-input:focus{border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.25)}
+.dark .admin-app .datatable-input::placeholder{color:#71717a}
+.dark .admin-app .datatable-table th{color:#a1a1aa;background-color:#1f1f23;border-bottom-color:#27272a}
+.dark .admin-app .datatable-table td{color:#f4f4f5;border-bottom-color:#27272a}
+.dark .admin-app .datatable-table tbody tr:hover{background-color:#1f1f23}
+.dark .admin-app .datatable-sorter::before{border-bottom-color:#a1a1aa}
+.dark .admin-app .datatable-sorter::after{border-top-color:#a1a1aa}
+.dark .admin-app .datatable-pagination button,
+.dark .admin-app .datatable-pagination a{color:#d4d4d8}
+.dark .admin-app .datatable-pagination button:hover,
+.dark .admin-app .datatable-pagination a:hover{background-color:#27272a;color:#fafafa}
+.dark .admin-app .datatable-pagination .datatable-active button,
+.dark .admin-app .datatable-pagination .datatable-active a{background-color:var(--color-primary);color:#fff}
+.dark .admin-app .datatable-container{scrollbar-color:#3f3f46 transparent}
+.dark .admin-app .datatable-container::-webkit-scrollbar-thumb{background:#3f3f46}
+.dark .admin-app .datatable-container::-webkit-scrollbar-thumb:hover{background:#52525b}
