@@ -151,7 +151,7 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
           {org && <input type="hidden" name="org" value={org} />}
           {status && <input type="hidden" name="status" value={status} />}
           {sort && <input type="hidden" name="sort" value={sort} />}
-          <label class="flex-1 rounded-2xl bg-card border border-input flex px-4 items-center gap-3 h-12 shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <label class="flex-1 min-w-0 rounded-2xl bg-card border border-input flex px-4 items-center gap-3 h-12 shadow-2xs focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="search"
