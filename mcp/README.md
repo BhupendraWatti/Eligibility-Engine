@@ -2,6 +2,10 @@
 
 Standalone Cloudflare Worker, separate from the website. It can read and PROPOSE, never apply.
 
+**Scope: all of India.** NIRNAY covers central bodies and every state/UT. Give the MCP any official state or central
+recruitment link; nothing in it is tied to one state. Use `resolve_entity` / `list_entities` to find the state
+(`stateId`) and organisation, and `propose_master` for any authority that is missing.
+
 | Tool | What it does |
 |---|---|
 | `search_recruitments` | READ recruitments (filters only, no SQL). Drafts and pending-verification records are included by default for the authenticated MCP; `includeUnpublished=false` limits it to published. The public site only ever queries published rows. |

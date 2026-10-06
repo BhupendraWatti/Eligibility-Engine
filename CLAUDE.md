@@ -1,3 +1,7 @@
+## Scope
+
+NIRNAY covers **all of India** (central bodies and every state/UT), not a single state. Never add logic or copy that assumes Madhya Pradesh only. Domicile rules are per-recruitment (`domicileStateCode`); fields named `...Mp...` are legacy names kept for database/API compatibility.
+
 ## Project Architecture & Context Memory
 
 Before making architectural decisions, editing database queries, altering lifecycle states, or modifying eligibility calculation logic, always consult the comprehensive project architecture guide:
