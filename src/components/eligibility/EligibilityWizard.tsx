@@ -183,7 +183,8 @@ export default function EligibilityWizard({ recruitments }: Props) {
                         : 'text-muted-foreground'
                     }`}
                   >
-                    {s.num}. {s.label}
+                    {/* Number prefix only where there is room, so phones see the whole label */}
+                    <span className="hidden sm:inline">{s.num}. </span>{s.label}
                   </span>
                 </div>
               ))}
