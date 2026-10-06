@@ -13,35 +13,35 @@ const defaultSelectionStages = post?.selectionStages || (
   post?.sectorId === 'sec_civil_services' ? [
     { name: 'Stage 1: State Services Preliminary Examination (OMR)', desc: 'General Studies Paper I & General Aptitude Paper II (200 marks each) for state-wide screening.' },
     { name: 'Stage 2: State Services Main Examination (Descriptive)', desc: 'Six descriptive papers covering General Studies, History, Geography, Economics, Hindi, and Essay writing.' },
-    { name: 'Stage 3: Interview & Personality Test', desc: '175 marks viva-voce conducted by MPPSC Commission followed by cadre allocation.' },
+    { name: 'Stage 3: Interview & Personality Test', desc: '175 marks viva-voce conducted by the State Public Service Commission followed by cadre allocation.' },
   ] : post?.sectorId === 'sec_police' ? [
     { name: 'Stage 1: Online Computer Based Test (CBT)', desc: 'Objective examination covering General Knowledge, Reasoning, Elementary Mathematics, and Cadre Knowledge.' },
     { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: 'Physical standards measurement and physical efficiency tests (running, shot put, long jump).' },
-    { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, MP domicile certificate, and statutory medical fitness test.' },
+    { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, state domicile certificate (where required), and statutory medical fitness test.' },
   ] : post?.sectorId === 'sec_judiciary' ? [
-    { name: 'Stage 1: Preliminary Online Examination', desc: '150 marks objective test covering Indian Penal Code, CrPC, CPC, Constitution, and MP Land Revenue Code.' },
+    { name: 'Stage 1: Preliminary Online Examination', desc: '150 marks objective test covering Indian Penal Code, CrPC, CPC, Constitution, and the relevant State Land Revenue Code.' },
     { name: 'Stage 2: Main Written Examination', desc: 'Four descriptive papers covering civil law, criminal law, judgment writing, and translation.' },
     { name: 'Stage 3: Viva-Voce & Interview', desc: '50 marks interview conducted by High Court judges committee.' },
   ] : [
     { name: 'Stage 1: Written Competitive Examination (CBT)', desc: '100 to 200 marks objective multiple-choice test on subject knowledge, reasoning, and state aptitude.' },
-    { name: 'Stage 2: Document Verification & Biometrics', desc: 'Scrutiny of academic transcripts, caste certificates, and MP employment registration.' },
+    { name: 'Stage 2: Document Verification & Biometrics', desc: 'Scrutiny of academic transcripts, caste certificates, and state employment registration (where mandated).' },
     { name: 'Stage 3: Final Medical & Cadre Allotment', desc: 'Medical clearance and appointment order issue by the parent department.' },
   ]
 );
 
 const defaultSyllabus = post?.syllabus || (
   post?.sectorId === 'sec_civil_services' ? [
-    { subject: 'Paper I: General Studies (History, Geography, Polity, MP GK)', marks: '200 Marks' },
+    { subject: 'Paper I: General Studies (History, Geography, Polity, State GK)', marks: '200 Marks' },
     { subject: 'Paper II: General Aptitude & Comprehension', marks: '200 Marks (Qualifying 33%)' },
     { subject: 'Mains: GS Papers I to IV & General Hindi/Essay', marks: '1400 Marks Total' },
     { subject: 'Personality Test / Interview', marks: '175 Marks' },
   ] : post?.sectorId === 'sec_judiciary' ? [
     { subject: 'Constitutional Law, Civil Law & Procedure (CPC)', marks: '40 Questions' },
     { subject: 'Criminal Law & Procedure (IPC, CrPC, Evidence Act)', marks: '40 Questions' },
-    { subject: 'MP Specific Acts (Land Revenue, Accommodation Control)', marks: '30 Questions' },
+    { subject: 'State-Specific Acts (Land Revenue, Accommodation Control)', marks: '30 Questions' },
     { subject: 'General Knowledge, Computer Knowledge & English', marks: '40 Questions' },
   ] : [
-    { subject: 'General Knowledge & Current Affairs (Madhya Pradesh Focus)', marks: '30 Marks' },
+    { subject: 'General Knowledge & Current Affairs (State Focus)', marks: '30 Marks' },
     { subject: 'Logical Reasoning & Intellectual Ability', marks: '25 Marks' },
     { subject: 'General Science & Mathematics', marks: '25 Marks' },
     { subject: 'Language Competence / Trade Domain', marks: '20 Marks' },
@@ -160,7 +160,7 @@ const defaultSyllabus = post?.syllabus || (
               <div class="p-4 rounded-xl bg-muted/40 border border-border">
                 <strong class="text-foreground block font-semibold mb-1">Age Limits & Statutory Relaxations:</strong>
                 <p class="text-muted-foreground">
-                  {post.defaultMinAge} to {post.defaultMaxAge} Years (General / Unreserved). State relaxations apply: +5 years for SC/ST, +3 years for OBC, and up to +5 years for female applicants domiciled in MP.
+                  {post.defaultMinAge} to {post.defaultMaxAge} Years (General / Unreserved). State relaxations apply: +5 years for SC/ST, +3 years for OBC, and up to +5 years for female applicants domiciled in the recruiting state (as per that state's rules).
                 </p>
               </div>
               <div class="p-4 rounded-xl bg-muted/40 border border-border">

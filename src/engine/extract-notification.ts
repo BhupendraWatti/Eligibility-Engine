@@ -1,8 +1,8 @@
 /**
  * Notification Text Extractor
  *
- * Rule-based extraction of eligibility constraints from MP government
- * job notification text. Deterministic, auditable, no LLM hallucination.
+ * Rule-based extraction of eligibility constraints from Indian government
+ * (central and any state/UT) job notification text. Deterministic, auditable, no LLM hallucination.
  *
  * Extracts age limits, qualification, domicile, CPCT, physical standards,
  * and returns a structured JSON with confidence scores per field.
@@ -43,7 +43,7 @@ export interface ExtractedNotification {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern bank for MP government notification text
+// Pattern bank for Indian government notification text (central + all states/UTs)
 // Supports both Hindi and English patterns
 // ---------------------------------------------------------------------------
 
@@ -72,9 +72,12 @@ const PATTERNS = {
   mpesb: /(?:MPESB|मध्य\s*प्रदेश\s*कर्मचारी\s*चयन\s*मंडल|MP\s*Employees?\s*Selection\s*Board|ESB)/gi,
   mppsc: /(?:MPPSC|मध्य\s*प्रदेश\s*लोक\s*सेवा\s*आयोग|MP\s*Public\s*Service\s*Commission)/gi,
   mphc: /(?:MPHC|मध्य\s*प्रदेश\s*उच्च\s*न्यायालय|High\s*Court\s*(?:of\s*)?(?:MP|Madhya\s*Pradesh))/gi,
+  // Any other state/central authority: abbreviations such as UPPSC, RPSC, BPSC, HSSC, TNUSRB, UPSC, SSC.
+  authority_generic: /\b((?:[A-Z]{1,6})(?:PSC|SSC|SSB|SSSB|SSSC|USRB|PRB|RB|HC))\b/,
 
-  // Domicile
-  mp_domicile: /(?:मध्य\s*प्रदेश\s*(?:का\s*)?(?:मूल\s*निवासी|स्थायी\s*निवासी)|MP\s*(?:domicile|resident)|permanent\s*resident\s*of\s*(?:MP|Madhya\s*Pradesh))/gi,
+  // Domicile (any state). Kept under the legacy `mp_domicile` key / `requiresMpDomicile` field name
+  // for compatibility; it now fires for a domicile requirement of any state or UT.
+  mp_domicile: /(?:[ऀ-ॿ]+(?:\s+[ऀ-ॿ]+)?\s*(?:का\s*)?(?:मूल\s*निवासी|स्थायी\s*निवासी)|\b(?:domicile|domiciled)\b|(?:permanent|bona\s*fide|bonafide)\s*(?:resident|inhabitant)\s*of\s*[A-Z][A-Za-z&]+(?:\s+[A-Z][A-Za-z&]+)*|(?:state|local)\s*(?:domicile|resident)\b)/gi,
 
   // Employment registration
   rojgar_panjiyan: /(?:रोज़गार\s*पंजीयन|employment\s*(?:exchange|registration)|mprojgar|rojgar\s*panjiyan)/gi,
@@ -150,6 +153,9 @@ export function extractNotification(rawText: string): ExtractedNotification {
   } else if (PATTERNS.mphc.test(text)) {
     const match = text.match(PATTERNS.mphc);
     result.organisation = { value: 'MPHC', confidence: 'HIGH', sourceSnippet: match?.[0] || '' };
+  } else if (PATTERNS.authority_generic.test(text)) {
+    const match = text.match(PATTERNS.authority_generic);
+    result.organisation = { value: match![1], confidence: 'MEDIUM', sourceSnippet: match![0] };
   } else {
     result.unextractedFields.push('organisation');
   }
@@ -241,7 +247,7 @@ export function extractNotification(rawText: string): ExtractedNotification {
     result.unextractedFields.push('minQualificationLevel');
   }
 
-  // --- MP Domicile ---
+  // --- State domicile (any state/UT) ---
   if (new RegExp(PATTERNS.mp_domicile.source, PATTERNS.mp_domicile.flags).test(text)) {
     result.requiresMpDomicile = { value: true, confidence: 'HIGH', sourceSnippet: text.match(PATTERNS.mp_domicile)?.[0] || '' };
   }
@@ -327,7 +333,7 @@ export function extractNotification(rawText: string): ExtractedNotification {
 
 /**
  * Convert extracted notification fields to the DB-compatible RecruitmentCriteria format.
- * Applies sensible MP defaults for missing fields.
+ * Applies neutral defaults for missing fields (no state-specific assumptions).
  */
 export function extractedToCriteria(extracted: ExtractedNotification): {
   criteria: Record<string, any>;
@@ -345,7 +351,7 @@ export function extractedToCriteria(extracted: ExtractedNotification): {
     ageRelaxationEws: 0,
     minQualificationLevel: extracted.minQualificationLevel?.value ?? null,
     requiresMpDomicile: extracted.requiresMpDomicile?.value ?? false,
-    requiresMpEmploymentReg: extracted.requiresMpEmploymentReg?.value ?? true,
+    requiresMpEmploymentReg: extracted.requiresMpEmploymentReg?.value ?? false,
     requiresCpct: extracted.requiresCpct?.value ?? false,
     genderAllowed: extracted.genderAllowed?.value ?? 'ALL',
     minHeightMaleCm: extracted.minHeightMaleCm?.value ?? null,

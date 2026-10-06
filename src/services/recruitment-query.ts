@@ -31,7 +31,7 @@ export const LIFECYCLES: readonly CanonicalLifecycle[] = [
 ];
 
 export interface RecruitmentSearchFilters {
-  /** State code, e.g. 'MP' (case-insensitive). */
+  /** State/UT code, e.g. 'MP', 'MH', 'UP' (any Indian state; 'IN' for central) (case-insensitive). */
   state?: string;
   /** Case-insensitive substring over organisation name / short name / slug. */
   organisation?: string;

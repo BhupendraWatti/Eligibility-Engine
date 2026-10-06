@@ -49,13 +49,13 @@ const recordLastVerified = (() => {
 })();
 const officialSource = recruitment?.sourcesList?.[0] || {
   sourceTitle: `${recruitment?.organisationShortName || 'Official'} Rulebook Gazette`,
-  sourceUrl: recruitment?.organisationUrl || 'https://esb.mp.gov.in',
+  sourceUrl: recruitment?.organisationUrl || 'https://www.india.gov.in',
   publicationDate: recruitment?.applicationStart || null,
 };
 
 const officialLink = recruitment?.officialLinksList?.[0] || {
   title: `Apply on ${recruitment?.organisationShortName || 'Official'} Portal`,
-  url: recruitment?.organisationUrl || 'https://esb.mp.gov.in',
+  url: recruitment?.organisationUrl || 'https://www.india.gov.in',
 };
 ---
 

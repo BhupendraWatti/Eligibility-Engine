@@ -81,7 +81,7 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
         <div class="lg:col-span-2"><label class={label} for="u">Official URL</label><input id="u" name="url" type="url" required class={field} placeholder="https://…" /></div>
         <div><label class={label} for="t">Type</label><select id="t" name="sourceType" class={field}>{SOURCE_TYPES.map(t => <option value={t}>{t.replace('_', ' ')}</option>)}</select></div>
         <div><label class={label} for="c">Feeds category</label><select id="c" name="category" class={field}>{REGISTRY_CATEGORIES.map(c => <option value={c}>{c.replace('_', ' ')}</option>)}</select></div>
-        <div><label class={label} for="s">State code (optional)</label><input id="s" name="stateCode" maxlength="4" class={field} placeholder="MP" /></div>
+        <div><label class={label} for="s">State code (optional)</label><input id="s" name="stateCode" maxlength="4" class={field} placeholder="e.g. UP, MH, IN" /></div>
         <div><label class={label} for="d">Department</label><input id="d" name="department" maxlength="120" class={field} /></div>
         <div><label class={label} for="o">Organisation master</label><select id="o" name="organisationId" class={field}><option value="">(resolve from document)</option>{organisations.map(o => <option value={o.id}>{o.name}</option>)}</select></div>
         <div><label class={label} for="f">Check every (hours)</label><input id="f" name="frequencyHours" type="number" min="1" max="168" value="3" class={field} /></div>

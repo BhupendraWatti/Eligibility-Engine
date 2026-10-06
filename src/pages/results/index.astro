@@ -9,6 +9,13 @@ const selectedOrg = (Astro.url.searchParams.get('org') || '').trim();
 
 const allRecruitments = await getAllActiveRecruitments();
 
+// Recruiting authorities come from the data (all states + centre), not a fixed list.
+const orgOptions = [...new Map(
+  allRecruitments
+    .filter((r) => r.organisationShortName)
+    .map((r) => [r.organisationShortName, r.organisationName || r.organisationShortName] as const),
+).entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
 function formatDate(dateStr?: string): string {
   if (!dateStr) return 'TBA';
   try {
@@ -110,9 +117,9 @@ const results = allRecruitments.filter(r =>
             class="w-full h-11 px-3 rounded-xl bg-card border border-input text-foreground text-xs font-semibold cursor-pointer focus:border-primary outline-none"
           >
             <option value="">All Central & State Authorities</option>
-            <option value="MPESB" selected={selectedOrg === 'MPESB'}>MPESB (Bhopal)</option>
-            <option value="MPPSC" selected={selectedOrg === 'MPPSC'}>MPPSC (Indore)</option>
-            <option value="MPHC" selected={selectedOrg === 'MPHC'}>High Court (Jabalpur)</option>
+            {orgOptions.map(([short, name]) => (
+              <option value={short} selected={selectedOrg === short}>{short} - {name}</option>
+            ))}
           </select>
         </div>
       </form>

@@ -119,7 +119,8 @@ export function evaluateEligibility(
     }
   }
 
-  // 2. Recruitment-jurisdiction domicile rule (legacy MP flags remain API-compatible).
+  // 2. Recruitment-jurisdiction domicile rule. Any state: domicileStateCode drives it; the legacy
+  // MP-named flags are kept only for API/database compatibility (a flag with no state means MP).
   if (criteria.requiresMpDomicile || criteria.domicileStateCode) {
     const requiredState = (criteria.domicileStateCode || 'MP').toUpperCase();
     const candidateState = user.domicileStateCode?.toUpperCase() || (user.isMpDomicile === true ? 'MP' : user.isMpDomicile === false ? 'OTHER' : undefined);

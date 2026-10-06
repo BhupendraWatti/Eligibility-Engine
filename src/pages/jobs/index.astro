@@ -17,6 +17,13 @@ const [allRecruitments, allSectors] = await Promise.all([
   getAllSectors(),
 ]);
 
+// Recruiting authorities come from the data (all states + centre), not a fixed list.
+const orgOptions = [...new Map(
+  allRecruitments
+    .filter((r) => r.organisationShortName)
+    .map((r) => [r.organisationShortName, r.organisationName || r.organisationShortName] as const),
+).entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
 // Filter recruitments dynamically
 let filteredRecruitments = allRecruitments.filter((job) => {
   if (q) {
@@ -254,9 +261,9 @@ const hasActiveFilters = Boolean(q || qualification || org || status);
               class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
               <option value="">All Authorities</option>
-              <option value="MPESB" selected={org === 'MPESB'}>MPESB (Bhopal)</option>
-              <option value="MPPSC" selected={org === 'MPPSC'}>MPPSC (Indore)</option>
-              <option value="MPHC" selected={org === 'MPHC'}>MP High Court (Jabalpur)</option>
+              {orgOptions.map(([short, name]) => (
+                <option value={short} selected={org === short}>{short} - {name}</option>
+              ))}
             </select>
           </div>
 

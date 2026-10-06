@@ -74,7 +74,7 @@ export interface BatchEligibilityResult {
  * This map ensures correct lookup.
  */
 // Keys MUST equal the `ruleName` strings emitted by evaluateEligibility(); a mismatch silently
-// drops the question (the old 'MP Domicile' / 'MP Rojgar Panjiyan' keys never matched).
+// drops the question (the old state-specific rule-name keys never matched).
 const RULE_TO_PROFILE_FIELD: Record<string, keyof UserEligibilityProfile> = {
   'State Domicile': 'isMpDomicile',
   'Employment Registration': 'hasMpRojgarPanjiyan',
@@ -92,15 +92,15 @@ const RULE_TO_PROFILE_FIELD: Record<string, keyof UserEligibilityProfile> = {
 /** Label registry for building structured questions */
 const FIELD_QUESTION_META: Record<string, Omit<StructuredQuestion, 'fieldKey' | 'affectsRecruitmentIds'>> = {
   isMpDomicile: {
-    labelHindi: 'क्या आप मध्य प्रदेश के मूल निवासी हैं?',
-    labelEnglish: 'Are you a permanent resident of Madhya Pradesh?',
-    description: 'MP Domicile / Mool Niwasi certificate is required for state government posts.',
+    labelHindi: 'क्या आप भर्ती करने वाले राज्य के मूल निवासी हैं?',
+    labelEnglish: 'Are you a domiciled (permanent) resident of the state conducting this recruitment?',
+    description: 'A state domicile / Mool Niwasi certificate is required for many state government posts. Answer for the state that issued the notification.',
     inputType: 'boolean',
   },
   hasMpRojgarPanjiyan: {
-    labelHindi: 'क्या आपका MP रोज़गार पंजीयन सक्रिय है?',
-    labelEnglish: 'Do you have active registration on mprojgar.gov.in?',
-    description: 'MP Employment Exchange registration is legally mandatory for most state posts.',
+    labelHindi: 'क्या आपका राज्य रोज़गार कार्यालय पंजीयन सक्रिय है?',
+    labelEnglish: 'Do you have an active state employment exchange registration?',
+    description: 'Some states make employment exchange registration mandatory for their state posts.',
     inputType: 'boolean',
   },
   hasCpct: {

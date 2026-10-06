@@ -42,7 +42,7 @@ const text = z.string().trim().min(1).max(100);
 
 /** A fixed set of business filters. There is deliberately no free-form query field. */
 const searchInput = {
-  state: z.string().trim().min(2).max(10).optional().describe("State code, e.g. 'MP'"),
+  state: z.string().trim().min(2).max(10).optional().describe("State or UT code, e.g. 'MP', 'MH', 'UP', 'DL' (any Indian state/UT, or 'IN' for central)"),
   organisation: text.optional().describe('Organisation name, short name or slug (substring)'),
   department: text.optional().describe('Department name or slug (substring)'),
   sector: text.optional().describe('Sector name or slug (substring)'),
