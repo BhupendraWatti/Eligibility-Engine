@@ -19,9 +19,14 @@ recruitment link; nothing in it is tied to one state. Use `resolve_entity` / `li
 | `list_entities` | List active masters of one type, optionally filtered. |
 | `get_domain_schema` | Allowed fields, formats, enums and the evidence format, generated from the validators. |
 
-The propose tools also take optional `evidence[]` (field, sourceUrl, page, snippet, method NATIVE/OCR/VISION, confidence;
-shown to the reviewer as an unverified claim) and `supersedes` (the id of its own PENDING proposal to replace atomically).
-They refuse with a stable error code instead of queueing: `PENDING_CHANGE_CONFLICT` (an open proposal already changes
+`propose_recruitment_update` covers every tab of the admin editor (Basic, Vacancy, Eligibility, Dates, Sources, SEO).
+Publication status, the Verified badge, featured, robots, post and organisation stay admin-only.
+
+The propose tools require `evidence[]` (field, sourceUrl, page, section, snippet, method NATIVE/OCR/VISION, confidence;
+shown to the reviewer as an unverified claim): one item with a snippet quoted from the official source for every changed
+field except `seoTitle`, `seoDescription`, `postId` and `organisationId`, otherwise the proposal is refused as `EVIDENCE_REQUIRED`.
+They also take `supersedes` (the id of its own PENDING proposal to replace atomically).
+They refuse with a stable error code instead of queueing: `EVIDENCE_REQUIRED`, `PENDING_CHANGE_CONFLICT` (an open proposal already changes
 the same fields of that recruitment), `CONFIRMED_DUPLICATE`, and `UNKNOWN_POST` (the post is not in the master data:
 queue it with `propose_master`; the MCP can never create masters, an admin approves them). A possible duplicate is queued with a warning for the reviewer.
 The conflict and duplicate checks are best-effort (D1 has no cross-statement transaction); the admin stale-record guard is the backstop.

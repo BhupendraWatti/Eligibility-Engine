@@ -3,7 +3,7 @@
  * Resolution is exact-match only (name, slug, short name or code). It never guesses a canonical master.
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
-import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES } from './change-proposals';
+import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 
 export const ENTITY_TYPES = ['state', 'organisation', 'department', 'sector', 'post'] as const;
@@ -74,7 +74,11 @@ export function getDomainSchema() {
     },
     lifecycles: LIFECYCLES,
     applicationStatuses: APPLICATION_STATUSES,
-    evidence: { methods: EVIDENCE_METHODS, fields: 'field (a key in changes), sourceUrl (http/https), page, snippet (<=500 chars), method, confidence (0-1, advisory)' },
+    evidence: {
+      methods: EVIDENCE_METHODS,
+      fields: 'field (a key in changes), sourceUrl (http/https), page, section, snippet (<=500 chars, quoted from the source), method, confidence (0-1, advisory)',
+      required: `MCP proposals need one item with a snippet for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (else EVIDENCE_REQUIRED).`,
+    },
     // Free text in the validators (max 50 chars); these are the values the site uses today.
     linkTypeExamples: ['APPLY_ONLINE', 'NOTIFICATION_PDF', 'SYLLABUS_PDF', 'ADMIT_CARD', 'RESULT'],
     sourceTypeExamples: ['OFFICIAL_NOTIFICATION_PDF', 'GOVT_GAZETTE', 'OFFICIAL_PORTAL'],

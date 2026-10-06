@@ -30,7 +30,7 @@ export class InvalidProposalError extends Error {}
 /** A well-formed proposal that must not be queued (pending conflict, confirmed duplicate, unknown post). */
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
-    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION',
+    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -158,7 +158,7 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
       }));
     case 'vacancies':
       return list(v, field, 100, (s, i) => ({
-        category: str(s.category, `${field}[${i}].category`, 20),
+        category: str(s.category, `${field}[${i}].category`, 60),
         count: int(s.count, `${field}[${i}].count`),
         gender: s.gender === undefined ? 'ALL' : validateField(`${field}[${i}].gender`, { enum: GENDERS }, s.gender),
         quotaPct: s.quotaPct === undefined ? undefined : str(s.quotaPct, `${field}[${i}].quotaPct`, 20),
@@ -244,6 +244,15 @@ export const CONSEQUENTIAL_FIELDS = [
   'advtNumber', 'totalVacancies', 'applicationStart', 'applicationEnd', 'examDate', 'ageCutoffDate', 'minAge', 'maxAgeGeneral',
   'minQualificationLevel', 'vacanciesBreakdown', 'importantDates',
 ];
+
+/** Not facts from the notice: editorial SEO copy and master ids (those come from resolve_entity). */
+export const EVIDENCE_EXEMPT_FIELDS = ['seoTitle', 'seoDescription', 'postId', 'organisationId'];
+
+/** Strict mode: every changed fact needs an evidence item that quotes the official source (a snippet). */
+export function unsupportedFields(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined): string[] {
+  const quoted = new Set((evidence ?? []).filter(e => e.snippet).map(e => e.field));
+  return Object.keys(payload).filter(f => !EVIDENCE_EXEMPT_FIELDS.includes(f) && !quoted.has(f));
+}
 
 export function evidenceGaps(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined): string[] {
   const covered = new Set((evidence ?? []).map(e => e.field));
@@ -459,6 +468,8 @@ export interface ProposalInput {
   supersedes?: string;
   /** Trusted in-process callers only (the MCP tools never pass it): confidence and pipeline provenance for the reviewer. */
   meta?: Record<string, unknown>;
+  /** Set by the MCP server (never by the model): refuse any changed fact without a quoted official source. */
+  requireEvidence?: boolean;
 }
 
 function requirePropose(actor: Actor, d1: D1Database | undefined): D1Database {
@@ -474,6 +485,12 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   const payload = sanitizeChanges(input.kind, input.changes);
   const evidence = sanitizeEvidence(input.evidence, payload);
   const evidenceMissing = evidenceGaps(payload, evidence);
+  if (input.requireEvidence) {
+    const fields = unsupportedFields(payload, evidence);
+    if (fields.length) {
+      throw new ProposalBlockedError('EVIDENCE_REQUIRED', `Every changed field needs evidence quoting the official source (sourceUrl + snippet). Missing for: ${fields.join(', ')}. Leave out any value the source does not state.`, { fields });
+    }
+  }
   const meta: Record<string, unknown> = {};
   if (evidence?.length) meta.evidence = evidence;
   if (input.meta) Object.assign(meta, input.meta);

@@ -11,6 +11,7 @@ import {
 import {
   CREATE_ONLY_FIELDS,
   EDITABLE_FIELDS,
+  EVIDENCE_EXEMPT_FIELDS,
   InvalidProposalError,
   PROPOSAL_STATUSES,
   ProposalBlockedError,
@@ -97,8 +98,9 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const summaryField = z.string().trim().min(1).max(300).describe('One line for the reviewer: what changes and why, ideally citing the official source.');
 
   const evidenceField = z.array(z.record(z.string(), z.unknown())).optional().describe(
-    'Field-level evidence (strongly expected for dates, vacancies, age, qualification and advtNumber; missing ones are listed in evidenceMissing), one item per changed field: {field, sourceUrl, page, section, snippet (<=500 chars), method: NATIVE|OCR|VISION, confidence 0-1}. ' +
-    'Shown to the reviewer; confidence is advisory, not verification. Never invent values: leave a field out if the official source does not state it.',
+    `REQUIRED for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (otherwise refused as EVIDENCE_REQUIRED): one item per field {field, sourceUrl, page, section, snippet, method: NATIVE|OCR|VISION, confidence 0-1}. ` +
+    'snippet is the exact wording copied from the official notice, corrigendum or portal (<=500 chars), not a paraphrase. Shown to the reviewer; confidence is advisory, not verification. ' +
+    'Never invent or estimate values: leave a field out if the official source does not state it.',
   );
   const supersedesField = z.string().trim().min(1).max(100).optional().describe('id of your own PENDING proposal that this one replaces (it is withdrawn atomically). Same kind and target.');
 
@@ -117,7 +119,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const propose = async (tool: string, input: ProposalInput) => {
     console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, kind: input.kind, fields: input.changes && typeof input.changes === 'object' ? Object.keys(input.changes) : [] }));
     return guarded(tool, async () => ({
-      ...(await createProposal(ctx.d1, ctx.actor, input, ctx.proposalDeps)),
+      ...(await createProposal(ctx.d1, ctx.actor, { ...input, requireEvidence: true }, ctx.proposalDeps)),
       message: 'Proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.',
     }), 'Could not queue the proposal.');
   };
@@ -128,7 +130,10 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Propose an update to a recruitment',
       description:
         'Queue a field-level change to an EXISTING recruitment for owner approval. Does NOT change the live site. ' +
+        'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification), ' +
+        'Eligibility (age, relaxations, qualification, domicile, physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
         `Allowed fields in "changes": ${editable}. ` +
+        'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write text fields as plain factual statements taken from the notice: no promotional tone, no guesses. ' +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
         'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
@@ -201,7 +206,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / EVIDENCE_REQUIRED), ' +
         'a before/after row per field, evidenceMissing and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),
@@ -216,7 +221,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'preview_proposal', actor: ctx.actor.id, mode: ctx.actor.mode, kind: args.kind }));
       try {
-        return result({ ...(await previewProposal(ctx.d1, ctx.actor, args as ProposalInput, ctx.proposalDeps)) });
+        return result({ ...(await previewProposal(ctx.d1, ctx.actor, { ...(args as ProposalInput), requireEvidence: true }, ctx.proposalDeps)) });
       } catch (error) {
         if (error instanceof ProposalBlockedError) return result({ action: error.code, message: error.message, ...error.details });
         if (error instanceof InvalidProposalError) return result({ error: { code: 'INVALID_INPUT', message: error.message } }, true);
