@@ -1,238 +1,176 @@
 ---
 // src/components/common/Header.astro
 const pathname = Astro.url.pathname;
+
+const navItems = [
+  { href: '/jobs', label: 'All Jobs', active: pathname.startsWith('/jobs') || pathname.startsWith('/recruitments') },
+  { href: '/calendar', label: 'Exam Calendar', active: pathname.startsWith('/calendar') },
+  { href: '/results', label: 'Results', active: pathname.startsWith('/results') },
+  { href: '/admit-cards', label: 'Admit Cards', active: pathname.startsWith('/admit-cards') },
+  { href: '/answer-keys', label: 'Answer Keys', active: pathname.startsWith('/answer-keys') },
+  { href: '/#sectors', label: 'Cadre Guides', active: pathname.startsWith('/posts') || pathname.startsWith('/sectors') },
+];
+const eligibilityActive = pathname.startsWith('/eligibility');
+const mobileItems = [...navItems, { href: '/eligibility-checker', label: 'Eligibility Checker', active: eligibilityActive }];
 ---
 
-<header class="bg-card text-foreground border-b border-border w-full sticky top-0 z-40 backdrop-blur-md bg-card/95 no-print">
-  <!-- Civic National Accent Micro Strip -->
+<header class="sticky top-0 z-40 w-full border-b border-border bg-card/90 text-foreground backdrop-blur-md no-print">
   <div class="civic-tricolor-bar w-full"></div>
 
-  <!-- Top ticker bar -->
-  <div class="bg-muted/80 border-b border-border/80">
-    <div class="text-muted-foreground text-xs tracking-wide flex mx-auto py-1.5 px-4 sm:px-6 justify-between items-center max-w-7xl">
-      <div class="flex items-center gap-2">
-        <span class="inline-block size-2 rounded-full bg-emerald-600 animate-pulse"></span>
-        <span class="font-medium text-[11px] sm:text-xs text-foreground/80">
-          Independent Public Recruitment & Eligibility Platform · Direct Official Gazette Links
-        </span>
-      </div>
-      <div class="hidden sm:flex items-center gap-3 text-[11px]">
-        <a href="/disclaimer" class="hover:text-foreground underline transition-colors">Non-affiliation disclaimer</a>
-        <span>·</span>
-        <a href="/source-policy" class="hover:text-foreground transition-colors">Verification standards</a>
-        <span>·</span>
-        <a href="/admin" class="hover:text-foreground transition-colors font-semibold text-primary">NIRNAY OPS</a>
-      </div>
+  <!-- Utility bar -->
+  <div class="border-b border-border/70">
+    <div class="mx-auto flex h-8 max-w-7xl items-center justify-between gap-4 px-4 text-[11px] text-muted-foreground sm:px-6">
+      <p class="flex min-w-0 items-center gap-2">
+        <span class="inline-block size-1.5 shrink-0 rounded-full bg-emerald-600" aria-hidden="true"></span>
+        <span class="truncate">Independent recruitment &amp; eligibility platform · Links to official gazettes</span>
+      </p>
+      <nav class="hidden shrink-0 items-center gap-4 sm:flex" aria-label="Policies">
+        <a href="/disclaimer" class="transition-colors hover:text-foreground">Disclaimer</a>
+        <a href="/source-policy" class="transition-colors hover:text-foreground">Verification standards</a>
+        <a href="/admin" class="font-semibold text-primary transition-colors hover:text-primary-hover dark:text-blue-400">NIRNAY OPS</a>
+      </nav>
     </div>
   </div>
 
-  <!-- Main header -->
-  <div class="flex mx-auto py-3 px-4 sm:px-6 items-center justify-between gap-3 sm:gap-4 max-w-7xl">
-    <!-- Brand -->
-    <a href="/" class="flex items-center shrink-0 gap-2.5 group" aria-label="NIRNAY home">
-      <div class="size-9 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-base shadow-sm ring-1 ring-blue-800 group-hover:bg-primary-hover transition-all">
-        <!-- Crisp Emblem SVG -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3v18"/>
-          <path d="M3 12h18"/>
-          <circle cx="12" cy="12" r="3"/>
+  <!-- Main bar -->
+  <div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:gap-6">
+    <a href="/" class="group flex shrink-0 items-center gap-2.5" aria-label="NIRNAY home">
+      <span class="flex size-8 items-center justify-center rounded-lg bg-primary text-white transition-colors group-hover:bg-primary-hover">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/><circle cx="12" cy="12" r="3"/>
         </svg>
-      </div>
-      <div class="flex flex-col">
-        <div class="flex items-center gap-1.5">
-          <span class="font-black text-foreground text-xl tracking-[0.16em] leading-none font-heading">
-            NIRNAY
-          </span>
-          <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-            GovTech
-          </span>
-        </div>
-        <span class="font-semibold text-muted-foreground text-[10px] tracking-wider uppercase mt-0.5">
-          Recruitment & Eligibility Discovery
+      </span>
+      <span class="flex flex-col">
+        <span class="font-heading text-[17px] font-extrabold leading-none tracking-[0.14em] text-foreground">NIRNAY</span>
+        <span class="mt-1 hidden text-[10px] font-medium leading-none tracking-wide text-muted-foreground sm:block lg:hidden 2xl:block">
+          Recruitment &amp; eligibility discovery
         </span>
-      </div>
+      </span>
     </a>
 
-    <!-- Desktop nav links -->
-    <nav class="hidden lg:flex justify-center items-center flex-1 gap-1 min-w-0" aria-label="Primary navigation">
-      <a
-        href="/jobs"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname === '/jobs' || pathname.startsWith('/recruitments') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        All Jobs
-      </a>
-      <a
-        href="/calendar"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        Exam Calendar
-      </a>
-      <a
-        href="/results"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        Results
-      </a>
-      <a
-        href="/admit-cards"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        Admit Cards
-      </a>
-      <a
-        href="/answer-keys"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        Answer Keys
-      </a>
-      <a
-        href="/#sectors"
-        class={`font-semibold whitespace-nowrap rounded-lg text-xs px-2.5 py-2 transition-all ${pathname.startsWith('/posts') || pathname.startsWith('/sectors') ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-foreground/80 hover:text-foreground hover:bg-muted'}`}
-      >
-        Cadre Guides
-      </a>
+    <!-- Desktop nav: quiet text links, active state is a 2px rule on the header's bottom edge -->
+    <nav class="hidden h-full min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Primary navigation">
+      {navItems.map((item) => (
+        <a
+          href={item.href}
+          aria-current={item.active ? 'page' : undefined}
+          class:list={[
+            'relative flex h-full items-center whitespace-nowrap px-2.5 text-[13px] transition-colors',
+            'after:absolute after:inset-x-2.5 after:bottom-[-1px] after:h-0.5 after:rounded-full after:transition-colors',
+            item.active
+              ? 'font-semibold text-foreground after:bg-primary dark:after:bg-blue-400'
+              : 'font-medium text-muted-foreground hover:text-foreground after:bg-transparent hover:after:bg-border',
+          ]}
+        >
+          {item.label}
+        </a>
+      ))}
     </nav>
 
-    <!-- Search input & CTA button + Mobile Hamburger -->
-    <div class="flex items-center shrink-0 gap-2 sm:gap-2.5">
-      <form action="/search" method="get" class="hidden xl:flex">
-        <label class="rounded-lg bg-background text-muted-foreground border border-input flex px-3 items-center gap-2 w-44 2xl:w-56 h-9 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-          </svg>
+    <div class="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+      <!-- Desktop search (xl+) -->
+      <form action="/search" method="get" class="hidden xl:block" role="search">
+        <label class="flex h-9 w-48 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-muted-foreground transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 2xl:w-60">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input
+            id="nirnay-header-search"
             type="search"
             name="q"
-            placeholder="Search exams, posts..."
+            placeholder="Search exams, posts"
             aria-label="Search opportunities"
-            class="bg-transparent text-foreground text-xs sm:text-sm outline-none flex-1 min-w-0 placeholder:text-muted-foreground/70"
+            class="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70"
           />
+          <kbd class="hidden rounded border border-border bg-muted px-1.5 font-mono text-[10px] leading-4 text-muted-foreground 2xl:inline">/</kbd>
         </label>
       </form>
 
-<button
+      <!-- Search icon (lg only, where the field doesn't fit) -->
+      <a href="/search" class="hidden size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:inline-flex xl:hidden" aria-label="Search">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </a>
+
+      <button
         type="button"
-        class="theme-toggle hidden sm:inline-flex size-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+        class="theme-toggle hidden size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
         aria-label="Switch to dark mode"
         title="Toggle light / dark theme"
       >
-        <!-- Moon (shown in light mode) -->
         <svg class="size-[18px] dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-        <!-- Sun (shown in dark mode) -->
         <svg class="size-[18px] hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
       </button>
 
+      <!-- Primary CTA (below sm the mobile dock carries it) -->
       <a
         href="/eligibility-checker"
-        class="font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-xs sm:text-sm inline-flex px-3.5 py-2 items-center gap-1.5 h-9 shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-current={eligibilityActive ? 'page' : undefined}
+        class="hidden h-9 items-center gap-1.5 rounded-md bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-[background-color,transform] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card active:scale-[0.98] sm:inline-flex"
       >
-        <!-- Check Shield SVG -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-          <path d="m9 12 2 2 4-4"/>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>
         </svg>
-        <span class="tracking-tight">Check Eligibility</span>
+        <span class="lg:hidden xl:inline">Check Eligibility</span>
+        <span class="hidden lg:inline xl:hidden">Eligibility</span>
       </a>
 
-      <!-- Mobile Hamburger Button -->
+      <!-- Mobile menu button -->
       <button
         id="nirnay-mobile-menu-btn"
         type="button"
-        aria-label="Toggle navigation menu"
+        aria-label="Open menu"
         aria-expanded="false"
-        class="lg:hidden p-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors touch-target flex items-center justify-center"
+        aria-controls="nirnay-mobile-drawer"
+        class="-mr-1.5 inline-flex size-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted lg:hidden"
       >
-        <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-        <svg id="close-icon" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
+        <svg id="hamburger-icon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>
+        <svg id="close-icon" xmlns="http://www.w3.org/2000/svg" class="hidden size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
   </div>
 
-  <!-- Mobile Collapsible Navigation Drawer -->
-  <div id="nirnay-mobile-drawer" class="hidden lg:hidden border-t border-border bg-card px-4 py-4 space-y-3.5 shadow-md">
-    <!-- Mobile Search -->
-    <form action="/search" method="get" class="w-full">
-      <label class="rounded-xl bg-background text-muted-foreground border border-input flex px-3.5 items-center gap-2.5 h-11 w-full focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-        </svg>
-        <input
-          type="search"
-          name="q"
-          placeholder="Search jobs, exams, posts, states..."
-          aria-label="Search opportunities"
-          class="bg-transparent text-foreground text-sm outline-none flex-1 min-w-0"
-        />
-      </label>
-    </form>
+  <!-- Mobile menu: overlays the page instead of pushing it down -->
+  <div
+    id="nirnay-mobile-drawer"
+    class="absolute inset-x-0 top-full hidden max-h-[calc(100dvh-7rem)] overflow-y-auto border-b border-border bg-card lg:hidden"
+  >
+    <div class="mx-auto max-w-7xl px-4 pb-5 pt-3 sm:px-6">
+      <form action="/search" method="get" role="search">
+        <label class="flex h-11 items-center gap-2.5 rounded-md border border-border bg-background px-3 text-muted-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" name="q" placeholder="Search jobs, exams, posts, states" aria-label="Search opportunities" class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/70" />
+        </label>
+      </form>
 
-    <div class="grid grid-cols-2 gap-2 pt-1">
-      <a
-        href="/jobs"
-        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/jobs') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
-      >
-        <span>All Jobs</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-      <a
-        href="/calendar"
-        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/calendar') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
-      >
-        <span>Exam Calendar</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-      <a
-        href="/results"
-        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/results') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
-      >
-        <span>Results & Lists</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-      <a
-        href="/admit-cards"
-        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/admit-cards') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
-      >
-        <span>Admit Cards</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-      <a
-        href="/answer-keys"
-        class={`font-semibold rounded-xl text-xs p-3 transition-colors flex items-center justify-between ${pathname.startsWith('/answer-keys') ? 'bg-primary text-primary-foreground' : 'bg-muted/70 text-foreground hover:bg-muted'}`}
-      >
-        <span>Answer Keys</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-      <a
-        href="/eligibility-checker"
-        class="font-bold rounded-xl text-xs p-3 transition-colors flex items-center justify-between bg-blue-500/10 text-blue-900 border border-blue-300/60 hover:bg-blue-500/20"
-      >
-        <span>Eligibility Checker</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-    </div>
+      <nav class="mt-3" aria-label="Mobile navigation">
+        <ul class="divide-y divide-border">
+          {mobileItems.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                aria-current={item.active ? 'page' : undefined}
+                class:list={[
+                  'flex h-12 items-center justify-between text-[15px] transition-colors',
+                  item.active ? 'font-semibold text-primary dark:text-blue-400' : 'font-medium text-foreground hover:text-primary',
+                ]}
+              >
+                {item.label}
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-    <button type="button" class="theme-toggle sm:hidden w-full rounded-xl border border-border bg-muted/70 text-foreground hover:bg-muted transition-colors h-11 px-3.5 flex items-center justify-between text-xs font-semibold" aria-label="Switch to dark mode">
-      <span class="theme-toggle-label">Theme</span>
-      <span class="inline-flex">
-        <svg class="size-[18px] dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-        <svg class="size-[18px] hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-      </span>
-    </button>
+      <button type="button" class="theme-toggle flex h-12 w-full items-center justify-between border-y border-border text-[15px] font-medium text-foreground sm:hidden" aria-label="Switch to dark mode">
+        <span class="theme-toggle-label">Dark mode</span>
+        <svg class="size-[18px] text-muted-foreground dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="hidden size-[18px] text-muted-foreground dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
 
-    <div class="pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-      <a href="/disclaimer" class="hover:text-foreground">Disclaimer</a>
-      <span>·</span>
-      <a href="/source-policy" class="hover:text-foreground">Source Policy</a>
-      <span>·</span>
-      <a href="/admin" class="hover:text-foreground font-semibold text-primary">NIRNAY OPS</a>
+      <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+        <a href="/disclaimer" class="hover:text-foreground">Disclaimer</a>
+        <a href="/source-policy" class="hover:text-foreground">Verification standards</a>
+        <a href="/admin" class="font-semibold text-primary dark:text-blue-400">NIRNAY OPS</a>
+      </div>
     </div>
   </div>
 
@@ -256,23 +194,33 @@ const pathname = Astro.url.pathname;
         });
       });
       sync();
-    })();
 
-    const btn = document.getElementById('nirnay-mobile-menu-btn');
-    const drawer = document.getElementById('nirnay-mobile-drawer');
-    const hamburger = document.getElementById('hamburger-icon');
-    const close = document.getElementById('close-icon');
+      var btn = document.getElementById('nirnay-mobile-menu-btn');
+      var drawer = document.getElementById('nirnay-mobile-drawer');
+      var openIcon = document.getElementById('hamburger-icon');
+      var closeIcon = document.getElementById('close-icon');
+      function setOpen(open) {
+        if (!btn || !drawer) return;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        drawer.classList.toggle('hidden', !open);
+        if (openIcon) openIcon.classList.toggle('hidden', open);
+        if (closeIcon) closeIcon.classList.toggle('hidden', !open);
+      }
+      if (btn && drawer) {
+        btn.addEventListener('click', function () { setOpen(btn.getAttribute('aria-expanded') !== 'true'); });
+        drawer.addEventListener('click', function (e) { if (e.target.closest('a')) setOpen(false); });
+      }
 
-    if (btn && drawer) {
-      btn.addEventListener('click', () => {
-        const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-        btn.setAttribute('aria-expanded', String(!isExpanded));
-        drawer.classList.toggle('hidden');
-        if (hamburger && close) {
-          hamburger.classList.toggle('hidden');
-          close.classList.toggle('hidden');
-        }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && btn && btn.getAttribute('aria-expanded') === 'true') { setOpen(false); btn.focus(); return; }
+        // "/" focuses the desktop search field unless the user is already typing somewhere
+        if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+        var t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        var field = document.getElementById('nirnay-header-search');
+        if (field && field.offsetParent !== null) { e.preventDefault(); field.focus(); }
       });
-    }
+    })();
   </script>
 </header>
