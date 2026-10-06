@@ -69,6 +69,16 @@ if (d1) {
   });
 }
 
+type Evidence = { field: string; sourceUrl: string; page?: number; section?: string; snippet?: string; method: string; confidence?: number };
+type Pipeline = { documentUrl?: string; documentType?: string; model?: string; warnings?: string[] };
+type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string | null; reasons: string[] }> };
+const evidenceOf = (p: ProposalRow) => (Array.isArray(p.meta?.evidence) ? (p.meta!.evidence as Evidence[]) : []);
+const confidenceOf = (p: ProposalRow) => (typeof p.meta?.confidence === 'number' ? (p.meta.confidence as number) : null);
+const pipelineOf = (p: ProposalRow) => (p.meta?.pipeline ? (p.meta.pipeline as Pipeline) : null);
+const evidenceFor = (list: Evidence[], field: string) => list.filter(e => e.field === field);
+const duplicateOf = (p: ProposalRow) => (p.meta?.duplicate ? (p.meta.duplicate as DuplicateWarning) : null);
+const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
+
 const items = await Promise.all(proposals.map(async (p) => {
   const current = p.recruitmentId && p.status === 'PENDING' ? await getRecruitmentById(p.recruitmentId, d1).catch(() => undefined) : undefined;
   const missingTarget = p.kind === 'UPDATE_RECRUITMENT' && p.status === 'PENDING' && !current;
@@ -99,15 +109,6 @@ const badge: Record<string, string> = {
   WITHDRAWN: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
-type Evidence = { field: string; sourceUrl: string; page?: number; section?: string; snippet?: string; method: string; confidence?: number };
-type Pipeline = { documentUrl?: string; documentType?: string; model?: string; warnings?: string[] };
-type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string | null; reasons: string[] }> };
-const evidenceOf = (p: ProposalRow) => (Array.isArray(p.meta?.evidence) ? (p.meta!.evidence as Evidence[]) : []);
-const confidenceOf = (p: ProposalRow) => (typeof p.meta?.confidence === 'number' ? (p.meta.confidence as number) : null);
-const pipelineOf = (p: ProposalRow) => (p.meta?.pipeline ? (p.meta.pipeline as Pipeline) : null);
-const evidenceFor = (list: Evidence[], field: string) => list.filter(e => e.field === field);
-const duplicateOf = (p: ProposalRow) => (p.meta?.duplicate ? (p.meta.duplicate as DuplicateWarning) : null);
-const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
 ---
 
 <AdminLayout
