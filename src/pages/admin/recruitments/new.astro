@@ -1,5 +1,6 @@
 ---
 import { advtLabel, cleanAdvt } from '../../../services/advt-number';
+import { parseQualificationByCategory } from '../../../engine/eligibility';
 // src/pages/admin/recruitments/new.astro (FlowStep Screen 22)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../components/admin/AgeRangeGuard.astro';
@@ -72,6 +73,8 @@ if (Astro.request.method === 'POST' && masterDataError) {
     const additionalSkills = parseStringListInput(input.value('additionalSkills', 'additional_skills'));
     const requiresMpDomicile = parseBooleanInput(input.value('requiresMpDomicile', 'requires_mp_domicile'));
     const domicileStateCode = input.text('domicileStateCode', 'domicile_state_code') || null;
+    const reservationStateCode = input.text('reservationStateCode', 'reservation_state_code') || null;
+    const qualificationByCategory = parseQualificationByCategory(input.text('qualificationByCategory', 'qualification_by_category'));
     const requiresMpEmploymentReg = parseBooleanInput(input.value('requiresMpEmploymentReg', 'requires_mp_employment_reg'));
     const employmentRegistrationLabel = input.text('employmentRegistrationLabel', 'employment_registration_label') || null;
     const requiresCpct = parseBooleanInput(input.value('requiresCpct', 'requires_cpct'));
@@ -135,6 +138,8 @@ if (Astro.request.method === 'POST' && masterDataError) {
         additionalSkills,
         requiresMpDomicile,
         domicileStateCode,
+        reservationStateCode,
+        qualificationByCategory,
         requiresMpEmploymentReg,
         employmentRegistrationLabel,
         requiresCpct,
@@ -553,6 +558,8 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
               </div>
               <label class="text-xs font-semibold text-zinc-800">Required domicile jurisdiction<select name="domicileStateCode" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white"><option value="">None / open to all India</option>{states.filter(state => state.code !== 'IN').map(state => <option value={state.code}>{state.name} ({state.code})</option>)}</select></label>
               <label class="text-xs font-semibold text-zinc-800">Employment registration key<input type="text" name="employmentRegistrationLabel" placeholder="e.g. MP_ROJGAR or UP_SEWAYOJAN" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Reservation / relaxation only for domiciles of<select name="reservationStateCode" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white"><option value="">No restriction (e.g. central recruitment)</option>{states.filter(state => state.code !== 'IN').map(state => <option value={state.code}>{state.name} ({state.code})</option>)}</select></label>
+              <label class="text-xs font-semibold text-zinc-800">Category-wise minimum qualification<input type="text" name="qualificationByCategory" placeholder="e.g. ST:8TH, SC:10TH" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
               <label class="text-xs font-semibold text-zinc-800">Allowed gender<select name="genderAllowed" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200"><option value="ALL">All</option><option value="MALE">Male only</option><option value="FEMALE">Female only</option></select></label>
               <label class="text-xs font-semibold text-zinc-800">Male height (cm)<input type="number" step="0.1" name="minHeightMaleCm" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Female height (cm)<input type="number" step="0.1" name="minHeightFemaleCm" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>

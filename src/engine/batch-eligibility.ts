@@ -221,9 +221,12 @@ export function getEligibleJobs(
       // Track which fields are unknown for progressive questioning
       for (const item of evalResult.items) {
         if (item.status === 'UNKNOWN') {
-          // Age can be unknown for three different reasons; ask for the one that is actually missing.
+          // Age and qualification can be unknown for several reasons; ask for the one that is actually missing.
+          const hasDomicile = !!userProfile.domicileStateCode || userProfile.isMpDomicile !== undefined;
           const fieldKey = item.ruleName === 'Age Requirement'
-            ? (!userProfile.dob ? 'dob' : !userProfile.category ? 'category' : 'gender')
+            ? (!userProfile.dob ? 'dob' : !userProfile.category ? 'category' : !userProfile.gender ? 'gender' : 'isMpDomicile')
+            : item.ruleName === 'Educational Qualification' && userProfile.qualificationLevel
+            ? (!userProfile.category ? 'category' : !hasDomicile ? 'isMpDomicile' : undefined)
             : RULE_TO_PROFILE_FIELD[item.ruleName];
           if (fieldKey) {
             if (!missingFieldToJobs.has(fieldKey)) {

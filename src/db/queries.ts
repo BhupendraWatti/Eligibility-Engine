@@ -193,6 +193,8 @@ export interface RecruitmentWithDetails {
     allowedStreams?: string[] | null;
     requiresMpDomicile: boolean;
     domicileStateCode?: string | null;
+    reservationStateCode?: string | null;
+    qualificationByCategory?: Record<string, string> | null;
     requiresMpEmploymentReg: boolean;
     employmentRegistrationLabel?: string | null;
     requiresCpct: boolean;
@@ -3107,6 +3109,12 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
       allowedStreams = JSON.parse(r.eligibility.allowedStreamsJson);
     } catch {}
   }
+  let qualificationByCategory: Record<string, string> | null = null;
+  if (r.eligibility?.qualificationByCategoryJson) {
+    try {
+      qualificationByCategory = JSON.parse(r.eligibility.qualificationByCategoryJson);
+    } catch {}
+  }
 
   let selectionStages: Array<{ stage?: number; name: string; desc: string; isQualifying?: boolean }> | undefined = undefined;
   if (r.selectionStagesJson) {
@@ -3246,6 +3254,8 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
       allowedStreams,
       requiresMpDomicile: r.eligibility?.requiresMpDomicile === 1,
       domicileStateCode: r.eligibility?.domicileStateCode,
+      reservationStateCode: r.eligibility?.reservationStateCode ?? null,
+      qualificationByCategory,
       requiresMpEmploymentReg: r.eligibility?.requiresMpEmploymentReg === 1,
       employmentRegistrationLabel: r.eligibility?.employmentRegistrationLabel,
       requiresCpct: r.eligibility?.requiresCpct === 1,
@@ -3317,6 +3327,8 @@ export interface CreateRecruitmentInput {
   allowedStreams?: string[];
   requiresMpDomicile?: boolean;
   domicileStateCode?: string | null;
+  reservationStateCode?: string | null;
+  qualificationByCategory?: Record<string, string> | null;
   requiresMpEmploymentReg?: boolean;
   employmentRegistrationLabel?: string | null;
   requiresCpct?: boolean;
@@ -3567,6 +3579,8 @@ export async function createRecruitmentAtomic(
       allowedStreams: data.allowedStreams,
       requiresMpDomicile: data.requiresMpDomicile ?? false,
       domicileStateCode: data.domicileStateCode || null,
+      reservationStateCode: data.reservationStateCode || null,
+      qualificationByCategory: data.qualificationByCategory || null,
       requiresMpEmploymentReg: data.requiresMpEmploymentReg ?? false,
       employmentRegistrationLabel: data.employmentRegistrationLabel || null,
       requiresCpct: data.requiresCpct ?? false,
@@ -3645,6 +3659,8 @@ export async function createRecruitmentAtomic(
           additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
           requiresMpDomicile: (data.requiresMpDomicile ?? false) ? 1 : 0,
           domicileStateCode: data.domicileStateCode || null,
+          reservationStateCode: data.reservationStateCode || null,
+          qualificationByCategoryJson: data.qualificationByCategory && Object.keys(data.qualificationByCategory).length ? JSON.stringify(data.qualificationByCategory) : null,
           requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? false) ? 1 : 0,
           employmentRegistrationLabel: data.employmentRegistrationLabel || null,
           requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,
@@ -3947,6 +3963,8 @@ export async function updateRecruitmentAtomic(
         ageRelaxationEws: data.ageRelaxationEws ?? existing.criteria.ageRelaxationEws,
         requiresMpDomicile: data.requiresMpDomicile !== undefined ? data.requiresMpDomicile : existing.criteria.requiresMpDomicile,
         domicileStateCode: data.domicileStateCode !== undefined ? data.domicileStateCode : existing.criteria.domicileStateCode,
+        reservationStateCode: data.reservationStateCode !== undefined ? data.reservationStateCode : existing.criteria.reservationStateCode,
+        qualificationByCategory: data.qualificationByCategory !== undefined ? data.qualificationByCategory : existing.criteria.qualificationByCategory,
         requiresMpEmploymentReg: data.requiresMpEmploymentReg !== undefined ? data.requiresMpEmploymentReg : existing.criteria.requiresMpEmploymentReg,
         employmentRegistrationLabel: data.employmentRegistrationLabel !== undefined ? data.employmentRegistrationLabel : existing.criteria.employmentRegistrationLabel,
         requiresCpct: data.requiresCpct !== undefined ? data.requiresCpct : existing.criteria.requiresCpct,
@@ -4045,6 +4063,8 @@ export async function updateRecruitmentAtomic(
             allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
             requiresMpDomicile: (data.requiresMpDomicile ?? false) ? 1 : 0,
             domicileStateCode: data.domicileStateCode || null,
+            reservationStateCode: data.reservationStateCode || null,
+            qualificationByCategoryJson: data.qualificationByCategory && Object.keys(data.qualificationByCategory).length ? JSON.stringify(data.qualificationByCategory) : null,
             requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? false) ? 1 : 0,
             employmentRegistrationLabel: data.employmentRegistrationLabel || null,
             requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,
@@ -4073,6 +4093,8 @@ export async function updateRecruitmentAtomic(
               allowedStreamsJson: data.allowedStreams ? JSON.stringify(data.allowedStreams) : null,
               requiresMpDomicile: (data.requiresMpDomicile ?? false) ? 1 : 0,
               domicileStateCode: data.domicileStateCode || null,
+              reservationStateCode: data.reservationStateCode || null,
+              qualificationByCategoryJson: data.qualificationByCategory && Object.keys(data.qualificationByCategory).length ? JSON.stringify(data.qualificationByCategory) : null,
               requiresMpEmploymentReg: (data.requiresMpEmploymentReg ?? false) ? 1 : 0,
               employmentRegistrationLabel: data.employmentRegistrationLabel || null,
               requiresCpct: (data.requiresCpct ?? false) ? 1 : 0,

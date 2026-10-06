@@ -49,10 +49,11 @@ export const QUALIFICATIONS = ['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUAT
 export const EXAM_STATUSES = ['NOT_SCHEDULED', 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'POSTPONED'];
 export const RESULT_STATUSES = ['NOT_DECLARED', 'DECLARED'];
 export const GENDERS = ['ALL', 'MALE', 'FEMALE'];
+export const RESERVATION_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'];
 
 type FieldSpec =
   | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList'
-  | 'nullableString' | 'nullableNumber'
+  | 'nullableString' | 'nullableNumber' | 'nullableStateCode' | 'categoryQualifications'
   | { enum: string[] }
   | 'selectionStages' | 'vacancies' | 'dates' | 'sources' | 'links';
 
@@ -66,6 +67,7 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   qualificationDetailsMarkdown: 'text', relaxationNotesMarkdown: 'text', specialConditionsNotes: 'text',
   experienceMonths: 'int', allowedStreams: 'stringList', additionalSkills: 'stringList',
   requiresMpDomicile: 'bool', domicileStateCode: 'nullableString',
+  reservationStateCode: 'nullableStateCode', qualificationByCategory: 'categoryQualifications',
   requiresMpEmploymentReg: 'bool', employmentRegistrationLabel: 'nullableString', requiresCpct: 'bool',
   genderAllowed: { enum: GENDERS },
   minHeightMaleCm: 'nullableNumber', minHeightFemaleCm: 'nullableNumber', minChestMaleCm: 'nullableNumber',
@@ -129,6 +131,20 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
       if (!Array.isArray(v) || v.length > 50) throw new InvalidProposalError(`${field} must be an array of at most 50 strings.`);
       return v.map((s, i) => str(s, `${field}[${i}]`, 100));
     case 'nullableString': return v === null ? null : str(v, field, 100);
+    case 'nullableStateCode':
+      if (v === null) return null;
+      if (typeof v !== 'string' || !/^[A-Za-z]{2,3}$/.test(v.trim())) throw new InvalidProposalError(`${field} must be a 2-3 letter state code (e.g. MP, RJ) or null.`);
+      return v.trim().toUpperCase();
+    case 'categoryQualifications': {
+      if (v === null) return null;
+      if (!isObj(v)) throw new InvalidProposalError(`${field} must be an object like {"ST":"8TH"} or null.`);
+      const out: Record<string, string> = {};
+      for (const [category, level] of Object.entries(v)) {
+        if (!RESERVATION_CATEGORIES.includes(category)) throw new InvalidProposalError(`${field} keys must be one of: ${RESERVATION_CATEGORIES.join(', ')}.`);
+        out[category] = validateField(`${field}.${category}`, { enum: QUALIFICATIONS }, level) as string;
+      }
+      return Object.keys(out).length ? out : null;
+    }
     case 'nullableNumber':
       if (v === null) return null;
       if (typeof v !== 'number' || v < 0 || v > 1000) throw new InvalidProposalError(`${field} must be a non-negative number or null.`);

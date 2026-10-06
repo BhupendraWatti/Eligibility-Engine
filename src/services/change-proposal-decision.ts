@@ -134,6 +134,8 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
     allowedStreams: c.allowedStreams ?? undefined,
     requiresMpDomicile: c.requiresMpDomicile,
     domicileStateCode: c.domicileStateCode ?? null,
+    reservationStateCode: c.reservationStateCode ?? null,
+    qualificationByCategory: c.qualificationByCategory ?? null,
     requiresMpEmploymentReg: c.requiresMpEmploymentReg,
     employmentRegistrationLabel: c.employmentRegistrationLabel ?? null,
     requiresCpct: c.requiresCpct,

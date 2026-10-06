@@ -123,6 +123,8 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   allowedStreamsJson: text('allowed_streams_json'), // JSON array e.g. ["ANY"] or ["SCIENCE"]
   requiresMpDomicile: integer('requires_mp_domicile').notNull().default(0),
   domicileStateCode: text('domicile_state_code'),
+  reservationStateCode: text('reservation_state_code'), // category/women relaxations only for this state's domiciles
+  qualificationByCategoryJson: text('qualification_by_category_json'), // e.g. {"ST":"8TH"}
   requiresMpEmploymentReg: integer('requires_mp_employment_reg').notNull().default(0),
   employmentRegistrationLabel: text('employment_registration_label'),
   requiresCpct: integer('requires_cpct').notNull().default(0),

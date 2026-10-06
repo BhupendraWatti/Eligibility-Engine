@@ -42,6 +42,11 @@ export interface RecruitmentCriteria {
   additionalSkills?: string[] | null;
   allowedStreams?: string[] | null;
   experienceMonths?: number;
+  /** Category and women's age relaxations (and category-wise qualification) apply only to
+   * candidates domiciled in this state; everyone else is treated as Unreserved. Null = no restriction. */
+  reservationStateCode?: string | null;
+  /** Category-specific minimum qualification overriding minQualificationLevel, e.g. { ST: '8TH' }. */
+  qualificationByCategory?: Partial<Record<string, string>> | null;
 }
 
 export interface RuleEvaluationItem {
@@ -83,12 +88,25 @@ export const QUALIFICATION_RANK: Record<string, number> = {
   'POST_GRADUATION': 6,
 };
 
+const ALL_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'] as const;
+
+/** The candidate's domicile code, falling back to the legacy MP flag. Undefined when not provided. */
+function candidateDomicile(user: UserEligibilityProfile): string | undefined {
+  return user.domicileStateCode?.toUpperCase() || (user.isMpDomicile === true ? 'MP' : user.isMpDomicile === false ? 'OTHER' : undefined);
+}
+
 export function evaluateEligibility(
   user: UserEligibilityProfile,
   criteria: RecruitmentCriteria
 ): RecruitmentEligibilityResult {
   const items: RuleEvaluationItem[] = [];
   let ageBreakdown: AgeRelaxationBreakdown | undefined;
+
+  // Reservation benefits are state-specific: when the notice restricts them to its own domiciles,
+  // a reserved-category candidate from another state competes as Unreserved.
+  const reservationState = criteria.reservationStateCode?.toUpperCase() || null;
+  const domicile = candidateDomicile(user);
+  const benefitDomicile: boolean | undefined = !reservationState ? true : domicile === undefined ? undefined : domicile === reservationState;
 
   // 1. Gender Rule
   if (criteria.genderAllowed !== 'ALL') {
@@ -123,7 +141,7 @@ export function evaluateEligibility(
   // MP-named flags are kept only for API/database compatibility (a flag with no state means MP).
   if (criteria.requiresMpDomicile || criteria.domicileStateCode) {
     const requiredState = (criteria.domicileStateCode || 'MP').toUpperCase();
-    const candidateState = user.domicileStateCode?.toUpperCase() || (user.isMpDomicile === true ? 'MP' : user.isMpDomicile === false ? 'OTHER' : undefined);
+    const candidateState = domicile;
     if (!candidateState) {
       items.push({
         ruleName: 'State Domicile',
@@ -180,7 +198,9 @@ export function evaluateEligibility(
       : category === 'EWS' ? (criteria.ageRelaxationEws ?? 0)
       : 0;
     // Female relaxation is stored per recruitment; it does not stack with category (max of the two).
-    const maxAgeFor = (category?: string, gender?: string) => {
+    // Without benefit domicile, both relaxations fall away and the general limit applies.
+    const maxAgeFor = (category: string | undefined, gender: string | undefined, entitled: boolean) => {
+      if (!entitled) return criteria.maxAgeGeneral;
       let max = criteria.maxAgeGeneral + categoryRelax(category);
       if (gender === 'FEMALE' && (criteria.ageRelaxationFemale ?? 0) > 0) {
         max = Math.max(max, criteria.maxAgeGeneral + criteria.ageRelaxationFemale);
@@ -188,21 +208,23 @@ export function evaluateEligibility(
       return max;
     };
 
-    const maxAllowed = maxAgeFor(user.category, user.gender);
+    // An unknown domicile is judged without relaxation; a relaxation-only pass becomes UNKNOWN below.
+    const maxAllowed = maxAgeFor(user.category, user.gender, benefitDomicile === true);
     const isMatch = completedYears >= criteria.minAge && completedYears <= maxAllowed;
     const formattedAge = ageAtCutoff.toFixed(1);
 
-    // A missing category or gender must not cause a premature rejection: if the candidate
+    // A missing category, gender or domicile must not cause a premature rejection: if the candidate
     // would pass under some possible answer, the result is NEEDS_VERIFICATION, not FAIL.
     const possibleMax = Math.max(
       ...(user.category ? [user.category] : ['UR', 'SC', 'OBC', 'EWS']).flatMap(c =>
-        (user.gender ? [user.gender] : ['MALE', 'FEMALE']).map(g => maxAgeFor(c, g))
+        (user.gender ? [user.gender] : ['MALE', 'FEMALE']).map(g => maxAgeFor(c, g, benefitDomicile !== false))
       )
     );
     const depends = !isMatch && completedYears >= criteria.minAge && completedYears <= possibleMax;
 
-    const categoryRelaxation = categoryRelax(user.category);
-    const femaleRelaxation = user.gender === 'FEMALE' ? (criteria.ageRelaxationFemale ?? 0) : 0;
+    const categoryRelaxation = benefitDomicile === true ? categoryRelax(user.category) : 0;
+    const femaleRelaxation = benefitDomicile === true && user.gender === 'FEMALE' ? (criteria.ageRelaxationFemale ?? 0) : 0;
+    const outsider = benefitDomicile === false && maxAgeFor(user.category, user.gender, true) > criteria.maxAgeGeneral;
 
     ageBreakdown = {
       baseMinAge: criteria.minAge,
@@ -224,7 +246,11 @@ export function evaluateEligibility(
       message: isMatch
         ? `Age (${formattedAge} yrs) is within eligible limits.`
         : depends
-        ? `Age (${formattedAge} yrs) exceeds the general limit but may qualify with a category or gender relaxation (up to ${possibleMax} yrs). Provide category and gender to confirm.`
+        ? benefitDomicile === undefined
+          ? `Age (${formattedAge} yrs) exceeds the general limit; relaxation (up to ${possibleMax} yrs) applies only to ${jurisdictionName(reservationState!)} domicile holders. Provide your domicile state to confirm.`
+          : `Age (${formattedAge} yrs) exceeds the general limit but may qualify with a category or gender relaxation (up to ${possibleMax} yrs). Provide category and gender to confirm.`
+        : outsider
+        ? `Age (${formattedAge} yrs) exceeds the general limit (${criteria.maxAgeGeneral} yrs). Age relaxation applies only to ${jurisdictionName(reservationState!)} domicile holders.`
         : `Age (${formattedAge} yrs) falls outside the allowed limit (${criteria.minAge}-${maxAllowed} yrs).`,
     });
     }
@@ -240,24 +266,35 @@ export function evaluateEligibility(
       message: 'Highest qualification not provided. Verification needed.',
     });
   } else {
-    const userRank = QUALIFICATION_RANK[user.qualificationLevel] || 0;
-    const requiredRank = QUALIFICATION_RANK[criteria.minQualificationLevel] || 0;
+    const qualificationLevel = user.qualificationLevel;
+    const meets = (required: string) => required === 'ITI'
+      ? qualificationLevel === 'ITI'
+      : (QUALIFICATION_RANK[qualificationLevel] || 0) >= (QUALIFICATION_RANK[required] || 0);
+    // Category-wise minimum (e.g. ST: 8TH) is a reservation benefit, so it follows benefit domicile.
+    const overrides = criteria.qualificationByCategory ?? {};
+    const requirementFor = (category: string | undefined, entitled: boolean) =>
+      (entitled && category && overrides[category]) || criteria.minQualificationLevel;
+    const required = requirementFor(user.category, benefitDomicile === true);
     // A non-empty requirement we cannot rank must never pass silently (rank 0 would accept everyone).
-    const unrecognisedRequirement = !!criteria.minQualificationLevel && QUALIFICATION_RANK[criteria.minQualificationLevel] === undefined;
-    const isMatch = criteria.minQualificationLevel === 'ITI'
-      ? user.qualificationLevel === 'ITI'
-      : userRank >= requiredRank;
+    const unrecognisedRequirement = !!required && QUALIFICATION_RANK[required] === undefined;
+    const isMatch = meets(required);
+    const possibleRequirements = (user.category ? [user.category] : [...ALL_CATEGORIES]).map(c => requirementFor(c, benefitDomicile !== false));
+    const depends = !isMatch && possibleRequirements.some(r => QUALIFICATION_RANK[r] !== undefined && meets(r));
+    const categoryNote = Object.entries(overrides).filter(([, level]) => level).map(([c, level]) => `${c}: ${level}`).join(', ');
+    const requirementText = `Minimum ${required}${categoryNote ? ` (category-wise: ${categoryNote})` : ''}`;
 
     items.push({
       ruleName: 'Educational Qualification',
-      status: unrecognisedRequirement ? 'UNKNOWN' : isMatch ? 'MATCH' : 'FAIL',
-      userValue: user.qualificationLevel,
-      requirement: `Minimum ${criteria.minQualificationLevel}`,
+      status: unrecognisedRequirement ? 'UNKNOWN' : isMatch ? 'MATCH' : depends ? 'UNKNOWN' : 'FAIL',
+      userValue: qualificationLevel,
+      requirement: requirementText,
       message: unrecognisedRequirement
-        ? `Required qualification "${criteria.minQualificationLevel}" is not a recognised level. Verify against the notice.`
+        ? `Required qualification "${required}" is not a recognised level. Verify against the notice.`
         : isMatch
-        ? `Qualification (${user.qualificationLevel}) satisfies minimum (${criteria.minQualificationLevel}).`
-        : `Qualification (${user.qualificationLevel}) is below required (${criteria.minQualificationLevel}).`,
+        ? `Qualification (${qualificationLevel}) satisfies minimum (${required}).`
+        : depends
+        ? `Qualification (${qualificationLevel}) is below the general minimum (${required}) but meets a category-wise minimum (${categoryNote})${reservationState ? ` for ${jurisdictionName(reservationState)} domicile holders` : ''}. Provide category${reservationState ? ' and domicile' : ''} to confirm.`
+        : `Qualification (${qualificationLevel}) is below required (${required}).`,
     });
 
     // Specific degree/stream evaluation if post requires non-generic streams
@@ -574,4 +611,18 @@ export function calculateAgeAtCutoff(dobStr: string, cutoffStr: string): number 
   const anniversary = Date.UTC(dob.y + years, dob.m - 1, dob.d);
   const diffDays = (Date.UTC(cutoff.y, cutoff.m - 1, cutoff.d) - anniversary) / 86_400_000;
   return Math.max(0, years + diffDays / 365.25);
+}
+
+/** Admin-form text "ST:8TH, SC:10TH" -> { ST: '8TH', SC: '10TH' }; unknown categories/levels are dropped. */
+export function parseQualificationByCategory(text: string | null | undefined): Record<string, string> | null {
+  const out: Record<string, string> = {};
+  for (const part of String(text ?? '').split(',')) {
+    const [category, level] = part.split(':').map(v => v.trim().toUpperCase());
+    if ((ALL_CATEGORIES as readonly string[]).includes(category) && QUALIFICATION_RANK[level] !== undefined) out[category] = level;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+export function formatQualificationByCategory(map: Record<string, string> | null | undefined): string {
+  return Object.entries(map ?? {}).map(([category, level]) => `${category}:${level}`).join(', ');
 }

@@ -3,7 +3,7 @@
  * Resolution is exact-match only (name, slug, short name or code). It never guesses a canonical master.
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
-import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS } from './change-proposals';
+import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 
 export const ENTITY_TYPES = ['state', 'organisation', 'department', 'sector', 'post'] as const;
@@ -66,7 +66,12 @@ export function getDomainSchema() {
     updateFields: describe(EDITABLE_FIELDS),
     createOnlyFields: describe(CREATE_ONLY_FIELDS),
     createRequired: CREATE_REQUIRED,
-    enums: { minQualificationLevel: QUALIFICATIONS, examStatus: EXAM_STATUSES, resultStatus: RESULT_STATUSES, genderAllowed: GENDERS },
+    enums: { minQualificationLevel: QUALIFICATIONS, examStatus: EXAM_STATUSES, resultStatus: RESULT_STATUSES, genderAllowed: GENDERS, qualificationByCategoryKeys: RESERVATION_CATEGORIES },
+    eligibilityNotes: {
+      reservationStateCode: 'Set to the recruiting state code when the notice says reservation / age relaxation is only for that state\'s domiciles (outsiders compete as Unreserved). Leave null for central recruitments or when the notice gives relaxation to all.',
+      qualificationByCategory: 'Only when the notice prescribes a different minimum for a category, e.g. {"ST":"8TH"}. minQualificationLevel stays the general minimum.',
+      domicileStateCode: 'Set ONLY when domicile is mandatory to apply at all. Not the same as reservationStateCode.',
+    },
     lifecycles: LIFECYCLES,
     applicationStatuses: APPLICATION_STATUSES,
     evidence: { methods: EVIDENCE_METHODS, fields: 'field (a key in changes), sourceUrl (http/https), page, snippet (<=500 chars), method, confidence (0-1, advisory)' },
