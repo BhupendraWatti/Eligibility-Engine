@@ -15,6 +15,9 @@ import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+/** Proposals to add a missing canonical master (see master-proposals.ts). Stored in the same table; applied only by an admin. */
+export const MASTER_PROPOSAL_KINDS = ['CREATE_ORGANISATION', 'CREATE_DEPARTMENT', 'CREATE_POST'] as const;
+export type MasterProposalKind = (typeof MASTER_PROPOSAL_KINDS)[number];
 /**
  * APPLYING is a short-lived claim held while an admin approval is being written (stops double-approve).
  * WITHDRAWN is the proposer taking back (or superseding) its own PENDING proposal.
@@ -280,7 +283,7 @@ export function staleFields(snapshot: Record<string, unknown> | null, current: R
 
 export interface ProposalRow {
   id: string;
-  kind: ProposalKind;
+  kind: ProposalKind | MasterProposalKind;
   recruitmentId: string | null;
   summary: string;
   payload: Record<string, unknown>;
@@ -325,7 +328,7 @@ function parseJson<T>(raw: string | null): T | null {
 export function toProposalRow(r: typeof schema.changeProposals.$inferSelect): ProposalRow {
   return {
     id: r.id,
-    kind: r.kind as ProposalKind,
+    kind: r.kind as ProposalRow['kind'],
     recruitmentId: r.recruitmentId,
     summary: r.summary,
     payload: parseJson<Record<string, unknown>>(r.payload) ?? {},
@@ -404,7 +407,7 @@ export const defaultProposalDeps: ProposalDeps = {
     const org = orgs.find(o => o.id === candidate.organisationId);
     return detectDuplicates(
       { ...candidate, organisationShortName: org?.shortName },
-      existing.map(r => ({ id: r.id, title: r.title, advtNumber: r.advtNumber, organisationShortName: r.organisationShortName, sourceUrl: r.sourcesList?.[0]?.sourceUrl, postId: r.postId, cycleYear: r.cycleYear })),
+      existing.map(r => ({ id: r.id, title: r.title, advtNumber: r.advtNumber, organisationShortName: r.organisationShortName, organisationId: r.organisationId, sourceUrls: (r.sourcesList ?? []).map(src => src.sourceUrl), postId: r.postId, cycleYear: r.cycleYear })),
     );
   },
 };
@@ -502,12 +505,22 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
       organisationId: payload.organisationId as string,
       postId,
       cycleYear: (payload.cycleYear as number | undefined) ?? new Date().getFullYear(),
-      sourceUrl: sources?.[0]?.sourceUrl,
+      sourceUrls: (sources ?? []).map(s => s.sourceUrl),
     });
     if (dup.status === 'CONFIRMED_DUPLICATE') throw new ProposalBlockedError('CONFIRMED_DUPLICATE', dup.summary, { matches: dup.matches });
     if (dup.status === 'POSSIBLE_DUPLICATE') {
       duplicateWarning = dup;
       meta.duplicate = dup;
+    }
+    // The same notice may already be waiting in the queue as another PENDING create: that is a duplicate too.
+    const queued = (await deps.list(db, { status: 'PENDING', limit: 250 }))
+      .filter(p => p.kind === 'CREATE_RECRUITMENT' && p.id !== old?.id && p.payload && typeof p.payload.title === 'string');
+    const pendingDup = detectDuplicates(
+      { title: payload.title as string, advtNumber: (payload.advtNumber as string | null | undefined) ?? null, organisationId, postId, cycleYear: (payload.cycleYear as number | undefined) ?? new Date().getFullYear(), sourceUrls: (sources ?? []).map(s => s.sourceUrl) },
+      queued.map(p => ({ id: p.id, title: p.payload.title as string, advtNumber: (p.payload.advtNumber as string | null | undefined) ?? null, organisationId: p.payload.organisationId as string, postId: p.payload.postId as string, cycleYear: (p.payload.cycleYear as number | undefined) ?? new Date(p.createdAt).getFullYear(), sourceUrls: ((p.payload.sources as Array<{ sourceUrl: string }> | undefined) ?? []).map(s => s.sourceUrl) })),
+    );
+    if (pendingDup.status === 'CONFIRMED_DUPLICATE') {
+      throw new ProposalBlockedError('CONFIRMED_DUPLICATE', 'The same recruitment is already waiting as a PENDING proposal. Supersede or withdraw it instead.', { pendingProposalIds: pendingDup.matches.map(m => m.matchedRecruitmentId), matches: pendingDup.matches });
     }
   }
 
@@ -537,7 +550,8 @@ export async function createProposal(
 ): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; supersedes?: string; duplicateWarning?: DuplicateCheckResult; evidenceMissing: string[] }> {
   const db = requirePropose(actor, d1);
   const { row, old, duplicateWarning, evidenceMissing } = await checkProposal(db, actor, input, deps);
-  const { id, kind, recruitmentId } = row;
+  const { id, recruitmentId } = row;
+  const kind = row.kind as ProposalKind;
   if (old) {
     // The withdraw frees the slot the replacement takes, so the pending cap is not re-checked.
     if (!(await deps.supersede(db, old.id, row))) throw new InvalidProposalError('Proposal to supersede is no longer PENDING (an admin may have just decided it).');

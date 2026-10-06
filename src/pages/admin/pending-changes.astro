@@ -154,7 +154,7 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
               <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : 'Update'}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : p.kind === 'UPDATE_RECRUITMENT' ? 'Update' : p.kind === 'CREATE_ORGANISATION' ? 'New organisation (master)' : p.kind === 'CREATE_DEPARTMENT' ? 'New department (master)' : 'New post (master)'}</span>
               {confidenceOf(p) !== null && (
                 <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceOf(p)! >= 0.9 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : confidenceOf(p)! >= 0.7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-rose-50 text-rose-800 border-rose-200'}`}>confidence {Math.round(confidenceOf(p)! * 100)}%</span>
               )}
@@ -194,7 +194,7 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
             <thead>
               <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <th class="py-1.5 pr-3 font-bold">Field</th>
-                <th class="py-1.5 pr-3 font-bold">{p.kind === 'CREATE_RECRUITMENT' ? '—' : 'Live now'}</th>
+                <th class="py-1.5 pr-3 font-bold">{p.kind !== 'UPDATE_RECRUITMENT' ? '—' : 'Live now'}</th>
                 <th class="py-1.5 font-bold">Proposed</th>
               </tr>
             </thead>
@@ -202,7 +202,7 @@ const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http:
               {diff.map(row => (
                 <tr class="border-b border-slate-100 align-top">
                   <td class="py-2 pr-3 font-mono font-semibold text-slate-800 whitespace-nowrap">{row.field}</td>
-                  <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind === 'CREATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
+                  <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind !== 'UPDATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
                   <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre>
                     {evidenceFor(evidence, row.field).map(e => (
                       <div class="mt-1.5 rounded border border-slate-100 bg-slate-50 p-1.5 text-[10px] text-slate-600 font-sans">

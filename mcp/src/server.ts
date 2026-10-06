@@ -23,6 +23,7 @@ import {
   type ProposalInput,
 } from '../../src/services/change-proposals';
 
+import { MASTER_TYPES, proposeMaster, type MasterDeps } from '../../src/services/master-proposals';
 import { checkLink } from './links';
 import { ENTITY_TYPES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
 
@@ -33,6 +34,8 @@ export interface ServerContext {
   proposalDeps?: ProposalDeps;
   /** Test seam: replaces the master-data loaders. */
   entityLoaders?: Partial<Record<EntityType, EntityLoader>>;
+  /** Test seam: replaces the master loaders used by propose_master. */
+  masterDeps?: MasterDeps;
 }
 
 const text = z.string().trim().min(1).max(100);
@@ -69,7 +72,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     {
       title: 'Search recruitments',
       description:
-        'Search published NIRNAY government recruitments (hiring cycles, not evergreen posts). READ-only. ' +
+        'Search NIRNAY government recruitments (hiring cycles, not evergreen posts). READ-only. Drafts and pending-verification records are included by default for this authenticated MCP (pass includeUnpublished=false for published only); the public website never sees them. ' +
         'Returns structured recruitment summaries with dates, vacancies, official links and a source summary.',
       inputSchema: searchInput,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -162,6 +165,34 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       annotations: proposeAnnotations,
     },
     async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
+  );
+
+  server.registerTool(
+    'propose_master',
+    {
+      title: 'Propose a missing master (organisation, department or post)',
+      description:
+        'Resolve first, then queue a request to add a missing canonical master for owner approval. Returns MATCH (reuse entity.id), POSSIBLE_MATCH (a human decides) or NOT_FOUND. ' +
+        'Only NOT_FOUND queues a proposal; nothing is created until an admin approves it in /admin/pending-changes, after which resolve_entity finds it. ' +
+        'Parents must already exist: an organisation needs a stateId, a department an organisationId, a post a departmentId and sectorId (use resolve_entity). ' +
+        'fields: organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ' +
+        'Set dryRun=true to resolve without queuing. Include evidence (sourceUrl of the official site) for name and websiteUrl.',
+      inputSchema: {
+        type: z.enum(MASTER_TYPES),
+        summary: summaryField,
+        fields: z.record(z.string(), z.unknown()).describe('Master fields (see description)'),
+        evidence: evidenceField,
+        dryRun: z.boolean().optional().describe('Only resolve; never queue'),
+      },
+      annotations: proposeAnnotations,
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'propose_master', actor: ctx.actor.id, mode: ctx.actor.mode, type: args.type, dryRun: args.dryRun === true }));
+      return guarded('propose_master', async () => {
+        const out = await proposeMaster(ctx.d1, ctx.actor, args, ctx.proposalDeps, ctx.masterDeps);
+        return { ...out, ...(out.status === 'NOT_FOUND' && out.queued ? { message: 'Master proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.' } : {}) } as Record<string, unknown>;
+      }, 'Could not process the master proposal.');
+    },
   );
 
   server.registerTool(

@@ -3,7 +3,7 @@
  * Resolution is exact-match only (name, slug, short name or code). It never guesses a canonical master.
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
-import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_METHODS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS } from './change-proposals';
+import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 
 export const ENTITY_TYPES = ['state', 'organisation', 'department', 'sector', 'post'] as const;
@@ -29,7 +29,7 @@ const norm = (v: unknown) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g,
 const aliases = (e: Entity) => [e.name, e.slug, e.shortName, e.code].map(norm).filter(Boolean);
 
 export const NOT_FOUND_NEXT =
-  'Not in the master data. Do not invent an id. Ask an admin to add it, then retry; propose_new_recruitment refuses unknown posts.';
+  'Not in the master data. Do not invent an id. Use propose_master to queue it for admin approval, then retry once approved; propose_new_recruitment refuses unknown posts and organisations.';
 
 /** Exact normalised match: 1 = MATCH, >1 = AMBIGUOUS, 0 = NOT_FOUND (with substring suggestions for a human, never auto-picked). */
 export function resolveFrom(entities: Entity[], query: string): ResolveResult {
@@ -61,7 +61,7 @@ export function getDomainSchema() {
   const spec = (s: unknown) => (typeof s === 'object' && s ? `enum: ${(s as { enum: string[] }).enum.join(' | ')}` : String(s));
   const describe = (fields: Record<string, unknown>) => Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, spec(v)]));
   return {
-    proposalKinds: PROPOSAL_KINDS,
+    proposalKinds: [...PROPOSAL_KINDS, ...MASTER_PROPOSAL_KINDS],
     proposalStatuses: PROPOSAL_STATUSES,
     updateFields: describe(EDITABLE_FIELDS),
     createOnlyFields: describe(CREATE_ONLY_FIELDS),

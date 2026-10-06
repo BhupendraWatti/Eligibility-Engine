@@ -46,7 +46,7 @@ export interface RecruitmentSearchFilters {
   advtNumber?: string;
   /** Exact URL of a recorded source or official link. */
   sourceUrl?: string;
-  /** Also search drafts and pending-verification records. Default false. */
+  /** Also search drafts and pending-verification records. Default true for a PROPOSE actor, false for READ. */
   includeUnpublished?: boolean;
   lifecycle?: CanonicalLifecycle;
   applicationStatus?: ApplicationStatus;
@@ -212,8 +212,9 @@ export async function searchRecruitments(
   }
   const offset = decodeCursor(filters.cursor);
 
-  // PUBLISHED only unless the caller explicitly asks for drafts (read-only either way).
-  const includeUnpublished = filters.includeUnpublished === true;
+  // The public website never calls this. An authenticated PROPOSE actor sees drafts and pending-verification records by default,
+  // so duplicate checks cannot miss them; it may still pass includeUnpublished=false. A READ actor only ever sees PUBLISHED rows.
+  const includeUnpublished = actor.mode === 'PROPOSE' ? filters.includeUnpublished !== false : filters.includeUnpublished === true;
   const rows = await deps.load(d1, { includeUnpublished, limit: SCAN_WINDOW });
   const matched = rows
     .filter(r => (includeUnpublished || r.status === 'PUBLISHED') && matchesFilters(r, filters))

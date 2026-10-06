@@ -30,6 +30,8 @@ export interface RecruitmentCandidate {
   organisationShortName?: string;
   organisationId?: string;
   sourceUrl?: string;
+  /** Every official source URL the notice cites (sourceUrl is the first). */
+  sourceUrls?: string[];
   postId?: string;
   cycleYear?: number;
 }
@@ -41,6 +43,7 @@ export interface ExistingRecruitmentRecord {
   organisationShortName?: string;
   organisationId?: string;
   sourceUrl?: string;
+  sourceUrls?: string[];
   postId?: string;
   cycleYear?: number;
 }
@@ -49,6 +52,9 @@ function normalize(str?: string | null): string {
   if (!str) return '';
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
+
+const urlSet = (r: { sourceUrl?: string; sourceUrls?: string[] }): Set<string> =>
+  new Set([r.sourceUrl, ...(r.sourceUrls ?? [])].map(u => u?.trim().toLowerCase() ?? '').filter(Boolean));
 
 /**
  * Check a new recruitment candidate against existing recruitment records.
@@ -61,7 +67,7 @@ export function detectDuplicates(
 
   const candidateNormAdvt = normalize(candidate.advtNumber);
   const candidateNormTitle = normalize(candidate.title);
-  const candidateNormUrl = candidate.sourceUrl?.trim().toLowerCase() || '';
+  const candidateUrls = urlSet(candidate);
 
   for (const existing of existingList) {
     // Skip self if comparing an update of an existing record
@@ -85,11 +91,15 @@ export function detectDuplicates(
       }
     }
 
-    // 2. Exact Official Source PDF URL Match
-    const existingNormUrl = existing.sourceUrl?.trim().toLowerCase() || '';
-    if (candidateNormUrl && existingNormUrl && candidateNormUrl === existingNormUrl) {
-      reasons.push(`Identical official source notification document URL (${candidate.sourceUrl}).`);
-      isConfirmed = true;
+    // 2. Exact Official Source PDF URL Match. One rulebook can serve several posts, and each canonical post is its own
+    //    recruitment record, so a shared URL on its own is only a duplicate signal when the post is the same (or unknown).
+    const sharedUrl = [...urlSet(existing)].find(u => candidateUrls.has(u));
+    if (sharedUrl) {
+      const differentPost = !!(candidate.postId && existing.postId && candidate.postId !== existing.postId);
+      if (!differentPost) {
+        reasons.push(`Identical official source notification document URL (${[candidate.sourceUrl, ...(candidate.sourceUrls ?? [])].find(u => u?.trim().toLowerCase() === sharedUrl) ?? sharedUrl}).`);
+        isConfirmed = true;
+      }
     }
 
     // 3. High Title & Post Similarity

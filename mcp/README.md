@@ -4,12 +4,13 @@ Standalone Cloudflare Worker, separate from the website. It can read and PROPOSE
 
 | Tool | What it does |
 |---|---|
-| `search_recruitments` | READ published recruitments (filters only, no SQL). |
+| `search_recruitments` | READ recruitments (filters only, no SQL). Drafts and pending-verification records are included by default for the authenticated MCP; `includeUnpublished=false` limits it to published. The public site only ever queries published rows. |
 | `propose_recruitment_update` | Queue a field-level change to an existing recruitment. |
 | `propose_new_recruitment` | Queue a brand-new recruitment. |
 | `list_my_proposals` | Check the status of proposals this MCP queued (`status=PENDING` is the open queue). |
 | `get_proposal` | Full detail of one of its own proposals (payload, evidence, duplicate warning, decision). |
 | `withdraw_proposal` | Take back its own PENDING proposal (status becomes WITHDRAWN; nothing is edited or removed). |
+| `propose_master` | Resolve a missing organisation, department or post against existing masters (MATCH / POSSIBLE_MATCH / NOT_FOUND); only NOT_FOUND queues a `CREATE_ORGANISATION` / `CREATE_DEPARTMENT` / `CREATE_POST` proposal for admin approval. `dryRun` resolves only. |
 | `resolve_entity` | Exact lookup of a state, organisation, department, sector or post: MATCH, AMBIGUOUS or NOT_FOUND. Never guesses. |
 | `list_entities` | List active masters of one type, optionally filtered. |
 | `get_domain_schema` | Allowed fields, formats, enums and the evidence format, generated from the validators. |
@@ -18,7 +19,7 @@ The propose tools also take optional `evidence[]` (field, sourceUrl, page, snipp
 shown to the reviewer as an unverified claim) and `supersedes` (the id of its own PENDING proposal to replace atomically).
 They refuse with a stable error code instead of queueing: `PENDING_CHANGE_CONFLICT` (an open proposal already changes
 the same fields of that recruitment), `CONFIRMED_DUPLICATE`, and `UNKNOWN_POST` (the post is not in the master data:
-ask an admin to add it, the MCP can never create masters). A possible duplicate is queued with a warning for the reviewer.
+queue it with `propose_master`; the MCP can never create masters, an admin approves them). A possible duplicate is queued with a warning for the reviewer.
 The conflict and duplicate checks are best-effort (D1 has no cross-statement transaction); the admin stale-record guard is the backstop.
 
 **Known limits.** Every authenticated client is the same actor (`mcp-client`), so any MCP client can see and withdraw

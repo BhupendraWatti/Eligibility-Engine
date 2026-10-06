@@ -11,10 +11,14 @@ import {
   createRecruitmentAtomic,
   updateRecruitmentAtomic,
   getRecruitmentById,
+  createOrganisation,
+  createDepartment,
+  createCanonicalPost,
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
-import { currentFieldValue, InvalidProposalError, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow } from './change-proposals';
+import { currentFieldValue, InvalidProposalError, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
+import { MASTER_TYPE_OF_KIND, defaultMasterDeps, isMasterKind, resolveMaster, type MasterDeps, type MasterRecord } from './master-proposals';
 
 export interface DecisionOptions {
   /** CREATE only: publish immediately (the validator may still block it). Default is DRAFT. */
@@ -38,6 +42,10 @@ export interface DecisionDeps {
   loadRecruitment: (d1: D1Database, id: string) => Promise<RecruitmentWithDetails | undefined>;
   create: (input: CreateRecruitmentInput, d1: D1Database) => ReturnType<typeof createRecruitmentAtomic>;
   update: (id: string, input: CreateRecruitmentInput, d1: D1Database) => ReturnType<typeof updateRecruitmentAtomic>;
+  /** Masters as they are right now (the duplicate re-check at approval time). */
+  masters: MasterDeps;
+  /** Create an approved master through the existing admin writers. Returns the new id. */
+  createMaster: (kind: ProposalRow['kind'], payload: Record<string, unknown>, adminEmail: string, d1: D1Database) => Promise<string>;
 }
 
 export const defaultDecisionDeps: DecisionDeps = {
@@ -79,6 +87,12 @@ export const defaultDecisionDeps: DecisionDeps = {
   loadRecruitment: (d1, id) => getRecruitmentById(id, d1),
   create: (input, d1) => createRecruitmentAtomic(input, d1),
   update: (id, input, d1) => updateRecruitmentAtomic(id, input, d1),
+  masters: defaultMasterDeps,
+  createMaster: (kind, p, adminEmail, d1) => {
+    if (kind === 'CREATE_ORGANISATION') return createOrganisation({ stateId: p.stateId as string, name: p.name as string, shortName: p.shortName as string, slug: p.slug as string, websiteUrl: p.websiteUrl as string, adminEmail }, d1);
+    if (kind === 'CREATE_DEPARTMENT') return createDepartment({ organisationId: p.organisationId as string, name: p.name as string, slug: p.slug as string, description: (p.description as string | undefined) ?? undefined, adminEmail }, d1);
+    return createCanonicalPost({ departmentId: p.departmentId as string, sectorId: p.sectorId as string, title: p.title as string, slug: p.slug as string, summary: (p.summary as string) ?? '', payScale: (p.payScale as string | undefined) ?? null, defaultMinAge: p.defaultMinAge as number | undefined, defaultMaxAge: p.defaultMaxAge as number | undefined, defaultQualification: p.defaultQualification as string | undefined } as Parameters<typeof createCanonicalPost>[0], d1);
+  },
 };
 
 const DATE_FIELD_EVENTS = { applicationStart: 'APPLICATION_START', applicationEnd: 'APPLICATION_END', examDate: 'EXAM_DATE' } as const;
@@ -187,6 +201,20 @@ export async function approveProposal(
   };
 
   try {
+    if (isMasterKind(proposal.kind)) {
+      // Re-check against the masters as they are now: someone may have added it since the proposal was queued.
+      const type = MASTER_TYPE_OF_KIND[proposal.kind];
+      const p = proposal.payload;
+      const existing: MasterRecord[] = await (type === 'organisation' ? deps.masters.organisations(d1) : type === 'department' ? deps.masters.departments(d1) : deps.masters.posts(d1));
+      const parentId = (type === 'organisation' ? p.stateId : type === 'department' ? p.organisationId : p.departmentId) as string;
+      const found = resolveMaster(type, { name: (p.name ?? p.title) as string, shortName: p.shortName as string | undefined, slug: p.slug as string, websiteUrl: p.websiteUrl as string | undefined, parentId }, existing);
+      if (found.status === 'MATCH') return await fail(`This ${type} already exists (${found.matches[0].id}). Reject the proposal and reuse it.`);
+      const masterId = await deps.createMaster(proposal.kind, p, adminEmail, d1);
+      const note = `Created ${type} ${masterId}${found.status === 'POSSIBLE_MATCH' ? ' (similar master(s) exist: ' + found.matches.map(m => m.id).join(', ') + ')' : ''}.`;
+      await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note }, audit('APPROVE', masterId, proposal.summary));
+      return { ok: true, status: 'APPROVED', message: note };
+    }
+
     let result: Awaited<ReturnType<DecisionDeps['create']>>;
     let recruitmentId: string | undefined;
 
@@ -253,8 +281,9 @@ export async function editProposal(
   const proposal = await deps.get(d1, id);
   if (!proposal) return { ok: false, code: 'NOT_FOUND', message: 'Proposal not found.' };
   if (proposal.status !== 'PENDING') return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${proposal.status}.` };
+  if (isMasterKind(proposal.kind)) return { ok: false, code: 'FAILED', message: 'A master proposal cannot be edited. Reject it and ask the MCP to propose it again.' };
   let payload: Record<string, unknown>;
-  try { payload = sanitizeChanges(proposal.kind, rawChanges); }
+  try { payload = sanitizeChanges(proposal.kind as ProposalKind, rawChanges); }
   catch (e) { if (e instanceof InvalidProposalError) return { ok: false, code: 'FAILED', message: e.message }; throw e; }
 
   let baseSnapshot = proposal.baseSnapshot;
