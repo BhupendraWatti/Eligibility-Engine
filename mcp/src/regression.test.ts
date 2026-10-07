@@ -6,6 +6,7 @@ import { searchRecruitments, type Actor, type RecruitmentQueryDeps } from '../..
 import { getAllActiveRecruitments } from '../../src/db/queries';
 import { detectDuplicates } from '../../src/services/duplicate-detector';
 import {
+  checkMcpScope,
   createProposal,
   sanitizeChanges,
   type NewProposal,
@@ -13,6 +14,7 @@ import {
   type ProposalRow,
 } from '../../src/services/change-proposals';
 import { approveProposal, type DecisionDeps } from '../../src/services/change-proposal-decision';
+import { findApplyLink, isPdfUrl } from '../../src/services/cadre-guide';
 import { proposeMaster, resolveMaster, type MasterDeps, type MasterRecord } from '../../src/services/master-proposals';
 
 function assert(condition: boolean, msg: string) {
@@ -114,6 +116,24 @@ async function run() {
   }
   assert(refused === 3, 'unknown categories, levels and non-code states are rejected');
 
+  // ── 6c. Everything shown on the site is English; evidence snippets may stay in the notice language ─
+  let nonEnglish = 0;
+  for (const bad of [
+    { title: 'સ્ટાફ નર્સ 2026' },
+    { overviewMarkdown: 'Apply on OJAS. અરજી ઓનલાઇન' },
+    { selectionStages: [{ name: 'लिखित परीक्षा', desc: 'Written exam' }] },
+  ]) {
+    try { sanitizeChanges('UPDATE_RECRUITMENT', bad); } catch { nonEnglish++; }
+  }
+  assert(nonEnglish === 3, 'recruitment text in Gujarati or Hindi script is refused, including inside lists');
+  assert((sanitizeChanges('UPDATE_RECRUITMENT', { salaryDetailsMarkdown: 'Pay ₹29,200 – ₹92,300 (Level 5)' }).salaryDetailsMarkdown as string).includes('₹'), 'English text with ₹ and dashes is accepted');
+  let gujaratiOrg = false;
+  try { await proposeMaster(d1, proposer, { type: 'organisation', summary: 'Add GSSSB', fields: { stateId: 'st_mp', name: 'ગુજરાત ગૌણ સેવા પસંદગી મંડળ', shortName: 'GSSSB', websiteUrl: 'https://gsssb.gujarat.gov.in' } }, deps, masters); } catch { gujaratiOrg = true; }
+  assert(gujaratiOrg, 'an organisation name in Gujarati script is refused (translate it to English)');
+  let gujaratiSummary = false;
+  try { await proposeMaster(d1, proposer, { type: 'organisation', summary: 'GSSSB (ગુજરાત ગૌણ સેવા પસંદગી મંડળ)', fields: { stateId: 'st_mp', name: 'Gujarat Subordinate Service Selection Board', shortName: 'GSSSB', websiteUrl: 'https://gsssb.gujarat.gov.in' } }, deps, masters); } catch { gujaratiSummary = true; }
+  assert(gujaratiSummary, 'a master proposal summary in another script is refused');
+
   // ── 7. Evidence is stored beside the payload ───────────────────────────────────────────────────
   const evDeps = base();
   const made = await createProposal(d1, proposer, {
@@ -144,9 +164,42 @@ async function run() {
   assert(await strict(strictCreate) === 'EVIDENCE_REQUIRED:title,totalVacancies', 'a strict proposal without evidence is refused and names the unsupported fields');
   assert(await strict(strictCreate, [quote('title'), { ...quote('totalVacancies'), snippet: undefined }]) === 'EVIDENCE_REQUIRED:totalVacancies', 'evidence without a quoted snippet does not count');
   const quoteVacancies = { ...quote('totalVacancies'), snippet: 'Total posts: 520' };
-  assert(await strict({ ...strictCreate, seoTitle: 'SEO copy' }, [quote('title'), quoteVacancies]) === 'QUEUED', 'quoted evidence for every fact queues it; SEO copy and master ids are exempt');
+  const examAndApply = {
+    selectionStages: [{ name: 'Written exam', desc: 'Computer-based test of 100 marks' }],
+    officialLinks: [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: 'https://esb.mp.gov.in/apply' }],
+  };
+  assert(await strict({ ...strictCreate, ...examAndApply, seoTitle: 'SEO copy' }, [quote('title'), quoteVacancies, quote('selectionStages'), quote('officialLinks')]) === 'QUEUED', 'quoted evidence for every fact queues it; SEO copy and master ids are exempt');
   assert(await strict(strictCreate, [quote('title'), { ...quoteVacancies, snippet: 'Total posts: 502' }]) === 'VALUE_NOT_IN_QUOTE:totalVacancies', 'a value that is not in its own quote is refused');
-  assert(await strict({ ...strictCreate, title: 'Strict handwritten 2026', postId: 'post_hw', applicationEnd: '2026-10-26' }, [quote('title'), quoteVacancies, { ...quote('applicationEnd'), snippet: 'दिनांक 11.10.26 से 26.10.26 अपराह्न 5:00 बजे तक', handwritten: true }]) === 'QUEUED', 'a handwritten Hindi date that matches its quote is queued (and flagged)');
+  assert(await strict({ ...strictCreate, ...examAndApply, title: 'Strict handwritten 2026', postId: 'post_hw', applicationEnd: '2026-10-26' }, [quote('title'), quoteVacancies, quote('selectionStages'), quote('officialLinks'), { ...quote('applicationEnd'), snippet: 'दिनांक 11.10.26 से 26.10.26 अपराह्न 5:00 बजे तक', handwritten: true }]) === 'QUEUED', 'a handwritten Hindi date that matches its quote is queued (and flagged)');
+  // ── 7c. Scope rules: exam-based recruitments only, and an apply page that is not a PDF ─────────────
+  const scopeCode = (kind: 'CREATE_RECRUITMENT' | 'UPDATE_RECRUITMENT', payload: Record<string, unknown>, existing: string[] = []) => {
+    try { checkMcpScope(kind, payload, existing); return 'OK'; } catch (e: any) { return e.code; }
+  };
+  const stage = (name: string, desc = '') => ({ selectionStages: [{ name, desc }] });
+  for (const name of ['Objective Test', 'Entrance Test', 'Tier I', 'Skill Test / Typing test on computer', 'Paper I and Paper II', 'Written Examination']) {
+    assert(scopeCode('UPDATE_RECRUITMENT', stage(name)) === 'OK', `"${name}" counts as an exam stage`);
+  }
+  for (const name of ['Based on marks in Higher Secondary examination', 'Merit on graduation exam marks', 'Interview / Paper presentation', 'Physical Efficiency Test', 'Personality Test', 'Selection without written test']) {
+    assert(scopeCode('UPDATE_RECRUITMENT', stage(name)) === 'NO_EXAM_STAGE', `"${name}" is not an exam stage`);
+  }
+  const applyPage = { linkType: 'APPLY_ONLINE', title: 'Apply', url: 'https://ojas.gujarat.gov.in/apply' };
+  assert(scopeCode('CREATE_RECRUITMENT', { ...stage('Written exam'), officialLinks: [{ linkType: 'NOTIFICATION_PDF', title: 'Notice', url: 'https://x.gov.in/n.pdf' }] }) === 'APPLY_LINK_REQUIRED', 'a new recruitment without an APPLY_ONLINE link is refused');
+  assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [{ ...applyPage, url: 'https://x.gov.in/advt.pdf?v=2' }] }) === 'INVALID_LINK', 'an APPLY_ONLINE link to a PDF is refused');
+  assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [applyPage, { linkType: 'BROCHURE', title: 'b', url: 'https://x.gov.in/b' }] }) === 'INVALID_LINK', 'an unknown link type is refused');
+  assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [applyPage, { linkType: 'BROCHURE', title: 'b', url: 'https://x.gov.in/b' }] }, ['BROCHURE']) === 'OK', 'a link type already on the live record can be kept');
+  const withApply: any = { ...row({ id: 'rec_apply' }), officialLinksList: [{ ...applyPage, isActive: 1 }] };
+  const dropDeps: ProposalDeps = { ...base(), loadRecruitment: async () => withApply };
+  let dropCode = '';
+  try {
+    await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_apply', summary: 'links', requireEvidence: true,
+      changes: { officialLinks: [{ linkType: 'NOTIFICATION_PDF', title: 'Notice', url: 'https://x.gov.in/n.pdf' }] }, evidence: [quote('officialLinks')] }, dropDeps);
+  } catch (e: any) { dropCode = e.code; }
+  assert(dropCode === 'APPLY_LINK_REQUIRED', 'an update that drops the existing apply link is refused');
+  assert(findApplyLink([{ linkType: 'APPLY_ONLINE', url: 'https://x.gov.in/a.pdf' }, { linkType: 'APPLY_ONLINE', url: 'https://x.gov.in/old', isActive: 0 }, applyPage])?.url === applyPage.url, 'the apply button skips PDF and inactive links');
+  assert(isPdfUrl('https://x.gov.in/Advt.PDF#page=2') && !isPdfUrl('https://x.gov.in/apply?file=a.pdf'), 'a PDF is detected by its path, not its query string');
+  assert(sanitizeChanges('UPDATE_RECRUITMENT', { advtNumber: 'क्र. 458/2026' }).advtNumber === 'क्र. 458/2026', 'an advertisement number is kept exactly as printed, so it can match its quote');
+  assert(resolveMaster('department', { name: 'General Administration Department', parentId: 'org_other_state' }, [{ id: 'dept_gad', name: 'General Administration Department', slug: 'general-administration', organisationId: 'org_mppsc' }]).status === 'NOT_FOUND', 'a same-named department under another organisation is not a duplicate');
+
   const stored = store[store.length - 1];
   assert(!!stored && (stored.meta as any).evidence.some((e: any) => e.handwritten === true) && !(stored.meta as any).evidence.some((e: any) => 'confidence' in e), 'the handwritten flag is kept and no self-rated confidence is stored');
 

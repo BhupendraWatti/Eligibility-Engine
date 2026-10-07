@@ -11,7 +11,7 @@ export const SCOPE_RULES = [
   'Add only government recruitments that select by a written or computer-based exam. Skip honorary, volunteer, walk-in, interview-only, merit-only and "fill the form and we will call you" posts in every state (refused as NO_EXAM_STAGE).',
   'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the form. A notice or rulebook PDF is NOTIFICATION_PDF or RULEBOOK, never APPLY_ONLINE. officialLinks replaces the whole list, so an update must keep an existing apply link.',
   'Masters belong to one state: organisation -> department -> post. A post or department with the same name in another state is not a duplicate; queue the new state\'s own chain instead of reusing another state\'s post.',
-  'Write master names in English, as on the body\'s English website or notice. Put a name in another script in the summary.',
+  'Write everything in plain English, for every state: names, summary and every text field. Translate a notice in Hindi, Gujarati or any other language; use the body\'s own English name where it has one. Text in another script is refused (evidence snippets and the advertisement number stay as printed).',
 ];
 
 export const ENTITY_TYPES = ['state', 'organisation', 'department', 'sector', 'post'] as const;

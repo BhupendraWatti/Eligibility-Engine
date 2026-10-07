@@ -10,7 +10,10 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 - `officialLinks` must include an `APPLY_ONLINE` link: the official page where candidates start filling the form (for example OJAS
   or MPOnline). A notice or rulebook PDF is `NOTIFICATION_PDF` or `RULEBOOK`, never `APPLY_ONLINE` (else `APPLY_LINK_REQUIRED` / `INVALID_LINK`). An update that sends `officialLinks` must keep the record's existing apply link.
 - Masters belong to one state (organisation, then department, then post). A post with the same name in another state is not a
-  duplicate: queue the new state's own chain. Master names are in English, as on the body's English site or notice.
+  duplicate: queue the new state's own chain. Master names are in English, as on the body's English site or notice
+  (translate when it has none, e.g. Gujarat Subordinate Service Selection Board).
+- Everything you write is in plain English, whatever the state or the notice language. Translate Hindi, Gujarati, Tamil
+  and other notices; text in another script is refused. Only evidence snippets and the advertisement number stay exactly as printed.
 
 ## Per-record loop
 
@@ -59,7 +62,7 @@ Many readers are not highly educated or used to online portals. Text fields rend
 - Short sentences and common words. Explain any term the notice uses (undertaking = a signed promise; sitting = a meeting).
 - Lead with what matters: who can apply, how many posts where, the last date, and whether it is a salaried job.
 - "How to apply" as numbered or "•" steps, and a list of documents to bring.
-- Use place names exactly as the notice prints them (Hindi if the notice is in Hindi).
+- Write place names in English letters (Gandhinagar, not ગાંધીનગર), spelled as the notice or the state's English site does.
 - Facts only from the notice; no promotional or filler wording.
 
 ## Batches

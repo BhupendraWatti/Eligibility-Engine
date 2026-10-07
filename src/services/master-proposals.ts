@@ -17,6 +17,7 @@ import {
   defaultProposalDeps,
   isProposalRef,
   sanitizeEvidence,
+  assertEnglish,
   type MasterProposalKind,
   type ProposalDeps,
 } from './change-proposals';
@@ -129,14 +130,12 @@ function age(v: unknown, field: string): number | undefined {
   return v as number;
 }
 
-/** Master names are shown, sorted and matched in English; a name with letters from another script is refused. */
-function englishName(v: string, field: string): string {
-  if (/[^\P{L}\p{Script=Latin}]/u.test(v)) throw new InvalidProposalError(`${field} must be the English name, as on the body's English website or notice. Put a name in another script in the summary instead.`);
-  return v;
+/** Validate the master fields and return the payload an admin approval will pass to the existing master writers. Masters are shown, sorted and matched in English. */
+export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<string, unknown> {
+  return assertEnglish(sanitizeMasterFieldsRaw(type, raw), 'fields');
 }
 
-/** Validate the master fields and return the payload an admin approval will pass to the existing master writers. */
-export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<string, unknown> {
+function sanitizeMasterFieldsRaw(type: MasterType, raw: unknown): Record<string, unknown> {
   if (!isObj(raw)) throw new InvalidProposalError('fields must be an object.');
   const allowed: Record<MasterType, string[]> = {
     organisation: ['stateId', 'name', 'shortName', 'websiteUrl'],
@@ -150,15 +149,15 @@ export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<str
     let u: URL;
     try { u = new URL(websiteUrl); } catch { throw new InvalidProposalError('websiteUrl must be a valid URL.'); }
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new InvalidProposalError('websiteUrl must be an http(s) URL.');
-    const name = englishName(text(raw.name, 'name', 200)!, 'name');
-    const shortName = englishName(text(raw.shortName, 'shortName', 40)!, 'shortName');
+    const name = text(raw.name, 'name', 200)!;
+    const shortName = text(raw.shortName, 'shortName', 40)!;
     return { stateId: text(raw.stateId, 'stateId', 100)!, name, shortName, slug: slugify(shortName), websiteUrl };
   }
   if (type === 'department') {
-    const name = englishName(text(raw.name, 'name', 200)!, 'name');
+    const name = text(raw.name, 'name', 200)!;
     return { organisationId: text(raw.organisationId, 'organisationId', 100)!, name, slug: slugify(name), description: text(raw.description, 'description', 1000, true) };
   }
-  const title = englishName(text(raw.title, 'title', 200)!, 'title');
+  const title = text(raw.title, 'title', 200)!;
   const qual = raw.defaultQualification === undefined ? undefined : String(raw.defaultQualification);
   if (qual !== undefined && !QUALIFICATIONS.includes(qual)) throw new InvalidProposalError(`defaultQualification must be one of: ${QUALIFICATIONS.join(', ')}.`);
   return {
@@ -187,7 +186,7 @@ export async function proposeMaster(
   if (actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for proposals.');
   if (!d1) throw new Error('D1 binding unavailable.');
   if (!(MASTER_TYPES as readonly string[]).includes(input.type)) throw new InvalidProposalError(`type must be one of: ${MASTER_TYPES.join(', ')}.`);
-  const summary = text(input.summary, 'summary', 300)!;
+  const summary = assertEnglish(text(input.summary, 'summary', 300)!, 'summary');
   const payload = sanitizeMasterFields(input.type, input.fields);
   const evidence = sanitizeEvidence(input.evidence, payload);
 

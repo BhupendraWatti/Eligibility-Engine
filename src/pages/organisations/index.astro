@@ -1,0 +1,92 @@
+---
+// src/pages/organisations/index.astro
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllOrganisations, getAllStates, getAllActiveRecruitments } from '../../db/queries';
+import { isActiveDrive } from '../../services/lifecycle';
+
+const [organisations, states, recruitments] = await Promise.all([
+  getAllOrganisations(),
+  getAllStates(undefined, { includeInactive: true }),
+  getAllActiveRecruitments(),
+]);
+
+const stateNames = new Map(states.map(s => [s.id, s.name]));
+
+// Per organisation: published notices and how many are taking applications now.
+const stats = new Map<string, { total: number; open: number }>();
+for (const r of recruitments) {
+  if (!r.organisationId) continue;
+  const s = stats.get(r.organisationId) ?? { total: 0, open: 0 };
+  s.total++;
+  if (isActiveDrive(r)) s.open++;
+  stats.set(r.organisationId, s);
+}
+
+const groups = new Map<string, typeof organisations>();
+for (const org of organisations) {
+  const stateName = stateNames.get(org.stateId) || 'Other';
+  groups.set(stateName, [...(groups.get(stateName) ?? []), org]);
+}
+const sortedGroups = [...groups.entries()]
+  .sort(([a], [b]) => a.localeCompare(b, 'en'))
+  .map(([stateName, orgs]) => [stateName, orgs.sort((a, b) => a.name.localeCompare(b.name, 'en'))] as const);
+---
+
+<BaseLayout
+  title="Recruiting Organisations"
+  description="Every government commission, board and body whose recruitments NIRNAY tracks, grouped by state and central government."
+>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-organisations-index>
+    <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
+      <a href="/" class="hover:text-foreground">Home</a>
+      <span>/</span>
+      <span class="text-foreground font-medium">Organisations</span>
+    </nav>
+
+    <header class="mb-8">
+      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Recruiting Organisations</h1>
+      <p class="text-sm text-muted-foreground mt-1">
+        {organisations.length} government bodies that publish the recruitments listed on NIRNAY, grouped by state.
+      </p>
+    </header>
+
+    {organisations.length === 0 ? (
+      <div class="p-8 rounded-2xl bg-card border border-border text-center">
+        <p class="text-xs text-muted-foreground">No organisations are listed yet.</p>
+      </div>
+    ) : (
+      <div class="space-y-8">
+        {sortedGroups.map(([stateName, orgs]) => (
+          <section>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+              {stateName} <span class="font-normal">({orgs.length})</span>
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {orgs.map((org) => {
+                const s = stats.get(org.id) ?? { total: 0, open: 0 };
+                return (
+                  <a
+                    href={`/organisations/${org.slug}`}
+                    class="flex items-start gap-3 p-4 rounded-xl bg-card border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span class="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                      {org.initials || org.shortName.slice(0, 3)}
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-bold text-foreground">{org.shortName}</span>
+                      <span class="block text-xs text-muted-foreground line-clamp-2">{org.name}</span>
+                      <span class="block text-[11px] font-mono text-muted-foreground mt-1.5">
+                        {s.total} {s.total === 1 ? 'recruitment' : 'recruitments'}
+                        {s.open > 0 && <span class="text-emerald-700 font-bold"> · {s.open} open now</span>}
+                      </span>
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

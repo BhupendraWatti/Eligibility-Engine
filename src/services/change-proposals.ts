@@ -157,6 +157,21 @@ function list<T>(v: unknown, field: string, max: number, each: (item: Record<str
   });
 }
 
+/**
+ * Everything a proposal puts on the site is written in English so every reader, in any state, can read and search it.
+ * Letters from another script (Hindi, Gujarati, Tamil...) are refused; symbols like ₹ are fine. Evidence snippets stay verbatim.
+ */
+export function assertEnglish<T>(v: T, field: string): T {
+  if (typeof v === 'string') {
+    if (/[^\P{L}\p{Script=Latin}]/u.test(v)) throw new InvalidProposalError(`${field} must be written in plain English. Translate text from the notice; do not copy words in another script.`);
+  } else if (Array.isArray(v)) {
+    v.forEach((item, i) => assertEnglish(item, `${field}[${i}]`));
+  } else if (isObj(v)) {
+    for (const [k, item] of Object.entries(v)) assertEnglish(item, `${field}.${k}`);
+  }
+  return v;
+}
+
 function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
   if (typeof spec === 'object') {
     if (typeof v !== 'string' || !spec.enum.includes(v)) throw new InvalidProposalError(`${field} must be one of: ${spec.enum.join(', ')}.`);
@@ -238,7 +253,9 @@ export function sanitizeChanges(kind: ProposalKind, changes: unknown): Record<st
   for (const [field, value] of Object.entries(changes)) {
     const spec = allowed[field];
     if (!spec) throw new InvalidProposalError(`Field "${field}" cannot be proposed.`);
-    out[field] = validateField(field, spec, value);
+    const valid = validateField(field, spec, value);
+    // The advertisement number is an identifier, kept exactly as printed so it can match its quote.
+    out[field] = field === 'advtNumber' ? valid : assertEnglish(valid, field);
   }
   if (kind === 'CREATE_RECRUITMENT') {
     const missing = CREATE_REQUIRED.filter(f => out[f] === undefined);
@@ -516,9 +533,10 @@ export interface ProposalInput {
   requireEvidence?: boolean;
 }
 
-const EXAM_STAGE = /\b(written|exam(ination)?s?|cbt|computer[- ]based|objective[- ]type|mcq|omr|paper|prelim(inary|s)?|mains|(online|screening|competitive|aptitude|recruitment|selection)\s+test)\b|लिखित|परीक्षा/i;
-// Not a selection exam: medical checks, the qualifying/board exam a merit list is drawn from, and fee wording.
-const NOT_AN_EXAM = /\b(medical|physical|health|fitness|qualifying|board|class\s*\d+|\d+(st|nd|rd|th))\s+exam(ination)?s?\b|\bexam(ination)?\s+fees?\b/gi;
+// Stage names are English (assertEnglish), so only English wording is matched.
+const EXAM_STAGE = /\b(written|exam(ination)?s?|tests?|cbt|computer[- ]based|objective|mcq|omr|paper[- ]?(i{1,3}|[1-3])|prelim(inary|s)?|mains|tier[- ]?(i{1,3}|[1-3]))\b/i;
+// Not a selection exam: medical and physical checks, interviews, the school/degree exam a merit list is drawn from, and fee wording.
+const NOT_AN_EXAM = /\b(medical|physical(\s+(efficiency|endurance|standards?|measurement))?|health|fitness|endurance|personality|psychological|qualifying|board|school|matric(ulation)?|(higher\s+)?secondary|graduation|degree|diploma|class\s*\d+|\d+(st|nd|rd|th))\s+(exam(ination)?s?|tests?)\b|\bexam(ination)?\s+fees?\b/gi;
 const NO_EXAM = /\b(no|without)\s+(written\s+)?(exam(ination)?|test)\b/i;
 const isExamStage = (s: { name: string; desc: string }) => {
   const text = `${s.name} ${s.desc}`.replace(NOT_AN_EXAM, ' ');
@@ -530,10 +548,11 @@ const isExamStage = (s: { name: string; desc: string }) => {
  * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
  * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
  */
-export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>): void {
+export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = []): void {
   const links = (payload.officialLinks as Array<{ linkType: string; url: string }> | undefined) ?? [];
   for (const [i, l] of links.entries()) {
-    if (!LINK_TYPES.includes(l.linkType)) {
+    // officialLinks replaces the whole list, so a type already on the live record may be sent back unchanged.
+    if (!LINK_TYPES.includes(l.linkType) && !existingLinkTypes.includes(l.linkType)) {
       throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}].linkType "${l.linkType}" is not allowed. Use one of: ${LINK_TYPES.join(', ')}.`, { index: i });
     }
     if (l.linkType === 'APPLY_ONLINE' && isPdfUrl(l.url)) {
@@ -559,7 +578,7 @@ function requirePropose(actor: Actor, d1: D1Database | undefined): D1Database {
 /** Every check createProposal runs, with no write. Throws the same errors; returns what would be queued. */
 async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput, deps: ProposalDeps) {
   if (!PROPOSAL_KINDS.includes(input.kind)) throw new InvalidProposalError('Unknown proposal kind.');
-  const summary = str(input.summary, 'summary', MAX_SUMMARY);
+  const summary = assertEnglish(str(input.summary, 'summary', MAX_SUMMARY), 'summary');
   const payload = sanitizeChanges(input.kind, input.changes);
   const evidence = sanitizeEvidence(input.evidence, payload);
   const evidenceMissing = evidenceGaps(payload, evidence);
@@ -578,7 +597,8 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (wrong.length) {
       throw new ProposalBlockedError('VALUE_NOT_IN_QUOTE', `These values do not appear in their quoted text: ${wrong.map(c => `${c.field} (${c.detail})`).join(' ')} Re-read the source: fix the value or the quote, or leave the field out.`, { fields: wrong.map(c => c.field) });
     }
-    checkMcpScope(input.kind, payload);
+    // An update is checked once the live record is loaded (below), so its existing link types can be kept.
+    if (input.kind === 'CREATE_RECRUITMENT') checkMcpScope(input.kind, payload);
   }
 
   let old: ProposalRow | undefined;
@@ -598,8 +618,9 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (old && old.recruitmentId !== recruitmentId) throw new InvalidProposalError('A replacement must target the same recruitment.');
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
+    if (input.requireEvidence) checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
     // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
-    const hadApply = (current.officialLinksList ?? []).some(l => l.isActive && l.linkType === 'APPLY_ONLINE');
+    const hadApply = (current.officialLinksList ?? []).some(l => l.isActive !== 0 && l.linkType === 'APPLY_ONLINE');
     const links = payload.officialLinks as Array<{ linkType: string }> | undefined;
     if (input.requireEvidence && links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
       throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');

@@ -135,7 +135,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification), ' +
         'Eligibility (age, relaxations, qualification, domicile, physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
         `Allowed fields in "changes": ${editable}. ` +
-        'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write text fields as plain factual statements taken from the notice: no promotional tone, no guesses. ' +
+        'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write every text field in plain, simple English, translating notices in Hindi, Gujarati or any other language (text in another script is refused; evidence snippets and advtNumber stay as printed): plain factual statements taken from the notice, no promotional tone, no guesses. ' +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
         'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
@@ -187,7 +187,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'An organisation needs an existing stateId and a post an existing sectorId (use resolve_entity). The organisationId of a department and the departmentId of a post may be an existing id OR the proposal id (prop_...) this tool returned for a parent queued in the same run, ' +
         'so organisation -> department -> post -> propose_new_recruitment can all be queued at once; the owner approves them parent first. ' +
         'fields: organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ' +
-        'Names must be in English. Masters belong to one state: the same post name in another state is not a duplicate, so queue the new state\'s own chain. ' +
+        'Names, descriptions and the summary must be in English (use the body\'s English name, or translate it). Masters belong to one state: the same post name in another state is not a duplicate, so queue the new state\'s own chain. ' +
         'Set dryRun=true to resolve without queuing. Include evidence (sourceUrl of the official site) for name and websiteUrl.',
       inputSchema: {
         type: z.enum(MASTER_TYPES),
