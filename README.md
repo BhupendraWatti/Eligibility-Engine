@@ -11,11 +11,12 @@ NIRNAY is an Astro SSR application for managing Indian public-recruitment master
 ## Local setup
 
 ```powershell
-npm ci
 Copy-Item .dev.vars.example .dev.vars
-npx wrangler d1 migrations apply EligibilityEngine-db --local
+npm run setup
 npx astro dev --background
 ```
+
+`npm run setup` runs `npm ci`, generates Astro types (`astro sync`) and applies local D1 migrations; it is safe to re-run. In a Claude Code worktree, `.worktreeinclude` copies `.dev.vars` and your local D1 data in, so only `npm run setup` is needed. A fresh local database has no recruitments; add one through `/admin`.
 
 The private MCP server for AI clients lives in a separate folder, `mcp/`, with its own packages and deploy (see `mcp/README.md`). It only reads this app's code and is excluded from the website build.
 
@@ -37,7 +38,7 @@ Run the complete local quality gate:
 npm run check
 ```
 
-This runs the tests, TypeScript checking, and production build. Development and build use separate Vite caches, so validation does not invalidate a running development server.
+This runs the tests (`npm test`), TypeScript checking (`astro sync` then the project's `tsc`), and production build; CI runs the same command. Development and build use separate Vite caches, so validation does not invalidate a running development server.
 
 Focused commands:
 

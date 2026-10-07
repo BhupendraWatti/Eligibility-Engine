@@ -1,0 +1,5 @@
+# Gitignored files Claude Code copies into each new worktree (.gitignore syntax).
+# Local secrets for `astro dev`.
+.dev.vars
+# Local D1 data only (the rest of .wrangler/state is Miniflare cache). `npm run setup` applies newer migrations.
+.wrangler/state/v3/d1/

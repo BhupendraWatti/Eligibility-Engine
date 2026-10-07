@@ -6,11 +6,13 @@ NIRNAY covers **all of India** (central bodies and every state/UT), not a single
 
 Before making architectural decisions, editing database queries, altering lifecycle states, or modifying eligibility calculation logic, always consult the comprehensive project architecture guide:
 
-- [CONTEXT.md](file:///d:/Personal%20Projects/Eligibility%20Engine/markdown/CONTEXT.md) — Complete Platform Memory, Relational Schema, Deterministic Engine Rules, and Operational Playbook.
-- [RECRUITMENT_LIFECYCLE_DOMAIN.md](file:///d:/Personal%20Projects/Eligibility%20Engine/docs/RECRUITMENT_LIFECYCLE_DOMAIN.md) — Canonical Recruitment Lifecycle & Metric Standards.
+- [CONTEXT.md](markdown/CONTEXT.md) — Complete Platform Memory, Relational Schema, Deterministic Engine Rules, and Operational Playbook.
+- [RECRUITMENT_LIFECYCLE_DOMAIN.md](docs/RECRUITMENT_LIFECYCLE_DOMAIN.md) — Canonical Recruitment Lifecycle & Metric Standards.
 
 
 ## Development
+
+In a new worktree, run `npm run setup` first (installs packages, generates Astro types, applies local D1 migrations). `.worktreeinclude` copies `.dev.vars` and local D1 data in. If you see `Cannot find module 'astro:...'` or a missing `*.test.ts`, setup was skipped. `npm run check` runs tests, typecheck and build.
 
 When starting the dev server, use background mode:
 
@@ -37,7 +39,7 @@ Consult these guides before working on related tasks:
 
 
 ## Design System
-Always read [DESIGN.md](file:///d:/Personal%20Projects/Eligibility%20Engine/DESIGN.md) before making any visual or UI decisions.
+Always read [DESIGN.md](DESIGN.md) before making any visual or UI decisions.
 All font choices, colors, spacing, and aesthetic direction are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that doesn't match DESIGN.md.
