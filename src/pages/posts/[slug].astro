@@ -1,67 +1,41 @@
 ---
-// src/pages/posts/[slug].astro
+// src/pages/posts/[slug].astro: the public Cadre Guide for one master post.
+// Every fact comes from a PUBLISHED recruitment (see src/services/cadre-guide.ts); nothing is estimated.
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getCanonicalPostBySlug } from '../../db/queries';
+import { getCadreGuideBySlug } from '../../db/queries';
+import { formatGuideDate, type GuideNotice } from '../../services/cadre-guide';
 
 const { slug } = Astro.params;
+const data = await getCadreGuideBySlug(slug || '');
+if (!data) Astro.response.status = 404;
 
-const post = await getCanonicalPostBySlug(slug || '');
-if (!post) Astro.response.status = 404;
+const post = data?.post;
+const hiringBody = data?.hiringBody ?? null;
+const guide = data?.guide;
+const facts = guide?.facts ?? null;
+const allNotices: GuideNotice[] = guide ? [...guide.live, ...guide.upcoming, ...guide.past] : [];
+const isExternal = (url: string) => /^https?:\/\//i.test(url);
 
-// Derive Selection Stages and Syllabus dynamically based on post and sector
-const defaultSelectionStages = post?.selectionStages || (
-  post?.sectorId === 'sec_civil_services' ? [
-    { name: 'Stage 1: State Services Preliminary Examination (OMR)', desc: 'General Studies Paper I & General Aptitude Paper II (200 marks each) for state-wide screening.' },
-    { name: 'Stage 2: State Services Main Examination (Descriptive)', desc: 'Six descriptive papers covering General Studies, History, Geography, Economics, Hindi, and Essay writing.' },
-    { name: 'Stage 3: Interview & Personality Test', desc: '175 marks viva-voce conducted by the State Public Service Commission followed by cadre allocation.' },
-  ] : post?.sectorId === 'sec_police' ? [
-    { name: 'Stage 1: Online Computer Based Test (CBT)', desc: 'Objective examination covering General Knowledge, Reasoning, Elementary Mathematics, and Cadre Knowledge.' },
-    { name: 'Stage 2: Physical Proficiency Test (PPT)', desc: 'Physical standards measurement and physical efficiency tests (running, shot put, long jump).' },
-    { name: 'Stage 3: Document Verification & Medical Exam', desc: 'Scrutiny of original certificates, state domicile certificate (where required), and statutory medical fitness test.' },
-  ] : post?.sectorId === 'sec_judiciary' ? [
-    { name: 'Stage 1: Preliminary Online Examination', desc: '150 marks objective test covering Indian Penal Code, CrPC, CPC, Constitution, and the relevant State Land Revenue Code.' },
-    { name: 'Stage 2: Main Written Examination', desc: 'Four descriptive papers covering civil law, criminal law, judgment writing, and translation.' },
-    { name: 'Stage 3: Viva-Voce & Interview', desc: '50 marks interview conducted by High Court judges committee.' },
-  ] : [
-    { name: 'Stage 1: Written Competitive Examination (CBT)', desc: '100 to 200 marks objective multiple-choice test on subject knowledge, reasoning, and state aptitude.' },
-    { name: 'Stage 2: Document Verification & Biometrics', desc: 'Scrutiny of academic transcripts, caste certificates, and state employment registration (where mandated).' },
-    { name: 'Stage 3: Final Medical & Cadre Allotment', desc: 'Medical clearance and appointment order issue by the parent department.' },
-  ]
-);
-
-const defaultSyllabus = post?.syllabus || (
-  post?.sectorId === 'sec_civil_services' ? [
-    { subject: 'Paper I: General Studies (History, Geography, Polity, State GK)', marks: '200 Marks' },
-    { subject: 'Paper II: General Aptitude & Comprehension', marks: '200 Marks (Qualifying 33%)' },
-    { subject: 'Mains: GS Papers I to IV & General Hindi/Essay', marks: '1400 Marks Total' },
-    { subject: 'Personality Test / Interview', marks: '175 Marks' },
-  ] : post?.sectorId === 'sec_judiciary' ? [
-    { subject: 'Constitutional Law, Civil Law & Procedure (CPC)', marks: '40 Questions' },
-    { subject: 'Criminal Law & Procedure (IPC, CrPC, Evidence Act)', marks: '40 Questions' },
-    { subject: 'State-Specific Acts (Land Revenue, Accommodation Control)', marks: '30 Questions' },
-    { subject: 'General Knowledge, Computer Knowledge & English', marks: '40 Questions' },
-  ] : [
-    { subject: 'General Knowledge & Current Affairs (State Focus)', marks: '30 Marks' },
-    { subject: 'Logical Reasoning & Intellectual Ability', marks: '25 Marks' },
-    { subject: 'General Science & Mathematics', marks: '25 Marks' },
-    { subject: 'Language Competence / Trade Domain', marks: '20 Marks' },
-  ]
-);
+const pageDescription = post
+  ? facts
+    ? `${post.title}: qualification, age limit${facts.pay ? ', pay' : ''} and how to prepare, taken from the ${facts.notice.cycleYear} official notice.`
+    : `${post.title}: what the job involves and how to follow its official notices.`
+  : '';
 ---
 
-{!post ? (
-  <BaseLayout title="Canonical Post Not Found">
+{!post || !guide ? (
+  <BaseLayout title="Post Not Found">
     <div class="max-w-3xl mx-auto px-4 py-20 text-center" data-post-not-found>
       <div class="size-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 flex items-center justify-center mx-auto mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
-      <h1 class="text-2xl font-bold text-foreground mb-2">Canonical Post Not Found</h1>
+      <h1 class="text-2xl font-bold text-foreground mb-2 font-heading">Post Not Found</h1>
       <p class="text-sm text-muted-foreground mb-6">
-        No canonical post definition matches <code class="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{slug}</code>. We never substitute unrelated posts.
+        No post matches <code class="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{slug}</code>. We never substitute unrelated posts.
       </p>
       <div class="flex items-center justify-center gap-3">
         <a href="/jobs" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-blue-700 transition-colors">
-          Browse All Posts
+          Browse All Jobs
         </a>
         <a href="/" class="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-xs font-semibold hover:bg-muted transition-colors">
           Home
@@ -70,180 +44,294 @@ const defaultSyllabus = post?.syllabus || (
     </div>
   </BaseLayout>
 ) : (
-  <BaseLayout
-    title={`${post.title} · Career, Eligibility & Pay Guide`}
-    description={`Canonical guide to ${post.title}. Review pay scale, qualifications, age rules, syllabus, and linked government recruitment cycles.`}
-  >
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <BaseLayout title={`${post.title} · Eligibility & Preparation Guide`} description={pageDescription}>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-cadre-guide={post.slug}>
       <!-- Breadcrumb -->
-      <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="Breadcrumb">
+      <nav class="flex items-center gap-2 text-xs text-muted-foreground mb-4" aria-label="Breadcrumb">
         <a href="/" class="hover:text-foreground">Home</a>
         <span>/</span>
-        <a href="/jobs" class="hover:text-foreground">Opportunities</a>
+        {post.sectorSlug ? (
+          <a href={`/sectors/${post.sectorSlug}`} class="hover:text-foreground truncate max-w-[10rem] sm:max-w-none">{post.sectorName}</a>
+        ) : (
+          <a href="/jobs" class="hover:text-foreground">Jobs</a>
+        )}
         <span>/</span>
         <span class="text-foreground font-semibold truncate max-w-xs sm:max-w-md">{post.title}</span>
       </nav>
 
-      <!-- Header Box -->
-      <div class="bg-card rounded-3xl p-6 sm:p-10 border border-border shadow-sm mb-8">
+      <!-- Header -->
+      <header class="bg-card rounded-2xl p-6 sm:p-8 border border-border shadow-sm mb-6">
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
-            Canonical State Cadre Guide
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+            Cadre guide
           </span>
-          <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            {post.sectorName || 'Government Service'}
-          </span>
-          <span class="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            {post.departmentName || 'State Department'}
-          </span>
+          {post.sectorName && (
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">{post.sectorName}</span>
+          )}
+          {post.departmentName && (
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">{post.departmentName}</span>
+          )}
+          {hiringBody && (
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">{hiringBody.shortName}</span>
+          )}
         </div>
 
-        <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground font-['Outfit'] mb-4">
-          {post.title}
-        </h1>
-        <p class="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6">
-          {post.summary}
-        </p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-foreground font-heading mb-2">{post.title}</h1>
+        <p class="text-sm text-muted-foreground leading-relaxed">{post.summary}</p>
 
-        <!-- Active Recruitment Callout if linked -->
-        {post.activeRecruitments && post.activeRecruitments.length > 0 ? (
-          <div class="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-300/80 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider inline-block mb-1">
-                Active Recruitment Cycle {new Date().getFullYear()}
-              </span>
-              <h3 class="text-base font-bold text-foreground font-['Outfit']">
-                {post.activeRecruitments[0].title}
-              </h3>
-              <p class="text-xs text-muted-foreground mt-0.5">
-                {post.activeRecruitments[0].totalVacancies?.toLocaleString()} official vacancies declared in current drive.
+        <!-- Status: driven only by published notices and their dates -->
+        <div class="mt-5 space-y-3">
+          {guide.live.map((n) => (
+            <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="min-w-0">
+                <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${n.statusBadgeClass}`}>{n.statusLabel}</span>
+                <h2 class="text-sm font-bold text-foreground mt-1.5">{n.title}</h2>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  {n.applicationEnd && <>Apply by <strong class="text-foreground">{formatGuideDate(n.applicationEnd)}</strong> · </>}
+                  <span class="font-mono">{n.totalVacancies.toLocaleString('en-IN')}</span> vacancies · {n.organisationShortName}
+                </p>
+              </div>
+              <a href={`/recruitments/${n.slug}`} class="shrink-0 px-4 py-2 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors">
+                View notice
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          ))}
+
+          {guide.upcoming.map((n) => (
+            <div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="min-w-0">
+                <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${n.statusBadgeClass}`}>{n.statusLabel}</span>
+                <h2 class="text-sm font-bold text-foreground mt-1.5">{n.title}</h2>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  {n.applicationStart ? <>Applications open on <strong class="text-foreground">{formatGuideDate(n.applicationStart)}</strong></> : 'Application dates not announced yet'}
+                </p>
+              </div>
+              <a href={`/recruitments/${n.slug}`} class="shrink-0 px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors">
+                View notice
+              </a>
+            </div>
+          ))}
+
+          {guide.live.length === 0 && guide.upcoming.length === 0 && (
+            <div class="rounded-xl border border-border bg-muted/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground">
+              <div class="flex items-start gap-2">
+                <span class="size-2 rounded-full bg-slate-400 mt-1 shrink-0"></span>
+                {facts ? (
+                  <span>No applications open right now. Last notice: <strong class="text-foreground">{facts.notice.title}</strong> ({facts.notice.statusLabel.toLowerCase()}).</span>
+                ) : (
+                  <span>No official notice for this post has been verified yet. Nothing below is estimated.</span>
+                )}
+              </div>
+              {facts && (
+                <a href={`/recruitments/${facts.notice.slug}`} class="font-semibold text-primary hover:underline whitespace-nowrap">View last notice</a>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 space-y-6">
+          {facts && (
+            <section class="bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-sm" aria-labelledby="facts-heading">
+              <h2 id="facts-heading" class="text-lg font-bold text-foreground font-heading">What the {facts.notice.cycleYear} notice required</h2>
+              <p class="text-xs text-muted-foreground mt-1 mb-4">
+                From <a href={`/recruitments/${facts.notice.slug}`} class="text-primary hover:underline">{facts.notice.title}</a>
+                {facts.lastVerifiedAt && <> · checked against the official document on {formatGuideDate(facts.lastVerifiedAt.toISOString())}</>}.
+                The next notice may change these rules.
               </p>
-            </div>
-            <a
-              href={`/recruitments/${post.activeRecruitments[0].slug}`}
-              class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm whitespace-nowrap transition-colors inline-flex items-center gap-1.5"
-            >
-              <span>View Active Recruitment</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-        ) : (
-          <div class="bg-muted/40 border border-border rounded-2xl p-4 flex items-center justify-between gap-4 text-xs text-muted-foreground">
-            <div class="flex items-center gap-2">
-              <span class="size-2 rounded-full bg-slate-400"></span>
-              <span>No direct recruitment drive currently active. Track notification releases on the calendar.</span>
-            </div>
-            <a href="/calendar" class="font-semibold text-primary hover:underline whitespace-nowrap inline-flex items-center gap-1">
-              <span>Exam Calendar</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-        )}
-      </div>
 
-      <!-- 2-Column Guide Details -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <!-- Main Content -->
-        <div class="md:col-span-2 space-y-8">
-          <!-- Statutory Qualifications -->
-          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
-            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
-              Baseline Statutory Standards
-            </h2>
-            <div class="space-y-4 text-xs sm:text-sm">
-              <div class="p-4 rounded-xl bg-muted/40 border border-border">
-                <strong class="text-foreground block font-semibold mb-1">Statutory Educational Qualification:</strong>
-                <p class="text-muted-foreground">
-                  Minimum {post.defaultQualification} Pass from a recognized University or statutory Board of Education.
-                </p>
-              </div>
-              <div class="p-4 rounded-xl bg-muted/40 border border-border">
-                <strong class="text-foreground block font-semibold mb-1">Age Limits & Statutory Relaxations:</strong>
-                <p class="text-muted-foreground">
-                  {post.defaultMinAge} to {post.defaultMaxAge} Years (General / Unreserved). State relaxations apply: +5 years for SC/ST, +3 years for OBC, and up to +5 years for female applicants domiciled in the recruiting state (as per that state's rules).
-                </p>
-              </div>
-              <div class="p-4 rounded-xl bg-muted/40 border border-border">
-                <strong class="text-foreground block font-semibold mb-1">Cadre Pay Scale:</strong>
-                <p class="text-muted-foreground font-mono font-semibold text-primary">
-                  {post.payScale || 'As specified by the recruiting authority'}
-                </p>
-              </div>
-            </div>
-          </section>
+              <dl class="divide-y divide-border text-sm">
+                <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                  <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Qualification</dt>
+                  <dd class="sm:col-span-2 text-foreground">
+                    <span class="font-semibold">{facts.qualificationLevel}</span>
+                    {facts.qualificationByCategory && <span class="text-muted-foreground"> · by category: {facts.qualificationByCategory}</span>}
+                    {facts.qualificationDetails && <p class="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">{facts.qualificationDetails}</p>}
+                  </dd>
+                </div>
 
-          <!-- Selection Stages -->
-          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
-            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
-              Selection Process Stages
-            </h2>
-            <div class="space-y-4">
-              {defaultSelectionStages.map((stage: any, idx: number) => (
-                <div class="p-4 rounded-xl bg-muted/40 border border-border flex items-start gap-3">
-                  <span class="size-6 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                    {idx + 1}
-                  </span>
-                  <div>
-                    <h3 class="font-bold text-foreground text-sm">{stage.name}</h3>
-                    <p class="text-xs text-muted-foreground mt-1 leading-relaxed">{stage.desc}</p>
+                <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                  <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age limit</dt>
+                  <dd class="sm:col-span-2 text-foreground">
+                    Up to <span class="font-mono font-semibold">{facts.maxAgeGeneral}</span> years for the general category
+                    {facts.ageCutoffDate && <> on {formatGuideDate(facts.ageCutoffDate)}</>}
+                  </dd>
+                </div>
+
+                <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                  <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age relaxations</dt>
+                  <dd class="sm:col-span-2 text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {facts.relaxationNotes ?? 'Not summarised for this notice. Check the official document below for your category.'}
+                  </dd>
+                </div>
+
+                {facts.pay && (
+                  <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                    <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pay</dt>
+                    <dd class="sm:col-span-2 font-mono font-semibold text-foreground">{facts.pay}</dd>
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                )}
 
-          <!-- Syllabus Structure -->
-          <section class="bg-card rounded-3xl p-6 sm:p-8 border border-border shadow-sm">
-            <h2 class="text-xl font-bold text-foreground font-['Outfit'] mb-4">
-              Prescribed Exam Pattern & Syllabus
+                {facts.requirements.length > 0 && (
+                  <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                    <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Must have</dt>
+                    <dd class="sm:col-span-2">
+                      <ul class="text-xs text-foreground space-y-1 list-disc pl-4">
+                        {facts.requirements.map((req) => <li>{req}</li>)}
+                      </ul>
+                    </dd>
+                  </div>
+                )}
+
+                {facts.specialConditions && (
+                  <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                    <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Other conditions</dt>
+                    <dd class="sm:col-span-2 text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{facts.specialConditions}</dd>
+                  </div>
+                )}
+
+                {facts.sources.length > 0 && (
+                  <div class="py-3 grid sm:grid-cols-3 gap-1 sm:gap-4">
+                    <dt class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Official document</dt>
+                    <dd class="sm:col-span-2 space-y-1.5">
+                      {facts.sources.map((s) => (
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" class="block text-xs text-primary hover:underline break-words">
+                          {s.title}{s.publishedOn && <span class="text-muted-foreground"> · published {formatGuideDate(s.publishedOn)}</span>}
+                        </a>
+                      ))}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
+
+          {facts && facts.selectionStages.length > 0 && (
+            <section class="bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-sm" aria-labelledby="stages-heading">
+              <h2 id="stages-heading" class="text-lg font-bold text-foreground font-heading">Selection stages</h2>
+              <p class="text-xs text-muted-foreground mt-1 mb-4">As stated in the {facts.notice.cycleYear} notice.</p>
+              <ol class="space-y-3">
+                {facts.selectionStages.map((stage, idx) => (
+                  <li class="p-4 rounded-xl bg-muted/40 border border-border flex items-start gap-3">
+                    <span class="size-6 rounded-full bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shrink-0">{idx + 1}</span>
+                    <div>
+                      <h3 class="font-bold text-foreground text-sm">
+                        {stage.name}
+                        {stage.isQualifying && <span class="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Qualifying only</span>}
+                      </h3>
+                      {stage.desc && <p class="text-xs text-muted-foreground mt-1 leading-relaxed">{stage.desc}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          <!-- How to prepare: every step is built from the notice data above -->
+          <section class="bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-sm" aria-labelledby="prep-heading">
+            <h2 id="prep-heading" class="text-lg font-bold text-foreground font-heading">
+              {guide.live.length > 0 ? 'How to apply and prepare' : 'How to prepare'}
             </h2>
-            <div class="divide-y divide-border">
-              {defaultSyllabus.map((s: any) => (
-                <div class="py-3 flex items-center justify-between text-xs sm:text-sm">
-                  <span class="font-medium text-foreground">{s.subject}</span>
-                  <span class="font-mono font-bold text-primary">{s.marks}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <!-- Quick Action Sidebar -->
-        <div class="space-y-6">
-          <div class="bg-card rounded-3xl p-6 border border-border shadow-sm">
-            <h3 class="text-base font-bold text-foreground font-['Outfit'] mb-2">
-              Check Your Eligibility
-            </h3>
-            <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-              Verify whether your qualification, age, domicile, and category match active {post.title} recruitments.
+            <p class="text-xs text-muted-foreground mt-1 mb-4">
+              {facts ? 'Built from the official notice, so it changes when the notice does.' : 'More steps appear here once an official notice is verified.'}
             </p>
-            <a
-              href="/eligibility-checker"
-              class="w-full py-2.5 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors"
-            >
-              <span>Check Statutory Eligibility</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
+            <ol class="space-y-4">
+              {guide.steps.map((step, idx) => (
+                <li class="flex items-start gap-3" data-prep-step={step.id}>
+                  <span class="size-6 rounded-full border border-primary/30 bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">{idx + 1}</span>
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-bold text-foreground">{step.title}</h3>
+                    <p class="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">{step.body}</p>
+                    {step.links.length > 0 && (
+                      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                        {step.links.map((link) => (
+                          <a
+                            href={link.url}
+                            {...(isExternal(link.url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                            class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 break-words"
+                          >
+                            {link.label}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="size-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
 
-          <div class="bg-muted/40 rounded-3xl p-6 border border-border text-xs text-muted-foreground space-y-3">
-            <h4 class="font-bold uppercase tracking-wider text-[11px] text-foreground">
-              Cadre Provenance
-            </h4>
-            <div class="flex justify-between">
-              <span>Department:</span>
-              <span class="font-semibold text-foreground text-right">{post.departmentName || 'State Cadre'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Sector:</span>
-              <span class="font-semibold text-foreground">{post.sectorName || 'Civil Cadre'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>State:</span>
-              <span class="font-semibold text-foreground">Varies by recruitment jurisdiction</span>
-            </div>
-          </div>
+          {allNotices.length > 1 && (
+            <section class="bg-card rounded-2xl p-5 sm:p-6 border border-border shadow-sm" aria-labelledby="notices-heading">
+              <h2 id="notices-heading" class="text-lg font-bold text-foreground font-heading mb-3">All notices for this post ({allNotices.length})</h2>
+              <ul class="divide-y divide-border">
+                {allNotices.map((n) => (
+                  <li class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <a href={`/recruitments/${n.slug}`} class="text-sm font-semibold text-foreground hover:text-primary">{n.title}</a>
+                      <p class="text-xs text-muted-foreground mt-0.5">
+                        {n.cycleYear} · {n.organisationShortName}{n.stateName && <> · {n.stateName}</>} · <span class="font-mono">{n.totalVacancies.toLocaleString('en-IN')}</span> vacancies
+                      </p>
+                    </div>
+                    <span class={`self-start sm:self-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap ${n.statusBadgeClass}`}>{n.statusLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
+
+        <aside class="space-y-6">
+          {(guide.live.length > 0 || guide.upcoming.length > 0) && (
+            <div class="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 class="text-sm font-bold text-foreground font-heading mb-1.5">Check your eligibility</h3>
+              <p class="text-xs text-muted-foreground leading-relaxed mb-4">
+                See whether your age, qualification and domicile meet this notice's rules.
+              </p>
+              <a href="/eligibility-checker" class="w-full py-2.5 rounded-lg bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs flex items-center justify-center gap-2 transition-colors">
+                Check eligibility
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          )}
+
+          <div class="bg-muted/40 rounded-2xl p-5 border border-border text-xs text-muted-foreground space-y-2.5">
+            <h3 class="font-bold uppercase tracking-wider text-[11px] text-foreground">Where this comes from</h3>
+            {hiringBody && (
+              <div class="flex justify-between gap-3">
+                <span>Hiring body</span>
+                {hiringBody.websiteUrl ? (
+                  <a href={hiringBody.websiteUrl} target="_blank" rel="noopener noreferrer" class="font-semibold text-primary hover:underline text-right">{hiringBody.shortName}</a>
+                ) : (
+                  <span class="font-semibold text-foreground text-right">{hiringBody.shortName}</span>
+                )}
+              </div>
+            )}
+            {post.departmentName && (
+              <div class="flex justify-between gap-3">
+                <span>Department</span>
+                <span class="font-semibold text-foreground text-right">{post.departmentName}</span>
+              </div>
+            )}
+            <div class="flex justify-between gap-3">
+              <span>Verified notices</span>
+              <span class="font-mono font-semibold text-foreground">{allNotices.length}</span>
+            </div>
+            {facts?.lastVerifiedAt && (
+              <div class="flex justify-between gap-3">
+                <span>Last checked</span>
+                <span class="font-semibold text-foreground text-right">{formatGuideDate(facts.lastVerifiedAt.toISOString())}</span>
+              </div>
+            )}
+            <p class="pt-2 border-t border-border leading-relaxed">
+              Facts on this page come only from official notices checked by NIRNAY. Nothing is estimated or copied from another post.
+              <a href="/source-policy" class="text-primary hover:underline">Source policy</a>
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
   </BaseLayout>
