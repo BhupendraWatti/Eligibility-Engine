@@ -151,35 +151,37 @@ No dimension below 6 except Community (5), which is out of scope for a solo repo
 
 Synthesized from this review's findings. Effort ratio assumption: config/docs changes ~20x human/CC.
 
-- [ ] **T1 (P1, human: ~20min / CC: ~3min)** — package.json — Make typecheck self-sufficient
+- [x] **T1 (P1, human: ~20min / CC: ~3min)** — package.json — Make typecheck self-sufficient
   - Surfaced by: Pass 6 — `tsc` is a global 5.9.3, `typescript` missing from package.json/lockfile; Pass 3 — TS2307 'astro:middleware' until `astro sync`
   - Files: `package.json`, `package-lock.json`
   - Change: add `typescript` (^5.9) to devDependencies; `"typecheck": "astro sync && tsc --noEmit"`
   - Verify: in a fresh worktree with no global tsc on PATH, `npm ci && npm run typecheck` passes
-- [ ] **T2 (P1, human: ~30min / CC: ~5min)** — tests — Track tests and gate on them (D7)
+- [x] **T2 (P1, human: ~30min / CC: ~5min)** — tests — Track tests and gate on them (D7)
   - Surfaced by: Journey stage 3 — `npm test` ERR_MODULE_NOT_FOUND; README:40 claims check runs tests
   - Files: `.gitignore` (drop `*.test.ts`, `*.spec.ts`), `src/engine/eligibility.test.ts`, `src/services/viewer-state.test.ts`, `src/services/public-listing.test.ts`, `src/services/cadre-guide.test.ts`, `mcp/src/regression.test.ts`, `package.json` (`"check": "npm test && npm run typecheck && npm run build"`)
   - Sequencing (corrected by eng review): first sync this branch with master (`47d6544` already commits the 4-file `test` script); the test files themselves still exist only in the main checkout, so copy all 5 in, review them for private fixtures, then commit with the `.gitignore` change in one commit so no commit references an untracked test.
   - Verify: `npm run check` green locally and in CI; `npx astro build` output contains no `.test.` module
-- [ ] **T3 (P2, human: ~20min / CC: ~3min)** — package.json — Add `npm run setup` (D4)
+- [x] **T3 (P2, human: ~20min / CC: ~3min)** — package.json — Add `npm run setup` (D4)
   - Surfaced by: Journey stage 2 — no setup script; README setup is four manual commands
   - Change: `"setup": "npm ci && astro sync && wrangler d1 migrations apply EligibilityEngine-db --local"`
   - Verify: run twice in a row (idempotent; second run prints "No migrations to apply!"); `migrations apply --local` prompts only in an interactive TTY (`shouldPrompt: !isNonInteractiveOrCI()`), agents/CI proceed, so no flag (corrected by eng review); stop `astro dev` first on Windows (npm ci deletes node_modules)
-- [ ] **T4 (P2, human: ~10min / CC: ~2min)** — repo root — Add `.worktreeinclude` (D5)
+- [x] **T4 (P2, human: ~10min / CC: ~2min)** — repo root — Add `.worktreeinclude` (D5)
   - Surfaced by: Journey stage 4 — worktree has no `.dev.vars` or D1 data
   - Files: `.worktreeinclude` with `.dev.vars` and `.wrangler/state/v3/d1/` (narrowed by eng review E-D2)
   - Verify: create a new Claude Code worktree; both paths exist; a recruitment page renders
-- [ ] **T5 (P2, human: ~15min / CC: ~3min)** — CLAUDE.md — Setup block + relative links (D9)
+- [x] **T5 (P2, human: ~15min / CC: ~3min)** — CLAUDE.md — Setup block + relative links (D9)
   - Surfaced by: Pass 3 — raw errors carry no fix; Pass 4 — absolute `file:///d:/...` links open the main checkout
   - Change: under Development: "New worktree: run `npm run setup`. `Cannot find module 'astro:*'` or a missing `*.test.ts` means setup was skipped." Make CONTEXT/lifecycle/DESIGN links relative.
   - Verify: links resolve from a worktree
-- [ ] **T6 (P2, human: ~15min / CC: ~3min)** — README.md — Setup and validation text matches scripts
+- [x] **T6 (P2, human: ~15min / CC: ~3min)** — README.md — Setup and validation text matches scripts
   - Surfaced by: Pass 4 — README:40 false; no worktree note
   - Change: Local setup = `Copy-Item .dev.vars.example .dev.vars` (clones only) + `npm run setup`; note worktrees get `.dev.vars`/D1 via `.worktreeinclude`; Validation line becomes true after T2
   - Verify: follow README literally on a fresh clone
-- [ ] **T7 (P3, human: ~10min / CC: ~5min)** — verification — Time the approved clock once (Pass 8)
+- [x] **T7 (P3, human: ~10min / CC: ~5min)** — verification — Time the approved clock once (Pass 8)
   - Change: none; after T1–T6, create one fresh worktree and time creation -> `npm run setup` -> `npm run check` green -> page renders
   - Verify: total < 5 min; record result in this doc
+  - **Result (2026-10-07, /devex-review):** fresh `git worktree add` of 387c6dd at `.claude/worktrees/t7-measure`, `.worktreeinclude` paths copied by script → `npm run setup` 42 s → `npm run check` 22 s (green, 106 PASSED) → recruitment page with data at **T+89 s**. Champion tier, beats the 2–5 min target. `npm ci` alone varied 13 s–2 min across 4 runs (Windows file deletes), so worst observed ≈ 3 min. Not yet observed: Claude Code itself honouring `.worktreeinclude` (master lacks the file until merge).
+  - Found during T7: (1) a worktree whose D1 file path exceeds ~260 chars fails with wrangler `internal error; reference = …` (even an empty DB; 293-char path); (2) worktrees under `.claude/worktrees/` resolve the main checkout's `node_modules` when setup is skipped; (3) skipped setup shows HTTP 500 with `no such table: recruitments` at the end of a multi-KB SQL error. CLAUDE.md block updated to describe these three.
 
 JSONL task artifact for /autoplan: **not written** — `jq` is not installed on this machine.
 

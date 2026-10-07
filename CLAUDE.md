@@ -12,7 +12,7 @@ Before making architectural decisions, editing database queries, altering lifecy
 
 ## Development
 
-In a new worktree, run `npm run setup` first (installs packages, generates Astro types, applies local D1 migrations). `.worktreeinclude` copies `.dev.vars` and local D1 data in. If you see `Cannot find module 'astro:...'` or a missing `*.test.ts`, setup was skipped. `npm run check` runs tests, typecheck and build.
+In a new worktree, run `npm run setup` first (installs packages, generates Astro types, applies local D1 migrations). `.worktreeinclude` copies `.dev.vars` and local D1 data in. If pages return 500 with `no such table: ...` at the end of a long SQL error, setup was skipped. Worktrees under `.claude/worktrees/` silently fall back to the main checkout's `node_modules` without setup, so a dependency change needs setup too. `npm run check` runs tests, typecheck and build. On Windows, keep worktrees in short paths: local D1 fails with `internal error; reference = ...` once its file path passes ~260 characters.
 
 When starting the dev server, use background mode:
 
