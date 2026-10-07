@@ -12,3 +12,7 @@
 
 - **Low, Content: two different empty-state lines for dates.** With no date events, the Important Dates tab says "Schedule dates will be listed once {org} publishes them in the official notification" while the side rail says "No dates published in the official notice yet". Repro: delete a recruitment's `important_dates` rows in local D1 and open `/recruitments/<slug>`. Use one sentence in both (`src/pages/recruitments/[slug].astro`).
 - **Admin edit invents an age cutoff.** `src/pages/admin/recruitments/[id]/edit.astro:57` saves `'2026-01-01'` when the cutoff field is blank; the public page then shows it as the notice's cutoff. Make the field required instead of defaulting.
+
+## Tooling
+
+- **`npm run deploy` is broken.** `package.json` `deploy` (and `deploy:vinext`, `build:vinext`, `preview:vinext`) call `vinext-cloudflare` against an Astro build. Working sequence today: `npm run build`, check `npx wrangler d1 migrations list EligibilityEngine-db --remote`, then `npx wrangler deploy --config dist/server/wrangler.json`. Make one script do that (migrations check first) and drop the vinext scripts. Independent of worktree setup. (From /plan-devex-review, 2026-10-07.)
