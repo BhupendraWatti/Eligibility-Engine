@@ -1,7 +1,8 @@
 /**
  * Turn one validated extraction into a decision. The pipeline NEVER writes live data: it queues proposals through the same
  * service the MCP uses (conflict guard, duplicate guard, evidence, stale guard), and an admin approves in /admin/pending-changes.
- * The single exception is the owner-controlled "Auto-publish high confidence" setting (OFF by default), NEW recruitments only.
+ * The single exception is the owner-controlled auto-publish setting (OFF by default): NEW recruitments only, and only when every
+ * fact was found in its quote and every quote in the page text (fact-checks.ts). A model's own confidence never decides it.
  */
 import { getAllActiveRecruitments, type RecruitmentWithDetails } from '../../src/db/queries';
 import { approveProposal } from '../../src/services/change-proposal-decision';
@@ -10,6 +11,7 @@ import {
   type EvidenceItem, type ProposalInput,
 } from '../../src/services/change-proposals';
 import { detectDuplicates, type DuplicateCheckResult } from '../../src/services/duplicate-detector';
+import { checkFacts, fullyMachineChecked } from '../../src/services/fact-checks';
 import { resolveEntity } from '../../src/services/reference-data';
 import type { Actor } from '../../src/services/recruitment-query';
 import { newDraftsToday, type PipelineSettings, type SourceRow } from '../../src/services/pipeline-store';
@@ -75,11 +77,15 @@ function mergeBy<T>(existing: T[], added: T[], key: (x: T) => string): T[] {
 
 interface Built { changes: Record<string, unknown>; evidence: EvidenceItem[] }
 
-function evidenceFor(ex: Extracted, field: string, exField: string, docUrl: string, isPdf: boolean, confidence: number): EvidenceItem[] {
+function evidenceFor(ex: Extracted, field: string, exField: string, docUrl: string, isPdf: boolean): EvidenceItem[] {
   return ex.evidence.filter(e => e.field === exField).slice(0, 3).map(e => ({
-    field, sourceUrl: docUrl, page: e.page ?? undefined, snippet: e.quote.slice(0, 500), method: isPdf ? 'VISION' : 'NATIVE', confidence,
+    field, sourceUrl: docUrl, page: e.page ?? undefined, snippet: e.quote.slice(0, 500), method: isPdf ? 'VISION' : 'NATIVE',
   }));
 }
+
+/** Proposal fields whose quotes the validator found in the page text (extracted names differ for the advertisement number). */
+const quoteInDocument = (v: Validation, changes: Record<string, unknown>) =>
+  Object.keys(changes).filter(f => v.verifiedFields.includes(f === 'advtNumber' ? 'advertisementNumber' : f));
 
 /** Fields shared by NEW and UPDATE proposals, taken from the document verbatim. */
 function documentFields(ex: Extracted, docType: DocType, docUrl: string): Record<string, unknown> {
@@ -91,7 +97,7 @@ function documentFields(ex: Extracted, docType: DocType, docUrl: string): Record
   return out;
 }
 
-export function buildCreate(ex: Extracted, docType: DocType, docUrl: string, orgId: string, postId: string, isPdf: boolean, confidence: number): Built {
+export function buildCreate(ex: Extracted, docType: DocType, docUrl: string, orgId: string, postId: string, isPdf: boolean): Built {
   const changes: Record<string, unknown> = { title: ex.title, postId, organisationId: orgId, ...documentFields(ex, docType, docUrl) };
   if (ex.advertisementNumber) changes.advtNumber = ex.advertisementNumber;
   if (ex.cycleYear) changes.cycleYear = ex.cycleYear;
@@ -100,12 +106,12 @@ export function buildCreate(ex: Extracted, docType: DocType, docUrl: string, org
   changes.sources = [{ sourceType: SOURCE_TYPE[docType] ?? 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: (ex.title ?? 'Official document').slice(0, 300), sourceUrl: docUrl, ...(ex.publicationDate ? { publicationDate: ex.publicationDate } : {}) }];
   changes.officialLinks = [{ linkType: LINK_TYPE[docType] ?? 'NOTIFICATION_PDF', title: 'Official document', url: docUrl }, ...(ex.officialLinks ?? []).filter(l => l.url !== docUrl).map(l => ({ linkType: l.linkType, title: l.title, url: l.url }))].slice(0, 30);
   const evidence: EvidenceItem[] = [];
-  for (const f of Object.keys(changes)) evidence.push(...evidenceFor(ex, f, f === 'advtNumber' ? 'advertisementNumber' : f === 'vacanciesBreakdown' ? 'vacanciesBreakdown' : f, docUrl, isPdf, confidence));
+  for (const f of Object.keys(changes)) evidence.push(...evidenceFor(ex, f, f === 'advtNumber' ? 'advertisementNumber' : f === 'vacanciesBreakdown' ? 'vacanciesBreakdown' : f, docUrl, isPdf));
   return { changes, evidence };
 }
 
 /** Only fields whose value actually differs from the live record; array fields are sent as the full merged list. */
-export function buildUpdate(r: RecruitmentWithDetails, ex: Extracted, docType: DocType, docUrl: string, isPdf: boolean, confidence: number): Built {
+export function buildUpdate(r: RecruitmentWithDetails, ex: Extracted, docType: DocType, docUrl: string, isPdf: boolean): Built {
   const changes: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(documentFields(ex, docType, docUrl))) {
     if (!same(currentFieldValue(r, k), v)) changes[k] = v;
@@ -129,8 +135,8 @@ export function buildUpdate(r: RecruitmentWithDetails, ex: Extracted, docType: D
 
   const evidence: EvidenceItem[] = [];
   for (const f of Object.keys(changes)) {
-    const own = evidenceFor(ex, f === 'advtNumber' ? 'advtNumber' : f, f === 'advtNumber' ? 'advertisementNumber' : f, docUrl, isPdf, confidence);
-    evidence.push(...(own.length ? own : [{ field: f, sourceUrl: docUrl, snippet: `From official document: ${(ex.title ?? docUrl).slice(0, 300)}`, method: isPdf ? 'VISION' : 'NATIVE', confidence } as EvidenceItem]));
+    const own = evidenceFor(ex, f === 'advtNumber' ? 'advtNumber' : f, f === 'advtNumber' ? 'advertisementNumber' : f, docUrl, isPdf);
+    evidence.push(...(own.length ? own : [{ field: f, sourceUrl: docUrl, snippet: `From official document: ${(ex.title ?? docUrl).slice(0, 300)}`, method: isPdf ? 'VISION' : 'NATIVE' } as EvidenceItem]));
   }
   return { changes, evidence };
 }
@@ -162,7 +168,7 @@ export async function routeExtraction(ctx: RouteContext, source: SourceRow, ex: 
   const { ids, duplicate } = findCandidates(existing, ex, docUrl, orgId, postId);
   if (ids.length > 1) return { status: 'AMBIGUOUS', reason: `Could belong to ${ids.length} existing recruitments (${ids.slice(0, 3).join(', ')}). A person must choose.` };
 
-  const provenance = { confidence: v.confidence, pipeline: { runId: ctx.runId, sourceId: source.id, documentUrl: docUrl, documentType: ex.documentType, model: ctx.model, warnings: v.warnings.slice(0, 10) } };
+  const provenance = { pipeline: { runId: ctx.runId, sourceId: source.id, documentUrl: docUrl, documentType: ex.documentType, model: ctx.model, warnings: v.warnings.slice(0, 10) } };
   const label = `${ex.title ?? 'Official notice'} (${ex.documentType.toLowerCase().replace(/_/g, ' ')}) from ${hostOf(docUrl)}`.slice(0, 290);
   const submit = async (input: ProposalInput) => {
     if (ctx.dryRun) return { preview: await previewProposal(ctx.d1, ACTOR, input) };
@@ -172,9 +178,9 @@ export async function routeExtraction(ctx: RouteContext, source: SourceRow, ex: 
   try {
     if (ids.length === 1) {
       const target = existing.find(r => r.id === ids[0])!;
-      const { changes, evidence } = buildUpdate(target, ex, ex.documentType, docUrl, isPdf, v.confidence);
+      const { changes, evidence } = buildUpdate(target, ex, ex.documentType, docUrl, isPdf);
       if (!Object.keys(changes).length) return { status: 'UNCHANGED', reason: `Already matches ${target.title}.` };
-      const out = await submit({ kind: 'UPDATE_RECRUITMENT', recruitmentId: target.id, summary: `Update: ${label}`, changes, evidence, meta: provenance });
+      const out = await submit({ kind: 'UPDATE_RECRUITMENT', recruitmentId: target.id, summary: `Update: ${label}`, changes, evidence, meta: { ...provenance, quoteInDocument: quoteInDocument(v, changes) } });
       return out.created ? { status: 'PROPOSED', reason: `Update to ${target.title}: ${Object.keys(changes).join(', ')}.`, proposalId: out.created.id } : { status: 'DRY_RUN', reason: `Would propose an update to ${target.title}: ${Object.keys(changes).join(', ')}.`, preview: out.preview };
     }
 
@@ -188,14 +194,17 @@ export async function routeExtraction(ctx: RouteContext, source: SourceRow, ex: 
       const used = await newDraftsToday(ctx.d1);
       if (used >= ctx.settings.dailyNewDraftCap) return { status: 'DEFERRED', reason: `Daily limit of ${ctx.settings.dailyNewDraftCap} new recruitments reached.` };
     }
-    const { changes, evidence } = buildCreate(ex, ex.documentType, docUrl, orgId!, postId!, isPdf, v.confidence);
-    const out = await submit({ kind: 'CREATE_RECRUITMENT', summary: `New: ${label}`, changes, evidence, meta: provenance });
+    const { changes, evidence } = buildCreate(ex, ex.documentType, docUrl, orgId!, postId!, isPdf);
+    const inDocument = quoteInDocument(v, changes);
+    const out = await submit({ kind: 'CREATE_RECRUITMENT', summary: `New: ${label}`, changes, evidence, meta: { ...provenance, quoteInDocument: inDocument } });
     if (!out.created) return { status: 'DRY_RUN', reason: 'Would propose a new recruitment.', preview: out.preview };
 
     const clean = !out.created.duplicateWarning && duplicate.status === 'NO_DUPLICATE' && v.warnings.length === 0;
-    if (ctx.settings.autoPublishHighConfidence && clean && v.confidence >= ctx.settings.autoPublishThreshold) {
+    // Only a record whose every fact was found in its quote, and every quote in the page text, may skip review. Never a scanned PDF.
+    const checks = checkFacts(changes, evidence, inDocument);
+    if (ctx.settings.autoPublishHighConfidence && clean && fullyMachineChecked(checks)) {
       const res = await approveProposal(ctx.d1, out.created.id, 'pipeline@auto-publish', { publish: true });
-      if (res.ok) return { status: 'AUTO_CREATED', reason: `Auto-published at confidence ${v.confidence}.`, proposalId: out.created.id };
+      if (res.ok) return { status: 'AUTO_CREATED', reason: `Auto-published: all ${checks.total} facts matched their quote in the page text.`, proposalId: out.created.id };
       return { status: 'PROPOSED', reason: `Queued; auto-publish failed: ${res.message}`, proposalId: out.created.id };
     }
     return { status: 'PROPOSED', reason: 'New recruitment queued for review.', proposalId: out.created.id };

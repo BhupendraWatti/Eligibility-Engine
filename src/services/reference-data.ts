@@ -76,7 +76,8 @@ export function getDomainSchema() {
     applicationStatuses: APPLICATION_STATUSES,
     evidence: {
       methods: EVIDENCE_METHODS,
-      fields: 'field (a key in changes), sourceUrl (http/https), page, section, snippet (<=500 chars, quoted from the source), method, confidence (0-1, advisory)',
+      fields: 'field (a key in changes), sourceUrl (http/https), page, section, snippet (<=500 chars, quoted from the source), method (NATIVE text layer, VISION/OCR scanned image), handwritten (true when handwritten on the notice). No confidence score.',
+      checks: 'Numbers, dates and the advertisement number must appear in their snippet (else VALUE_NOT_IN_QUOTE). Summaries, enums and yes/no values are flagged for the reviewer to read.',
       required: `MCP proposals need one item with a snippet for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (else EVIDENCE_REQUIRED).`,
     },
     // Free text in the validators (max 50 chars); these are the values the site uses today.

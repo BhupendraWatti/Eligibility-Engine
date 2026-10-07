@@ -13,6 +13,12 @@
 - **Low, Content: two different empty-state lines for dates.** With no date events, the Important Dates tab says "Schedule dates will be listed once {org} publishes them in the official notification" while the side rail says "No dates published in the official notice yet". Repro: delete a recruitment's `important_dates` rows in local D1 and open `/recruitments/<slug>`. Use one sentence in both (`src/pages/recruitments/[slug].astro`).
 - **Admin edit invents an age cutoff.** `src/pages/admin/recruitments/[id]/edit.astro:57` saves `'2026-01-01'` when the cutoff field is blank; the public page then shows it as the notice's cutoff. Make the field required instead of defaulting.
 
+## Proposal review (accuracy)
+
+- **Keep the page the value was read from.** Proposals cite `sourceUrl` + `page` and the review page links to `#page=N`, but the document can change or disappear. Store the cited page image with the proposal (needs an R2 bucket bound to the website and the MCP) so the reviewer always sees what was read.
+- **Check MCP quotes against the document.** "In quote" (`src/services/fact-checks.ts`) proves the value is in the quoted text, not that the quote is in the document: the MCP worker cannot fetch many gov.in sites (they block cloud IPs). A fetch from an allowed network, or the stored page above, would close that gap.
+- **Pipeline still computes the old self-rated score.** `pipeline/src/validate.ts` `confidence` (model's `overallConfidence`) is stored in `pipeline_items.confidence` but no longer shown or used. Remove it with the next pipeline migration.
+
 ## Tooling
 
 - **`npm run deploy` is broken.** `package.json` `deploy` (and `deploy:vinext`, `build:vinext`, `preview:vinext`) call `vinext-cloudflare` against an Astro build. Working sequence today: `npm run build`, check `npx wrangler d1 migrations list EligibilityEngine-db --remote`, then `npx wrangler deploy --config dist/server/wrangler.json`. Make one script do that (migrations check first) and drop the vinext scripts. Independent of worktree setup. (From /plan-devex-review, 2026-10-07.)

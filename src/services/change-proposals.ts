@@ -11,6 +11,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb, schema } from '../db/client';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllOrganisations, getRecruitmentById, type RecruitmentWithDetails } from '../db/queries';
 import { detectDuplicates, type DuplicateCheckResult, type RecruitmentCandidate } from './duplicate-detector';
+import { checkFacts, type FactCheckSummary } from './fact-checks';
 import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
@@ -30,7 +31,7 @@ export class InvalidProposalError extends Error {}
 /** A well-formed proposal that must not be queued (pending conflict, confirmed duplicate, unknown post). */
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
-    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED',
+    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -83,6 +84,41 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
 export const CREATE_ONLY_FIELDS: Record<string, FieldSpec> = { postId: 'string', organisationId: 'string' };
 /** advtNumber is optional: omit or send null when the official notice states none. */
 export const CREATE_REQUIRED = ['title', 'postId', 'organisationId', 'totalVacancies'] as const;
+
+/**
+ * A master that is itself still waiting for approval can be named by its proposal id (prop_…) wherever its id is expected,
+ * so one MCP run can queue an organisation, its department, its post and the recruitment together. Approval swaps the
+ * reference for the id the approved master was given (see change-proposal-decision.ts).
+ */
+export const PARENT_REF_KIND = { organisationId: 'CREATE_ORGANISATION', departmentId: 'CREATE_DEPARTMENT', postId: 'CREATE_POST' } as const;
+type ParentRefField = keyof typeof PARENT_REF_KIND;
+const PROPOSAL_ID = /^prop_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isProposalRef = (v: unknown): v is string => typeof v === 'string' && PROPOSAL_ID.test(v);
+
+/** Parent fields of a payload that name a pending master proposal instead of a master. */
+export function parentRefs(payload: Record<string, unknown>): Array<{ field: ParentRefField; id: string }> {
+  return (Object.keys(PARENT_REF_KIND) as ParentRefField[]).flatMap(field => (isProposalRef(payload[field]) ? [{ field, id: payload[field] as string }] : []));
+}
+
+/** The master an approved master proposal created (recorded on approval). */
+export const createdMasterId = (p: Pick<ProposalRow, 'meta'>): string | undefined => (typeof p.meta?.createdId === 'string' ? p.meta.createdId : undefined);
+
+/**
+ * Check a parent named by proposal id: it must be a master proposal of the matching kind that is PENDING or APPROVED.
+ * Returns the real master id once that proposal is approved, otherwise the reference unchanged.
+ */
+export async function checkParentRef(db: D1Database, deps: Pick<ProposalDeps, 'get'>, field: ParentRefField, ref: string): Promise<string> {
+  const parent = await deps.get(db, ref);
+  const kind = PARENT_REF_KIND[field];
+  if (!parent || parent.kind !== kind) throw new InvalidProposalError(`${field} "${ref}" is not a ${kind} proposal.`);
+  if (parent.status === 'APPROVED') {
+    const created = createdMasterId(parent);
+    if (!created) throw new InvalidProposalError(`${ref} is already approved; use resolve_entity to get the real ${field}.`);
+    return created;
+  }
+  if (parent.status !== 'PENDING' && parent.status !== 'APPLYING') throw new InvalidProposalError(`${field} "${ref}" is ${parent.status}, so nothing can be built on it.`);
+  return ref;
+}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -213,8 +249,8 @@ export interface EvidenceItem {
   section?: string;
   snippet?: string;
   method: (typeof EVIDENCE_METHODS)[number];
-  /** The proposer's own estimate. Advisory only; it is not human verification. */
-  confidence?: number;
+  /** The value is handwritten on the notice (filled-in dates, corrections): flagged for the reviewer. */
+  handwritten?: boolean;
 }
 
 /** Evidence travels beside `changes` (never inside it) and must point at a field that is being changed. */
@@ -224,7 +260,8 @@ export function sanitizeEvidence(evidence: unknown, changes: Record<string, unkn
     const field = str(e.field, `evidence[${i}].field`, 100);
     if (!(field in changes)) throw new InvalidProposalError(`evidence[${i}].field "${field}" is not in changes.`);
     if (!(EVIDENCE_METHODS as readonly unknown[]).includes(e.method)) throw new InvalidProposalError(`evidence[${i}].method must be one of: ${EVIDENCE_METHODS.join(', ')}.`);
-    if (e.confidence !== undefined && (typeof e.confidence !== 'number' || e.confidence < 0 || e.confidence > 1)) throw new InvalidProposalError(`evidence[${i}].confidence must be a number from 0 to 1.`);
+    if (e.handwritten !== undefined && typeof e.handwritten !== 'boolean') throw new InvalidProposalError(`evidence[${i}].handwritten must be a boolean.`);
+    // A self-rated "confidence" is no longer accepted or stored: the reviewer sees mechanical checks instead (fact-checks.ts).
     return {
       field,
       sourceUrl: httpUrl(e.sourceUrl, `evidence[${i}].sourceUrl`),
@@ -232,7 +269,7 @@ export function sanitizeEvidence(evidence: unknown, changes: Record<string, unkn
       section: e.section === undefined ? undefined : str(e.section, `evidence[${i}].section`, 200),
       snippet: e.snippet === undefined ? undefined : str(e.snippet, `evidence[${i}].snippet`, 500),
       method: e.method as EvidenceItem['method'],
-      confidence: e.confidence as number | undefined,
+      ...(e.handwritten === true ? { handwritten: true } : {}),
     };
   });
   if (new TextEncoder().encode(JSON.stringify(items)).length > MAX_EVIDENCE_BYTES) throw new InvalidProposalError('Evidence is too large.');
@@ -494,6 +531,13 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   const meta: Record<string, unknown> = {};
   if (evidence?.length) meta.evidence = evidence;
   if (input.meta) Object.assign(meta, input.meta);
+  const checks = checkFacts(payload, evidence, Array.isArray(meta.quoteInDocument) ? meta.quoteInDocument as string[] : []);
+  if (input.requireEvidence) {
+    const wrong = checks.fields.filter(c => c.status === 'NOT_IN_QUOTE');
+    if (wrong.length) {
+      throw new ProposalBlockedError('VALUE_NOT_IN_QUOTE', `These values do not appear in their quoted text: ${wrong.map(c => `${c.field} (${c.detail})`).join(' ')} Re-read the source: fix the value or the quote, or leave the field out.`, { fields: wrong.map(c => c.field) });
+    }
+  }
 
   let old: ProposalRow | undefined;
   if (input.supersedes) {
@@ -523,14 +567,17 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     }
   } else {
     if (input.recruitmentId) throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
-    const postId = payload.postId as string;
-    if (!(await deps.postExists(db, postId))) {
-      throw new ProposalBlockedError('UNKNOWN_POST', `postId "${postId}" is not a canonical post. Use resolve_entity(post); if NOT_FOUND, ask an admin to add the post.`, { postId });
+    // Either an existing master, or a master proposal queued in the same run (prop_…).
+    const postId = isProposalRef(payload.postId) ? await checkParentRef(db, deps, 'postId', payload.postId) : payload.postId as string;
+    if (!isProposalRef(postId) && !(await deps.postExists(db, postId))) {
+      throw new ProposalBlockedError('UNKNOWN_POST', `postId "${postId}" is not a canonical post. Use resolve_entity(post); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as postId.`, { postId });
     }
-    const organisationId = payload.organisationId as string;
-    if (!(await deps.orgExists(db, organisationId))) {
-      throw new ProposalBlockedError('UNKNOWN_ORGANISATION', `organisationId "${organisationId}" is not an organisation. Use resolve_entity(organisation); if NOT_FOUND, ask an admin to add it.`, { organisationId });
+    const organisationId = isProposalRef(payload.organisationId) ? await checkParentRef(db, deps, 'organisationId', payload.organisationId) : payload.organisationId as string;
+    if (!isProposalRef(organisationId) && !(await deps.orgExists(db, organisationId))) {
+      throw new ProposalBlockedError('UNKNOWN_ORGANISATION', `organisationId "${organisationId}" is not an organisation. Use resolve_entity(organisation); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as organisationId.`, { organisationId });
     }
+    payload.postId = postId;
+    payload.organisationId = organisationId;
     const sources = payload.sources as Array<{ sourceUrl: string }> | undefined;
     const dup = await deps.checkDuplicate(db, {
       title: payload.title as string,
@@ -559,17 +606,24 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
 
   const id = `prop_${crypto.randomUUID()}`;
   const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: old?.id ?? null, proposedBy: actor.id };
-  return { row, old, duplicateWarning, diff, evidenceMissing };
+  return { row, old, duplicateWarning, diff, evidenceMissing, checks };
 }
+
+/** What the reviewer will be asked to look at hardest, returned to the proposer so it can re-read those fields first. */
+const reviewerFlags = (c: FactCheckSummary) => ({
+  machineChecked: `${c.matched} of ${c.total} fields matched their quote`,
+  needsReading: c.needsReading, fromImage: c.fromImage, handwritten: c.handwritten,
+});
 
 /** Dry run: what createProposal would do, without queuing anything or using a pending slot. Blocked outcomes are thrown as ProposalBlockedError. */
 export async function previewProposal(d1: D1Database | undefined, actor: Actor, input: ProposalInput, deps: ProposalDeps = defaultProposalDeps) {
-  const { row, old, duplicateWarning, diff, evidenceMissing } = await checkProposal(requirePropose(actor, d1), actor, input, deps);
+  const { row, old, duplicateWarning, diff, evidenceMissing, checks } = await checkProposal(requirePropose(actor, d1), actor, input, deps);
   return {
     action: row.kind === 'CREATE_RECRUITMENT' ? (duplicateWarning ? 'NEW_POSSIBLE_DUPLICATE' : 'NEW') : 'UPDATE',
     kind: row.kind, recruitmentId: row.recruitmentId, ...(old ? { supersedes: old.id } : {}),
     changes: diff ?? Object.entries(row.payload).map(([field, after]) => ({ field, before: null, after, changed: true })),
     evidenceMissing, ...(duplicateWarning ? { duplicateWarning } : {}),
+    checks: reviewerFlags(checks),
     approval: 'REQUIRED',
   };
 }
@@ -580,9 +634,9 @@ export async function createProposal(
   actor: Actor,
   input: ProposalInput,
   deps: ProposalDeps = defaultProposalDeps,
-): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; supersedes?: string; duplicateWarning?: DuplicateCheckResult; evidenceMissing: string[] }> {
+): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; supersedes?: string; duplicateWarning?: DuplicateCheckResult; evidenceMissing: string[]; checks: ReturnType<typeof reviewerFlags> }> {
   const db = requirePropose(actor, d1);
-  const { row, old, duplicateWarning, evidenceMissing } = await checkProposal(db, actor, input, deps);
+  const { row, old, duplicateWarning, evidenceMissing, checks } = await checkProposal(db, actor, input, deps);
   const { id, recruitmentId } = row;
   const kind = row.kind as ProposalKind;
   if (old) {
@@ -594,7 +648,7 @@ export async function createProposal(
     }
     await deps.insert(db, row);
   }
-  return { id, status: 'PENDING', kind, recruitmentId, evidenceMissing, ...(old ? { supersedes: old.id } : {}), ...(duplicateWarning ? { duplicateWarning } : {}) };
+  return { id, status: 'PENDING', kind, recruitmentId, evidenceMissing, checks: reviewerFlags(checks), ...(old ? { supersedes: old.id } : {}), ...(duplicateWarning ? { duplicateWarning } : {}) };
 }
 
 /** One of the caller's own proposals, in full. */

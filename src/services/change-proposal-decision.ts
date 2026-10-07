@@ -5,7 +5,7 @@
  * Approval re-uses the existing atomic writers so publication validation, duplicate detection, lifecycle
  * enrichment and audit logging behave exactly as for a hand edit.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, schema } from '../db/client';
 import {
   createRecruitmentAtomic,
@@ -17,7 +17,7 @@ import {
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
-import { currentFieldValue, InvalidProposalError, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
+import { createdMasterId, currentFieldValue, InvalidProposalError, parentRefs, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
 import { MASTER_TYPE_OF_KIND, defaultMasterDeps, isMasterKind, resolveMaster, type MasterDeps, type MasterRecord } from './master-proposals';
 
 export interface DecisionOptions {
@@ -29,7 +29,7 @@ export interface DecisionOptions {
 
 export type DecisionResult =
   | { ok: true; status: 'APPROVED' | 'REJECTED' | 'EDITED'; recruitmentId?: string; message: string }
-  | { ok: false; code: 'NOT_FOUND' | 'NOT_PENDING' | 'STALE' | 'FAILED'; message: string; staleFields?: string[]; errors?: string[] };
+  | { ok: false; code: 'NOT_FOUND' | 'NOT_PENDING' | 'STALE' | 'WAITING' | 'FAILED'; message: string; staleFields?: string[]; errors?: string[]; waitingFor?: string };
 
 interface AuditEntry { adminEmail: string; entityId: string; action: string; field: string; newValue: string | null; reason: string; source: string }
 
@@ -38,7 +38,8 @@ export interface DecisionDeps {
   /** PENDING -> APPLYING. False when someone else already claimed or decided it. */
   claim: (d1: D1Database, id: string) => Promise<boolean>;
   release: (d1: D1Database, id: string) => Promise<void>;
-  finalize: (d1: D1Database, id: string, from: 'APPLYING' | 'PENDING', fields: { status: 'APPROVED' | 'REJECTED' | 'FAILED'; decidedBy: string; note: string | null }, audit: AuditEntry) => Promise<boolean>;
+  /** createdId: the master an approved master proposal created, kept in meta so proposals built on it can be resolved. */
+  finalize: (d1: D1Database, id: string, from: 'APPLYING' | 'PENDING', fields: { status: 'APPROVED' | 'REJECTED' | 'FAILED'; decidedBy: string; note: string | null; createdId?: string }, audit: AuditEntry) => Promise<boolean>;
   loadRecruitment: (d1: D1Database, id: string) => Promise<RecruitmentWithDetails | undefined>;
   create: (input: CreateRecruitmentInput, d1: D1Database) => ReturnType<typeof createRecruitmentAtomic>;
   update: (id: string, input: CreateRecruitmentInput, d1: D1Database) => ReturnType<typeof updateRecruitmentAtomic>;
@@ -67,7 +68,10 @@ export const defaultDecisionDeps: DecisionDeps = {
     const t = schema.changeProposals;
     const [res] = await (db as any).batch([
       db.update(t)
-        .set({ status: fields.status, decidedBy: fields.decidedBy, decidedAt: new Date(), decisionNote: fields.note })
+        .set({
+          status: fields.status, decidedBy: fields.decidedBy, decidedAt: new Date(), decisionNote: fields.note,
+          ...(fields.createdId ? { meta: sql`json_set(coalesce(${t.meta}, '{}'), '$.createdId', ${fields.createdId})` } : {}),
+        })
         .where(and(eq(t.id, id), eq(t.status, from))),
       db.insert(schema.auditLogs).values({
         id: `audit_${crypto.randomUUID()}`,
@@ -203,17 +207,29 @@ export async function approveProposal(
   };
 
   try {
+    // Parents named by proposal id (queued in the same MCP run) must be approved first; use the ids they were given.
+    const p = { ...proposal.payload };
+    for (const ref of parentRefs(p)) {
+      const parent = await deps.get(d1, ref.id);
+      const created = parent?.status === 'APPROVED' ? createdMasterId(parent) : undefined;
+      if (created) { p[ref.field] = created; continue; }
+      if (parent?.status === 'PENDING' || parent?.status === 'APPLYING') {
+        await deps.release(d1, id);
+        return { ok: false, code: 'WAITING', waitingFor: ref.id, message: `Approve "${parent.summary}" (${ref.id}) first: this proposal uses the master it creates.` };
+      }
+      return await fail(`It is built on ${ref.id}, which is ${parent?.status ?? 'missing'}. Reject this proposal.`);
+    }
+
     if (isMasterKind(proposal.kind)) {
       // Re-check against the masters as they are now: someone may have added it since the proposal was queued.
       const type = MASTER_TYPE_OF_KIND[proposal.kind];
-      const p = proposal.payload;
       const existing: MasterRecord[] = await (type === 'organisation' ? deps.masters.organisations(d1) : type === 'department' ? deps.masters.departments(d1) : deps.masters.posts(d1));
       const parentId = (type === 'organisation' ? p.stateId : type === 'department' ? p.organisationId : p.departmentId) as string;
       const found = resolveMaster(type, { name: (p.name ?? p.title) as string, shortName: p.shortName as string | undefined, slug: p.slug as string, websiteUrl: p.websiteUrl as string | undefined, parentId }, existing);
       if (found.status === 'MATCH') return await fail(`This ${type} already exists (${found.matches[0].id}). Reject the proposal and reuse it.`);
       const masterId = await deps.createMaster(proposal.kind, p, adminEmail, d1);
       const note = `Created ${type} ${masterId}${found.status === 'POSSIBLE_MATCH' ? ' (similar master(s) exist: ' + found.matches.map(m => m.id).join(', ') + ')' : ''}.`;
-      await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note }, audit('APPROVE', masterId, proposal.summary));
+      await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note, createdId: masterId }, audit('APPROVE', masterId, proposal.summary));
       return { ok: true, status: 'APPROVED', message: note };
     }
 
@@ -221,7 +237,7 @@ export async function approveProposal(
     let recruitmentId: string | undefined;
 
     if (proposal.kind === 'CREATE_RECRUITMENT') {
-      const input = { ...proposal.payload, status: options.publish ? 'PUBLISHED' : 'DRAFT', adminEmail } as unknown as CreateRecruitmentInput;
+      const input = { ...p, status: options.publish ? 'PUBLISHED' : 'DRAFT', adminEmail } as unknown as CreateRecruitmentInput;
       result = await deps.create(input, d1);
       recruitmentId = result.id;
     } else {

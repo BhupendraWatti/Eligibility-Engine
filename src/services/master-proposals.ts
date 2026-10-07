@@ -13,7 +13,9 @@ import {
   MASTER_PROPOSAL_KINDS,
   MAX_PENDING_PROPOSALS,
   QUALIFICATIONS,
+  checkParentRef,
   defaultProposalDeps,
+  isProposalRef,
   sanitizeEvidence,
   type MasterProposalKind,
   type ProposalDeps,
@@ -165,8 +167,8 @@ export type MasterOutcome =
   | { status: 'NOT_FOUND'; queued: true; id: string; kind: MasterProposalKind; payload: Record<string, unknown>; evidenceMissing: string[] };
 
 /**
- * Resolve first, queue only on NOT_FOUND. Parent masters must already exist (propose an organisation, wait for approval,
- * then its departments and posts).
+ * Resolve first, queue only on NOT_FOUND. A parent master must exist, or be named by the id of its own pending proposal
+ * (organisation -> department -> post can be queued in one run; the admin approves them parent first).
  */
 export async function proposeMaster(
   d1: D1Database | undefined,
@@ -182,7 +184,7 @@ export async function proposeMaster(
   const payload = sanitizeMasterFields(input.type, input.fields);
   const evidence = sanitizeEvidence(input.evidence, payload);
 
-  // Parent / jurisdiction must exist.
+  // Parent / jurisdiction must exist, or (department, post) be a master proposal queued in the same run.
   let parentId: string;
   let existing: MasterRecord[];
   if (input.type === 'organisation') {
@@ -190,23 +192,25 @@ export async function proposeMaster(
     if (!(await masters.stateIds(d1)).includes(parentId)) throw new InvalidProposalError(`stateId "${parentId}" is not a state. Use resolve_entity(state).`);
     existing = await masters.organisations(d1);
   } else if (input.type === 'department') {
-    parentId = payload.organisationId as string;
+    parentId = payload.organisationId = isProposalRef(payload.organisationId) ? await checkParentRef(d1, deps, 'organisationId', payload.organisationId) : payload.organisationId as string;
     existing = await masters.departments(d1);
-    if (!(await masters.organisations(d1)).some(o => o.id === parentId)) throw new InvalidProposalError(`organisationId "${parentId}" is not an organisation. Propose and approve the organisation first.`);
+    if (!isProposalRef(parentId) && !(await masters.organisations(d1)).some(o => o.id === parentId)) throw new InvalidProposalError(`organisationId "${parentId}" is not an organisation. Queue it with propose_master and pass the returned proposal id.`);
   } else {
-    parentId = payload.departmentId as string;
+    parentId = payload.departmentId = isProposalRef(payload.departmentId) ? await checkParentRef(d1, deps, 'departmentId', payload.departmentId) : payload.departmentId as string;
     existing = await masters.posts(d1);
-    if (!(await masters.departments(d1)).some(x => x.id === parentId)) throw new InvalidProposalError(`departmentId "${parentId}" is not a department. Propose and approve the department first.`);
+    if (!isProposalRef(parentId) && !(await masters.departments(d1)).some(x => x.id === parentId)) throw new InvalidProposalError(`departmentId "${parentId}" is not a department. Queue it with propose_master and pass the returned proposal id.`);
     if (!(await masters.sectorIds(d1)).includes(payload.sectorId as string)) throw new InvalidProposalError(`sectorId "${payload.sectorId}" is not a sector. Use resolve_entity(sector).`);
   }
+  // Nothing can exist yet under a parent that is still waiting for approval, so only the queue is checked for it.
+  if (isProposalRef(parentId)) existing = [];
 
   const resolution = resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, websiteUrl: payload.websiteUrl as string | undefined, parentId }, existing);
   if (resolution.status !== 'NOT_FOUND') return { ...resolution, status: resolution.status, queued: false };
 
-  // The same master may already be waiting in the queue.
+  // The same master may already be waiting in the queue (under the same parent).
   const kind = MASTER_KIND[input.type];
   const queued = (await deps.list(d1, { status: 'PENDING', limit: 250 })).filter(p => p.kind === kind && p.payload);
-  const clash = queued.find(p => resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, parentId }, [{ id: p.id, name: String(p.payload.name ?? p.payload.title ?? ''), slug: String(p.payload.slug ?? ''), shortName: p.payload.shortName as string | undefined }]).status === 'MATCH');
+  const clash = queued.find(p => resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, parentId }, [{ id: p.id, name: String(p.payload.name ?? p.payload.title ?? ''), slug: String(p.payload.slug ?? ''), shortName: p.payload.shortName as string | undefined, stateId: p.payload.stateId as string | undefined, organisationId: p.payload.organisationId as string | undefined, departmentId: p.payload.departmentId as string | undefined }]).status === 'MATCH');
   if (clash) return { status: 'POSSIBLE_MATCH', queued: false, matches: [{ id: clash.id, name: String(clash.payload.name ?? clash.payload.title), slug: String(clash.payload.slug) }], reasons: [`Already waiting as PENDING proposal ${clash.id}.`] };
 
   if (input.dryRun) return { status: 'NOT_FOUND', queued: false, dryRun: true, payload };

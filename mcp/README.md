@@ -29,6 +29,12 @@ They also take `supersedes` (the id of its own PENDING proposal to replace atomi
 They refuse with a stable error code instead of queueing: `EVIDENCE_REQUIRED`, `PENDING_CHANGE_CONFLICT` (an open proposal already changes
 the same fields of that recruitment), `CONFIRMED_DUPLICATE`, and `UNKNOWN_POST` (the post is not in the master data:
 queue it with `propose_master`; the MCP can never create masters, an admin approves them). A possible duplicate is queued with a warning for the reviewer.
+
+**Missing masters in one run.** Where a master id is expected (`organisationId` of a department, `departmentId` of a post,
+`postId` / `organisationId` of a new recruitment) the MCP may pass the id of a master proposal it queued earlier in the run
+(`prop_...`). Approving a master records the id it created (`meta.createdId`); approving a child swaps its references for those
+ids. A child whose parent is still pending is refused with `WAITING` and stays PENDING; one built on a rejected master fails.
+`/admin/pending-changes` lists parents first and disables Approve on a child until its parent is approved.
 The conflict and duplicate checks are best-effort (D1 has no cross-statement transaction); the admin stale-record guard is the backstop.
 
 **Known limits.** Every authenticated client is the same actor (`mcp-client`), so any MCP client can see and withdraw

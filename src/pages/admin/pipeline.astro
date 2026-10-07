@@ -38,7 +38,7 @@ if (Astro.request.method === 'POST') {
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Alert email is not valid.');
       const autoPublish = ['on', 'true', '1'].includes(input.text('auto_publish_high_confidence').toLowerCase()) ? '1' : '0';
       const updates: Array<[Parameters<typeof setSetting>[1], string]> = [
-        ['auto_publish_high_confidence', autoPublish], ['auto_publish_threshold', num('auto_publish_threshold', 0.5, 1)],
+        ['auto_publish_high_confidence', autoPublish],
         ['daily_llm_cap_usd', num('daily_llm_cap_usd', 0, 100)], ['daily_new_draft_cap', num('daily_new_draft_cap', 0, 500)],
         ['extraction_model', model], ['alert_email', email],
       ];
@@ -74,6 +74,15 @@ const unverified = sources.filter(s => s.status === 'NEEDS_VERIFICATION');
 
 const when = (t: number | null) => t ? new Date(t * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
+// What was actually checked, not the model's own confidence: quotes found in the page text (HTML only).
+const quoteCheck = (i: { validationJson: string | null }) => {
+  try {
+    const v = i.validationJson ? JSON.parse(i.validationJson) as { quotesVerified?: number; quotesTotal?: number; quotesChecked?: boolean } : null;
+    if (!v || typeof v.quotesTotal !== 'number' || !v.quotesTotal) return '';
+    if (v.quotesChecked === false) return 'quotes not checked (PDF)';
+    return v.quotesChecked || v.quotesVerified ? `quotes found in page ${v.quotesVerified ?? 0}/${v.quotesTotal}` : '';
+  } catch { return ''; }
+};
 const badge: Record<string, string> = {
   OK: 'bg-emerald-50 text-emerald-800 border-emerald-200', PROPOSED: 'bg-emerald-50 text-emerald-800 border-emerald-200', AUTO_CREATED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   PARTIAL: 'bg-amber-50 text-amber-800 border-amber-200', CAP_REACHED: 'bg-amber-50 text-amber-800 border-amber-200', DEFERRED: 'bg-amber-50 text-amber-800 border-amber-200', AMBIGUOUS: 'bg-amber-50 text-amber-800 border-amber-200', INCOMPLETE: 'bg-amber-50 text-amber-800 border-amber-200', UNMATCHED: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -142,13 +151,12 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
       <section class="rounded-xl border border-slate-200 bg-white p-4">
         <h2 class="text-sm font-bold text-slate-950 mb-3">Settings</h2>
         <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-          onsubmit="var c=this.querySelector('[name=auto_publish_high_confidence]'); return !c.checked || c.defaultChecked || confirm('Auto-publish lets high-confidence NEW recruitments go live without your review. Enable it?')">
+          onsubmit="var c=this.querySelector('[name=auto_publish_high_confidence]'); return !c.checked || c.defaultChecked || confirm('Auto-publish lets fully machine-checked NEW recruitments go live without your review. Enable it?')">
           <input type="hidden" name="_action" value="save_settings" />
           <div class="sm:col-span-2 lg:col-span-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <input id="ap" type="checkbox" name="auto_publish_high_confidence" checked={settings.autoPublishHighConfidence} class="mt-0.5 size-3.5 rounded border-slate-300" />
-            <label for="ap" class="text-xs text-amber-900"><strong>Auto-publish high confidence</strong> (OFF by default). New recruitments that pass every check, have no duplicate warning and reach the threshold are published without review. Changes to existing records always need review.</label>
+            <label for="ap" class="text-xs text-amber-900"><strong>Auto-publish fully machine-checked records</strong> (OFF by default). A new recruitment is published without review only when every fact was found in its quote and every quote in the page text, with no warning or duplicate. Scanned PDFs and anything needing a human read (summaries, categories) always wait for you. Changes to existing records always need review.</label>
           </div>
-          <div><label class={label} for="th">Auto-publish threshold (0.5 to 1)</label><input id="th" name="auto_publish_threshold" value={settings.autoPublishThreshold} class={field} /></div>
           <div><label class={label} for="cap">Daily LLM cap (USD)</label><input id="cap" name="daily_llm_cap_usd" value={settings.dailyLlmCapUsd} class={field} /></div>
           <div><label class={label} for="dc">Daily new-draft limit</label><input id="dc" name="daily_new_draft_cap" value={settings.dailyNewDraftCap} class={field} /></div>
           <div><label class={label} for="m">Extraction model</label>
@@ -188,7 +196,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
               <div class="flex flex-wrap items-center gap-2">
                 <span class={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${chip(i.status)}`}>{i.status}</span>
                 {i.dryRun ? <span class="text-sky-700 font-semibold">dry run</span> : null}
-                {typeof i.confidence === 'number' && <span class="font-mono">confidence {Math.round(i.confidence * 100)}%</span>}
+                {quoteCheck(i) && <span class="font-mono">{quoteCheck(i)}</span>}
                 <a href={i.docUrl} rel="noopener noreferrer" target="_blank" class="text-primary underline break-all">{i.title || i.docUrl}</a>
               </div>
               {i.reason && <p class="mt-1 text-slate-600">{i.reason}</p>}

@@ -4,8 +4,9 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAdminD1, getRecruitmentById } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
-import { buildDiff, listProposalRows, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
+import { buildDiff, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
 import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
+import { checkFacts, type FieldCheck } from '../../services/fact-checks';
 
 const adminEmail = Astro.locals.adminEmail;
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
@@ -69,20 +70,44 @@ if (d1) {
   });
 }
 
-type Evidence = { field: string; sourceUrl: string; page?: number; section?: string; snippet?: string; method: string; confidence?: number };
+type Evidence = { field: string; sourceUrl: string; page?: number; section?: string; snippet?: string; method: string; handwritten?: boolean };
 type Pipeline = { documentUrl?: string; documentType?: string; model?: string; warnings?: string[] };
 type DuplicateWarning = { summary: string; matches: Array<{ matchedRecruitmentId: string; matchedTitle: string; matchedAdvtNumber: string | null; reasons: string[] }> };
 const evidenceOf = (p: ProposalRow) => (Array.isArray(p.meta?.evidence) ? (p.meta!.evidence as Evidence[]) : []);
-const confidenceOf = (p: ProposalRow) => (typeof p.meta?.confidence === 'number' ? (p.meta.confidence as number) : null);
 const pipelineOf = (p: ProposalRow) => (p.meta?.pipeline ? (p.meta.pipeline as Pipeline) : null);
 const evidenceFor = (list: Evidence[], field: string) => list.filter(e => e.field === field);
 const duplicateOf = (p: ProposalRow) => (p.meta?.duplicate ? (p.meta.duplicate as DuplicateWarning) : null);
 const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
+/** Open a PDF at the cited page (browsers' PDF viewers honour #page=N). */
+const pageHref = (e: Evidence) => { const h = safeHref(e.sourceUrl); return h && e.page && /\.pdf($|[?#])|fileDownload/i.test(h) && !h.includes('#') ? `${h}#page=${e.page}` : h; };
+const CHECK_LABEL: Record<FieldCheck['status'], [string, string]> = {
+  MATCHES_QUOTE: ['in quote', 'bg-emerald-50 text-emerald-800 border-emerald-200'],
+  NOT_IN_QUOTE: ['not in quote', 'bg-rose-50 text-rose-700 border-rose-200'],
+  NO_QUOTE: ['no quote', 'bg-rose-50 text-rose-700 border-rose-200'],
+  NEEDS_READING: ['read it', 'bg-amber-50 text-amber-800 border-amber-200'],
+};
+
+// A proposal may be built on a master that is itself waiting here (queued in the same MCP run): list parents first.
+const byId = new Map(proposals.map(p => [p.id, p]));
+const depth = (p: ProposalRow, hops = 0): number =>
+  hops > 3 ? 0 : Math.max(0, ...parentRefs(p.payload).map(r => byId.get(r.id)).filter((x): x is ProposalRow => !!x).map(x => 1 + depth(x, hops + 1)));
+proposals.sort((a, b) => depth(a) - depth(b));
+const parentCache = new Map<string, Promise<ProposalRow | undefined>>();
+const parentOf = (id: string) => {
+  if (!parentCache.has(id)) parentCache.set(id, byId.has(id) ? Promise.resolve(byId.get(id)) : d1 ? defaultProposalDeps.get(d1, id).catch(() => undefined) : Promise.resolve(undefined));
+  return parentCache.get(id)!;
+};
 
 const items = await Promise.all(proposals.map(async (p) => {
   const current = p.recruitmentId && p.status === 'PENDING' ? await getRecruitmentById(p.recruitmentId, d1).catch(() => undefined) : undefined;
   const missingTarget = p.kind === 'UPDATE_RECRUITMENT' && p.status === 'PENDING' && !current;
+  const waiting = p.status === 'PENDING'
+    ? (await Promise.all(parentRefs(p.payload).map(async r => ({ ...r, parent: await parentOf(r.id) })))).filter(r => r.parent?.status !== 'APPROVED')
+    : [];
   return {
+    waiting,
+    // Masters carry names and ids, not notice facts: only recruitment proposals are checked value-by-value.
+    checks: checkFacts(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT' ? p.payload : {}, evidenceOf(p), Array.isArray(p.meta?.quoteInDocument) ? (p.meta!.quoteInDocument as string[]) : []),
     p,
     diff: buildDiff(p.payload, current),
     stale: staleFields(p.baseSnapshot, current),
@@ -149,15 +174,15 @@ const badge: Record<string, string> = {
       </div>
     )}
 
-    {items.map(({ p, diff, stale, currentTitle, missingTarget, evidence, duplicate }) => (
+    {items.map(({ p, diff, stale, currentTitle, missingTarget, evidence, duplicate, waiting, checks }) => (
       <article class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
         <header class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
               <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : p.kind === 'UPDATE_RECRUITMENT' ? 'Update' : p.kind === 'CREATE_ORGANISATION' ? 'New organisation (master)' : p.kind === 'CREATE_DEPARTMENT' ? 'New department (master)' : 'New post (master)'}</span>
-              {confidenceOf(p) !== null && (
-                <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${confidenceOf(p)! >= 0.9 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : confidenceOf(p)! >= 0.7 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-rose-50 text-rose-800 border-rose-200'}`}>confidence {Math.round(confidenceOf(p)! * 100)}%</span>
+              {checks.total > 0 && (
+                <span title="Counted by machine: a field passes only when its number, date or advertisement number appears in the quoted text. It does not prove the quote is in the document." class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${checks.notInQuote.length ? 'bg-rose-50 text-rose-700 border-rose-200' : checks.matched === checks.total ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>machine-checked {checks.matched} of {checks.total}</span>
               )}
               {p.meta?.edited && <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border bg-sky-50 text-sky-800 border-sky-200">edited by reviewer</span>}
             </div>
@@ -186,6 +211,22 @@ const badge: Record<string, string> = {
             </ul>
           </div>
         )}
+        {waiting.map(w => (
+          <div class={`mx-4 mt-4 rounded-lg border p-3 text-xs ${w.parent?.status === 'PENDING' || w.parent?.status === 'APPLYING' ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+            {w.parent?.status === 'PENDING' || w.parent?.status === 'APPLYING'
+              ? <><strong>Approve first:</strong> {w.parent.summary} <span class="font-mono">({w.id})</span>. This proposal's <span class="font-mono">{w.field}</span> is the master it creates.</>
+              : <><strong>Cannot be applied.</strong> Its <span class="font-mono">{w.field}</span> is <span class="font-mono">{w.id}</span>, which is {w.parent?.status?.toLowerCase() ?? 'missing'}. Reject this proposal.</>}
+          </div>
+        ))}
+        {(checks.notInQuote.length > 0 || checks.handwritten.length > 0 || checks.fromImage.length > 0 || checks.needsReading.length > 0) && (
+          <div class="mx-4 mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 space-y-0.5">
+            <p class="font-semibold">Check these against the official page before approving:</p>
+            {checks.notInQuote.length > 0 && <p class="text-rose-700">Value not found in its quote: <span class="font-mono">{checks.notInQuote.join(', ')}</span></p>}
+            {checks.handwritten.length > 0 && <p class="text-rose-700">Handwritten on the notice: <span class="font-mono">{checks.handwritten.join(', ')}</span></p>}
+            {checks.fromImage.length > 0 && <p class="text-amber-800">Read from a scanned image, so the quote itself may be misread: <span class="font-mono">{checks.fromImage.join(', ')}</span></p>}
+            {checks.needsReading.length > 0 && <p class="text-amber-800">Cannot be compared by machine, read them: <span class="font-mono">{checks.needsReading.join(', ')}</span></p>}
+          </div>
+        )}
         {missingTarget && (
           <div class="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">The target recruitment no longer exists. Reject this proposal.</div>
         )}
@@ -202,13 +243,23 @@ const badge: Record<string, string> = {
             <tbody>
               {diff.map(row => (
                 <tr class="border-b border-slate-100 align-top">
-                  <td class="py-2 pr-3 font-mono font-semibold text-slate-800 whitespace-nowrap">{row.field}</td>
+                  <td class="py-2 pr-3 font-mono font-semibold text-slate-800 whitespace-nowrap">{row.field}
+                    {checks.fields.filter(c => c.field === row.field).map(c => (
+                      <div class="mt-1 flex flex-wrap gap-1 font-sans font-bold text-[9px] uppercase tracking-wider" title={c.detail}>
+                        <span class={`px-1.5 py-0.5 rounded border ${CHECK_LABEL[c.status][1]}`}>{CHECK_LABEL[c.status][0]}</span>
+                        {c.handwritten && <span class="px-1.5 py-0.5 rounded border bg-rose-50 text-rose-700 border-rose-200">handwritten</span>}
+                        {c.fromImage && <span class="px-1.5 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">scanned</span>}
+                        {c.quoteInDocument && <span class="px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">quote in page</span>}
+                      </div>
+                    ))}
+                  </td>
                   <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind !== 'UPDATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
                   <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre>
+                    {checks.fields.filter(c => c.field === row.field && c.status !== 'MATCHES_QUOTE').map(c => <p class="mt-1 text-[10px] font-sans text-slate-600">{c.detail}</p>)}
                     {evidenceFor(evidence, row.field).map(e => (
                       <div class="mt-1.5 rounded border border-slate-100 bg-slate-50 p-1.5 text-[10px] text-slate-600 font-sans">
-                        <span class="font-semibold">Evidence</span> · {e.method}{e.page ? ` · page ${e.page}` : ''}{e.section ? ` · ${e.section}` : ''}{typeof e.confidence === 'number' ? ` · ${Math.round(e.confidence * 100)}%` : ''}
-                        {safeHref(e.sourceUrl) ? <> · <a href={safeHref(e.sourceUrl)} class="text-primary underline" rel="noopener noreferrer" target="_blank">source</a></> : null}
+                        <span class="font-semibold">Evidence</span> · {e.method === 'NATIVE' ? 'text' : e.method === 'VISION' ? 'read from image' : 'OCR'}{e.handwritten ? ' · handwritten' : ''}{e.page ? ` · page ${e.page}` : ''}{e.section ? ` · ${e.section}` : ''}
+                        {pageHref(e) ? <> · <a href={pageHref(e)} class="text-primary underline" rel="noopener noreferrer" target="_blank">{e.page ? `open page ${e.page}` : 'source'}</a></> : null}
                         {e.snippet && <blockquote class="mt-0.5 whitespace-pre-wrap break-words">“{e.snippet}”</blockquote>}
                       </div>
                     ))}
@@ -240,7 +291,7 @@ const badge: Record<string, string> = {
                   Apply anyway
                 </label>
               )}
-              <button type="submit" disabled={missingTarget} class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+              <button type="submit" disabled={missingTarget || waiting.length > 0} class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                 Approve
               </button>
             </form>

@@ -2,7 +2,8 @@
 import { isAllowedUrl } from './http';
 import type { Extracted } from './extract';
 
-export interface Validation { ok: boolean; errors: string[]; warnings: string[]; confidence: number; quotesVerified: number; quotesTotal: number }
+/** verifiedFields: extracted fields whose every quote was found in the page text (HTML only; empty for PDFs). */
+export interface Validation { ok: boolean; errors: string[]; warnings: string[]; confidence: number; quotesVerified: number; quotesTotal: number; quotesChecked: boolean; verifiedFields: string[] }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const isDate = (s: string) => ISO.test(s) && !Number.isNaN(Date.parse(s));
@@ -56,13 +57,15 @@ export function validateExtraction(ex: Extracted, docUrl: string, docText: strin
   const covered = present.filter(f => evidenceFields.has(f as string));
   for (const f of present) if (!evidenceFields.has(f as string)) warnings.push(`No quoted evidence for ${String(f)}.`);
   let verified = 0;
+  const unverified = new Set<string>();
   if (docText !== null) {
     const haystack = norm(docText);
     for (const e of ex.evidence) {
       if (haystack.includes(norm(e.quote))) verified++;
-      else warnings.push(`Quote for ${e.field} was not found in the page text.`);
+      else { unverified.add(e.field); warnings.push(`Quote for ${e.field} was not found in the page text.`); }
     }
   }
+  const verifiedFields = docText === null ? [] : [...new Set(ex.evidence.map(e => e.field))].filter(f => !unverified.has(f));
   const quotesTotal = ex.evidence.length;
 
   const base = ex.overallConfidence ?? 0.5;
@@ -71,5 +74,5 @@ export function validateExtraction(ex: Extracted, docUrl: string, docText: strin
   const proof = docText !== null ? (quotesTotal ? verified / quotesTotal : 0) : 0.95;
   const confidence = Math.round(Math.min(1, base) * (0.5 + 0.5 * coverage) * proof * 100) / 100;
 
-  return { ok: errors.length === 0, errors, warnings, confidence, quotesVerified: verified, quotesTotal };
+  return { ok: errors.length === 0, errors, warnings, confidence, quotesVerified: verified, quotesTotal, quotesChecked: docText !== null, verifiedFields };
 }

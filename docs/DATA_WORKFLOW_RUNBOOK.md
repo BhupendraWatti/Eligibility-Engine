@@ -7,7 +7,9 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 1. **Find the official source.** Recruiting body site, official PDF, government portal. Aggregators are leads only; never copy from them.
 2. **`check_links`** on every URL you will cite. A dead link is not cited.
 3. **Read the document** and extract only what it states. Note the page and section for each value.
-4. **Resolve masters** with `resolve_entity` (organisation, post, state). `AMBIGUOUS` or `NOT_FOUND` means stop and ask an admin; never guess an id.
+4. **Resolve masters** with `resolve_entity` (organisation, post, state). `AMBIGUOUS` means stop and ask an admin; never guess an id.
+   `NOT_FOUND`: queue the missing master with `propose_master` in the same run (organisation, then department, then post), passing each
+   returned proposal id (`prop_...`) as the child's `organisationId` / `departmentId` / `postId`. The admin approves parents first; one MCP run is enough.
 5. **Check NIRNAY first**: `search_recruitments` by `advtNumber`, `sourceUrl`, `title`/`organisation`, with `includeUnpublished: true`; then `list_my_proposals status=PENDING`.
    - Found and same notice: UPDATE (or nothing to do). Found with a different notice (corrigendum, admit card, result): UPDATE the same recruitment. Not found: NEW. Unsure: AMBIGUOUS, report it.
 6. **`preview_proposal`** with the full input and evidence. Read `action`, the before/after rows, `duplicateWarning`, `evidenceMissing`.

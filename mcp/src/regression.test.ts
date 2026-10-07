@@ -143,7 +143,12 @@ async function run() {
   const strictCreate = { ...create, title: 'Strict test 2026', postId: 'post_strict' };
   assert(await strict(strictCreate) === 'EVIDENCE_REQUIRED:title,totalVacancies', 'a strict proposal without evidence is refused and names the unsupported fields');
   assert(await strict(strictCreate, [quote('title'), { ...quote('totalVacancies'), snippet: undefined }]) === 'EVIDENCE_REQUIRED:totalVacancies', 'evidence without a quoted snippet does not count');
-  assert(await strict({ ...strictCreate, seoTitle: 'SEO copy' }, [quote('title'), quote('totalVacancies')]) === 'QUEUED', 'quoted evidence for every fact queues it; SEO copy and master ids are exempt');
+  const quoteVacancies = { ...quote('totalVacancies'), snippet: 'Total posts: 520' };
+  assert(await strict({ ...strictCreate, seoTitle: 'SEO copy' }, [quote('title'), quoteVacancies]) === 'QUEUED', 'quoted evidence for every fact queues it; SEO copy and master ids are exempt');
+  assert(await strict(strictCreate, [quote('title'), { ...quoteVacancies, snippet: 'Total posts: 502' }]) === 'VALUE_NOT_IN_QUOTE:totalVacancies', 'a value that is not in its own quote is refused');
+  assert(await strict({ ...strictCreate, title: 'Strict handwritten 2026', postId: 'post_hw', applicationEnd: '2026-10-26' }, [quote('title'), quoteVacancies, { ...quote('applicationEnd'), snippet: 'दिनांक 11.10.26 से 26.10.26 अपराह्न 5:00 बजे तक', handwritten: true }]) === 'QUEUED', 'a handwritten Hindi date that matches its quote is queued (and flagged)');
+  const stored = store[store.length - 1];
+  assert(!!stored && (stored.meta as any).evidence.some((e: any) => e.handwritten === true) && !(stored.meta as any).evidence.some((e: any) => 'confidence' in e), 'the handwritten flag is kept and no self-rated confidence is stored');
 
   // ── 8. Approving a proposal changes the intended field only ────────────────────────────────────
   const live: any = {
@@ -178,6 +183,47 @@ async function run() {
   const withSsc: MasterDeps = { ...masters, organisations: async () => [...orgs, { id: 'org_ssc', name: 'Staff Selection Commission', slug: 'ssc', shortName: 'SSC', stateId: 'st_in' }] };
   const m2 = await approveProposal(d1, 'prop_m', 'admin@x.in', {}, { ...mdeps, masters: withSsc });
   assert(!m2.ok && createdKind === '', 'approval refuses to create a master that already exists');
+  let createdIdSaved: string | undefined;
+  await approveProposal(d1, 'prop_m', 'admin@x.in', {}, { ...mdeps, finalize: async (_d, _i, _f, fields) => { createdIdSaved = fields.createdId; return true; } });
+  assert(createdIdSaved === 'org_ssc', 'an approved master records the id it created');
+
+  // ── 9. One run queues organisation -> department -> post -> recruitment; approval goes parent first ──────
+  const ORG = 'prop_00000000-0000-4000-8000-000000000001', DEPT = 'prop_00000000-0000-4000-8000-000000000002', POST = 'prop_00000000-0000-4000-8000-000000000003';
+  const chain = new Map<string, ProposalRow>();
+  const queuedRow = (id: string, kind: ProposalRow['kind'], payload: Record<string, unknown>, status: ProposalRow['status'] = 'PENDING', meta: Record<string, unknown> | null = null): ProposalRow =>
+    ({ id, kind, recruitmentId: null, summary: `${kind} ${id.slice(-1)}`, payload, baseSnapshot: null, status, supersedesId: null, meta, proposedBy: 'mcp-client', decidedBy: null, decidedAt: null, decisionNote: null, createdAt: new Date() });
+  chain.set(ORG, queuedRow(ORG, 'CREATE_ORGANISATION', { stateId: 'st_mp', name: 'New Board', shortName: 'NB', slug: 'nb', websiteUrl: 'https://nb.gov.in/' }));
+  const chainDeps: ProposalDeps = { ...base(), get: async (_d, id) => chain.get(id), list: async () => [...chain.values()].filter(p => p.status === 'PENDING'), postExists: async () => false, orgExists: async () => false };
+  // A department name that already exists under another organisation is fine under a brand-new one.
+  const dept = await proposeMaster(d1, proposer, { type: 'department', summary: 'Add dept', fields: { organisationId: ORG, name: 'General Administration Department' } }, chainDeps, masters);
+  assert(dept.status === 'NOT_FOUND' && dept.queued && inserted[inserted.length - 1].payload.organisationId === ORG, 'a department can be queued under an organisation that is still a pending proposal');
+  chain.set(DEPT, queuedRow(DEPT, 'CREATE_DEPARTMENT', { organisationId: ORG, name: 'General Administration Department', slug: 'general-administration-department' }));
+  const post = await proposeMaster(d1, proposer, { type: 'post', summary: 'Add post', fields: { departmentId: DEPT, sectorId: 'sec_admin', title: 'Clerk' } }, chainDeps, masters);
+  assert(post.status === 'NOT_FOUND' && post.queued, 'a post can be queued under a department that is still a pending proposal');
+  chain.set(POST, queuedRow(POST, 'CREATE_POST', { departmentId: DEPT, sectorId: 'sec_admin', title: 'Clerk', slug: 'clerk' }));
+  const rec = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Clerk 2026', changes: { title: 'Clerk 2026', postId: POST, organisationId: ORG, totalVacancies: 10 } }, chainDeps);
+  assert(rec.status === 'PENDING', 'a recruitment can be queued on a pending post and organisation');
+  let wrong = '';
+  try { await proposeMaster(d1, proposer, { type: 'post', summary: 'x', fields: { departmentId: ORG, sectorId: 'sec_admin', title: 'Typist' } }, chainDeps, masters); } catch (e: any) { wrong = e.message; }
+  assert(wrong.includes('is not a CREATE_DEPARTMENT proposal'), 'a reference to the wrong kind of proposal is refused');
+
+  const recRow = queuedRow('prop_rec', 'CREATE_RECRUITMENT', { title: 'Clerk 2026', postId: POST, organisationId: ORG, totalVacancies: 10 });
+  let createdWith: any; let released = 0; const chainFinal: string[] = [];
+  const chainDecision: DecisionDeps = {
+    ...decision, get: async (_d, id) => (id === 'prop_rec' ? recRow : chain.get(id)), release: async () => { released++; },
+    finalize: async (_d, _i, _f, fields) => { chainFinal.push(fields.status); return true; },
+    create: async input => { createdWith = input; return { success: true, id: 'rec_new' } as any; },
+  };
+  let r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
+  assert(!r.ok && r.code === 'WAITING' && released === 1 && !createdWith && chainFinal.length === 0, 'approving a child before its parent waits, stays PENDING and writes nothing');
+  chain.set(POST, { ...chain.get(POST)!, status: 'APPROVED', meta: { createdId: 'post_clerk' } });
+  chain.set(ORG, { ...chain.get(ORG)!, status: 'APPROVED', meta: { createdId: 'org_nb' } });
+  r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
+  assert(r.ok && createdWith.postId === 'post_clerk' && createdWith.organisationId === 'org_nb', 'once the parents are approved the recruitment is created with their real ids');
+  chain.set(ORG, { ...chain.get(ORG)!, status: 'REJECTED', meta: null });
+  createdWith = undefined;
+  r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
+  assert(!r.ok && r.code === 'FAILED' && !createdWith, 'a proposal built on a rejected master cannot be applied');
 
   console.log('\nAll regression checks passed.');
 }

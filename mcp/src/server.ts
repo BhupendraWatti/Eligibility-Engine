@@ -98,8 +98,10 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const summaryField = z.string().trim().min(1).max(300).describe('One line for the reviewer: what changes and why, ideally citing the official source.');
 
   const evidenceField = z.array(z.record(z.string(), z.unknown())).optional().describe(
-    `REQUIRED for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (otherwise refused as EVIDENCE_REQUIRED): one item per field {field, sourceUrl, page, section, snippet, method: NATIVE|OCR|VISION, confidence 0-1}. ` +
-    'snippet is the exact wording copied from the official notice, corrigendum or portal (<=500 chars), not a paraphrase. Shown to the reviewer; confidence is advisory, not verification. ' +
+    `REQUIRED for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (otherwise refused as EVIDENCE_REQUIRED): one item per field {field, sourceUrl, page, section, snippet, method: NATIVE|OCR|VISION, handwritten?}. ` +
+    'snippet is the exact wording copied from the official notice, corrigendum or portal (<=500 chars), not a paraphrase. method: NATIVE = copied from a text layer, VISION/OCR = read from a scanned image. ' +
+    'Set handwritten: true when the value is handwritten on the notice. Do not send a confidence score: the reviewer sees mechanical checks instead. ' +
+    'Numbers, dates and the advertisement number must appear in their snippet, or the proposal is refused as VALUE_NOT_IN_QUOTE (a total may instead equal the sum of vacanciesBreakdown rows). ' +
     'Never invent or estimate values: leave a field out if the official source does not state it.',
   );
   const supersedesField = z.string().trim().min(1).max(100).optional().describe('id of your own PENDING proposal that this one replaces (it is withdrawn atomically). Same kind and target.');
@@ -159,6 +161,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
         `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
+        'If the post or organisation is missing, queue it with propose_master in the same run and pass the returned proposal id (prop_...) instead: the owner approves the masters first, then this recruitment. ' +
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
         'A CONFIRMED_DUPLICATE is refused; a possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
@@ -179,7 +182,8 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       description:
         'Resolve first, then queue a request to add a missing canonical master for owner approval. Returns MATCH (reuse entity.id), POSSIBLE_MATCH (a human decides) or NOT_FOUND. ' +
         'Only NOT_FOUND queues a proposal; nothing is created until an admin approves it in /admin/pending-changes, after which resolve_entity finds it. ' +
-        'Parents must already exist: an organisation needs a stateId, a department an organisationId, a post a departmentId and sectorId (use resolve_entity). ' +
+        'An organisation needs an existing stateId and a post an existing sectorId (use resolve_entity). The organisationId of a department and the departmentId of a post may be an existing id OR the proposal id (prop_...) this tool returned for a parent queued in the same run, ' +
+        'so organisation -> department -> post -> propose_new_recruitment can all be queued at once; the owner approves them parent first. ' +
         'fields: organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ' +
         'Set dryRun=true to resolve without queuing. Include evidence (sourceUrl of the official site) for name and websiteUrl.',
       inputSchema: {
@@ -206,7 +210,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / EVIDENCE_REQUIRED), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
         'a before/after row per field, evidenceMissing and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),

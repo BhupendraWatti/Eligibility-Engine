@@ -11,7 +11,7 @@
     "build": "astro build",
     "setup": "npm ci && astro sync && wrangler d1 migrations apply EligibilityEngine-db --local",
     "typecheck": "astro sync && tsc --noEmit",
-    "test": "tsx src/engine/eligibility.test.ts && tsx src/services/viewer-state.test.ts && tsx src/services/public-listing.test.ts && tsx src/services/cadre-guide.test.ts",
+    "test": "tsx src/engine/eligibility.test.ts && tsx src/services/viewer-state.test.ts && tsx src/services/public-listing.test.ts && tsx src/services/cadre-guide.test.ts && tsx src/services/fact-checks.test.ts",
     "check": "npm test && npm run typecheck && npm run build",
     "build:vinext": "vinext build",
     "preview": "astro preview",
