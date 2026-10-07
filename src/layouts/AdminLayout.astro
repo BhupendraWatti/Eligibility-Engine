@@ -28,8 +28,12 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | NIRNAY OPS</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/brand/light/favicon.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/brand/dark/favicon.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>{title} | GR OPS</title>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light dark" />
     <!-- Apply saved (or OS-preferred) theme before first paint; same key as the public site -->
@@ -98,8 +102,8 @@ const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
             <!-- Brand Pill -->
             <a href="/admin" class="flex items-center gap-1.5 font-bold text-xs tracking-wider uppercase text-zinc-900 shrink-0">
-              <span class="flex size-6 items-center justify-center rounded bg-primary text-[11px] font-black text-white font-mono shadow-2xs">N</span>
-              <span class="font-mono text-xs hidden xs:inline">NIRNAY OPS</span>
+              <span class="flex size-6 items-center justify-center rounded bg-primary text-[11px] font-black text-white font-mono shadow-2xs">GR</span>
+              <span class="font-mono text-xs hidden xs:inline">GR OPS</span>
             </a>
 
             <span class="text-zinc-300 hidden sm:inline">/</span>

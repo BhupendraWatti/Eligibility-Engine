@@ -1908,7 +1908,7 @@ export const FALLBACK_AUDIT_LOGS: Array<{
 }> = [
   {
     id: 'audit_01',
-    adminEmail: 'aarav@nirnay.in',
+    adminEmail: 'aarav@govtrecruitments.com',
     entity: 'RECRUITMENT',
     entityId: 'rec_mp_mppsc_sse_2026',
     action: 'VERIFY',
@@ -1921,7 +1921,7 @@ export const FALLBACK_AUDIT_LOGS: Array<{
   },
   {
     id: 'audit_02',
-    adminEmail: 'aarav@nirnay.in',
+    adminEmail: 'aarav@govtrecruitments.com',
     entity: 'RECRUITMENT',
     entityId: 'rec_mp_constable_2026',
     action: 'PUBLISH',

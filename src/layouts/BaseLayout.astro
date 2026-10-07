@@ -42,8 +42,12 @@ const {
         } catch (e) {}
       })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | NIRNAY</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/brand/light/favicon.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/brand/dark/favicon.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>{title} | GovtRecruitments</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
 
@@ -53,24 +57,24 @@ const {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
     <!-- OpenGraph / Social -->
-    <meta property="og:title" content={`${title} | NIRNAY`} />
+    <meta property="og:title" content={`${title} | GovtRecruitments`} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={ogType} />
-    <meta property="og:site_name" content="NIRNAY" />
+    <meta property="og:site_name" content="GovtRecruitments" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={`${title} | NIRNAY`} />
+    <meta name="twitter:title" content={`${title} | GovtRecruitments`} />
     <meta name="twitter:description" content={description} />
 
     <!-- SEO & Indexing -->
     <meta name="robots" content={robotsIndex ? 'index, follow' : 'noindex, follow'} />
-    <meta name="author" content="NIRNAY" />
+    <meta name="author" content="GovtRecruitments" />
   </head>
   <body class="min-h-screen flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 print:pb-0 bg-background text-foreground selection:bg-primary selection:text-white">
     <!-- Print Only Header for Official Assessment Reports -->
     {isReportPage && (
       <div class="print-only p-4 border-b-2 border-slate-900 mb-6 text-center">
-        <h1 class="text-2xl font-bold text-slate-900">NIRNAY - Eligibility Assessment Report</h1>
+        <h1 class="text-2xl font-bold text-slate-900">GovtRecruitments - Eligibility Assessment Report</h1>
         <p class="text-xs text-slate-600 mt-1">Generated for personal career assessment. Independent public advisory platform.</p>
       </div>
     )}

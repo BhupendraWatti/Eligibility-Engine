@@ -14,8 +14,12 @@ if (Astro.request.method === 'POST') {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Sign in to private workspace | NIRNAY OPS</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/brand/light/favicon.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/brand/dark/favicon.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Sign in to private workspace | GR OPS</title>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light dark" />
     <script is:inline>
@@ -46,8 +50,8 @@ if (Astro.request.method === 'POST') {
         <!-- Brand Header -->
         <div class="space-y-1.5">
           <div class="flex items-center gap-2 font-bold text-xs tracking-[0.18em] uppercase text-zinc-900 font-mono">
-            <span class="flex size-6 items-center justify-center rounded bg-primary text-[11px] font-black text-white">N</span>
-            <span>NIRNAY OPS</span>
+            <span class="flex size-6 items-center justify-center rounded bg-primary text-[11px] font-black text-white">GR</span>
+            <span>GR OPS</span>
           </div>
           <h1 class="text-2xl font-bold tracking-tight text-zinc-950 font-heading">
             Sign in to private workspace
