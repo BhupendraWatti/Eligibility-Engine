@@ -35,9 +35,9 @@ const importantDates = recruitment?.importantDatesList ?? [];
 // defaults (stages, pay), nor the eligibility table's defaulted min age (18) and relaxations (5/3/5),
 // which cannot be told apart from values the notice actually gave. Relaxations appear only as the notice's text.
 const selectionStages = recruitment?.selectionStages ?? [];
-const maxAgeGeneral = recruitment?.criteria?.maxAgeGeneral ?? null;
-const ageCutoffDate = recruitment?.criteria?.ageCutoffDate ? formatDate(recruitment.criteria.ageCutoffDate) : null;
-const relaxationNotes = recruitment?.criteria?.relaxationNotesMarkdown?.trim() || null;
+// age_cutoff_date is NOT NULL, so there is always a date to show.
+const ageCutoffDate = formatDate(recruitment?.criteria.ageCutoffDate);
+const relaxationNotes = recruitment?.criteria.relaxationNotesMarkdown?.trim() || null;
 // The mapper's payScale falls back to the unverified master default; only the override is the notice's pay.
 const noticePay = recruitment?.payScaleOverride?.trim() || null;
 
@@ -45,18 +45,18 @@ const recordLastVerified = (() => {
   const times = (recruitment?.sourcesList ?? []).map((src: any) => (src.lastVerifiedAt ? new Date(src.lastVerifiedAt).getTime() : 0)).filter((t: number) => t > 0);
   return times.length ? new Date(Math.max(...times)) : null;
 })();
+const lastChecked = recordLastVerified?.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
 // No made-up document: without a linked source the card says so and points to the organisation's own site.
 const officialSource = recruitment?.sourcesList?.[0] ?? null;
-const organisationDomain = (() => {
-  try { return recruitment?.organisationUrl ? new URL(recruitment.organisationUrl).hostname : null; } catch { return null; }
-})();
+const sourceVerified = !!officialSource && recruitment?.validationStatus === 'VALID';
+// Every organisation has a validated website_url (NOT NULL, checked by every writer).
+const organisationDomain = recruitment && new URL(recruitment.organisationUrl).hostname;
 
-// Apply goes to the notice's own link; otherwise to the organisation's site, labelled as such; otherwise nowhere.
-const applyLink = recruitment?.officialLinksList?.[0]?.url
-  ? { url: recruitment.officialLinksList[0].url, label: `Apply on ${recruitment.organisationShortName} portal`, shortLabel: 'Apply Officially' }
-  : organisationDomain
-    ? { url: recruitment!.organisationUrl, label: `Visit ${recruitment!.organisationShortName} website`, shortLabel: 'Official Website' }
-    : null;
+// Apply goes to the notice's own link, otherwise to the organisation's site, labelled as such.
+const noticeLinkUrl = recruitment?.officialLinksList?.[0]?.url;
+const applyLink = noticeLinkUrl
+  ? { url: noticeLinkUrl, label: `Apply on ${recruitment!.organisationShortName} portal`, shortLabel: 'Apply Officially' }
+  : { url: recruitment?.organisationUrl, label: `Visit ${recruitment?.organisationShortName} website`, shortLabel: 'Official Website' };
 ---
 
 {!recruitment ? (
@@ -158,18 +158,12 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Qualification</span>
-                <span class="text-lg font-bold text-primary">{recruitment.criteria?.minQualificationLevel || 'See notice'}</span>
+                <span class="text-lg font-bold text-primary">{recruitment.criteria.minQualificationLevel}</span>
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Max Age (General)</span>
-                {maxAgeGeneral != null ? (
-                  <>
-                    <span class="text-lg font-bold text-foreground font-mono">{maxAgeGeneral} yrs</span>
-                    {ageCutoffDate && <span class="text-[10px] text-muted-foreground block">as on <span class="font-mono">{ageCutoffDate}</span></span>}
-                  </>
-                ) : (
-                  <span class="text-lg font-bold text-foreground">See notice</span>
-                )}
+                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria.maxAgeGeneral} yrs</span>
+                <span class="text-[10px] text-muted-foreground block">as on <span class="font-mono">{ageCutoffDate}</span></span>
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Last Date</span>
@@ -188,13 +182,6 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
                 class="font-semibold rounded-lg bg-muted text-muted-foreground text-xs sm:text-sm px-5 py-2.5 border border-border cursor-not-allowed inline-flex items-center gap-2"
               >
                 <span>Application Link Pending Official Gazette</span>
-              </button>
-            ) : !applyLink ? (
-              <button
-                disabled
-                class="font-semibold rounded-lg bg-muted text-muted-foreground text-xs sm:text-sm px-5 py-2.5 border border-border cursor-not-allowed inline-flex items-center gap-2"
-              >
-                <span>Application link not published yet</span>
               </button>
             ) : (
               <a
@@ -230,35 +217,22 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
           <div>
             <div class="flex items-center justify-between pb-3 border-b border-border mb-4">
               <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Official source</span>
-              {officialSource && recruitment.validationStatus === 'VALID' ? (
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  Verified Source
-                </span>
-              ) : (
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border bg-amber-50 text-amber-700 border-amber-200">
-                  {officialSource ? 'Review Required' : 'No document linked'}
-                </span>
-              )}
+              <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                sourceVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {sourceVerified && <svg xmlns="http://www.w3.org/2000/svg" class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                {sourceVerified ? 'Verified Source' : officialSource ? 'Review Required' : 'No document linked'}
+              </span>
             </div>
 
-            {officialSource ? (
-              <>
-                <h3 class="font-bold text-sm text-foreground mb-1">
-                  {officialSource.sourceTitle || 'Official notification'}
-                </h3>
-                <p class="text-xs text-muted-foreground mb-4">
-                  Official notification published by {recruitment.organisationName}.
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 class="font-bold text-sm text-foreground mb-1">Official document not linked yet</h3>
-                <p class="text-xs text-muted-foreground mb-4">
-                  Read the notice on the {recruitment.organisationName} website before applying.
-                </p>
-              </>
-            )}
+            <h3 class="font-bold text-sm text-foreground mb-1">
+              {officialSource ? officialSource.sourceTitle || 'Official notification' : 'Official document not linked yet'}
+            </h3>
+            <p class="text-xs text-muted-foreground mb-4">
+              {officialSource
+                ? `Official notification published by ${recruitment.organisationName}.`
+                : `Read the notice on the ${recruitment.organisationName} website before applying.`}
+            </p>
 
             <div class="space-y-2 text-xs text-muted-foreground mb-6">
               <div class="flex justify-between">
@@ -275,33 +249,29 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
                   <span class="font-mono text-foreground font-medium">{formatDate(officialSource.publicationDate)}</span>
                 </div>
               )}
-              {recordLastVerified && (
+              {lastChecked && (
                 <div class="flex justify-between">
                   <span>Last checked:</span>
-                  <span class="font-mono text-foreground font-medium">{recordLastVerified.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  <span class="font-mono text-foreground font-medium">{lastChecked}</span>
                 </div>
               )}
-              {organisationDomain && (
-                <div class="flex justify-between">
-                  <span>Official Domain:</span>
-                  <span class="font-mono text-primary truncate max-w-[150px]">{organisationDomain}</span>
-                </div>
-              )}
+              <div class="flex justify-between">
+                <span>Official Domain:</span>
+                <span class="font-mono text-primary truncate max-w-[150px]">{organisationDomain}</span>
+              </div>
             </div>
           </div>
 
           <div>
-            {(officialSource || organisationDomain) && (
-              <a
-                href={officialSource ? officialSource.sourceUrl : recruitment.organisationUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="w-full font-medium rounded-lg text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs py-2.5 px-4 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <span>{officialSource ? 'View official notification' : `Visit ${recruitment.organisationShortName} website`}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-            )}
+            <a
+              href={officialSource?.sourceUrl ?? recruitment.organisationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="w-full font-medium rounded-lg text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs py-2.5 px-4 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>{officialSource ? 'View official notification' : `Visit ${recruitment.organisationShortName} website`}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
             <p class="text-[10px] text-muted-foreground text-center mt-2.5">
               NIRNAY rule evaluation is independent; cross-check official gazette before submitting fees.
             </p>
@@ -352,7 +322,7 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
                     The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has published this recruitment for <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under <strong>{recruitment.departmentName || 'the relevant government cadre'}</strong>{recruitment.stateName ? ` in ${recruitment.stateName}` : ''}.
                   </p>
                   <p>
-                    Candidates holding the required qualification ({recruitment.criteria?.minQualificationLevel}) and meeting the age limit{ageCutoffDate ? ` as on ${ageCutoffDate}` : ' on the cutoff date in the notice'} may apply online through the official portal.
+                    Candidates holding the required qualification ({recruitment.criteria.minQualificationLevel}) and meeting the age limit as on {ageCutoffDate} may apply online through the official portal.
                   </p>
                 </>
               )}
@@ -394,13 +364,7 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
                       <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         <span>
-                          {maxAgeGeneral != null ? (
-                            <>
-                              Up to <span class="font-mono">{maxAgeGeneral}</span> years (General category){ageCutoffDate && <> as on <span class="font-mono">{ageCutoffDate}</span></>}
-                            </>
-                          ) : (
-                            'See the official document in the Documents tab'
-                          )}
+                          Up to <span class="font-mono">{recruitment.criteria.maxAgeGeneral}</span> years (General category) as on <span class="font-mono">{ageCutoffDate}</span>
                         </span>
                       </div>
                     </td>
@@ -456,9 +420,7 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
             </div>
 
             <p class="text-[11px] text-muted-foreground">
-              {recordLastVerified
-                ? `Taken from the official notice, last checked ${recordLastVerified.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' })}.`
-                : 'Not yet checked against an official document.'} Confirm every condition in the official notice before applying.
+              {lastChecked ? `Taken from the official notice, last checked ${lastChecked}.` : 'Not yet checked against an official document.'} Confirm every condition in the official notice before applying.
             </p>
           </section>
 
@@ -538,7 +500,7 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
           <!-- Selection Process -->
           <section id="selection" role="tabpanel" aria-labelledby="tab-selection" tabindex="0" class="rec-panel scroll-mt-36 focus:outline-none">
             <h2 class="text-xl font-bold text-foreground mb-4">Selection Process</h2>
-            {selectionStages && selectionStages.length > 0 ? (
+            {selectionStages.length > 0 ? (
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {selectionStages.map((stage: any, index: number) => (
                   <div class="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
@@ -700,13 +662,6 @@ const applyLink = recruitment?.officialLinksList?.[0]?.url
             class="flex-1 py-2.5 px-3 rounded-xl bg-muted text-muted-foreground font-semibold text-xs text-center cursor-not-allowed border border-border"
           >
             Pending Official Gazette
-          </button>
-        ) : !applyLink ? (
-          <button
-            disabled
-            class="flex-1 py-2.5 px-3 rounded-xl bg-muted text-muted-foreground font-semibold text-xs text-center cursor-not-allowed border border-border"
-          >
-            Link not published yet
           </button>
         ) : (
           <a
