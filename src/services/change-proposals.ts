@@ -12,6 +12,7 @@ import { getDb, schema } from '../db/client';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllOrganisations, getRecruitmentById, type RecruitmentWithDetails } from '../db/queries';
 import { detectDuplicates, type DuplicateCheckResult, type RecruitmentCandidate } from './duplicate-detector';
 import { checkFacts, type FactCheckSummary } from './fact-checks';
+import { isPdfUrl } from './cadre-guide';
 import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
@@ -55,7 +56,7 @@ export const RESERVATION_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'];
 /** officialLinks types an MCP proposal may use. APPLY_ONLINE is the page where candidates start filling the form. */
 export const LINK_TYPES = [
   'APPLY_ONLINE', 'NOTIFICATION_PDF', 'RULEBOOK', 'SYLLABUS_PDF', 'ADMIT_CARD', 'ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY',
-  'FINAL_ANSWER_KEY', 'RESULT', 'SCORECARD', 'MERIT_LIST', 'OFFICIAL_WEBSITE', 'PORTAL',
+  'FINAL_ANSWER_KEY', 'RESULT', 'SCORECARD', 'MERIT_LIST', 'CORRIGENDUM', 'EXAM_CITY_SLIP', 'OFFICIAL_WEBSITE', 'PORTAL',
 ];
 
 type FieldSpec =
@@ -515,15 +516,14 @@ export interface ProposalInput {
   requireEvidence?: boolean;
 }
 
-const EXAM_STAGE = /\b(written|exam(ination)?s?|cbt|computer[- ]based|objective|mcq|paper|prelim(inary|s)?|mains)\b/i;
-// Checks that are not a selection exam, and wording that says there is none.
-const NOT_AN_EXAM = /\b(medical|physical|health|fitness)\s+exam(ination)?s?\b|\bexam(ination)?\s+fees?\b/gi;
+const EXAM_STAGE = /\b(written|exam(ination)?s?|cbt|computer[- ]based|objective[- ]type|mcq|omr|paper|prelim(inary|s)?|mains|(online|screening|competitive|aptitude|recruitment|selection)\s+test)\b|लिखित|परीक्षा/i;
+// Not a selection exam: medical checks, the qualifying/board exam a merit list is drawn from, and fee wording.
+const NOT_AN_EXAM = /\b(medical|physical|health|fitness|qualifying|board|class\s*\d+|\d+(st|nd|rd|th))\s+exam(ination)?s?\b|\bexam(ination)?\s+fees?\b/gi;
 const NO_EXAM = /\b(no|without)\s+(written\s+)?(exam(ination)?|test)\b/i;
 const isExamStage = (s: { name: string; desc: string }) => {
   const text = `${s.name} ${s.desc}`.replace(NOT_AN_EXAM, ' ');
   return EXAM_STAGE.test(text) && !NO_EXAM.test(text);
 };
-const isPdfUrl = (url: string) => new URL(url).pathname.toLowerCase().endsWith('.pdf');
 
 /**
  * MCP scope rules (requireEvidence callers only): known link types, an apply link that is not a PDF,
@@ -545,8 +545,7 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   if ((create || stages) && !(stages ?? []).some(isExamStage)) {
     throw new ProposalBlockedError('NO_EXAM_STAGE', 'selectionStages must include a written or computer-based exam. Only government recruitments selected by such an exam are added; honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope in every state. Do not propose this one.');
   }
-  // officialLinks replaces the whole list, so an update must keep the apply link too.
-  if ((create || payload.officialLinks) && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
+  if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
     throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');
   }
 }
@@ -599,6 +598,12 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (old && old.recruitmentId !== recruitmentId) throw new InvalidProposalError('A replacement must target the same recruitment.');
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
+    // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
+    const hadApply = (current.officialLinksList ?? []).some(l => l.isActive && l.linkType === 'APPLY_ONLINE');
+    const links = payload.officialLinks as Array<{ linkType: string }> | undefined;
+    if (input.requireEvidence && links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
+      throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');
+    }
     // Re-snapshot the live record, never reuse the superseded proposal's snapshot.
     baseSnapshot = snapshotFields(current, Object.keys(payload));
     diff = buildDiff(payload, current);

@@ -151,9 +151,12 @@ function requirementsOf(r: RecruitmentWithDetails): string[] {
 const isSyllabusLink = (type: string) => /SYLLABUS/i.test(type);
 const isApplyLink = (type: string) => /APPLY/i.test(type);
 
+/** A link to a PDF document (by its path, so query strings do not count). Shared with the MCP link checks. */
+export const isPdfUrl = (url: string) => { try { return /\.pdf$/i.test(new URL(url).pathname); } catch { return /\.pdf([?#]|$)/i.test(url); } };
+
 /** The page where candidates fill the form, never a notice or rulebook PDF; null when the notice gives none. */
 export function findApplyLink<L extends { linkType: string; url: string; isActive?: number | null }>(links: L[] | null | undefined): L | null {
-  return (links ?? []).find(l => l.isActive !== 0 && isApplyLink(l.linkType) && !/\.pdf([?#]|$)/i.test(l.url)) ?? null;
+  return (links ?? []).find(l => l.isActive !== 0 && isApplyLink(l.linkType) && !isPdfUrl(l.url)) ?? null;
 }
 
 function factsOf(r: RecruitmentWithDetails, referenceDate?: Date | string): GuideFacts {

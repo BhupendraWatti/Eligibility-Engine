@@ -80,8 +80,9 @@ const names = (e: MasterRecord) => [e.name, e.shortName, e.slug].map(norm).filte
 
 /**
  * MATCH when a name, short name or slug is identical after normalisation within the same parent (state for an organisation,
- * organisation for a department, department for a post). POSSIBLE_MATCH when it is identical under a different parent, or one
- * name contains the other, or an organisation shares the official website host. Anything else is NOT_FOUND.
+ * organisation for a department, department for a post). POSSIBLE_MATCH when an organisation has the same name in another state,
+ * or one name contains the other under the same parent, or an organisation shares the official website host. Anything else is NOT_FOUND:
+ * a department or post with the same name under another parent belongs to another body or state and is not a duplicate.
  */
 export function resolveMaster(type: MasterType, candidate: { name: string; shortName?: string; slug?: string; websiteUrl?: string; parentId?: string }, existing: MasterRecord[]): MasterResolution {
   const wanted = [candidate.name, candidate.shortName, candidate.slug].map(norm).filter(Boolean);
@@ -94,7 +95,7 @@ export function resolveMaster(type: MasterType, candidate: { name: string; short
     const contained = wanted.some(w => w.length >= 4 && theirs.some(t => t.length >= 4 && (t.includes(w) || w.includes(t))));
     const sameParent = !candidate.parentId || !parentOf(e) || parentOf(e) === candidate.parentId;
     if (identical && sameParent) exactSame.push(e);
-    else if (identical) possible.set(e.id, { rec: e, reason: `"${e.name}" has the same name under a different parent (${parentOf(e)}).` });
+    else if (identical && type === 'organisation') possible.set(e.id, { rec: e, reason: `"${e.name}" has the same name under a different parent (${parentOf(e)}).` });
     else if (contained && sameParent) possible.set(e.id, { rec: e, reason: `"${e.name}" has a similar name.` });
     else if (type === 'organisation' && candidate.websiteUrl && host(candidate.websiteUrl) && host(candidate.websiteUrl) === host(e.websiteUrl)) {
       possible.set(e.id, { rec: e, reason: `"${e.name}" uses the same official website (${host(e.websiteUrl)}).` });

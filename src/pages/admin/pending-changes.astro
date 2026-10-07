@@ -4,7 +4,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAdminD1, getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllStates, getRecruitmentById } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
-import { buildDiff, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
+import { MASTER_PROPOSAL_KINDS, buildDiff, createdMasterId, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
 import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
 import { checkFacts, type FieldCheck } from '../../services/fact-checks';
 
@@ -101,11 +101,11 @@ const parentOf = (id: string) => {
 const items = await Promise.all(proposals.map(async (p) => {
   const current = p.recruitmentId && p.status === 'PENDING' ? await getRecruitmentById(p.recruitmentId, d1).catch(() => undefined) : undefined;
   const missingTarget = p.kind === 'UPDATE_RECRUITMENT' && p.status === 'PENDING' && !current;
-  const waiting = p.status === 'PENDING'
-    ? (await Promise.all(parentRefs(p.payload).map(async r => ({ ...r, parent: await parentOf(r.id) })))).filter(r => r.parent?.status !== 'APPROVED')
-    : [];
+  const parents = await Promise.all(parentRefs(p.payload).map(async r => ({ ...r, parent: await parentOf(r.id) })));
+  const waiting = p.status === 'PENDING' ? parents.filter(r => r.parent?.status !== 'APPROVED') : [];
   return {
     waiting,
+    parents,
     // Masters carry names and ids, not notice facts: only recruitment proposals are checked value-by-value.
     checks: checkFacts(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT' ? p.payload : {}, evidenceOf(p), Array.isArray(p.meta?.quoteInDocument) ? (p.meta!.quoteInDocument as string[]) : []),
     p,
@@ -136,9 +136,13 @@ if (d1 && proposals.some(p => Object.keys(p.payload).some(k => PARENT_FIELDS.has
   for (const d of depts) masterNodes.set(d.id, { name: d.name, up: d.organisationId });
   for (const p of posts) masterNodes.set(p.id, { name: p.title, up: p.departmentId });
 }
-for (const parent of [...proposals, ...items.flatMap(i => i.waiting.map(w => w.parent))]) {
-  const name = parent?.payload.name ?? parent?.payload.title;
-  if (parent && typeof name === 'string') masterNodes.set(parent.id, { name, up: (parent.payload.stateId ?? parent.payload.organisationId ?? parent.payload.departmentId) as string | undefined });
+for (const parent of [...proposals, ...items.flatMap(i => i.parents.map(r => r.parent))]) {
+  if (!parent || !(MASTER_PROPOSAL_KINDS as readonly string[]).includes(parent.kind)) continue;
+  // An approved master is named by the record it created; a pending one by its own payload.
+  const created = createdMasterId(parent);
+  const name = parent.payload.name ?? parent.payload.title;
+  if (created && masterNodes.has(created)) masterNodes.set(parent.id, masterNodes.get(created)!);
+  else if (typeof name === 'string') masterNodes.set(parent.id, { name, up: (parent.payload.stateId ?? parent.payload.organisationId ?? parent.payload.departmentId) as string | undefined });
 }
 const chainOf = (id: unknown): string | null => {
   const names: string[] = [];

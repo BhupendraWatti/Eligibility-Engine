@@ -9,7 +9,7 @@ import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 /** What the MCP may add, for every state and central body. Shown in get_domain_schema and the MCP server instructions. */
 export const SCOPE_RULES = [
   'Add only government recruitments that select by a written or computer-based exam. Skip honorary, volunteer, walk-in, interview-only, merit-only and "fill the form and we will call you" posts in every state (refused as NO_EXAM_STAGE).',
-  'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the form. A notice or rulebook PDF is NOTIFICATION_PDF or RULEBOOK, never APPLY_ONLINE. officialLinks replaces the whole list, so an update must send the apply link again.',
+  'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the form. A notice or rulebook PDF is NOTIFICATION_PDF or RULEBOOK, never APPLY_ONLINE. officialLinks replaces the whole list, so an update must keep an existing apply link.',
   'Masters belong to one state: organisation -> department -> post. A post or department with the same name in another state is not a duplicate; queue the new state\'s own chain instead of reusing another state\'s post.',
   'Write master names in English, as on the body\'s English website or notice. Put a name in another script in the summary.',
 ];
