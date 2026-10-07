@@ -5,8 +5,12 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 ## Per-record loop
 
 1. **Find the official source.** Recruiting body site, official PDF, government portal. Aggregators are leads only; never copy from them.
-2. **`check_links`** on every URL you will cite. A dead link is not cited.
-3. **Read the document** and extract only what it states. Note the page and section for each value.
+2. **`check_links`** on every URL you will cite. A dead link is not cited. Many gov.in sites block the worker (timeouts): then check the
+   same URL with a local `curl` and cite it only if it returns 200.
+3. **Read the document** and extract only what it states. Note the page and section for each value. Scanned PDFs (no text layer): render
+   the pages (PyMuPDF `fitz`) and read them as images; mark that evidence `method: VISION`.
+3a. **Re-check before proposing.** Read every number, date and name a second time at high zoom (300-400 dpi crops). Check that totals
+   equal the sum of their rows. Anything still unclear, handwritten-and-illegible, or looking like a typo in the notice: leave it out.
 4. **Resolve masters** with `resolve_entity` (organisation, post, state). `AMBIGUOUS` means stop and ask an admin; never guess an id.
    `NOT_FOUND`: queue the missing master with `propose_master` in the same run (organisation, then department, then post), passing each
    returned proposal id (`prop_...`) as the child's `organisationId` / `departmentId` / `postId`. The admin approves parents first; one MCP run is enough.
@@ -18,13 +22,34 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 7. **`propose_new_recruitment` / `propose_recruitment_update`** with the same input. Use `supersedes` to correct your own pending proposal.
 8. An admin approves or rejects in `/admin/pending-changes`. Status shown on the site comes from the lifecycle resolver; never propose a status.
 
+One task = one MCP run: masters (step 4) and the recruitments that need them are all queued together. Report back with the proposal
+ids in approval order (departments/organisations, then posts, then recruitments) and every value left out or flagged, with the reason.
+
 ## Rules for values
 
 - Not stated in the official source: leave the field out. Do not infer, and do not copy from an aggregator.
 - **Advertisement number:** omit `advtNumber` (or send `null`) when the notice has none. It is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number there.
-- Dates are ISO `YYYY-MM-DD`. Vacancies, age, qualification and dates need evidence: `{field, sourceUrl, page, section, snippet, method, confidence}`.
+- Dates are ISO `YYYY-MM-DD`. Every fact needs evidence: `{field, sourceUrl, page, section, snippet, method, handwritten?}`. No confidence
+  score: the reviewer sees mechanical checks (`src/services/fact-checks.ts`).
+- Numbers, dates and the advertisement number must appear in their snippet (digits or English/Hindi number words), or the proposal is
+  refused as `VALUE_NOT_IN_QUOTE`. A total may instead equal the sum of the `vacanciesBreakdown` rows.
+- Set `handwritten: true` on evidence for values filled in by hand on the notice.
+- **Do not let the eligibility engine say something wrong.** If one field cannot express the rule (height that differs by caste,
+  qualification that differs by rural/urban, age wording that differs by post), set only what is true for everyone, or leave the field out,
+  and state the full rule in the text fields. Check the engine's defaults: a missing `minQualificationLevel` becomes 10TH.
+- Several posts in one notice with one advertisement number: one recruitment (same advt + organisation is a confirmed duplicate);
+  list the posts in `vacanciesBreakdown.subPostName`.
 - Admit card, exam city slip, answer key and result belong to the same recruitment: add `importantDates` / `officialLinks` to it (array fields replace the whole list, so send the full list).
 - Syllabus: keep the official link (`SYLLABUS_PDF`). Do not invent topics.
+
+## Writing for readers
+
+Many readers are not highly educated or used to online portals. Text fields render as plain text (line breaks kept, no markdown):
+- Short sentences and common words. Explain any term the notice uses (undertaking = a signed promise; sitting = a meeting).
+- Lead with what matters: who can apply, how many posts where, the last date, and whether it is a salaried job.
+- "How to apply" as numbered or "•" steps, and a list of documents to bring.
+- Use place names exactly as the notice prints them (Hindi if the notice is in Hindi).
+- Facts only from the notice; no promotional or filler wording.
 
 ## Batches
 
