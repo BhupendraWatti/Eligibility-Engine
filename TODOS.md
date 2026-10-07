@@ -7,3 +7,8 @@
 - **One sector membership rule.** `sectors/[sector].astro:26-30` matches by first word of the sector name in the title; `calculateSectorActiveDrives` (`src/db/queries.ts:1610`) uses `postId → sectorId`. Card counts and page lists can disagree.
 - **Restore domain docs.** CLAUDE.md points to `markdown/CONTEXT.md` (now a partial glossary, gitignored) and `docs/RECRUITMENT_LIFECYCLE_DOMAIN.md` (deleted in 085ec63; recover with `git show 085ec63^:docs/RECRUITMENT_LIFECYCLE_DOMAIN.md`).
 - **Eligibility checker evaluates only 100 recruitments.** `src/pages/eligibility-checker.astro` calls `getAllActiveRecruitments()` with the default 100-row cap, so at India-wide scale some recruitments are never evaluated. Load through `loadPublicRecruitments` (or raise/paginate) when migrating the other pages.
+
+## Recruitment detail page (from /qa on claude/lucid-banach-4b4f29, 2026-10-07)
+
+- **Low, Content: two different empty-state lines for dates.** With no date events, the Important Dates tab says "Schedule dates will be listed once {org} publishes them in the official notification" while the side rail says "No dates published in the official notice yet". Repro: delete a recruitment's `important_dates` rows in local D1 and open `/recruitments/<slug>`. Use one sentence in both (`src/pages/recruitments/[slug].astro`).
+- **Admin edit invents an age cutoff.** `src/pages/admin/recruitments/[id]/edit.astro:57` saves `'2026-01-01'` when the cutoff field is blank; the public page then shows it as the notice's cutoff. Make the field required instead of defaulting.
