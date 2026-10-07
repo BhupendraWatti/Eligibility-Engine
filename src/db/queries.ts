@@ -6,6 +6,7 @@ import { detectDuplicates } from '../services/duplicate-detector';
 import { resolveSectorRoute } from '../services/sector-routing';
 import { normalizeSectorIcon, normalizeSectorTheme } from '../services/sector-theme';
 import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
+import { buildCadreGuide, type CadreGuide, type HiringBody } from '../services/cadre-guide';
 import {
   resolveRecruitmentLifecycle,
   getLifecyclePresentation,
@@ -115,7 +116,6 @@ export interface CanonicalPostWithDetails {
   organisationSlug?: string;
   selectionStages?: Array<{ name: string; desc: string }>;
   syllabus?: Array<{ subject: string; marks: string }>;
-  activeRecruitments?: Array<{ id: string; title: string; slug: string; totalVacancies: number; lifecycleStatus: string }>;
 }
 
 export interface MasterOrganisation {
@@ -1706,6 +1706,7 @@ export async function getAllCanonicalPosts(providedD1?: D1Database): Promise<Can
       isActive: p.isActive,
       departmentName: p.department?.name,
       sectorName: p.sector?.name,
+      sectorSlug: p.sector?.slug,
       organisationName: p.department?.organisation?.shortName || p.department?.organisation?.name,
     }));
   } catch (error) {
@@ -2895,24 +2896,31 @@ export function resolveCanonicalPostTarget<T extends CanonicalPostWithDetails>(
 }
 
 /**
- * Fetch a single canonical post by slug with associated active recruitments
+ * Everything the public Cadre Guide (`/posts/[slug]`) shows: the post, its hiring body and a guide
+ * built only from the post's PUBLISHED recruitments (see src/services/cadre-guide.ts).
  */
-export async function getCanonicalPostBySlug(
+export async function getCadreGuideBySlug(
   slug: string,
   providedD1?: D1Database
-): Promise<CanonicalPostWithDetails | undefined> {
+): Promise<{ post: CanonicalPostWithDetails; hiringBody: HiringBody | null; guide: CadreGuide } | undefined> {
   const allPosts = await getAllCanonicalPosts(providedD1);
   const post = resolveCanonicalPostTarget(slug, allPosts);
   if (!post || post.isActive !== 1) return undefined;
 
-  const d1 = resolveD1(providedD1, 'loading a canonical post');
-  if (d1) {
-    const db = getDb(d1);
-    const rows = await db.query.recruitments.findMany({
+  const d1 = resolveD1(providedD1, 'loading a cadre guide');
+  if (!d1) {
+    const recruitments = (await getAllActiveRecruitments(providedD1)).filter(r => r.postId === post.id);
+    return { post, hiringBody: null, guide: buildCadreGuide({ recruitments }) };
+  }
+
+  const db = getDb(d1);
+  const [rows, department] = await Promise.all([
+    db.query.recruitments.findMany({
       where: and(eq(schema.recruitments.postId, post.id), eq(schema.recruitments.status, 'PUBLISHED')),
       with: {
         post: { with: { department: { with: { organisation: true } }, sector: true } },
         organisation: true,
+        state: true,
         eligibility: true,
         vacancies: true,
         importantDates: true,
@@ -2921,34 +2929,18 @@ export async function getCanonicalPostBySlug(
       },
       orderBy: [desc(schema.recruitments.createdAt)],
       limit: 100,
-    }) as any[];
-    return {
-      ...post,
-      activeRecruitments: rows.map(mapDbRecruitmentToDetails).map(r => ({
-        id: r.id,
-        title: r.title,
-        slug: r.slug,
-        totalVacancies: r.totalVacancies,
-        lifecycleStatus: r.lifecycleStatus,
-      })),
-    };
-  }
+    }) as Promise<any[]>,
+    db.query.departments.findFirst({
+      where: eq(schema.departments.id, post.departmentId),
+      with: { organisation: true },
+    }) as Promise<any>,
+  ]);
 
-  const allRecruitments = await getAllActiveRecruitments(providedD1);
-  const activeRecruitments = allRecruitments
-    .filter(r => r.postId === post.id || r.postSlug === post.slug)
-    .map(r => ({
-      id: r.id,
-      title: r.title,
-      slug: r.slug,
-      totalVacancies: r.totalVacancies,
-      lifecycleStatus: r.lifecycleStatus,
-    }));
-
-  return {
-    ...post,
-    activeRecruitments,
-  };
+  const org = department?.organisation;
+  const hiringBody: HiringBody | null = org
+    ? { name: org.name, shortName: org.shortName || org.name, websiteUrl: org.websiteUrl || null }
+    : null;
+  return { post, hiringBody, guide: buildCadreGuide({ recruitments: rows.map(mapDbRecruitmentToDetails), hiringBody }) };
 }
 
 export function resolveRecruitmentTarget<T extends RecruitmentWithDetails>(

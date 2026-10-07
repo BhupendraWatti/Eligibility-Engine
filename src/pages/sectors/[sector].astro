@@ -23,20 +23,20 @@ const themeDef = sector ? getSectorThemeDef(sector.theme) : getSectorThemeDef('b
 const posts = sector ? await getPostsBySectorId(sector.id) : [];
 const postIds = new Set(posts.map(p => p.id));
 
-// Find recruitments matching this sector
-const sectorRecruitments = sector ? allRecruitments.filter(r => 
-  (r.postId && postIds.has(r.postId)) ||
-  r.postTitle?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0]) ||
-  r.title?.toLowerCase().includes(sector.name.toLowerCase().split(' ')[0])
-) : [];
+// A recruitment belongs to this sector only through its post; titles are never keyword-matched.
+const sectorRecruitments = allRecruitments.filter(r => r.postId && postIds.has(r.postId));
 
 const metrics = calculateRecruitmentMetrics(sectorRecruitments);
 
-// Sector guidelines helper
-const isUniformService = sector ? (sector.slug.includes('police') || sector.slug.includes('forest')) : false;
-const isEducation = sector ? sector.slug.includes('teaching') : false;
-const isJudiciary = sector ? sector.slug.includes('judiciary') : false;
-const isMedical = sector ? sector.slug.includes('health') : false;
+// Per post: how many published notices it has and whether one is taking applications now.
+const noticeStatsByPost = new Map<string, { count: number; live: boolean; latestYear: number }>();
+for (const r of sectorRecruitments) {
+  const stats = noticeStatsByPost.get(r.postId!) ?? { count: 0, live: false, latestYear: 0 };
+  stats.count++;
+  stats.live ||= isActiveDrive(r);
+  stats.latestYear = Math.max(stats.latestYear, r.cycleYear);
+  noticeStatsByPost.set(r.postId!, stats);
+}
 ---
 
 {!sector ? (
@@ -120,7 +120,7 @@ const isMedical = sector ? sector.slug.includes('health') : false;
         <!-- Live Recruitment Drives -->
         <div>
           <h2 class="text-base font-bold text-foreground uppercase tracking-wider mb-4 flex items-center justify-between">
-            <span>Active & Upcoming Recruitment Drives ({sectorRecruitments.length})</span>
+            <span>Published Notices ({sectorRecruitments.length})</span>
             <a href="/jobs" class="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1">
               <span>View all jobs</span>
               <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -129,8 +129,8 @@ const isMedical = sector ? sector.slug.includes('health') : false;
 
           {sectorRecruitments.length === 0 ? (
             <div class="p-8 rounded-2xl bg-card border border-border text-center">
-              <p class="text-xs text-muted-foreground">No active recruitment drives at this exact moment for this sector.</p>
-              <p class="text-xs text-muted-foreground mt-1">Review the permanent canonical cadres below or run an eligibility check.</p>
+              <p class="text-xs text-muted-foreground">No official notice in this sector has been verified yet.</p>
+              <p class="text-xs text-muted-foreground mt-1">Open a post below to see how to follow its official notices.</p>
             </div>
           ) : (
             <div class="space-y-4">
@@ -159,7 +159,7 @@ const isMedical = sector ? sector.slug.includes('health') : false;
                       <span>·</span>
                       <span>Min Qualification: <strong class="text-foreground">{r.criteria.minQualificationLevel}</strong></span>
                       <span>·</span>
-                      <span>Age: <strong class="text-foreground">{r.criteria.minAge} to {r.criteria.maxAgeGeneral} yrs</strong></span>
+                      <span>Age: <strong class="text-foreground">up to {r.criteria.maxAgeGeneral} yrs (general)</strong></span>
                     </div>
 
                     <div class="pt-3 border-t border-border flex items-center justify-between">
@@ -186,23 +186,33 @@ const isMedical = sector ? sector.slug.includes('health') : false;
           </h2>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {posts.map((post) => (
-              <a
-                href={`/posts/${post.slug}`}
-                class="block p-5 rounded-2xl bg-card border border-border hover:border-primary hover:shadow-xs transition-all group"
-              >
-                <h4 class="text-sm font-bold text-foreground group-hover:text-primary transition-colors mb-1">
-                  {post.title}
-                </h4>
-                <p class="text-xs text-muted-foreground line-clamp-2 mb-3">
-                  {post.summary}
-                </p>
-                <div class="text-[11px] font-mono text-muted-foreground space-y-0.5">
-                  <div>Min Qualification: <strong class="text-foreground">{post.defaultQualification}</strong></div>
-                  <div>Pay Matrix: <strong class="text-foreground">{post.payScale || 'State Cadre Rules'}</strong></div>
-                </div>
-              </a>
-            ))}
+            {posts.map((post) => {
+              const stats = noticeStatsByPost.get(post.id);
+              return (
+                <a
+                  href={`/posts/${post.slug}`}
+                  class="block p-5 rounded-2xl bg-card border border-border hover:border-primary hover:shadow-xs transition-all group"
+                >
+                  <h4 class="text-sm font-bold text-foreground group-hover:text-primary transition-colors mb-1">
+                    {post.title}
+                  </h4>
+                  <p class="text-xs text-muted-foreground line-clamp-2 mb-3">
+                    {post.summary}
+                  </p>
+                  <div class="text-[11px] text-muted-foreground">
+                    {!stats ? (
+                      <span>No verified notice yet</span>
+                    ) : stats.live ? (
+                      <span class="font-semibold text-emerald-600">Applications open now</span>
+                    ) : (
+                      <span>
+                        <span class="font-mono">{stats.count}</span> verified notice{stats.count === 1 ? '' : 's'} · latest <span class="font-mono">{stats.latestYear}</span>
+                      </span>
+                    )}
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -220,59 +230,6 @@ const isMedical = sector ? sector.slug.includes('health') : false;
             Category, gender, domicile, and age-relaxation rules are calculated per recruitment; values are never copied from one state to another.
           </p>
         </div>
-
-        {isUniformService && (
-          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
-            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
-              Physical Measurement Standards
-            </h4>
-            <ul class="text-xs text-muted-foreground space-y-1.5">
-              <li>• Male Height: 168 cm (General/OBC/SC)</li>
-              <li>• Male Height: 160 cm (ST Candidates)</li>
-              <li>• Female Height: 155 to 158 cm (All categories)</li>
-              <li>• Chest: 81 cm unexpanded, 86 cm expanded</li>
-            </ul>
-          </div>
-        )}
-
-        {isEducation && (
-          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
-            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
-              Teaching Credentials Standard
-            </h4>
-            <ul class="text-xs text-muted-foreground space-y-1.5">
-              <li>• Primary (Varg-3): 12th Pass + D.El.Ed / B.Ed</li>
-              <li>• Middle (Varg-2): Graduation + B.Ed / TET</li>
-              <li>• High School (Varg-1): Post Graduation + B.Ed</li>
-            </ul>
-          </div>
-        )}
-
-        {isJudiciary && (
-          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
-            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
-              Judicial & Clerical Standard
-            </h4>
-            <ul class="text-xs text-muted-foreground space-y-1.5">
-              <li>• Degree in any discipline from recognized university</li>
-              <li>• CPCT Scorecard with English & Hindi typing</li>
-              <li>• Computer application diploma (DCA/PGDCA)</li>
-            </ul>
-          </div>
-        )}
-
-        {isMedical && (
-          <div class="p-6 rounded-2xl bg-muted/60 border border-border">
-            <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
-              Healthcare Council Mandate
-            </h4>
-            <ul class="text-xs text-muted-foreground space-y-1.5">
-              <li>• B.Sc Nursing / GNM / DMLT recognized course</li>
-              <li>• Active registration with the State Nursing / Paramedical Council</li>
-              <li>• Active state employment exchange registration (where mandated)</li>
-            </ul>
-          </div>
-        )}
 
         <div class="p-5 rounded-2xl bg-card border border-border">
           <h4 class="font-bold text-xs uppercase tracking-wider text-foreground mb-2">
