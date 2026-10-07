@@ -158,16 +158,16 @@ Synthesized from this review's findings. Effort ratio assumption: config/docs ch
   - Verify: in a fresh worktree with no global tsc on PATH, `npm ci && npm run typecheck` passes
 - [ ] **T2 (P1, human: ~30min / CC: ~5min)** — tests — Track tests and gate on them (D7)
   - Surfaced by: Journey stage 3 — `npm test` ERR_MODULE_NOT_FOUND; README:40 claims check runs tests
-  - Files: `.gitignore` (drop `*.test.ts`, `*.spec.ts`), `src/engine/eligibility.test.ts`, `src/services/viewer-state.test.ts`, `src/services/public-listing.test.ts`, `package.json` (`"check": "npm test && npm run typecheck && npm run build"`)
-  - Sequencing: the main checkout has uncommitted `src/services/cadre-guide.test.ts` and a `package.json` test-script change; commit that file with the cadre-guide work once tests are tracked. Review test files for private fixtures before committing.
+  - Files: `.gitignore` (drop `*.test.ts`, `*.spec.ts`), `src/engine/eligibility.test.ts`, `src/services/viewer-state.test.ts`, `src/services/public-listing.test.ts`, `src/services/cadre-guide.test.ts`, `mcp/src/regression.test.ts`, `package.json` (`"check": "npm test && npm run typecheck && npm run build"`)
+  - Sequencing (corrected by eng review): first sync this branch with master (`47d6544` already commits the 4-file `test` script); the test files themselves still exist only in the main checkout, so copy all 5 in, review them for private fixtures, then commit with the `.gitignore` change in one commit so no commit references an untracked test.
   - Verify: `npm run check` green locally and in CI; `npx astro build` output contains no `.test.` module
 - [ ] **T3 (P2, human: ~20min / CC: ~3min)** — package.json — Add `npm run setup` (D4)
   - Surfaced by: Journey stage 2 — no setup script; README setup is four manual commands
   - Change: `"setup": "npm ci && astro sync && wrangler d1 migrations apply EligibilityEngine-db --local"`
-  - Verify: run twice in a row (idempotent); confirm whether `migrations apply --local` prompts in a TTY (unverified; add `--yes`-equivalent only if it does); stop `astro dev` first on Windows (npm ci deletes node_modules)
+  - Verify: run twice in a row (idempotent; second run prints "No migrations to apply!"); `migrations apply --local` prompts only in an interactive TTY (`shouldPrompt: !isNonInteractiveOrCI()`), agents/CI proceed, so no flag (corrected by eng review); stop `astro dev` first on Windows (npm ci deletes node_modules)
 - [ ] **T4 (P2, human: ~10min / CC: ~2min)** — repo root — Add `.worktreeinclude` (D5)
   - Surfaced by: Journey stage 4 — worktree has no `.dev.vars` or D1 data
-  - Files: `.worktreeinclude` with `.dev.vars` and `.wrangler/state/`
+  - Files: `.worktreeinclude` with `.dev.vars` and `.wrangler/state/v3/d1/` (narrowed by eng review E-D2)
   - Verify: create a new Claude Code worktree; both paths exist; a recruitment page renders
 - [ ] **T5 (P2, human: ~15min / CC: ~3min)** — CLAUDE.md — Setup block + relative links (D9)
   - Surfaced by: Pass 3 — raw errors carry no fix; Pass 4 — absolute `file:///d:/...` links open the main checkout
@@ -187,18 +187,134 @@ JSONL task artifact for /autoplan: **not written** — `jq` is not installed on 
 
 None. All ten questions were answered.
 
+## Eng review (2026-10-07)
+
+Target: this plan, `docs/designs/worktree-setup-dx.md` @ cbc7a3b. Questions in this section are numbered E-D1, E-D2, … (eng-review series) to stay distinct from the devex ledger above.
+
+Scope record: feature answers: none proposed; structure: A (Original arrangement, E-D1); accepted scope: T1–T7 across package.json, package-lock.json, .gitignore, 5 test files (src/engine/eligibility, src/services/viewer-state, src/services/public-listing, src/services/cadre-guide, mcp/src/regression), .worktreeinclude, CLAUDE.md, README.md; pending remedies: none.
+
+### Scope Challenge findings
+
+1. [P1] (confidence: 9/10) `.gitignore:182` `*.test.ts` — un-ignoring tracks 5 files, not 3: also `src/services/cadre-guide.test.ts` (run by master `package.json:13`) and `mcp/src/regression.test.ts` (run by `mcp/package.json:10` `"test": "tsx src/regression.test.ts"`). Disposition: factual correction under devex D7; T2 lists all 5. Root `check` running mcp tests = new policy, not proposed.
+2. [P1] (confidence: 9/10) Branch is 1 commit behind master `47d6544`; plan's T2 note about an uncommitted package.json is stale. Disposition: correction; T2 starts by syncing with master.
+3. [P2] (confidence: 9/10) `node_modules/wrangler/wrangler-dist/cli.js:227476` `const ok = await confirm2(\`About to apply ...` with `shouldPrompt: !isNonInteractiveOrCI()` — prompts only in an interactive TTY. Disposition: correction; T3 keeps the prompt, no flag.
+4. [P2] (confidence: 7/10) T4 pattern `.wrangler/state/` copies 23 MB incl. Miniflare cache; D1 data is `.wrangler/state/v3/d1/` (~0.4 MB) with WAL side files. Decision R1 below.
+
+### R1: `.worktreeinclude` D1 pattern
+Finding: 4, P2, confidence 7/10, `.worktreeinclude` (proposed, T4), reviewer: eng review (Claude)
+Plan baseline: devex D5 answer A — "Add .wrangler/state to .worktreeinclude"; T4 lists `.dev.vars` and `.wrangler/state/`.
+Runtime evidence: `du -sh .wrangler/state` = 23M; `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` holds the 405,504-byte data sqlite plus metadata.sqlite/-shm/-wal; top-level `.wrangler/state/d1/` and `cache/` hold Miniflare cache/legacy files. Whether `.worktreeinclude` copies directory patterns: unverified.
+Comparison grid:
+| Choice | Current | A | B |
+|---|---|---|---|
+| R1 D1 copy pattern | `.wrangler/state/` (D5) | `.wrangler/state/v3/d1/` | `.wrangler/state/` unchanged |
+| `.dev.vars` in .worktreeinclude | approved (D5/T4) | unchanged | unchanged |
+| Setup re-applies migrations after copy | approved (D4/T3) | unchanged | unchanged |
+| T4 verify step (new worktree shows data) | approved | unchanged, checks v3/d1 present | unchanged |
+Question E-D2:
+E-D2 — Narrow the worktree copy from all of .wrangler/state to just the D1 data folder?
+Project/branch/task: claude/lucid-banach-4b4f29, eng review of docs/designs/worktree-setup-dx.md, task T4 (.worktreeinclude).
+ELI10: The devex review chose to copy your local database into each new worktree by listing .wrangler/state in .worktreeinclude. That folder is 23 MB, but the recruitment data is one ~0.4 MB SQLite file under .wrangler/state/v3/d1; the rest is Miniflare cache and an old legacy folder. Copying only v3/d1 gives the same recruitments, copies about 50x less, and doesn't carry over stale cache entries.
+Stakes if we pick wrong: copying the whole folder makes every worktree creation slower and can bring stale cached responses into a fresh session; narrowing too far would miss data if wrangler ever moves its D1 folder again (it already moved once, from state/d1 to state/v3/d1).
+Recommendation: A because it keeps the approved behaviour (worktrees start with your data) while copying only what that behaviour needs; explicit over broad.
+Completeness: A=9/10, B=8/10
+Pros / cons:
+A) Copy only .wrangler/state/v3/d1/ (recommended)
+  ✅ Same recruitments in every worktree from a ~0.4 MB copy instead of 23 MB of cache
+  ✅ No stale Miniflare cache carried into a fresh session (human: ~2 min / CC: ~1 min)
+  ❌ If a future wrangler moves D1 storage again, the pattern needs updating; T4's verify step would catch it
+B) Keep .wrangler/state/ as approved
+  ✅ Survives a wrangler storage-path change without edits
+  ❌ Copies 23 MB per worktree, mostly cache that the new session doesn't need
+Net: copy exactly the data the decision needs, or copy the whole folder to be safe against path changes.
+Header: D1 pattern
+Options:
+A) Only v3/d1 (Recommended)
+.worktreeinclude lists .dev.vars and .wrangler/state/v3/d1/; ~0.4 MB copied; T4 verifies data appears.
+B) Whole .wrangler/state
+Keep D5's .wrangler/state/ pattern; ~23 MB copied incl. Miniflare cache.
+
+State: approved
+Actual answer: A) Only v3/d1 (E-D2, 2026-10-07)
+Accepted scope: `.worktreeinclude` lists `.dev.vars` and `.wrangler/state/v3/d1/`; T4 verify checks that path and that a recruitment page shows data. `.dev.vars`, setup re-applying migrations, and T4's verify step unchanged.
+History: D5 value `.wrangler/state/` superseded by E-D2 on new evidence (23 MB, mostly cache).
+
+### R2: TODO — CI runs MCP tests
+State: approved · Actual answer: A) Add to TODOS.md (E-D3) · Accepted scope: TODOS.md entry only; no CI change in this plan.
+
+Approval readiness: PASS — checked E-D1 (structure A), R1/E-D2 (A), R2/E-D3 (A); devex D4, D5 (as amended by E-D2), D7, D9 carried forward; corrections 1–3 carry under D7/D4 with evidence above.
+
+### Section findings
+
+**1. Architecture**
+- [P2] (confidence: 5/10) `.github/workflows/ci.yml:18` `- run: npm run check` — after T1, CI runs `astro sync` with the Cloudflare adapter on ubuntu for the first time; locally it generated types in 10.83 s. Medium confidence, verify this is actually an issue. Disposition: verification dependency covered by T2's "CI green" step.
+
+**2. Code quality**
+- [P3] (confidence: 7/10) `setup` and `typecheck` both run `astro sync` (~11 s) so each script stands alone. Disposition: accepted (explicit over clever).
+- Edge: re-running setup while `astro dev` holds files in that worktree → npm ci EPERM on Windows; npm's error is explicit; noted in T3.
+
+**3. Tests** — framework: `tsx` scripts with `PASSED:` lines (no CLAUDE.md `## Testing`).
+
+```
+CODE PATHS (config, no app code)                         USER FLOWS
+[+] npm test on clean checkout   [GAP→CI] closed by T2      [+] Fresh worktree → green check
+[+] typecheck without global tsc [GAP→CI] closed by T1          └── [GAP] manual T7 timing
+[+] npm run check order          [★★ CI] .github/ci.yml:18  [+] Re-run setup (idempotent)
+[+] setup re-run                 [GAP] manual (T3 verify)       └── [GAP] manual T3
+[+] .worktreeinclude copy        [GAP] manual (T4 verify)   [+] Worker bundle has no tests
+                                                                └── [GAP] T2 verify: grep dist
+COVERAGE: CI enforces 3/5 once T1+T2 land; 2 manual one-off checks
+```
+No new test file passes the value bar: the CI job is the regression test. Test Plan artifact saved to `~/.gstack/projects/BhupendraWatti-Eligibility-Engine/bhupe-claude-lucid-banach-4b4f29-eng-review-test-plan-20261007-154341.md`.
+
+**4. Performance** — No issues found. CI adds `npm test` (seconds) + `astro sync` (~11 s); per-worktree `npm ci` ~1–2 min (estimate) is inside the approved 2–5 min target.
+
+### Failure modes
+
+| Path | Realistic failure | Covered by | User sees |
+|------|-------------------|------------|-----------|
+| CI check | `astro sync` fails on ubuntu | T2 verify (CI run) | red CI with the error |
+| `.worktreeinclude` | desktop app ignores `.worktreeinclude` or directory patterns | T4 verify | empty pages; CLAUDE.md block does not cover this → T4 must pass before closing |
+| Copied D1 | copied mid-write (WAL) → stale or malformed DB | setup's migrations apply errors loudly if malformed | clear wrangler error; recover by deleting `.wrangler/state` and re-running setup (empty DB) |
+| npm ci | EPERM on locked files (Windows, dev server running) | npm error | clear error |
+| Tracked tests | a test leaks a private fixture | T2 review step | n/a (prevented before commit) |
+
+Critical gaps (no test + no handling + silent): 0. The `.worktreeinclude` row is silent until T4's one-off verify runs; it is not a gap once T4 is done.
+
+### NOT in scope (eng review additions)
+- Running `mcp/` tests in CI — new policy; TODOS.md (E-D3).
+- Pinning wrangler's D1 storage path — T4 verify catches a future move.
+
+### Worktree parallelization strategy
+Sequential implementation, no parallelization opportunity (one config surface; T2 depends on syncing with master, T4/T5/T6 are minutes each).
+
+### Completion summary
+- Step 0: Scope Challenge — scope accepted as-is (4 findings: 3 factual corrections, 1 decision E-D2)
+- Architecture Review: 1 issue found (verification dependency)
+- Code Quality Review: 1 issue found (accepted)
+- Test Review: diagram produced, 5 gaps identified (3 closed by CI after T1/T2, 2 manual one-off checks)
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written (plan section above; wrangler's idempotent local migrations and Claude Code's `.worktreeinclude` reused)
+- TODOS.md updates: 1 item proposed to user (added)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: codex, unavailable (CLI not installed; native fallback needs TaskOutput, not available)
+- Parallelization: 1 lane, 0 parallel / 1 sequential
+- Lake Score: 1/1 (E-D2 chose the 9/10 option; only scored answer)
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Outside Review | codex plan review (default-on) | Independent 2nd opinion | 1 | unavailable | Codex not installed; native fallback needs TaskOutput (absent) |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
+| Outside Review | codex plan review (default-on) | Independent 2nd opinion | 2 | unavailable | Codex not installed (devex + eng runs); native fallback needs TaskOutput (absent) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open (not persisted) | 2 issues, 0 critical gaps (plus 4 Scope Challenge findings: 3 corrections, 1 decision) |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | issues_open | score: 3/10 → 7/10, TTHW: ~10 min → 2–5 min (target) |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | issues_open (not persisted) | score: 3/10 → 7/10, TTHW: ~10 min → 2–5 min (target) |
 
-- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable (CLI not installed; no native fallback ran). Missing coverage, not clean.
-- **Review log:** not persisted — `gstack-review-log` needs Bun, which is not installed (it reports this as "invalid JSON").
-- **VERDICT:** no review CLEARED; eng review required.
+- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable for both the devex and eng runs (CLI not installed; no native fallback ran). Missing coverage, not clean.
+- **Review log:** not persisted — `gstack-review-log` needs Bun, which is not installed (it reports this as "invalid JSON"), so no run appears on the dashboard.
+- **VERDICT:** no review CLEARED (eng review has issues_open and could not be logged); eng review required.
 
 NO UNRESOLVED DECISIONS

@@ -16,3 +16,4 @@
 ## Tooling
 
 - **`npm run deploy` is broken.** `package.json` `deploy` (and `deploy:vinext`, `build:vinext`, `preview:vinext`) call `vinext-cloudflare` against an Astro build. Working sequence today: `npm run build`, check `npx wrangler d1 migrations list EligibilityEngine-db --remote`, then `npx wrangler deploy --config dist/server/wrangler.json`. Make one script do that (migrations check first) and drop the vinext scripts. Independent of worktree setup. (From /plan-devex-review, 2026-10-07.)
+- **CI never runs the MCP server's tests.** After the worktree-setup plan's T2 tracks `mcp/src/regression.test.ts`, CI still runs only the root `npm run check` (`.github/workflows/ci.yml`). Add a step: `cd mcp && npm ci && npm test` (`mcp/package.json:10`). It is the only automated guard on the MCP's propose-only rule (CLAUDE.md). Depends on T2. (From /plan-eng-review, 2026-10-07.)
