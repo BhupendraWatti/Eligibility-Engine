@@ -3,6 +3,7 @@ import { advtLabel } from '../../services/advt-number';
 // src/pages/recruitments/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getRecruitmentWithRelations } from '../../db/queries';
+import { findApplyLink } from '../../services/cadre-guide';
 
 const { slug } = Astro.params;
 
@@ -52,10 +53,10 @@ const sourceVerified = !!officialSource && recruitment?.validationStatus === 'VA
 // Every organisation has a validated website_url (NOT NULL, checked by every writer).
 const organisationDomain = recruitment && new URL(recruitment.organisationUrl).hostname;
 
-// Apply goes to the notice's own link, otherwise to the organisation's site, labelled as such.
-const noticeLinkUrl = recruitment?.officialLinksList?.[0]?.url;
-const applyLink = noticeLinkUrl
-  ? { url: noticeLinkUrl, label: `Apply on ${recruitment!.organisationShortName} portal`, shortLabel: 'Apply Officially' }
+// Apply goes to the notice's application page (an APPLY link, never a PDF), otherwise to the organisation's site, labelled as such.
+const applyUrl = findApplyLink(recruitment?.officialLinksList)?.url;
+const applyLink = applyUrl
+  ? { url: applyUrl, label: `Apply on ${recruitment!.organisationShortName} portal`, shortLabel: 'Apply Officially' }
   : { url: recruitment?.organisationUrl, label: `Visit ${recruitment?.organisationShortName} website`, shortLabel: 'Official Website' };
 ---
 

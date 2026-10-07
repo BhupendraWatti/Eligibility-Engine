@@ -3,8 +3,16 @@
  * Resolution is exact-match only (name, slug, short name or code). It never guesses a canonical master.
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
-import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES } from './change-proposals';
+import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES, LINK_TYPES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
+
+/** What the MCP may add, for every state and central body. Shown in get_domain_schema and the MCP server instructions. */
+export const SCOPE_RULES = [
+  'Add only government recruitments that select by a written or computer-based exam. Skip honorary, volunteer, walk-in, interview-only, merit-only and "fill the form and we will call you" posts in every state (refused as NO_EXAM_STAGE).',
+  'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the form. A notice or rulebook PDF is NOTIFICATION_PDF or RULEBOOK, never APPLY_ONLINE. officialLinks replaces the whole list, so an update must send the apply link again.',
+  'Masters belong to one state: organisation -> department -> post. A post or department with the same name in another state is not a duplicate; queue the new state\'s own chain instead of reusing another state\'s post.',
+  'Write master names in English, as on the body\'s English website or notice. Put a name in another script in the summary.',
+];
 
 export const ENTITY_TYPES = ['state', 'organisation', 'department', 'sector', 'post'] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
@@ -80,8 +88,8 @@ export function getDomainSchema() {
       checks: 'Numbers, dates and the advertisement number must appear in their snippet (else VALUE_NOT_IN_QUOTE). Summaries, enums and yes/no values are flagged for the reviewer to read.',
       required: `MCP proposals need one item with a snippet for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (else EVIDENCE_REQUIRED).`,
     },
-    // Free text in the validators (max 50 chars); these are the values the site uses today.
-    linkTypeExamples: ['APPLY_ONLINE', 'NOTIFICATION_PDF', 'SYLLABUS_PDF', 'ADMIT_CARD', 'RESULT'],
+    linkTypes: LINK_TYPES,
+    scope: SCOPE_RULES,
     sourceTypeExamples: ['OFFICIAL_NOTIFICATION_PDF', 'GOVT_GAZETTE', 'OFFICIAL_PORTAL'],
     dateFormat: 'ISO YYYY-MM-DD',
     approvalRequired: true,

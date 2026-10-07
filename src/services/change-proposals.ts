@@ -31,7 +31,8 @@ export class InvalidProposalError extends Error {}
 /** A well-formed proposal that must not be queued (pending conflict, confirmed duplicate, unknown post). */
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
-    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE',
+    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE'
+      | 'NO_EXAM_STAGE' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -51,6 +52,11 @@ export const EXAM_STATUSES = ['NOT_SCHEDULED', 'SCHEDULED', 'COMPLETED', 'CANCEL
 export const RESULT_STATUSES = ['NOT_DECLARED', 'DECLARED'];
 export const GENDERS = ['ALL', 'MALE', 'FEMALE'];
 export const RESERVATION_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'];
+/** officialLinks types an MCP proposal may use. APPLY_ONLINE is the page where candidates start filling the form. */
+export const LINK_TYPES = [
+  'APPLY_ONLINE', 'NOTIFICATION_PDF', 'RULEBOOK', 'SYLLABUS_PDF', 'ADMIT_CARD', 'ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY',
+  'FINAL_ANSWER_KEY', 'RESULT', 'SCORECARD', 'MERIT_LIST', 'OFFICIAL_WEBSITE', 'PORTAL',
+];
 
 type FieldSpec =
   | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList'
@@ -509,6 +515,42 @@ export interface ProposalInput {
   requireEvidence?: boolean;
 }
 
+const EXAM_STAGE = /\b(written|exam(ination)?s?|cbt|computer[- ]based|objective|mcq|paper|prelim(inary|s)?|mains)\b/i;
+// Checks that are not a selection exam, and wording that says there is none.
+const NOT_AN_EXAM = /\b(medical|physical|health|fitness)\s+exam(ination)?s?\b|\bexam(ination)?\s+fees?\b/gi;
+const NO_EXAM = /\b(no|without)\s+(written\s+)?(exam(ination)?|test)\b/i;
+const isExamStage = (s: { name: string; desc: string }) => {
+  const text = `${s.name} ${s.desc}`.replace(NOT_AN_EXAM, ' ');
+  return EXAM_STAGE.test(text) && !NO_EXAM.test(text);
+};
+const isPdfUrl = (url: string) => new URL(url).pathname.toLowerCase().endsWith('.pdf');
+
+/**
+ * MCP scope rules (requireEvidence callers only): known link types, an apply link that is not a PDF,
+ * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
+ * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
+ */
+export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>): void {
+  const links = (payload.officialLinks as Array<{ linkType: string; url: string }> | undefined) ?? [];
+  for (const [i, l] of links.entries()) {
+    if (!LINK_TYPES.includes(l.linkType)) {
+      throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}].linkType "${l.linkType}" is not allowed. Use one of: ${LINK_TYPES.join(', ')}.`, { index: i });
+    }
+    if (l.linkType === 'APPLY_ONLINE' && isPdfUrl(l.url)) {
+      throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}] is APPLY_ONLINE but points at a PDF. Give the page where candidates start filling the form; list the PDF as NOTIFICATION_PDF or RULEBOOK.`, { index: i });
+    }
+  }
+  const create = kind === 'CREATE_RECRUITMENT';
+  const stages = payload.selectionStages as Array<{ name: string; desc: string }> | undefined;
+  if ((create || stages) && !(stages ?? []).some(isExamStage)) {
+    throw new ProposalBlockedError('NO_EXAM_STAGE', 'selectionStages must include a written or computer-based exam. Only government recruitments selected by such an exam are added; honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope in every state. Do not propose this one.');
+  }
+  // officialLinks replaces the whole list, so an update must keep the apply link too.
+  if ((create || payload.officialLinks) && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
+    throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');
+  }
+}
+
 function requirePropose(actor: Actor, d1: D1Database | undefined): D1Database {
   if (actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for proposals.');
   if (!d1) throw new Error('D1 binding unavailable.');
@@ -537,6 +579,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (wrong.length) {
       throw new ProposalBlockedError('VALUE_NOT_IN_QUOTE', `These values do not appear in their quoted text: ${wrong.map(c => `${c.field} (${c.detail})`).join(' ')} Re-read the source: fix the value or the quote, or leave the field out.`, { fields: wrong.map(c => c.field) });
     }
+    checkMcpScope(input.kind, payload);
   }
 
   let old: ProposalRow | undefined;

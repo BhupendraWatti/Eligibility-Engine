@@ -5,6 +5,8 @@ interface Props {
   perPage?: number;
   perPageSelect?: number[];
   searchable?: boolean;
+  /** Off for pages that filter rows with their own search box: that box only sees rows on the current page. */
+  paging?: boolean;
   sortable?: boolean;
   columns?: Array<{
     select: number | number[];
@@ -19,6 +21,7 @@ const {
   perPage = 10,
   perPageSelect = [10, 25, 50, 100],
   searchable = true,
+  paging = true,
   sortable = true,
   columns = [],
 } = Astro.props;
@@ -28,6 +31,7 @@ const configJson = JSON.stringify({
   perPage,
   perPageSelect,
   searchable,
+  paging,
   sortable,
   columns,
 });
@@ -54,7 +58,7 @@ const configJson = JSON.stringify({
         const dt = new DataTable(tableEl, {
           searchable: config.searchable ?? true,
           sortable: config.sortable ?? true,
-          paging: true,
+          paging: config.paging ?? true,
           perPage: config.perPage ?? 10,
           perPageSelect: config.perPageSelect ?? [10, 25, 50, 100],
           columns: config.columns ?? [],

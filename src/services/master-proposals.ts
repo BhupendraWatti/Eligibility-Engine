@@ -128,6 +128,12 @@ function age(v: unknown, field: string): number | undefined {
   return v as number;
 }
 
+/** Master names are shown, sorted and matched in English; a name with letters from another script is refused. */
+function englishName(v: string, field: string): string {
+  if (/[^\P{L}\p{Script=Latin}]/u.test(v)) throw new InvalidProposalError(`${field} must be the English name, as on the body's English website or notice. Put a name in another script in the summary instead.`);
+  return v;
+}
+
 /** Validate the master fields and return the payload an admin approval will pass to the existing master writers. */
 export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<string, unknown> {
   if (!isObj(raw)) throw new InvalidProposalError('fields must be an object.');
@@ -143,15 +149,15 @@ export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<str
     let u: URL;
     try { u = new URL(websiteUrl); } catch { throw new InvalidProposalError('websiteUrl must be a valid URL.'); }
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new InvalidProposalError('websiteUrl must be an http(s) URL.');
-    const name = text(raw.name, 'name', 200)!;
-    const shortName = text(raw.shortName, 'shortName', 40)!;
+    const name = englishName(text(raw.name, 'name', 200)!, 'name');
+    const shortName = englishName(text(raw.shortName, 'shortName', 40)!, 'shortName');
     return { stateId: text(raw.stateId, 'stateId', 100)!, name, shortName, slug: slugify(shortName), websiteUrl };
   }
   if (type === 'department') {
-    const name = text(raw.name, 'name', 200)!;
+    const name = englishName(text(raw.name, 'name', 200)!, 'name');
     return { organisationId: text(raw.organisationId, 'organisationId', 100)!, name, slug: slugify(name), description: text(raw.description, 'description', 1000, true) };
   }
-  const title = text(raw.title, 'title', 200)!;
+  const title = englishName(text(raw.title, 'title', 200)!, 'title');
   const qual = raw.defaultQualification === undefined ? undefined : String(raw.defaultQualification);
   if (qual !== undefined && !QUALIFICATIONS.includes(qual)) throw new InvalidProposalError(`defaultQualification must be one of: ${QUALIFICATIONS.join(', ')}.`);
   return {

@@ -151,13 +151,18 @@ function requirementsOf(r: RecruitmentWithDetails): string[] {
 const isSyllabusLink = (type: string) => /SYLLABUS/i.test(type);
 const isApplyLink = (type: string) => /APPLY/i.test(type);
 
+/** The page where candidates fill the form, never a notice or rulebook PDF; null when the notice gives none. */
+export function findApplyLink<L extends { linkType: string; url: string; isActive?: number | null }>(links: L[] | null | undefined): L | null {
+  return (links ?? []).find(l => l.isActive !== 0 && isApplyLink(l.linkType) && !/\.pdf([?#]|$)/i.test(l.url)) ?? null;
+}
+
 function factsOf(r: RecruitmentWithDetails, referenceDate?: Date | string): GuideFacts {
   const sources = (r.sourcesList ?? []).map(s => ({ title: s.sourceTitle, url: s.sourceUrl, publishedOn: s.publicationDate ?? null }));
   const verifiedTimes = (r.sourcesList ?? [])
     .map(s => (s.lastVerifiedAt ? new Date(s.lastVerifiedAt).getTime() : 0))
     .filter(t => t > 0);
   const links = (r.officialLinksList ?? []).filter(l => l.isActive !== 0);
-  const apply = links.find(l => isApplyLink(l.linkType));
+  const apply = findApplyLink(links);
   const byCategory = Object.entries(r.criteria.qualificationByCategory ?? {})
     .map(([category, level]) => `${category}: ${qualificationLabel(level)}`)
     .join(', ');

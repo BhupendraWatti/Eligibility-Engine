@@ -2,6 +2,16 @@
 
 The official source is the authority. The MCP proposes, an admin approves. Nothing here publishes anything.
 
+## What to add (every state and central body)
+
+- Only government recruitments that select by a **written or computer-based exam**. Skip honorary, volunteer, walk-in,
+  interview-only, merit-only and "fill the form and we will call you" posts. `selectionStages` must show the exam, or the
+  proposal is refused as `NO_EXAM_STAGE`.
+- `officialLinks` must include an `APPLY_ONLINE` link: the official page where candidates start filling the form (for example OJAS
+  or MPOnline). A notice or rulebook PDF is `NOTIFICATION_PDF` or `RULEBOOK`, never `APPLY_ONLINE` (else `APPLY_LINK_REQUIRED` / `INVALID_LINK`). An update that sends `officialLinks` must include the apply link again.
+- Masters belong to one state (organisation, then department, then post). A post with the same name in another state is not a
+  duplicate: queue the new state's own chain. Master names are in English, as on the body's English site or notice.
+
 ## Per-record loop
 
 1. **Find the official source.** Recruiting body site, official PDF, government portal. Aggregators are leads only; never copy from them.

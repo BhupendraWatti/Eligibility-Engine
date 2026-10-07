@@ -2,7 +2,7 @@
 // src/pages/admin/pending-changes.astro
 // Human approval queue for changes proposed by the private MCP. Nothing here is live until an admin approves it.
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAdminD1, getRecruitmentById } from '../../db/queries';
+import { getAdminD1, getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllStates, getRecruitmentById } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
 import { buildDiff, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
 import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
@@ -117,6 +117,34 @@ const items = await Promise.all(proposals.map(async (p) => {
     duplicate: duplicateOf(p),
   };
 }));
+
+// Parent ids are shown as their full chain (state › organisation › department › post), so a same-named master in
+// another state is not mistaken for a duplicate. Pending parents (prop_…) are named from their own payload.
+type MasterNode = { name: string; up?: string };
+const PARENT_FIELDS = new Set(['stateId', 'organisationId', 'departmentId', 'postId']);
+const masterNodes = new Map<string, MasterNode>();
+if (d1 && proposals.some(p => Object.keys(p.payload).some(k => PARENT_FIELDS.has(k)))) {
+  const [states, orgs, depts, posts] = await Promise.all([
+    getAllStates(d1, { includeInactive: true }), getAllOrganisations(d1, { includeInactive: true }),
+    getAllDepartments(d1, { includeInactive: true }), getAllCanonicalPosts(d1),
+  ]).catch(error => {
+    console.error('[admin/pending-changes] master names unavailable', error);
+    return [[], [], [], []] as const;
+  });
+  for (const s of states) masterNodes.set(s.id, { name: s.name });
+  for (const o of orgs) masterNodes.set(o.id, { name: o.name, up: o.stateId });
+  for (const d of depts) masterNodes.set(d.id, { name: d.name, up: d.organisationId });
+  for (const p of posts) masterNodes.set(p.id, { name: p.title, up: p.departmentId });
+}
+for (const parent of [...proposals, ...items.flatMap(i => i.waiting.map(w => w.parent))]) {
+  const name = parent?.payload.name ?? parent?.payload.title;
+  if (parent && typeof name === 'string') masterNodes.set(parent.id, { name, up: (parent.payload.stateId ?? parent.payload.organisationId ?? parent.payload.departmentId) as string | undefined });
+}
+const chainOf = (id: unknown): string | null => {
+  const names: string[] = [];
+  for (let cur = typeof id === 'string' ? masterNodes.get(id) : undefined, hops = 0; cur && hops < 5; cur = cur.up ? masterNodes.get(cur.up) : undefined, hops++) names.unshift(cur.name);
+  return names.length ? names.join(' › ') : null;
+};
 
 const fmt = (v: unknown): string => {
   if (v === null || v === undefined || v === '') return '—';
@@ -255,6 +283,7 @@ const badge: Record<string, string> = {
                   </td>
                   <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind !== 'UPDATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
                   <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre>
+                    {PARENT_FIELDS.has(row.field) && chainOf(row.after) && <p class="mt-1 text-[11px] font-sans font-semibold text-slate-700" data-parent-chain>{chainOf(row.after)}</p>}
                     {checks.fields.filter(c => c.field === row.field && c.status !== 'MATCHES_QUOTE').map(c => <p class="mt-1 text-[10px] font-sans text-slate-600">{c.detail}</p>)}
                     {evidenceFor(evidence, row.field).map(e => (
                       <div class="mt-1.5 rounded border border-slate-100 bg-slate-50 p-1.5 text-[10px] text-slate-600 font-sans">

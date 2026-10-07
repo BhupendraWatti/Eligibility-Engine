@@ -635,5 +635,5 @@ const inactiveCount = organisations.length - activeCount;
     statusFilter?.addEventListener('change', applyOrgFilters);
   </script>
 
-  <AdminDataTable tableId="organisationsDataTable" perPage={10} searchable={false} columns={[{ select: 5, sortable: false }]} />
+  <AdminDataTable tableId="organisationsDataTable" searchable={false} paging={false} columns={[{ select: 5, sortable: false }]} />
 </AdminLayout>

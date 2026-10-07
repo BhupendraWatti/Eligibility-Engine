@@ -510,5 +510,5 @@ const inactiveCount = departments.length - activeCount;
     statusFilter?.addEventListener('change', applyDeptFilters);
   </script>
 
-  <AdminDataTable tableId="departmentsDataTable" perPage={10} columns={[{ select: 4, sortable: false }]} />
+  <AdminDataTable tableId="departmentsDataTable" paging={false} columns={[{ select: 4, sortable: false }]} />
 </AdminLayout>

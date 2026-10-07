@@ -26,7 +26,7 @@ import {
 
 import { MASTER_TYPES, proposeMaster, type MasterDeps } from '../../src/services/master-proposals';
 import { checkLink } from './links';
-import { ENTITY_TYPES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
+import { ENTITY_TYPES, SCOPE_RULES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
 
 export interface ServerContext {
   d1: D1Database | undefined;
@@ -66,7 +66,7 @@ const result = (payload: Record<string, unknown>, isError = false) => ({
 });
 
 export function createMcpServer(ctx: ServerContext): McpServer {
-  const server = new McpServer({ name: 'nirnay-mcp', version: '0.1.0' });
+  const server = new McpServer({ name: 'nirnay-mcp', version: '0.1.0' }, { instructions: SCOPE_RULES.join('\n') });
 
   server.registerTool(
     'search_recruitments',
@@ -163,6 +163,8 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
         'If the post or organisation is missing, queue it with propose_master in the same run and pass the returned proposal id (prop_...) instead: the owner approves the masters first, then this recruitment. ' +
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
+        'Only recruitments selected by a written or computer-based exam (selectionStages must show it, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
+        'officialLinks must include an APPLY_ONLINE link to the page where candidates fill the form, not a PDF (else APPLY_LINK_REQUIRED / INVALID_LINK). ' +
         'A CONFIRMED_DUPLICATE is refused; a possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
@@ -185,6 +187,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'An organisation needs an existing stateId and a post an existing sectorId (use resolve_entity). The organisationId of a department and the departmentId of a post may be an existing id OR the proposal id (prop_...) this tool returned for a parent queued in the same run, ' +
         'so organisation -> department -> post -> propose_new_recruitment can all be queued at once; the owner approves them parent first. ' +
         'fields: organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ' +
+        'Names must be in English. Masters belong to one state: the same post name in another state is not a duplicate, so queue the new state\'s own chain. ' +
         'Set dryRun=true to resolve without queuing. Include evidence (sourceUrl of the official site) for name and websiteUrl.',
       inputSchema: {
         type: z.enum(MASTER_TYPES),
