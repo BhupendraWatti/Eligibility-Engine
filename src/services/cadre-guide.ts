@@ -83,6 +83,7 @@ export interface HiringBody {
 }
 
 const QUALIFICATION_LABELS: Record<string, string> = {
+  '7TH': 'Class 7 pass',
   '8TH': 'Class 8 pass',
   '10TH': 'Class 10 pass',
   '12TH': 'Class 12 pass',

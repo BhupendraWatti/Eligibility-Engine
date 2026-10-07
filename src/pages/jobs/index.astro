@@ -246,6 +246,8 @@ const hasActiveFilters = Boolean(q || qualification || org || status || state);
               class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
               <option value="">All Qualifications</option>
+              <option value="7TH" selected={qualification === '7TH'}>7th Pass</option>
+              <option value="8TH" selected={qualification === '8TH'}>8th Pass (Middle School)</option>
               <option value="10TH" selected={qualification === '10TH'}>10th Pass (Matriculation)</option>
               <option value="12TH" selected={qualification === '12TH'}>12th Pass (Intermediate / 10+2)</option>
               <option value="DIPLOMA" selected={qualification === 'DIPLOMA'}>Diploma (Polytechnic / Technical)</option>

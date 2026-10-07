@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const DOC_TYPES = ['RECRUITMENT_NOTIFICATION', 'CORRIGENDUM', 'ADMIT_CARD', 'EXAM_CITY_SLIP', 'RESULT', 'ANSWER_KEY', 'EXAM_SCHEDULE', 'ADMISSION', 'SCHOLARSHIP', 'SYLLABUS', 'OTHER'] as const;
 export type DocType = (typeof DOC_TYPES)[number];
-export const QUALIFICATIONS = ['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'] as const;
+export const QUALIFICATIONS = ['7TH', '8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'] as const;
 
 export interface Extracted {
   documentType: DocType;

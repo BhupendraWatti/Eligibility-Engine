@@ -167,7 +167,7 @@ if (Astro.request.method === 'POST') {
               <div>
                 <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Target Value</label>
                 <select name="minQualificationLevel" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-mono outline-none">
-                  {['8TH','10TH','12TH','ITI','DIPLOMA','GRADUATION','POST_GRADUATION'].map(level => <option value={level} selected={selectedRec?.criteria.minQualificationLevel === level}>{level}</option>)}
+                  {['7TH','8TH','10TH','12TH','ITI','DIPLOMA','GRADUATION','POST_GRADUATION'].map(level => <option value={level} selected={selectedRec?.criteria.minQualificationLevel === level}>{level}</option>)}
                 </select>
               </div>
             </div>

@@ -11,7 +11,7 @@ export interface UserEligibilityProfile {
   hasMpRojgarPanjiyan?: boolean;
   registrations?: string[];
   hasCpct?: boolean;
-  qualificationLevel?: '8TH' | '10TH' | '12TH' | 'ITI' | 'DIPLOMA' | 'GRADUATION' | 'POST_GRADUATION';
+  qualificationLevel?: '7TH' | '8TH' | '10TH' | '12TH' | 'ITI' | 'DIPLOMA' | 'GRADUATION' | 'POST_GRADUATION';
   stream?: string;
   percentage?: number;
   heightCm?: number;
@@ -79,13 +79,14 @@ export interface RecruitmentEligibilityResult {
 }
 
 export const QUALIFICATION_RANK: Record<string, number> = {
-  '8TH': 1,
-  '10TH': 2,
-  '12TH': 3,
-  'ITI': 3,
-  'DIPLOMA': 4,
-  'GRADUATION': 5,
-  'POST_GRADUATION': 6,
+  '7TH': 1, // e.g. rural Home Guard enrolment asks for Class 7 pass
+  '8TH': 2,
+  '10TH': 3,
+  '12TH': 4,
+  'ITI': 4,
+  'DIPLOMA': 5,
+  'GRADUATION': 6,
+  'POST_GRADUATION': 7,
 };
 
 const ALL_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'] as const;

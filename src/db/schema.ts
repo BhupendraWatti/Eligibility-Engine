@@ -119,7 +119,7 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   ageRelaxationScSt: integer('age_relaxation_sc_st').notNull().default(5),
   ageRelaxationObc: integer('age_relaxation_obc').notNull().default(3),
   ageRelaxationFemale: integer('age_relaxation_female').notNull().default(5),
-  minQualificationLevel: text('min_qualification_level').notNull(), // '8TH', '10TH', '12TH', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'
+  minQualificationLevel: text('min_qualification_level').notNull(), // '7TH', '8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'
   allowedStreamsJson: text('allowed_streams_json'), // JSON array e.g. ["ANY"] or ["SCIENCE"]
   requiresMpDomicile: integer('requires_mp_domicile').notNull().default(0),
   domicileStateCode: text('domicile_state_code'),

@@ -40,6 +40,10 @@ assert(status({ qualificationLevel: '8TH', category: 'OBC', domicileStateCode: '
 assert(status({ qualificationLevel: '8TH', category: 'ST', domicileStateCode: 'RJ' }, constable, q) === 'FAIL', 'Rajasthan ST candidate is held to the general 10th');
 assert(status({ qualificationLevel: '8TH' }, constable, q) === 'UNKNOWN', 'Class 8 with unknown category is pending');
 assert(status({ qualificationLevel: '10TH', category: 'UR', domicileStateCode: 'GJ' }, constable, q) === 'MATCH', '10th pass outsider matches');
+const homeGuardRural: RecruitmentCriteria = { ...base, minQualificationLevel: '7TH' };
+assert(status({ qualificationLevel: '7TH' }, homeGuardRural, q) === 'MATCH', 'Class 7 pass meets a Class 7 requirement');
+assert(status({ qualificationLevel: '8TH' }, homeGuardRural, q) === 'MATCH', 'Class 8 pass also meets a Class 7 requirement');
+assert(status({ qualificationLevel: '7TH' }, { ...base, minQualificationLevel: '8TH' }, q) === 'FAIL', 'Class 7 pass does not meet a Class 8 requirement');
 
 // ── Batch: pending results ask for the missing fact, not for what was already given ─────────────
 const job = (id: string, criteria: RecruitmentCriteria): RecruitmentRecord => ({ id, title: id, slug: id, advtNumber: '', totalVacancies: 1, postTitle: '', organisationName: '', organisationShortName: '', isFeatured: 0, lifecycleStatus: 'APPLICATION_OPEN', criteria });

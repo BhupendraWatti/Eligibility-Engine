@@ -74,6 +74,7 @@ export interface RecruitmentValidationInput {
 }
 
 const VALID_QUALIFICATIONS = new Set([
+  '7TH',
   '8TH',
   '10TH',
   '12TH',

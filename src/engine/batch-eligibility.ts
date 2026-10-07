@@ -178,7 +178,7 @@ const FIELD_QUESTION_META: Record<string, Omit<StructuredQuestion, 'fieldKey' | 
  *  #1  - Explicit field mapping, not string.replace
  *  #2  - Age calculated from DOB + cutoff date, not flat integer
  *  #3  - Per-category relaxation (SC/ST +5, OBC +3, EWS 0), not binary UR/reserved
- *  #4  - 6-level qualification rank including 8th and Diploma
+ *  #4  - qualification rank from Class 7 to post-graduation, including ITI and Diploma
  *  #5  - Gender filter checks (MALE/FEMALE/ALL)
  *  #6  - Physical standards checks (height + chest)
  *  #7  - Additional skills validation

@@ -289,6 +289,8 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                     {[
+                      { id: '7TH', label: '7th Pass' },
+                      { id: '8TH', label: '8th Pass (Middle School)' },
                       { id: '10TH', label: '10th Pass (High School)' },
                       { id: '12TH', label: '12th Pass (Higher Secondary)' },
                       { id: 'ITI', label: 'ITI Certificate' },
@@ -383,7 +385,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                   <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <div>
-                      <strong className="text-foreground font-semibold">Why we ask:</strong> We evaluate educational ranks hierarchically: 8TH &lt; 10TH &lt; 12TH &lt; DIPLOMA &lt; GRADUATION &lt; POST_GRADUATION. Having a higher degree satisfies lower baseline requirements.
+                      <strong className="text-foreground font-semibold">Why we ask:</strong> We evaluate educational ranks hierarchically: 7TH &lt; 8TH &lt; 10TH &lt; 12TH &lt; DIPLOMA &lt; GRADUATION &lt; POST_GRADUATION. Having a higher degree satisfies lower baseline requirements.
                     </div>
                   </div>
                 </div>

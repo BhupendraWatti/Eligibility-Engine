@@ -56,13 +56,60 @@ export function asciiDigits(s: string): string {
     .replace(/[੦-੯]/g, d => String(d.charCodeAt(0) - 0x0a66)); // Gurmukhi
 }
 
-/** Every number written in the text: digit runs ("06" -> 6, "26.10.26" -> 26, 10, 26), grouped ("7,500") and decimals ("79.5"). */
+/** Every number written in the text: digit runs ("06" -> 6, "26.10.26" -> 26, 10, 26), grouped ("7,500"), decimals ("79.5") and words. */
 export function numbersIn(text: string): number[] {
   const t = asciiDigits(text);
   const runs = [...t.matchAll(/\d+/g)].map(m => Number(m[0]));
   const grouped = [...t.matchAll(/\d{1,3}(?:,\d{2,3})+/g)].map(m => Number(m[0].replace(/,/g, '')));
   const decimals = [...t.matchAll(/\d+\.\d+/g)].map(m => Number(m[0]));
-  return [...runs, ...grouped, ...decimals];
+  return [...runs, ...grouped, ...decimals, ...wordNumbers(t)];
+}
+
+// Notices often spell numbers out ("not more than sixty years", "पैंतीस वर्ष"). Only whole words count, and an unknown
+// spelling simply fails the check (the value is refused), so a gap here can never let a wrong value through.
+const EN_UNITS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+};
+const EN_TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fourty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const HI_1_TO_100 = [
+  'एक', 'दो', 'तीन', 'चार', 'पांच', 'छह', 'सात', 'आठ', 'नौ', 'दस', 'ग्यारह', 'बारह', 'तेरह', 'चौदह', 'पंद्रह', 'सोलह', 'सत्रह', 'अठारह', 'उन्नीस', 'बीस',
+  'इक्कीस', 'बाईस', 'तेईस', 'चौबीस', 'पच्चीस', 'छब्बीस', 'सत्ताईस', 'अट्ठाईस', 'उनतीस', 'तीस', 'इकतीस', 'बत्तीस', 'तैंतीस', 'चौंतीस', 'पैंतीस', 'छत्तीस', 'सैंतीस', 'अडतीस', 'उनतालीस', 'चालीस',
+  'इकतालीस', 'बयालीस', 'तैंतालीस', 'चौवालीस', 'पैंतालीस', 'छियालीस', 'सैंतालीस', 'अडतालीस', 'उनचास', 'पचास', 'इक्यावन', 'बावन', 'तिरपन', 'चौवन', 'पचपन', 'छप्पन', 'सत्तावन', 'अट्ठावन', 'उनसठ', 'साठ',
+  'इकसठ', 'बासठ', 'तिरसठ', 'चौंसठ', 'पैंसठ', 'छियासठ', 'सडसठ', 'अडसठ', 'उनहत्तर', 'सत्तर', 'इकहत्तर', 'बहत्तर', 'तिहत्तर', 'चौहत्तर', 'पचहत्तर', 'छिहत्तर', 'सतहत्तर', 'अठहत्तर', 'उन्यासी', 'अस्सी',
+  'इक्यासी', 'बयासी', 'तिरासी', 'चौरासी', 'पचासी', 'छियासी', 'सत्तासी', 'अट्ठासी', 'नवासी', 'नब्बे', 'इक्यानबे', 'बानबे', 'तिरानबे', 'चौरानबे', 'पंचानबे', 'छियानबे', 'सत्तानबे', 'अट्ठानबे', 'निन्यानबे', 'सौ',
+];
+/** Fold common spelling variants: nukta (ड़ -> ड), chandrabindu (ँ -> ं), half-n (न्द -> ंद), visarga form of six. */
+const hiFold = (w: string) => w.replace(/़/g, '').replace(/ँ/g, 'ं').replace(/न्(?=[दतथधट])/g, 'ं').replace(/^छः$|^छे$/, 'छह');
+const HI_WORDS: Record<string, number> = Object.fromEntries(HI_1_TO_100.map((w, i) => [hiFold(w), i + 1]));
+const HUNDRED = new Set(['hundred', 'सौ']);
+const THOUSAND = new Set(['thousand', hiFold('हज़ार'), 'हजार']);
+
+/** Numbers spelt out in English or Hindi, combining "thirty five", "thirty-five", "one hundred", "पाँच सौ", "दो हजार". */
+export function wordNumbers(text: string): number[] {
+  const out: number[] = [];
+  let total = 0, current = 0, active = false;
+  const flush = () => { if (active) out.push(total + current); total = 0; current = 0; active = false; };
+  for (const raw of text.toLowerCase().match(/[a-z]+|[ऀ-ॣ०-ॿ]+/g) ?? []) {
+    const w = /[a-z]/.test(raw) ? raw : hiFold(raw);
+    const unit = EN_UNITS[w] ?? (w !== hiFold('सौ') ? HI_WORDS[w] : undefined);
+    const tens = EN_TENS[w];
+    if (unit !== undefined) {
+      if (active && current % 100 !== 0 && (unit >= 10 || current % 10 !== 0)) flush(); // "five six" is two numbers; "एक सौ पच्चीस" is 125
+      current += unit; active = true;
+    } else if (tens !== undefined) {
+      if (active && current % 100 !== 0) flush();
+      current += tens; active = true;
+    } else if (HUNDRED.has(w)) {
+      current = (current || 1) * 100; active = true;
+    } else if (THOUSAND.has(w)) {
+      total += (current || 1) * 1000; current = 0; active = true;
+    } else if (w === 'and' && active) {
+      continue;
+    } else flush();
+  }
+  flush();
+  return out;
 }
 
 const iso = (y: number, m: number, d: number) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y < 100 ? 2000 + y : y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null);

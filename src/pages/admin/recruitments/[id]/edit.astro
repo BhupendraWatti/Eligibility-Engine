@@ -550,7 +550,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
               <div>
                 <label class="block text-xs font-semibold text-zinc-800 mb-1">Min Qualification</label>
                 <select name="minQualificationLevel" class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs outline-none bg-white font-mono">
-                  {['8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'].map(q => (
+                  {['7TH', '8TH', '10TH', '12TH', 'ITI', 'DIPLOMA', 'GRADUATION', 'POST_GRADUATION'].map(q => (
                     <option value={q} selected={recruitment.criteria?.minQualificationLevel === q}>{q}</option>
                   ))}
                 </select>
