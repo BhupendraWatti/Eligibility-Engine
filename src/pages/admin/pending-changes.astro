@@ -56,13 +56,24 @@ if (Astro.request.method === 'POST') {
 const BY_FILTERS = [['', 'Everyone'], ['pipeline', 'Pipeline'], ['mcp-client', 'MCP']] as const;
 const requestedBy = Astro.url.searchParams.get('by') ?? '';
 const by = BY_FILTERS.some(([v]) => v === requestedBy) ? requestedBy : '';
-const FILTERS: Array<ProposalStatus | 'ALL'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'WITHDRAWN', 'ALL'];
-const requested = Astro.url.searchParams.get('status')?.toUpperCase() as ProposalStatus | 'ALL' | undefined;
+// SKIPPED is not a proposal status: it lists notices the MCP was refused for having no selection exam (audit action SKIPPED).
+const FILTERS: Array<ProposalStatus | 'ALL' | 'SKIPPED'> = ['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'WITHDRAWN', 'ALL', 'SKIPPED'];
+const requested = Astro.url.searchParams.get('status')?.toUpperCase() as ProposalStatus | 'ALL' | 'SKIPPED' | undefined;
 const filter = requested && FILTERS.includes(requested) ? requested : 'PENDING';
 
 let loadError = '';
 let proposals: ProposalRow[] = [];
-if (d1) {
+type Skipped = { id: string; title: string; sourceUrl: string | null; reason: string | null; by: string; at: number };
+let skipped: Skipped[] = [];
+if (d1 && filter === 'SKIPPED') {
+  // One row per notice (a retried or previewed notice is logged again); SQLite takes the bare columns from the MAX row.
+  skipped = await d1.prepare("SELECT id, entity_id AS title, field AS sourceUrl, reason, admin_email AS by, MAX(created_at) AS at FROM audit_logs WHERE action = 'SKIPPED' AND (? = '' OR admin_email = ?) GROUP BY entity_id, field ORDER BY at DESC LIMIT 100")
+    .bind(by, by).all<Skipped>().then(r => r.results ?? []).catch(error => {
+      console.error('[admin/pending-changes] skipped load failed', error);
+      loadError = 'The skipped list is temporarily unavailable.';
+      return [];
+    });
+} else if (d1) {
   proposals = await listProposalRows(d1, { status: filter === 'ALL' ? undefined : filter, proposedBy: by || undefined, limit: 50 }).catch(error => {
     console.error('[admin/pending-changes] load failed', error);
     loadError = 'Proposals are temporarily unavailable. Have migrations 0010 and 0013 been applied?';
@@ -200,7 +211,24 @@ const badge: Record<string, string> = {
       </nav>
     </div>
 
-    {items.length === 0 && !loadError && (
+    {filter === 'SKIPPED' && (
+      <div class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+        <p class="p-4 text-xs text-slate-500 border-b border-slate-100">Notices the MCP was not allowed to propose because selection has no written or computer-based exam. Nothing was queued for them.</p>
+        {skipped.length === 0 && !loadError && <p class="p-10 text-center text-slate-400 text-xs">No skipped notices.</p>}
+        <ul class="divide-y divide-slate-100">
+          {skipped.map(s => (
+            <li class="p-4 text-xs space-y-0.5">
+              <p class="font-semibold text-slate-950">{s.title}</p>
+              <p class="text-rose-700 font-mono text-[11px]">{s.reason}</p>
+              {s.sourceUrl && safeHref(s.sourceUrl) && <a href={safeHref(s.sourceUrl)} rel="noopener noreferrer" target="_blank" class="text-primary underline break-all text-[11px]">{s.sourceUrl}</a>}
+              <p class="text-[11px] text-slate-500 font-mono">{s.by} · {when(new Date(s.at * 1000))}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    {filter !== 'SKIPPED' && items.length === 0 && !loadError && (
       <div class="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400 text-xs">
         No {filter === 'ALL' ? '' : filter.toLowerCase()} proposals.
       </div>
@@ -246,7 +274,7 @@ const badge: Record<string, string> = {
         {waiting.map(w => (
           <div class={`mx-4 mt-4 rounded-lg border p-3 text-xs ${w.parent?.status === 'PENDING' || w.parent?.status === 'APPLYING' ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
             {w.parent?.status === 'PENDING' || w.parent?.status === 'APPLYING'
-              ? <><strong>Approve first:</strong> {w.parent.summary} <span class="font-mono">({w.id})</span>. This proposal's <span class="font-mono">{w.field}</span> is the master it creates.</>
+              ? <><strong>Also created on approval:</strong> {w.parent.summary} <span class="font-mono">({w.id})</span>, the master this proposal's <span class="font-mono">{w.field}</span> needs. Rejecting this proposal rejects it too unless another proposal uses it.</>
               : <><strong>Cannot be applied.</strong> Its <span class="font-mono">{w.field}</span> is <span class="font-mono">{w.id}</span>, which is {w.parent?.status?.toLowerCase() ?? 'missing'}. Reject this proposal.</>}
           </div>
         ))}
@@ -324,7 +352,7 @@ const badge: Record<string, string> = {
                   Apply anyway
                 </label>
               )}
-              <button type="submit" disabled={missingTarget || waiting.length > 0} class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+              <button type="submit" disabled={missingTarget || waiting.some(w => w.parent?.status !== 'PENDING')} class="px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                 Approve
               </button>
             </form>

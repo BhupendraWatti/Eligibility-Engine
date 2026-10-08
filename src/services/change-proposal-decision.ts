@@ -17,7 +17,7 @@ import {
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
-import { createdMasterId, currentFieldValue, InvalidProposalError, parentRefs, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
+import { createdMasterId, currentFieldValue, InvalidProposalError, listProposalRows, parentRefs, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
 import { MASTER_TYPE_OF_KIND, defaultMasterDeps, isMasterKind, resolveMaster, type MasterDeps, type MasterRecord } from './master-proposals';
 
 export interface DecisionOptions {
@@ -28,7 +28,7 @@ export interface DecisionOptions {
 }
 
 export type DecisionResult =
-  | { ok: true; status: 'APPROVED' | 'REJECTED' | 'EDITED'; recruitmentId?: string; message: string }
+  | { ok: true; status: 'APPROVED' | 'REJECTED' | 'EDITED'; recruitmentId?: string; createdId?: string; message: string }
   | { ok: false; code: 'NOT_FOUND' | 'NOT_PENDING' | 'STALE' | 'WAITING' | 'FAILED'; message: string; staleFields?: string[]; errors?: string[]; waitingFor?: string };
 
 interface AuditEntry { adminEmail: string; entityId: string; action: string; field: string; newValue: string | null; reason: string; source: string }
@@ -47,6 +47,8 @@ export interface DecisionDeps {
   masters: MasterDeps;
   /** Create an approved master through the existing admin writers. Returns the new id. */
   createMaster: (kind: ProposalRow['kind'], payload: Record<string, unknown>, adminEmail: string, d1: D1Database) => Promise<string>;
+  /** PENDING proposals (who else still uses a master proposal, for the reject cascade). */
+  listPending: (d1: D1Database) => Promise<ProposalRow[]>;
 }
 
 export const defaultDecisionDeps: DecisionDeps = {
@@ -97,6 +99,7 @@ export const defaultDecisionDeps: DecisionDeps = {
     if (kind === 'CREATE_DEPARTMENT') return createDepartment({ organisationId: p.organisationId as string, name: p.name as string, slug: p.slug as string, description: (p.description as string | undefined) ?? undefined, adminEmail }, d1);
     return createCanonicalPost({ departmentId: p.departmentId as string, sectorId: p.sectorId as string, title: p.title as string, slug: p.slug as string, summary: (p.summary as string) ?? '', payScale: (p.payScale as string | undefined) ?? null, defaultMinAge: p.defaultMinAge as number | undefined, defaultMaxAge: p.defaultMaxAge as number | undefined, defaultQualification: p.defaultQualification as string | undefined } as Parameters<typeof createCanonicalPost>[0], d1);
   },
+  listPending: d1 => listProposalRows(d1, { status: 'PENDING', limit: 500 }),
 };
 
 const DATE_FIELD_EVENTS = { applicationStart: 'APPLICATION_START', applicationEnd: 'APPLICATION_END', examDate: 'EXAM_DATE' } as const;
@@ -207,11 +210,21 @@ export async function approveProposal(
   };
 
   try {
-    // Parents named by proposal id (queued in the same MCP run) must be approved first; use the ids they were given.
+    // Parents named by proposal id (queued in the same MCP run) are created only now, together with the proposal
+    // that needs them: a pending parent is approved first (parent before child), then its new id is used.
     const p = { ...proposal.payload };
     for (const ref of parentRefs(p)) {
       const parent = await deps.get(d1, ref.id);
-      const created = parent?.status === 'APPROVED' ? createdMasterId(parent) : undefined;
+      let created = parent?.status === 'APPROVED' ? createdMasterId(parent) : undefined;
+      if (!created && parent?.status === 'PENDING') {
+        const up = await approveProposal(d1, ref.id, adminEmail, {}, deps);
+        if (!up.ok && up.code === 'FAILED') return await fail(`It needs "${parent.summary}" (${ref.id}), which could not be created: ${up.message}`);
+        if (!up.ok) {
+          await deps.release(d1, id);
+          return { ok: false, code: 'WAITING', waitingFor: ref.id, message: `"${parent.summary}" (${ref.id}) could not be created first: ${up.message}` };
+        }
+        created = up.createdId;
+      }
       if (created) { p[ref.field] = created; continue; }
       if (parent?.status === 'PENDING' || parent?.status === 'APPLYING') {
         await deps.release(d1, id);
@@ -230,7 +243,7 @@ export async function approveProposal(
       const masterId = await deps.createMaster(proposal.kind, p, adminEmail, d1);
       const note = `Created ${type} ${masterId}${found.status === 'POSSIBLE_MATCH' ? ' (similar master(s) exist: ' + found.matches.map(m => m.id).join(', ') + ')' : ''}.`;
       await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note, createdId: masterId }, audit('APPROVE', masterId, proposal.summary));
-      return { ok: true, status: 'APPROVED', message: note };
+      return { ok: true, status: 'APPROVED', createdId: masterId, message: note };
     }
 
     let result: Awaited<ReturnType<DecisionDeps['create']>>;
@@ -280,6 +293,20 @@ export async function rejectProposal(
     adminEmail, entityId: id, action: 'REJECT', field: proposal.kind, newValue: null, reason: reason ?? proposal.summary.slice(0, 500), source: `mcp:${proposal.proposedBy}`,
   });
   if (!done) return { ok: false, code: 'NOT_PENDING', message: 'Proposal was just decided by someone else.' };
+  // A pending master queued only for this proposal is rejected with it, so no orphan organisation/department/post is created later.
+  const refs = parentRefs(proposal.payload);
+  if (refs.length) {
+    try {
+      const pending = await deps.listPending(d1);
+      for (const ref of refs) {
+        if (pending.some(o => o.id !== id && parentRefs(o.payload).some(r => r.id === ref.id))) continue;
+        if (pending.some(o => o.id === ref.id)) await rejectProposal(d1, ref.id, adminEmail, `Rejected with ${id}, the only proposal that used it.`, deps);
+      }
+    } catch (error) {
+      // The reject itself is committed; a leftover master proposal can still be rejected by hand.
+      console.error('[proposals] reject cascade failed', error);
+    }
+  }
   return { ok: true, status: 'REJECTED', message: 'Proposal rejected. Nothing was changed.' };
 }
 

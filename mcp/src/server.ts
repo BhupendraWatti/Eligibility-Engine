@@ -165,7 +165,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
         'Only recruitments selected by a written or computer-based exam (selectionStages must show it, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
         'officialLinks must include an APPLY_ONLINE link to the page where candidates fill the form, not a PDF (else APPLY_LINK_REQUIRED / INVALID_LINK). ' +
-        'A CONFIRMED_DUPLICATE is refused; a possible duplicate is queued with a warning for the reviewer.',
+        'A CONFIRMED_DUPLICATE is refused (same advt number, source URL, or same organisation with a near-identical name in an overlapping apply window or the same vacancies and last date); any new source it cites is queued onto the existing record. A possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()).describe('Object of field -> value'),

@@ -34,6 +34,9 @@ export interface RecruitmentCandidate {
   sourceUrls?: string[];
   postId?: string;
   cycleYear?: number;
+  totalVacancies?: number;
+  applicationStart?: string;
+  applicationEnd?: string;
 }
 
 export interface ExistingRecruitmentRecord {
@@ -46,6 +49,9 @@ export interface ExistingRecruitmentRecord {
   sourceUrls?: string[];
   postId?: string;
   cycleYear?: number;
+  totalVacancies?: number;
+  applicationStart?: string;
+  applicationEnd?: string;
 }
 
 function normalize(str?: string | null): string {
@@ -55,6 +61,22 @@ function normalize(str?: string | null): string {
 
 const urlSet = (r: { sourceUrl?: string; sourceUrls?: string[] }): Set<string> =>
   new Set([r.sourceUrl, ...(r.sourceUrls ?? [])].map(u => u?.trim().toLowerCase() ?? '').filter(Boolean));
+
+/** Dice coefficient over character bigrams of the normalised strings (0..1). */
+export function similarity(a?: string | null, b?: string | null): number {
+  const x = normalize(a), y = normalize(b);
+  if (!x || !y) return 0;
+  if (x === y) return 1;
+  const grams = (s: string) => { const m = new Map<string, number>(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); m.set(g, (m.get(g) ?? 0) + 1); } return m; };
+  const gx = grams(x), gy = grams(y);
+  let hit = 0;
+  for (const [g, n] of gx) hit += Math.min(n, gy.get(g) ?? 0);
+  return (2 * hit) / (x.length - 1 + y.length - 1);
+}
+
+/** Both windows known (ISO dates compare as strings) and they share at least one day. */
+const windowsOverlap = (a: { applicationStart?: string; applicationEnd?: string }, b: { applicationStart?: string; applicationEnd?: string }) =>
+  !!(a.applicationStart && a.applicationEnd && b.applicationStart && b.applicationEnd) && a.applicationStart <= b.applicationEnd! && b.applicationStart <= a.applicationEnd!;
 
 /**
  * Check a new recruitment candidate against existing recruitment records.
@@ -118,6 +140,21 @@ export function detectDuplicates(
       }
     }
 
+    // 4 + 5. Same organisation, and the same post (when both are known): a near-identical name in an overlapping
+    //        apply window, or the same vacancy count and last date, is the same notice re-entered.
+    const sameOrgId = !!(candidate.organisationId && existing.organisationId && candidate.organisationId === existing.organisationId);
+    const samePostOrUnknown = !(candidate.postId && existing.postId && candidate.postId !== existing.postId);
+    if (sameOrgId && samePostOrUnknown) {
+      if (similarity(candidate.title, existing.title) >= 0.85 && windowsOverlap(candidate, existing)) {
+        reasons.push(`Same organisation, near-identical name ("${existing.title}") and overlapping apply window.`);
+        isConfirmed = true;
+      }
+      if (candidate.totalVacancies && candidate.totalVacancies === existing.totalVacancies && candidate.applicationEnd && candidate.applicationEnd === existing.applicationEnd) {
+        reasons.push(`Same organisation, same total vacancies (${existing.totalVacancies}) and same last date (${existing.applicationEnd}).`);
+        isConfirmed = true;
+      }
+    }
+
     if (reasons.length > 0) {
       matches.push({
         matchedRecruitmentId: existing.id,
@@ -135,7 +172,7 @@ export function detectDuplicates(
 
   if (matches.some(m => m.confidence === 'HIGH')) {
     status = 'CONFIRMED_DUPLICATE';
-    summary = `Found ${matches.length} confirmed duplicate notice(s) with identical Advt Number or Source URL.`;
+    summary = `Found ${matches.length} confirmed duplicate notice(s) (same advertisement number, source URL, or organisation with matching name/dates/vacancies).`;
   } else if (matches.length > 0) {
     status = 'POSSIBLE_DUPLICATE';
     summary = `Found ${matches.length} potential duplicate notice(s) with overlapping metadata.`;

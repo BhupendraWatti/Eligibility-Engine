@@ -67,6 +67,7 @@ async function run() {
   };
   const inserted: NewProposal[] = [];
   const store: ProposalRow[] = [];
+  const audits: Array<{ action: string; entityId: string; reason: string }> = [];
   const base = (): ProposalDeps => ({
     loadRecruitment: async () => undefined,
     insert: async (_d, r) => { inserted.push(r); store.push({ ...r, status: 'PENDING', decidedBy: null, decidedAt: null, decisionNote: null, createdAt: new Date() } as ProposalRow); },
@@ -79,6 +80,7 @@ async function run() {
     postExists: async () => true,
     orgExists: async () => true,
     checkDuplicate: async () => ({ status: 'NO_DUPLICATE', matches: [], summary: '' }),
+    audit: async (_d, e) => { audits.push(e); },
   });
   const deps = base();
   const ssc = { stateId: 'st_in', name: 'Staff Selection Commission', shortName: 'SSC', websiteUrl: 'https://ssc.gov.in/' };
@@ -102,6 +104,17 @@ async function run() {
   assert(dup.status === 'NO_DUPLICATE', 'the same rulebook URL for a different post is not a duplicate');
   dup = detectDuplicates({ title: 'Subedar again', advtNumber: null, postId: 'post_mp_subedar_steno', cycleYear: 2026, sourceUrls: [rulebook] }, [subedar]);
   assert(dup.status === 'CONFIRMED_DUPLICATE', 'the same rulebook URL for the same post is a confirmed duplicate');
+  const live1 = { id: 'rec_c', title: 'Constable (GD) Recruitment 2026', advtNumber: null, organisationId: 'org_x', totalVacancies: 300, applicationStart: '2026-10-01', applicationEnd: '2026-10-31' };
+  dup = detectDuplicates({ title: 'Constable GD Recruitment 2026', advtNumber: null, organisationId: 'org_x', applicationStart: '2026-10-10', applicationEnd: '2026-11-05' }, [live1]);
+  assert(dup.status === 'CONFIRMED_DUPLICATE', 'same organisation + near-identical name + overlapping window is a duplicate');
+  dup = detectDuplicates({ title: 'Constable GD Recruitment 2026', advtNumber: null, organisationId: 'org_x', cycleYear: 2027, applicationStart: '2027-01-01', applicationEnd: '2027-01-31' }, [{ ...live1, cycleYear: 2026 }]);
+  assert(dup.status !== 'CONFIRMED_DUPLICATE', 'the same name in a later apply window is not a confirmed duplicate');
+  dup = detectDuplicates({ title: 'Head Constable 2026', advtNumber: null, organisationId: 'org_x', totalVacancies: 300, applicationEnd: '2026-10-31' }, [live1]);
+  assert(dup.status === 'CONFIRMED_DUPLICATE', 'same organisation + same total vacancies + same last date is a duplicate');
+  dup = detectDuplicates({ title: 'Constable (GD) Recruitment 2026 Band', advtNumber: null, organisationId: 'org_x', postId: 'post_a', totalVacancies: 300, applicationStart: '2026-10-01', applicationEnd: '2026-10-31' }, [{ ...live1, postId: 'post_b' }]);
+  assert(dup.status !== 'CONFIRMED_DUPLICATE', 'a different canonical post under the same organisation is not merged on name or dates');
+  dup = detectDuplicates({ title: 'Constable (GD) Recruitment 2026 Band', advtNumber: null, organisationId: 'org_y', totalVacancies: 300, applicationStart: '2026-10-01', applicationEnd: '2026-10-31' }, [live1]);
+  assert(dup.status !== 'CONFIRMED_DUPLICATE', 'the same name and dates in another organisation is not a duplicate');
 
   // ── 6. A notice with no advertisement number is accepted ───────────────────────────────────────
   const create = sanitizeChanges('CREATE_RECRUITMENT', { title: 'ASI (Stenographic) 2026', postId: 'post_mp_asi_steno', organisationId: 'org_mpesb', totalVacancies: 520 });
@@ -183,6 +196,16 @@ async function run() {
     assert(scopeCode('UPDATE_RECRUITMENT', stage(name)) === 'NO_EXAM_STAGE', `"${name}" is not an exam stage`);
   }
   const applyPage = { linkType: 'APPLY_ONLINE', title: 'Apply', url: 'https://ojas.gujarat.gov.in/apply' };
+  // A refused no-exam notice is logged for the Skipped list.
+  audits.length = 0;
+  const skipDeps = base();
+  let skipCode = '';
+  try {
+    await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Home Guard enrolment', requireEvidence: true,
+      changes: { title: 'Home Guard Enrolment 2026', postId: 'post_hg', organisationId: 'org_hg', totalVacancies: 50, selectionStages: [{ name: 'Interview', desc: 'Direct interview' }], officialLinks: [applyPage], sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'n', sourceUrl: 'https://x.gov.in/hg.pdf' }] },
+      evidence: ['title', 'totalVacancies', 'selectionStages', 'officialLinks', 'sources'].map(f => ({ ...quote(f), snippet: f === 'totalVacancies' ? 'posts 50' : 'quoted line' })) }, skipDeps);
+  } catch (e: any) { skipCode = e.code; }
+  assert(skipCode === 'NO_EXAM_STAGE' && audits.some(a => a.action === 'SKIPPED' && a.entityId === 'Home Guard Enrolment 2026' && a.reason.startsWith('NO_EXAM: selection is Interview')), 'a notice without an exam is refused and logged as SKIPPED with its reason');
   assert(scopeCode('CREATE_RECRUITMENT', { ...stage('Written exam'), officialLinks: [{ linkType: 'NOTIFICATION_PDF', title: 'Notice', url: 'https://x.gov.in/n.pdf' }] }) === 'APPLY_LINK_REQUIRED', 'a new recruitment without an APPLY_ONLINE link is refused');
   assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [{ ...applyPage, url: 'https://x.gov.in/advt.pdf?v=2' }] }) === 'INVALID_LINK', 'an APPLY_ONLINE link to a PDF is refused');
   assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [applyPage, { linkType: 'BROCHURE', title: 'b', url: 'https://x.gov.in/b' }] }) === 'INVALID_LINK', 'an unknown link type is refused');
@@ -214,6 +237,7 @@ async function run() {
   let updated: any;
   const finalized: string[] = [];
   const decision: DecisionDeps = {
+    listPending: async () => [],
     get: async () => pending, claim: async () => true, release: async () => {},
     finalize: async (_d, _i, _f, fields) => { finalized.push(fields.status); return true; },
     loadRecruitment: async () => live,
@@ -267,8 +291,15 @@ async function run() {
     finalize: async (_d, _i, _f, fields) => { chainFinal.push(fields.status); return true; },
     create: async input => { createdWith = input; return { success: true, id: 'rec_new' } as any; },
   };
-  let r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
-  assert(!r.ok && r.code === 'WAITING' && released === 1 && !createdWith && chainFinal.length === 0, 'approving a child before its parent waits, stays PENDING and writes nothing');
+  const createdMasters: string[] = [];
+  let r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, { ...chainDecision, masters: { ...masters, organisations: async () => [...orgs, { id: 'org_nb', name: 'New Board', slug: 'nb', shortName: 'NB', stateId: 'st_mp' }] } });
+  assert(!r.ok && r.code === 'FAILED' && !createdWith, 'if a pending master cannot be created, the recruitment fails and writes nothing');
+  const autoChain: DecisionDeps = {
+    ...chainDecision, createMaster: async kind => { createdMasters.push(kind); return `${kind}_id`; },
+    finalize: async (_d, id, _f, fields) => { if (chain.has(id)) chain.set(id, { ...chain.get(id)!, status: fields.status, meta: { createdId: fields.createdId } }); return true; },
+  };
+  r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, autoChain);
+  assert(r.ok && createdMasters.join() === 'CREATE_ORGANISATION,CREATE_DEPARTMENT,CREATE_POST' && createdWith.postId === 'CREATE_POST_id' && createdWith.organisationId === 'CREATE_ORGANISATION_id', 'approving the recruitment creates its pending organisation, department and post first, in order');
   chain.set(POST, { ...chain.get(POST)!, status: 'APPROVED', meta: { createdId: 'post_clerk' } });
   chain.set(ORG, { ...chain.get(ORG)!, status: 'APPROVED', meta: { createdId: 'org_nb' } });
   r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
@@ -277,6 +308,39 @@ async function run() {
   createdWith = undefined;
   r = await approveProposal(d1, 'prop_rec', 'admin@x.in', {}, chainDecision);
   assert(!r.ok && r.code === 'FAILED' && !createdWith, 'a proposal built on a rejected master cannot be applied');
+
+  // Rejecting a recruitment rejects the pending masters only it used.
+  const rejected2: string[] = [];
+  const rejChain = new Map<string, ProposalRow>([
+    ['prop_r', queuedRow('prop_r', 'CREATE_RECRUITMENT', { title: 'X', postId: POST, organisationId: ORG, totalVacancies: 1 })],
+    ['prop_other', queuedRow('prop_other', 'CREATE_RECRUITMENT', { title: 'Y', postId: 'post_real', organisationId: ORG, totalVacancies: 1 })],
+    [POST, queuedRow(POST, 'CREATE_POST', { departmentId: DEPT, title: 'Clerk' })],
+    [DEPT, queuedRow(DEPT, 'CREATE_DEPARTMENT', { organisationId: ORG, name: 'D' })],
+    [ORG, queuedRow(ORG, 'CREATE_ORGANISATION', { name: 'O' })],
+  ]);
+  const rejDeps: DecisionDeps = {
+    ...decision, get: async (_d, id) => rejChain.get(id),
+    listPending: async () => [...rejChain.values()].filter(p => p.status === 'PENDING'),
+    finalize: async (_d, id, _f, fields) => { rejChain.set(id, { ...rejChain.get(id)!, status: fields.status }); rejected2.push(id); return true; },
+  };
+  const { rejectProposal } = await import('../../src/services/change-proposal-decision');
+  await rejectProposal(d1, 'prop_r', 'admin@x.in', 'not an exam', rejDeps);
+  assert(rejected2.join() === ['prop_r', POST, DEPT].join(), 'rejecting a recruitment rejects its unused pending post and department, but keeps an organisation another proposal still uses');
+
+  // A confirmed duplicate of a live record is not created; its new source is queued onto that record.
+  audits.length = 0;
+  const liveDup: any = { ...row({ id: 'rec_live' }), organisationId: 'org_mpesb', sourcesList: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'old', sourceUrl: 'https://x.gov.in/old.pdf' }] };
+  const mergeStore: NewProposal[] = [];
+  const mergeDeps: ProposalDeps = {
+    ...base(), loadRecruitment: async () => liveDup, insert: async (_d, r) => { mergeStore.push(r); },
+    checkDuplicate: async () => ({ status: 'CONFIRMED_DUPLICATE', summary: 'dup', matches: [{ matchedRecruitmentId: 'rec_live', matchedTitle: 't', matchedAdvtNumber: null, matchedOrganisation: 'o', confidence: 'HIGH', reasons: ['same'] }] }),
+  };
+  let mergeErr: any;
+  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'again', changes: { ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'new', sourceUrl: 'https://x.gov.in/new.pdf' }] } }, mergeDeps); } catch (e) { mergeErr = e; }
+  const merged = mergeStore[0];
+  assert(mergeErr?.code === 'CONFIRMED_DUPLICATE' && mergeErr.details.mergedInto === 'rec_live' && merged?.kind === 'UPDATE_RECRUITMENT' && merged.recruitmentId === 'rec_live'
+    && (merged.payload.sources as any[]).map(s => s.sourceUrl).join() === 'https://x.gov.in/old.pdf,https://x.gov.in/new.pdf' && audits.some(a => a.action === 'DUPLICATE_MERGED' && a.entityId === 'rec_live'),
+    'a duplicate is not created: its new source is queued onto the existing record and logged as DUPLICATE_MERGED');
 
   console.log('\nAll regression checks passed.');
 }
