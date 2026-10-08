@@ -73,6 +73,34 @@ export async function getLastVerifiedAt(providedD1?: D1Database): Promise<Date |
   }
 }
 
+export interface SitemapEntry {
+  path: string;
+  lastmod?: Date;
+}
+
+/**
+ * Every public detail page a search engine may index, matching what the pages themselves render:
+ * PUBLISHED recruitments that allow indexing, and active organisations, posts and sectors.
+ */
+export async function getSitemapEntries(providedD1?: D1Database): Promise<SitemapEntry[]> {
+  const d1 = resolveD1(providedD1, 'building the sitemap');
+  if (!d1) return [];
+  const [recs, orgs, posts, sectors] = await d1.batch<{ slug: string; t: number | null }>([
+    d1.prepare("SELECT slug, updated_at AS t FROM recruitments WHERE status = 'PUBLISHED' AND robots_index = 1 ORDER BY updated_at DESC"),
+    d1.prepare('SELECT slug, NULL AS t FROM organisations WHERE is_active = 1 ORDER BY slug'),
+    d1.prepare('SELECT slug, NULL AS t FROM posts WHERE is_active = 1 ORDER BY slug'),
+    d1.prepare('SELECT slug, updated_at AS t FROM sectors WHERE is_active = 1 ORDER BY display_order'),
+  ]);
+  const toEntries = (prefix: string, rows: { slug: string; t: number | null }[]) =>
+    rows.map(r => ({ path: `/${prefix}/${encodeURIComponent(r.slug)}`, lastmod: r.t ? new Date(r.t * 1000) : undefined }));
+  return [
+    ...toEntries('recruitments', recs.results),
+    ...toEntries('organisations', orgs.results),
+    ...toEntries('posts', posts.results),
+    ...toEntries('sectors', sectors.results),
+  ];
+}
+
 export interface MasterSector {
   id: string;
   name: string;
