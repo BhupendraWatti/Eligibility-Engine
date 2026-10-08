@@ -1,0 +1,73 @@
+---
+// src/pages/contact.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const contacts = [
+  {
+    title: 'General questions & feedback',
+    body: 'Questions about the site, suggestions, or partnership enquiries.',
+    email: 'contact@govtrecruitments.com',
+  },
+  {
+    title: 'Report a correction',
+    body: 'A wrong date, fee, age limit or link on a recruitment page. Include the page link and the official notice that shows the correct detail.',
+    email: 'contact@govtrecruitments.com',
+    subject: 'Correction request',
+  },
+  {
+    title: 'Privacy',
+    body: 'Questions about the data we handle or requests under our Privacy Policy.',
+    email: 'privacy@govtrecruitments.com',
+  },
+];
+---
+
+<BaseLayout
+  title="Contact Us"
+  description="Contact GovtRecruitments to report a correction on a recruitment listing, ask a question, or raise a privacy request."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="bg-card rounded-3xl p-8 sm:p-12 border border-border shadow-sm">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200 uppercase tracking-wider mb-4">
+        Support
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground mb-6">
+        Contact Us
+      </h1>
+
+      <div class="text-sm text-muted-foreground space-y-6 leading-relaxed">
+        <p class="text-base text-foreground font-medium">
+          We read every message. Corrections that include a link to the official notice are the quickest for us to check.
+        </p>
+
+        <div class="grid gap-4 sm:grid-cols-3">
+          {contacts.map((c) => (
+            <div class="rounded-2xl border border-border bg-muted/40 p-5 flex flex-col">
+              <h2 class="text-sm font-bold text-foreground mb-2">{c.title}</h2>
+              <p class="text-xs mb-4 flex-1">{c.body}</p>
+              <a
+                href={`mailto:${c.email}${c.subject ? `?subject=${encodeURIComponent(c.subject)}` : ''}`}
+                class="text-primary hover:underline font-medium break-all text-xs dark:text-blue-400"
+              >
+                {c.email}
+              </a>
+            </div>
+          ))}
+        </div>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          Before You Write
+        </h2>
+        <ul class="list-disc list-inside space-y-2">
+          <li>We are not a recruiting authority. We cannot change your application, refund fees, issue admit cards or declare results. Contact the board named in the notification for these.</li>
+          <li>Never send us your password, Aadhaar number, bank details or OTPs. We will never ask for them.</li>
+          <li>GovtRecruitments never charges candidates. Anyone asking for money in our name is not us.</li>
+        </ul>
+
+        <p>
+          Learn more <a href="/about" class="text-primary hover:underline font-medium">about us</a>, or read our <a href="/privacy" class="text-primary hover:underline font-medium">Privacy Policy</a> and <a href="/terms" class="text-primary hover:underline font-medium">Terms of Use</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

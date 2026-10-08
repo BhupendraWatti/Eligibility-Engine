@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+Astro.response.status = 500;
+---
+
+<BaseLayout
+  title="Something Went Wrong"
+  description="GovtRecruitments could not load this page because of a temporary server error."
+>
+  <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+    <p class="text-xs font-bold uppercase tracking-wider text-primary mb-3">500 · Server error</p>
+    <h1 class="text-3xl sm:text-4xl font-bold text-foreground mb-4">Something went wrong on our side</h1>
+    <p class="text-sm text-muted-foreground mb-8">
+      This page could not be loaded right now. Please try again in a few minutes. If it keeps happening,
+      <a href="/contact" class="text-primary hover:underline font-medium">let us know</a>.
+    </p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a href={Astro.url.pathname} class="px-5 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm">
+        Try again
+      </a>
+      <a href="/" class="px-5 py-3 rounded-lg border border-border bg-card text-foreground font-semibold text-sm">
+        Return home
+      </a>
+    </div>
+  </section>
+</BaseLayout>

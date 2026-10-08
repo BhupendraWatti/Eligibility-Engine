@@ -1,0 +1,63 @@
+---
+// src/pages/about.astro
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="About Us"
+  description="GovtRecruitments is an independent platform that lists central and state government recruitments across India and checks your eligibility against each official notification."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="bg-card rounded-3xl p-8 sm:p-12 border border-border shadow-sm">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200 uppercase tracking-wider mb-4">
+        About GovtRecruitments
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-foreground mb-6">
+        About Us
+      </h1>
+
+      <div class="prose prose-slate max-w-none text-sm text-muted-foreground space-y-6 leading-relaxed">
+        <p class="text-base text-foreground font-medium">
+          GovtRecruitments helps candidates across India find government recruitments they can actually apply for. We collect notifications from central bodies and every state and union territory, turn each one into clear dates, posts and rules, and tell you whether you meet them.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          1. What We Do
+        </h2>
+        <ul class="list-disc list-inside space-y-2">
+          <li><strong class="text-foreground">Recruitment listings:</strong> exam-based recruitments from UPSC, SSC, railway and banking boards, State Public Service Commissions, selection boards, police boards, High Courts and state departments.</li>
+          <li><strong class="text-foreground">Eligibility checker:</strong> enter your age, category, domicile, qualification and physical details once, and see which posts you qualify for, with the reason for every result.</li>
+          <li><strong class="text-foreground">Lifecycle tracking:</strong> application dates, admit cards, answer keys and results for each recruitment, updated when the board issues a corrigendum or new notice.</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          2. How We Work
+        </h2>
+        <p>
+          Every listing is built from the official notification and links back to the recruiting authority's own website. Eligibility rules (age limits, category relaxations, domicile and qualification requirements) are applied by fixed rules taken from the notification, not by guesswork, so the same profile always gets the same answer. Read our <a href="/source-policy" class="text-primary hover:underline font-medium">Source Policy</a> for how records are checked before they go live.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          3. Free for Candidates
+        </h2>
+        <p>
+          GovtRecruitments does not charge candidates anything and does not need an account. We never collect application fees; all fees are paid only on official government portals. See our <a href="/privacy" class="text-primary hover:underline font-medium">Privacy Policy</a> for what data we handle.
+        </p>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          4. Independent, Not Government
+        </h2>
+        <div class="p-5 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-950 font-medium dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-100">
+          GovtRecruitments is an independent platform. It is not run by, endorsed by, or connected with the Government of India, any state or union-territory government, or any recruitment authority. Always confirm details in the official notification before applying. Read the full <a href="/disclaimer" class="underline">Disclaimer</a>.
+        </div>
+
+        <h2 class="text-lg font-bold text-foreground pt-4">
+          5. Get in Touch
+        </h2>
+        <p>
+          Found a wrong date, a missing recruitment, or a bug? <a href="/contact" class="text-primary hover:underline font-medium">Contact us</a> and we will look into it.
+        </p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
