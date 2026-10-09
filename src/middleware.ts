@@ -24,20 +24,10 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   const isAdminHost = isAdminSubdomain(hostname);
   const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
 
-  // Step 5: Subdomain Routing
-  // workers.dev only issues TLS for one level of subdomain (*.bhupendrawatti24.workers.dev).
-  // Second-level subdomains like admin.eligibility-engine.*.workers.dev have no cert → ERR_SSL.
-  // On workers.dev we skip the subdomain redirect and serve /admin directly on the main domain.
-  // On a real custom domain the redirect to admin.* still applies.
-  const isWorkersDev = hostname.endsWith('.workers.dev');
-
-  // On a custom-domain public host, send admin paths to the protected admin host.
-  if (!isAdminHost && !isLocal && !isWorkersDev && isAdminPath) {
-    // Case B: On a custom domain in production, redirect /admin on the main domain to the admin subdomain
-    const baseDomain = hostname.replace(/^www\./, '');
-    const redirectUrl = new URL(url.toString());
-    redirectUrl.hostname = `admin.${baseDomain}`;
-    return Response.redirect(redirectUrl.toString(), 302);
+  // The admin panel is served only from the admin.* subdomain (behind Cloudflare Access).
+  // On every other production host, /admin does not exist, so it is not advertised or probeable.
+  if (!isAdminHost && !isLocal && isAdminPath) {
+    return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
 
   // Authenticate both /admin/* paths and clean URLs served from the admin subdomain.

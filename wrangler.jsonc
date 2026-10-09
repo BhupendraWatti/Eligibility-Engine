@@ -10,13 +10,16 @@
     "directory": "./dist",
     "binding": "ASSETS"
   },
-  // TODO: Uncomment after purchasing a domain and adding it to Cloudflare
-  // "routes": [
-  //   {
-  //     "pattern": "admin.YOUR_DOMAIN.com",
-  //     "custom_domain": true
-  //   }
-  // ],
+  "routes": [
+    {
+      "pattern": "govtrecruitments.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "admin.govtrecruitments.com",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
