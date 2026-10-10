@@ -6,6 +6,7 @@ import StatePicker from '../../components/common/StatePicker.astro';
 import { listPublicRecruitments, type RelevanceTiers } from '../../services/public-listing';
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
 import type { RecruitmentWithDetails } from '../../db/queries';
+import { domicileScopeLabel } from '../../services/domicile-scope';
 
 // Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -41,7 +42,7 @@ const sections: JobSection[] = tiers
   ? [
       { key: 'home' as const, label: jurisdictionName(homeCode), rows: tiers.home, collapsed: false },
       { key: 'central' as const, label: 'Central Government', rows: tiers.central, collapsed: false },
-      { key: 'open' as const, label: 'Other states — open to all', rows: tiers.open, collapsed: false },
+      { key: 'open' as const, label: 'Other states — open or not yet checked', rows: tiers.open, collapsed: false },
       { key: 'locked' as const, label: 'Other states — domicile required', rows: tiers.locked, collapsed: true },
     ].filter(section => section.rows.length > 0 || section.key === 'home')
   : [{ key: 'all', label: null, rows: filteredRecruitments, collapsed: false }];
@@ -58,8 +59,7 @@ function hrefWithout(name: string): string {
 }
 
 function domicileLabel(job: RecruitmentWithDetails): string {
-  const domicile = job.criteria.domicileStateCode || (job.criteria.requiresMpDomicile ? job.stateCode : null);
-  return domicile ? `${domicile} Domicile` : 'Open All-India';
+  return domicileScopeLabel(job.criteria.domicileScope, job.stateName || jurisdictionName(job.stateCode));
 }
 
 // Format date helper

@@ -52,6 +52,7 @@ export interface RecruitmentValidationInput {
     ageRelaxationFemale?: number;
     ageRelaxationEws?: number;
     minQualificationLevel?: string;
+    domicileScope?: string;
     requiresMpDomicile?: boolean;
     requiresMpEmploymentReg?: boolean;
     requiresCpct?: boolean;
@@ -203,6 +204,9 @@ export function validateRecruitmentForPublication(
     checks.eligibility = 'FAIL';
   } else {
     const c = record.criteria;
+    if (c.domicileScope === 'UNKNOWN') {
+      warnings.push('Who may apply is not checked yet: the page will say "Domicile rule not checked, see notice". Set the domicile scope from the eligibility clause of the notice.');
+    }
     if (c.minAge === undefined || c.minAge < 14 || c.minAge > 45) {
       blockingErrors.push(`Invalid minimum age limit (${c.minAge}). Must be between 14 and 45.`);
       checks.eligibility = 'FAIL';

@@ -29,6 +29,9 @@ export interface RecruitmentCriteria {
   ageRelaxationFemale: number;
   ageRelaxationEws: number;
   minQualificationLevel: string;
+  /** Who may apply: UNKNOWN | STATE_ONLY | OPEN | OPEN_STATE_QUOTA. Absent (old callers) falls back to domicileStateCode. */
+  domicileScope?: 'UNKNOWN' | 'STATE_ONLY' | 'OPEN' | 'OPEN_STATE_QUOTA';
+  /** Legacy mirror of domicileScope; never read by the engine. */
   requiresMpDomicile: boolean;
   domicileStateCode?: string | null;
   requiresMpEmploymentReg: boolean;
@@ -138,10 +141,22 @@ export function evaluateEligibility(
     }
   }
 
-  // 2. Recruitment-jurisdiction domicile rule. Any state: domicileStateCode drives it; the legacy
-  // MP-named flags are kept only for API/database compatibility (a flag with no state means MP).
-  if (criteria.requiresMpDomicile || criteria.domicileStateCode) {
-    const requiredState = (criteria.domicileStateCode || 'MP').toUpperCase();
+  // 2. Who may apply (src/services/domicile-scope.ts). The state is always the recruitment's own: the writers store
+  // it as domicileStateCode for STATE_ONLY and as reservationStateCode for every scope except OPEN.
+  const scope = criteria.domicileScope ?? (criteria.domicileStateCode ? 'STATE_ONLY' : undefined);
+  const recruitmentState = (criteria.domicileStateCode || criteria.reservationStateCode || '').toUpperCase();
+  if (scope === 'UNKNOWN' && recruitmentState && domicile !== recruitmentState) {
+    // Not checked yet: a home-state candidate passes under every scope; anyone else is told to check the notice.
+    items.push({
+      ruleName: 'State Domicile',
+      status: 'UNKNOWN',
+      userValue: domicile ? jurisdictionName(domicile) : 'Not provided',
+      requirement: 'Domicile rule not checked yet',
+      message: `Check the official notice: we have not yet confirmed whether candidates from outside ${jurisdictionName(recruitmentState)} may apply.`,
+    });
+  }
+  if (scope === 'STATE_ONLY' && recruitmentState) {
+    const requiredState = recruitmentState;
     const candidateState = domicile;
     if (!candidateState) {
       items.push({

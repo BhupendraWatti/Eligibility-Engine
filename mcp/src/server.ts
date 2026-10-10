@@ -125,7 +125,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       description:
         'Queue a field-level change to an EXISTING recruitment for owner approval. Does NOT change the live site. ' +
         'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification), ' +
-        'Eligibility (age, relaxations, qualification, domicile, physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
+        'Eligibility (age, relaxations, qualification, domicileScope = who may apply: STATE_ONLY / OPEN / OPEN_STATE_QUOTA, see get_domain_schema eligibilityNotes; physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
         `Allowed fields in "changes": ${editable}. ` +
         'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write every text field in plain, simple English, translating notices in Hindi, Gujarati or any other language (text in another script is refused; evidence snippets and advtNumber stay as printed): plain factual statements taken from the notice, no promotional tone, no guesses. ' +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
@@ -154,7 +154,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
         'If the post or organisation is missing, queue it with propose_master in the same run and pass the returned proposal id (prop_...) instead: the owner approves the masters first, then this recruitment. ' +
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
-        'Only recruitments selected by a written or computer-based exam (selectionStages must show it, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
+        'Only recruitments selected by a written or computer-based exam (selectionStages must be given, else SELECTION_STAGES_REQUIRED, and must show the exam, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
         'officialLinks must include an APPLY_ONLINE link to the page where candidates fill the form, not a PDF (else APPLY_LINK_REQUIRED / INVALID_LINK). ' +
         'Every source and evidence sourceUrl must be on a government domain (.gov.in, .nic.in, .ac.in ...) or the organisation\'s own website, else UNOFFICIAL_SOURCE. ' +
         'A CONFIRMED_DUPLICATE is refused (same advt number, source URL, or same organisation with a near-identical name in an overlapping apply window or the same vacancies and last date); to add its new source, propose_recruitment_update on the matched record. A possible duplicate is queued with a warning for the reviewer.',
@@ -205,7 +205,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / SELECTION_STAGES_REQUIRED / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK / FIELD_RETIRED / DOMICILE_SCOPE_INVALID / DOMICILE_CLAUSE_MISMATCH) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
         'a before/after row per field and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),
@@ -282,7 +282,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Resolve a master entity',
       description:
         'Look up a state, organisation, department, sector or canonical post by exact name, slug, short name or code. READ-only. ' +
-        'Returns status MATCH (use entity.id), AMBIGUOUS (several exact matches: ask, never pick) or NOT_FOUND (suggestions are for a human; the master must be added by an admin, never invented).',
+        'Returns status MATCH (use entity.id), AMBIGUOUS (several exact matches: stop and report, never pick) or NOT_FOUND (never invent an id: queue the missing master with propose_master and use the returned proposal id; suggestions are only hints).',
       inputSchema: { type: entityType, query: text },
       annotations: read,
     },

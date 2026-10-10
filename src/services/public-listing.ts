@@ -103,10 +103,10 @@ export async function loadPublicRecruitments(
   return merged;
 }
 
+/** Only a checked STATE_ONLY scope locks; "not checked yet" stays visible in the open tier (its label says so). */
 export function isDomicileLocked(rec: RecruitmentWithDetails, homeCode: string | null): boolean {
-  const domicile = rec.criteria.domicileStateCode?.toUpperCase()
-    || (rec.criteria.requiresMpDomicile ? rec.stateCode?.toUpperCase() : undefined);
-  return Boolean(domicile) && domicile !== homeCode;
+  if (rec.criteria.domicileScope !== 'STATE_ONLY') return false;
+  return rec.stateCode?.toUpperCase() !== homeCode;
 }
 
 /** Splits rows into Relevance Tiers, keeping input order within each tier. Null without a Home State. */
@@ -120,6 +120,8 @@ export function rankByRelevance(rows: RecruitmentWithDetails[], homeCode: string
     else if (isDomicileLocked(rec, homeCode)) tiers.locked.push(rec);
     else tiers.open.push(rec);
   }
+  // Within the open tier, checked rows come before "not checked yet" ones (stable, keeps page sort otherwise).
+  tiers.open = [...tiers.open.filter(r => r.criteria.domicileScope !== 'UNKNOWN'), ...tiers.open.filter(r => r.criteria.domicileScope === 'UNKNOWN')];
   return tiers;
 }
 

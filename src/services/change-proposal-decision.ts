@@ -146,9 +146,8 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
     specialConditionsNotes: c.specialConditionsNotes ?? undefined,
     experienceMonths: c.experienceMonths,
     allowedStreams: c.allowedStreams ?? undefined,
-    requiresMpDomicile: c.requiresMpDomicile,
-    domicileStateCode: c.domicileStateCode ?? null,
-    reservationStateCode: c.reservationStateCode ?? null,
+    // Carried so an update that does not mention it keeps the checked scope; the writer derives the legacy columns.
+    domicileScope: c.domicileScope,
     qualificationByCategory: c.qualificationByCategory ?? null,
     requiresMpEmploymentReg: c.requiresMpEmploymentReg,
     employmentRegistrationLabel: c.employmentRegistrationLabel ?? null,

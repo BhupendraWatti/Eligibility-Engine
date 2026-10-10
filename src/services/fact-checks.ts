@@ -194,3 +194,67 @@ export function checkFacts(payload: Record<string, unknown>, evidence: CheckEvid
     handwritten: pick(c => c.handwritten),
   };
 }
+
+// --- Domicile clause (docs/designs/domicile-scope.md) -------------------------------------------------------------
+// The word "domicile" in a notice usually means "bring a certificate to claim your quota", and the citizenship line
+// is in every notice, locked or not. So a quote is classified by what its sentences say about candidates from other
+// states, never by a keyword. Anything unclear is refused upstream: the row stays "Not checked yet".
+
+export type DomicileClauseClass = 'STATE_ONLY' | 'OPEN_STATE_QUOTA' | 'OPEN' | 'UNCLEAR';
+
+/** Shared with tests and the MCP docs. Latin and Devanagari only; other scripts classify as UNCLEAR. */
+export const DOMICILE_PHRASES = {
+  outsider: /candidates?\s+(?:of|from|belonging\s+to)\s+(?:any\s+)?other\s+states?|outside\s+the\s+state|other\s+than\s+(?:the\s+)?domiciles?|अन्य\s*राज्य/i,
+  benefit: /reservation|relaxation|benefit\s+of|आरक्षण|छूट/i,
+  bar: /\bonly\b|\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|केवल|पात्र\s*नहीं/i,
+  outsiderBar: /\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|cannot\s+apply|can\s*not\s+apply|पात्र\s*नहीं/i,
+  residence: /domicile|\bresidents?\b|bona\s*fide|\bnative\b|मूल\s*निवासी|निवासी/i,
+  exclusion: /certificate|प्रमाण\s*पत्र|(?:native|local|regional)\s+language|mother\s+tongue|स्थानीय\s+भाषा/i,
+  genericState: /\b(?:the|this)\s+state\b|राज्य|प्रदेश/i,
+  open: /candidates?\s+(?:of|from)\s+any\s+state|candidates?\s+(?:of|from)\s+other\s+states?\s+(?:may|can)\s+(?:also\s+)?apply|domicile\s+is\s+not\s+(?:required|necessary|mandatory)|(?:on\s+an?\s+)?all[\s-]india\s+basis|सभी\s+राज्यों\s+के\s+अभ्यर्थी/i,
+};
+
+/** Sentences split on . ? । and line breaks, never on ; or , (a quota clause often joins its halves with ;). */
+export function clauseSentences(text: string): string[] {
+  return text.split(/[.?।\n]+/).map(s => s.trim()).filter(Boolean);
+}
+
+export interface DomicileClauseResult { classification: DomicileClauseClass; signals: string[] }
+
+/** What a quoted eligibility clause says about candidates from other states. */
+export function classifyDomicileClause(snippet: string, stateName?: string | null): DomicileClauseResult {
+  const P = DOMICILE_PHRASES;
+  const sentences = clauseSentences(snippet);
+  const signals: string[] = [];
+  const nameRe = stateName ? new RegExp(stateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*'), 'i') : null;
+  const refersToState = (s: string) => (nameRe?.test(s) ?? false) || P.genericState.test(s);
+
+  let lock = false, quota = false, open = false;
+  for (const s of sentences) {
+    const outsider = P.outsider.test(s);
+    const benefit = P.benefit.test(s);
+    if (outsider && benefit) { quota = true; signals.push('benefit limited, outsiders still apply'); continue; }
+    if (P.exclusion.test(s)) { signals.push('certificate or language wording (never a lock)'); continue; }
+    if (benefit) continue; // a bar on a benefit is not a bar on applying
+    const bar = P.bar.test(s);
+    // "Candidates of other states may only apply for unreserved posts" is not a bar: outsiders need an explicit "not eligible".
+    if ((bar && P.residence.test(s) && refersToState(s)) || (outsider && P.outsiderBar.test(s))) { lock = true; signals.push('outsiders barred'); continue; }
+    if (P.open.test(s)) { open = true; signals.push('other-state candidates may apply'); }
+  }
+  if (!sentences.length) signals.push('empty quote');
+  const classification: DomicileClauseClass =
+    lock && !quota ? 'STATE_ONLY'
+      : quota && !lock ? 'OPEN_STATE_QUOTA'
+        : open && !lock && !quota ? 'OPEN'
+          : 'UNCLEAR';
+  if (classification === 'UNCLEAR' && !signals.length) signals.push('no sentence about candidates from other states');
+  if (lock && quota) signals.push('both a bar and a quota sentence');
+  return { classification, signals };
+}
+
+/** One sentence per scope that passes, for refusal messages. */
+export const DOMICILE_CLAUSE_EXAMPLES: Record<Exclude<DomicileClauseClass, 'UNCLEAR'>, string> = {
+  STATE_ONLY: 'Only bona fide residents of the State are eligible to apply.',
+  OPEN_STATE_QUOTA: 'Candidates of other states may apply but will not get the benefit of reservation.',
+  OPEN: 'Candidates from other states may also apply.',
+};

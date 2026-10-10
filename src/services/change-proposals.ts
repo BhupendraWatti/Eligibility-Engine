@@ -11,7 +11,9 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb, schema } from '../db/client';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllOrganisations, getRecruitmentById, type RecruitmentWithDetails } from '../db/queries';
 import { detectDuplicates, type DuplicateCheckResult, type RecruitmentCandidate } from './duplicate-detector';
-import { checkFacts, type FactCheckSummary } from './fact-checks';
+import { checkFacts, classifyDomicileClause, DOMICILE_CLAUSE_EXAMPLES, type FactCheckSummary } from './fact-checks';
+import { CENTRAL_CODE, PROPOSABLE_DOMICILE_SCOPES, RETIRED_DOMICILE_FIELDS, stateCodeForId } from './domicile-scope';
+import { jurisdictionName } from '../data/india-jurisdictions';
 import { isPdfUrl } from './cadre-guide';
 import type { Actor } from './recruitment-query';
 
@@ -33,7 +35,8 @@ export class InvalidProposalError extends Error {}
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
     readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE'
-      | 'NO_EXAM_STAGE' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE',
+      | 'NO_EXAM_STAGE' | 'SELECTION_STAGES_REQUIRED' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE'
+      | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -79,8 +82,8 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   minQualificationLevel: { enum: QUALIFICATIONS },
   qualificationDetailsMarkdown: 'text', relaxationNotesMarkdown: 'text', specialConditionsNotes: 'text',
   experienceMonths: 'int', allowedStreams: 'stringList', additionalSkills: 'stringList',
-  requiresMpDomicile: 'bool', domicileStateCode: 'nullableString',
-  reservationStateCode: 'nullableStateCode', qualificationByCategory: 'categoryQualifications',
+  // Who may apply. The state is always the recruitment's own; the old domicile/reservation fields are retired.
+  domicileScope: { enum: PROPOSABLE_DOMICILE_SCOPES }, qualificationByCategory: 'categoryQualifications',
   requiresMpEmploymentReg: 'bool', employmentRegistrationLabel: 'nullableString', requiresCpct: 'bool',
   genderAllowed: { enum: GENDERS },
   minHeightMaleCm: 'nullableNumber', minHeightFemaleCm: 'nullableNumber', minChestMaleCm: 'nullableNumber',
@@ -255,6 +258,10 @@ export function sanitizeChanges(kind: ProposalKind, changes: unknown): Record<st
   if (!isObj(changes) || Object.keys(changes).length === 0) throw new InvalidProposalError('changes must be a non-empty object.');
   const allowed = kind === 'CREATE_RECRUITMENT' ? { ...EDITABLE_FIELDS, ...CREATE_ONLY_FIELDS } : EDITABLE_FIELDS;
   const out: Record<string, unknown> = {};
+  const retired = Object.keys(changes).filter(f => (RETIRED_DOMICILE_FIELDS as readonly string[]).includes(f));
+  if (retired.length) {
+    throw new ProposalBlockedError('FIELD_RETIRED', `${retired.join(', ')} ${retired.length > 1 ? 'are' : 'is'} retired. Use domicileScope instead: STATE_ONLY (only domiciles of the recruitment's own state may apply), OPEN (any Indian citizen may apply) or OPEN_STATE_QUOTA (anyone may apply; reservation and relaxations only for the state's domiciles). The state is always the recruitment's own. Leave domicileScope out when the notice does not say.`, { fields: retired });
+  }
   for (const [field, value] of Object.entries(changes)) {
     const spec = allowed[field];
     if (!spec) throw new InvalidProposalError(`Field "${field}" cannot be proposed.`);
@@ -428,6 +435,8 @@ export interface ProposalDeps {
   orgExists: (d1: D1Database, organisationId: string) => Promise<boolean>;
   /** The organisation's registered official website (its sources may live there). */
   orgWebsite: (d1: D1Database, organisationId: string) => Promise<string | undefined>;
+  /** The organisation's state code ('MP', 'IN'...), for the domicile checks. Optional: without it those checks use only the quote. */
+  orgStateCode?: (d1: D1Database, organisationId: string) => Promise<string | undefined>;
   checkDuplicate: (d1: D1Database, candidate: RecruitmentCandidate) => Promise<DuplicateCheckResult>;
   /** One audit_logs row (skipped notices). */
   audit: (d1: D1Database, entry: { by: string; entity: string; entityId: string; action: string; field: string | null; newValue: string | null; reason: string }) => Promise<void>;
@@ -508,6 +517,10 @@ export const defaultProposalDeps: ProposalDeps = {
   postExists: async (d1, postId) => (await getAllCanonicalPosts(d1)).some(p => p.id === postId && p.isActive !== 0),
   orgExists: async (d1, organisationId) => (await getAllOrganisations(d1)).some(o => o.id === organisationId),
   orgWebsite: async (d1, organisationId) => (await getAllOrganisations(d1)).find(o => o.id === organisationId)?.websiteUrl || undefined,
+  orgStateCode: async (d1, organisationId) => {
+    const stateId = (await getAllOrganisations(d1)).find(o => o.id === organisationId)?.stateId;
+    return stateId ? stateCodeForId(stateId) : undefined;
+  },
   checkDuplicate: async (d1, candidate) => {
     const [existing, orgs] = await Promise.all([getAllActiveRecruitments(d1, { includeUnpublished: true, limit: 250 }), getAllOrganisations(d1)]);
     const org = orgs.find(o => o.id === candidate.organisationId);
@@ -575,7 +588,10 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   }
   const create = kind === 'CREATE_RECRUITMENT';
   const stages = payload.selectionStages as Array<{ name: string; desc: string }> | undefined;
-  if ((create || stages) && !(stages ?? []).some(isExamStage)) {
+  if (create && !stages?.length) {
+    throw new ProposalBlockedError('SELECTION_STAGES_REQUIRED', 'selectionStages is missing. Add every selection stage the notice lists (for example the written or computer-based exam), each with a name and desc, and quote them as evidence.');
+  }
+  if (stages && !stages.some(isExamStage)) {
     throw new ProposalBlockedError('NO_EXAM_STAGE', 'selectionStages must include a written or computer-based exam. Only government recruitments selected by such an exam are added; honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope in every state. Do not propose this one.');
   }
   if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
@@ -588,6 +604,26 @@ function requireOfficialSources(payload: Record<string, unknown>, evidence: Evid
   if (bad.length) {
     throw new ProposalBlockedError('UNOFFICIAL_SOURCE', `Sources and evidence must come from the recruiting body's official website or a government domain (.gov.in, .nic.in, .ac.in ...), never a job portal, coaching site or news page. Find the same notice on the official site and quote that instead: ${bad.join(', ')}`, { urls: bad });
   }
+}
+
+/**
+ * domicileScope must match what its quoted clause says (docs/designs/domicile-scope.md). Refuse mode: a mismatch or an
+ * unclear clause is refused, so a row the classifier cannot read stays "Not checked yet" instead of getting a wrong label.
+ */
+function checkDomicileScope(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined, stateCode: string | undefined) {
+  const scope = payload.domicileScope as string | undefined;
+  if (scope === undefined) return;
+  if (stateCode === CENTRAL_CODE) {
+    if (scope === 'OPEN') { delete payload.domicileScope; return; } // forced anyway: no evidence or clause check
+    throw new ProposalBlockedError('DOMICILE_SCOPE_INVALID', 'A Central Government recruitment is always open to every Indian citizen. Leave domicileScope out.', { domicileScope: scope });
+  }
+  const quotes = (evidence ?? []).filter(e => e.field === 'domicileScope' && e.snippet).map(e => e.snippet as string);
+  const stateName = stateCode ? jurisdictionName(stateCode) : null;
+  const results = quotes.map(q => classifyDomicileClause(q, stateName));
+  if (results.some(r => r.classification === scope)) return;
+  const seen = results.map(r => `${r.classification} (${r.signals.join('; ')})`).join(', ') || 'no quote';
+  const example = DOMICILE_CLAUSE_EXAMPLES[scope as keyof typeof DOMICILE_CLAUSE_EXAMPLES];
+  throw new ProposalBlockedError('DOMICILE_CLAUSE_MISMATCH', `domicileScope ${scope} is not what the quoted clause says: read as ${seen}. Quote the eligibility sentence about candidates from other states (a domicile certificate line or the citizenship line is not enough), for example: "${example}". If the notice does not say, leave domicileScope out.`, { domicileScope: scope, read: results });
 }
 
 function requireD1(d1: D1Database | undefined): D1Database {
@@ -619,11 +655,13 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   let baseSnapshot: Record<string, unknown> | null = null;
   let duplicateWarning: DuplicateCheckResult | undefined;
   let diff: DiffRow[] | undefined;
+  let stateCode: string | undefined;
   if (input.kind === 'UPDATE_RECRUITMENT') {
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
     checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
+    stateCode = current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
     // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
     const hadApply = (current.officialLinksList ?? []).some(l => l.isActive !== 0 && l.linkType === 'APPLY_ONLINE');
     const links = payload.officialLinks as Array<{ linkType: string }> | undefined;
@@ -656,6 +694,12 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
       ? (await deps.get(db, organisationId))?.payload.websiteUrl as string | undefined
       : await deps.orgWebsite(db, organisationId);
     requireOfficialSources(payload, evidence, website);
+    if (isProposalRef(organisationId)) {
+      const sid = (await deps.get(db, organisationId))?.payload.stateId;
+      stateCode = typeof sid === 'string' ? stateCodeForId(sid) : undefined;
+    } else {
+      stateCode = await deps.orgStateCode?.(db, organisationId);
+    }
     const sources = payload.sources as Array<{ sourceUrl: string }> | undefined;
     const window = { totalVacancies: payload.totalVacancies as number, applicationStart: payload.applicationStart as string | undefined, applicationEnd: payload.applicationEnd as string | undefined };
     const dup = await deps.checkDuplicate(db, {
@@ -683,6 +727,8 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
       throw new ProposalBlockedError('CONFIRMED_DUPLICATE', 'The same recruitment is already waiting as a PENDING proposal. Withdraw it first.', { pendingProposalIds: pendingDup.matches.map(m => m.matchedRecruitmentId), matches: pendingDup.matches });
     }
   }
+
+  checkDomicileScope(payload, evidence, stateCode);
 
   const id = `prop_${crypto.randomUUID()}`;
   const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: null, proposedBy: actor.id };

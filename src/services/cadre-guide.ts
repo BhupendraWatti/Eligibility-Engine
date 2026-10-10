@@ -131,10 +131,10 @@ function newestFirst(a: RecruitmentWithDetails, b: RecruitmentWithDetails): numb
 function requirementsOf(r: RecruitmentWithDetails): string[] {
   const c = r.criteria;
   const out: string[] = [];
-  if (c.domicileStateCode || c.requiresMpDomicile) {
-    // Mirrors the engine: the legacy MP flag means MP when no state code is stored.
-    out.push(`Domicile certificate of ${jurisdictionName(c.domicileStateCode || 'MP')}`);
-  }
+  // Who may apply (src/services/domicile-scope.ts); the state is always the recruitment's own.
+  const domicileState = c.domicileStateCode || c.reservationStateCode || r.stateCode;
+  if (c.domicileScope === 'STATE_ONLY' && domicileState) out.push(`Domicile certificate of ${jurisdictionName(domicileState)}`);
+  if (c.domicileScope === 'OPEN_STATE_QUOTA' && domicileState) out.push(`Domicile certificate of ${jurisdictionName(domicileState)} (only to claim reservation)`);
   if (c.requiresMpEmploymentReg) out.push('Live employment office registration');
   if (c.requiresCpct) out.push('CPCT certificate');
   if (c.genderAllowed === 'MALE') out.push('Open to men only');

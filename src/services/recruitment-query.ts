@@ -64,6 +64,8 @@ export interface RecruitmentSummary {
   department: { name: string; slug: string | null } | null;
   sector: { name: string; slug: string | null } | null;
   jurisdiction: { stateCode: string | null; stateName: string | null };
+  /** Who may apply: UNKNOWN (not checked yet) | STATE_ONLY | OPEN | OPEN_STATE_QUOTA, always about the recruitment's own state. */
+  domicileScope: string;
   canonicalPost: { title: string; slug: string };
   cycleYear: number;
   lifecycle: CanonicalLifecycle;
@@ -148,6 +150,7 @@ export function toSummary(r: RecruitmentWithDetails): RecruitmentSummary {
     department: r.departmentName ? { name: r.departmentName, slug: r.departmentSlug ?? null } : null,
     sector: r.sectorName ? { name: r.sectorName, slug: r.sectorSlug ?? null } : null,
     jurisdiction: { stateCode: r.stateCode ?? null, stateName: r.stateName ?? null },
+    domicileScope: r.criteria?.domicileScope ?? 'UNKNOWN',
     canonicalPost: { title: r.postTitle, slug: r.postSlug },
     cycleYear: r.cycleYear,
     lifecycle: r.resolvedLifecycle,

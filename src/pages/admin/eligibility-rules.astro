@@ -4,6 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../components/admin/AgeRangeGuard.astro';
 import { getAllActiveRecruitments, getAllStates, updateRecruitmentEligibility } from '../../db/queries';
 import { parseBooleanInput, parseIntegerInput, readAdminSubmission } from '../../services/admin-integrity';
+import { DOMICILE_SCOPE_OPTIONS, domicileScopeLabel, isDomicileScope } from '../../services/domicile-scope';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
 const states = await getAllStates();
@@ -15,14 +16,14 @@ if (Astro.request.method === 'POST') {
   try {
     if (!selectedRec || !Astro.locals.adminEmail) throw new Error('An authenticated admin and recruitment are required.');
     const input = await readAdminSubmission(Astro.request);
-    const domicileStateCode = input.text('domicileStateCode') || null;
+    const scopeInput = input.text('domicileScope');
+    const domicileScope = isDomicileScope(scopeInput) ? scopeInput : (selectedRec.criteria.domicileScope ?? 'UNKNOWN');
     await updateRecruitmentEligibility(selectedRec.id, {
       minAge: parseIntegerInput(input.value('minAge'), selectedRec.criteria.minAge),
       maxAgeGeneral: parseIntegerInput(input.value('maxAgeGeneral'), selectedRec.criteria.maxAgeGeneral),
       ageCutoffDate: input.text('ageCutoffDate') || selectedRec.criteria.ageCutoffDate,
       minQualificationLevel: input.text('minQualificationLevel') || selectedRec.criteria.minQualificationLevel,
-      requiresMpDomicile: Boolean(domicileStateCode),
-      domicileStateCode,
+      domicileScope,
       requiresMpEmploymentReg: parseBooleanInput(input.value('requiresMpEmploymentReg')),
       employmentRegistrationLabel: input.text('employmentRegistrationLabel') || null,
       adminEmail: Astro.locals.adminEmail,
@@ -241,7 +242,7 @@ if (Astro.request.method === 'POST') {
               </div>
               <div>
                 <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Target Value</label>
-                <select name="domicileStateCode" class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-medium"><option value="">Open to all India</option>{states.filter(state => state.code !== 'IN').map(state => <option value={state.code} selected={selectedRec?.criteria.domicileStateCode === state.code}>{state.name} ({state.code})</option>)}</select>
+                <select name="domicileScope" disabled={selectedRec?.stateCode === 'IN'} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-medium">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={(selectedRec?.criteria.domicileScope ?? 'UNKNOWN') === option.value}>{option.label}</option>)}</select>
               </div>
             </div>
           </div>
@@ -268,7 +269,7 @@ if (Astro.request.method === 'POST') {
           </div>
 
           <p class="text-xs text-zinc-700 leading-relaxed bg-zinc-50 p-3 rounded-lg border border-zinc-200 font-sans">
-            Candidate must have at least <strong>{selectedRec?.criteria.minQualificationLevel}</strong>, be aged <strong>{selectedRec?.criteria.minAge}–{selectedRec?.criteria.maxAgeGeneral}</strong> on the cutoff date{selectedRec?.criteria.domicileStateCode ? `, and hold ${states.find(state => state.code === selectedRec.criteria.domicileStateCode)?.name || selectedRec.criteria.domicileStateCode} domicile` : ''}.
+            Candidate must have at least <strong>{selectedRec?.criteria.minQualificationLevel}</strong>, be aged <strong>{selectedRec?.criteria.minAge}–{selectedRec?.criteria.maxAgeGeneral}</strong> on the cutoff date{selectedRec?.criteria.domicileScope === 'STATE_ONLY' ? `, and hold ${selectedRec.stateName || selectedRec.stateCode} domicile` : ''}.
           </p>
 
           <!-- Validation Notice Callout -->
@@ -297,7 +298,7 @@ if (Astro.request.method === 'POST') {
             </div>
             <div class="flex justify-between py-1 border-b border-zinc-100">
               <span class="text-zinc-500">Domicile:</span>
-              <span class="font-mono font-semibold">{selectedRec?.criteria.domicileStateCode || 'Any Indian state'}</span>
+              <span class="font-mono font-semibold">{domicileScopeLabel(selectedRec?.criteria.domicileScope, selectedRec?.stateName || selectedRec?.stateCode || 'this state')}</span>
             </div>
             <div class="mt-2 pt-2 flex items-center justify-between font-bold">
               <span class="text-zinc-800">Deterministic Match:</span>
