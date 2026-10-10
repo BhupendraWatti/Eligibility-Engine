@@ -2,7 +2,7 @@
 // src/pages/admin/pending-changes.astro
 // Human approval queue for changes proposed by the private MCP. Nothing here is live until an admin approves it.
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getAdminD1, getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllStates, getRecruitmentById } from '../../db/queries';
+import { getAdminD1, getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates, getRecruitmentById } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
 import { MASTER_PROPOSAL_KINDS, buildDiff, createdMasterId, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
 import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
@@ -132,17 +132,18 @@ const items = await Promise.all(proposals.map(async (p) => {
 // Parent ids are shown as their full chain (state › organisation › department › post), so a same-named master in
 // another state is not mistaken for a duplicate. Pending parents (prop_…) are named from their own payload.
 type MasterNode = { name: string; up?: string };
-const PARENT_FIELDS = new Set(['stateId', 'organisationId', 'departmentId', 'postId']);
+const PARENT_FIELDS = new Set(['stateId', 'sectorId', 'organisationId', 'departmentId', 'postId']);
 const masterNodes = new Map<string, MasterNode>();
 if (d1 && proposals.some(p => Object.keys(p.payload).some(k => PARENT_FIELDS.has(k)))) {
-  const [states, orgs, depts, posts] = await Promise.all([
+  const [states, orgs, depts, posts, sectors] = await Promise.all([
     getAllStates(d1, { includeInactive: true }), getAllOrganisations(d1, { includeInactive: true }),
-    getAllDepartments(d1, { includeInactive: true }), getAllCanonicalPosts(d1),
+    getAllDepartments(d1, { includeInactive: true }), getAllCanonicalPosts(d1), getAllSectors(d1, { includeInactive: true }),
   ]).catch(error => {
     console.error('[admin/pending-changes] master names unavailable', error);
-    return [[], [], [], []] as const;
+    return [[], [], [], [], []] as const;
   });
   for (const s of states) masterNodes.set(s.id, { name: s.name });
+  for (const s of sectors) masterNodes.set(s.id, { name: `Sector: ${s.name}` });
   for (const o of orgs) masterNodes.set(o.id, { name: o.name, up: o.stateId });
   for (const d of depts) masterNodes.set(d.id, { name: d.name, up: d.organisationId });
   for (const p of posts) masterNodes.set(p.id, { name: p.title, up: p.departmentId });
@@ -240,7 +241,7 @@ const badge: Record<string, string> = {
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
               <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : p.kind === 'UPDATE_RECRUITMENT' ? 'Update' : p.kind === 'CREATE_ORGANISATION' ? 'New organisation (master)' : p.kind === 'CREATE_DEPARTMENT' ? 'New department (master)' : 'New post (master)'}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : p.kind === 'UPDATE_RECRUITMENT' ? 'Update' : p.kind === 'CREATE_SECTOR' ? 'New sector (master)' : p.kind === 'CREATE_ORGANISATION' ? 'New organisation (master)' : p.kind === 'CREATE_DEPARTMENT' ? 'New department (master)' : 'New post (master)'}</span>
               {checks.total > 0 && (
                 <span title="Counted by machine: a field passes only when its number, date or advertisement number appears in the quoted text. It does not prove the quote is in the document." class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${checks.notInQuote.length ? 'bg-rose-50 text-rose-700 border-rose-200' : checks.matched === checks.total ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>machine-checked {checks.matched} of {checks.total}</span>
               )}

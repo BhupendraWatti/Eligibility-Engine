@@ -7,6 +7,7 @@ import { getAllActiveRecruitments } from '../../src/db/queries';
 import { detectDuplicates } from '../../src/services/duplicate-detector';
 import {
   checkMcpScope,
+  isOfficialUrl,
   createProposal,
   sanitizeChanges,
   type NewProposal,
@@ -61,6 +62,7 @@ async function run() {
     posts: async () => [],
     stateIds: async () => ['st_mp', 'st_in'],
     sectorIds: async () => ['sec_admin'],
+    sectors: async () => [{ id: 'sec_police', name: 'Police, Defence & Prisons', slug: 'police-defence-prisons' }, { id: 'sec_bank', name: 'Banking & Financial Services', slug: 'banking-financial-services' }],
   };
   const inserted: NewProposal[] = [];
   const store: ProposalRow[] = [];
@@ -75,6 +77,7 @@ async function run() {
     withdraw: async () => true,
     postExists: async () => true,
     orgExists: async () => true,
+    orgWebsite: async () => 'https://esb.mp.gov.in/',
     checkDuplicate: async () => ({ status: 'NO_DUPLICATE', matches: [], summary: '' }),
     audit: async (_d, e) => { audits.push(e); },
   });
@@ -341,6 +344,45 @@ async function run() {
   try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'again', ...full({ ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'new', sourceUrl: 'https://x.gov.in/new.pdf' }] }) }, dupDeps); } catch (e) { dupErr = e; }
   assert(dupErr?.code === 'CONFIRMED_DUPLICATE' && dupErr.details.matches[0].matchedRecruitmentId === 'rec_live' && dupStore.length === 0,
     'a confirmed duplicate is refused, names the existing record, and queues nothing');
+
+  // ── 10. Sectors: proposed only when nothing similar exists; a post can be queued under a pending sector ─────────────
+  const sectorFields = (name: string) => ({ name, description: 'Railway jobs across India.', icon: 'train', theme: 'cyan' });
+  let sec = await proposeMaster(d1, proposer, { type: 'sector', summary: 'x', fields: sectorFields('Police, Defence & Prisons'), dryRun: true }, deps, masters);
+  assert(sec.status === 'MATCH', 'an existing sector is matched by name and reused');
+  sec = await proposeMaster(d1, proposer, { type: 'sector', summary: 'x', fields: sectorFields('Defence and Police Services'), dryRun: true }, deps, masters);
+  assert(sec.status === 'POSSIBLE_MATCH' && !sec.queued, 'a reworded sector ("Defence and Police Services") is a POSSIBLE_MATCH and is not queued');
+  sec = await proposeMaster(d1, proposer, { type: 'sector', summary: 'x', fields: sectorFields('Banking & Finance'), dryRun: true }, deps, masters);
+  assert(sec.status === 'POSSIBLE_MATCH', '"Banking & Finance" meets "Banking & Financial Services"');
+  let badSector = '';
+  try { await proposeMaster(d1, proposer, { type: 'sector', summary: 'x', fields: { ...sectorFields('Railways'), icon: 'rocket' } }, deps, masters); } catch (e: any) { badSector = e.message; }
+  assert(badSector.startsWith('icon must be one of'), 'a sector icon outside the design set is refused');
+  const before = inserted.length;
+  sec = await proposeMaster(d1, proposer, { type: 'sector', summary: 'Add Railways', fields: sectorFields('Railways & Transport') }, deps, masters);
+  assert(sec.status === 'NOT_FOUND' && sec.queued && inserted[before].kind === 'CREATE_SECTOR' && inserted[before].payload.slug === 'railways-transport', 'a genuinely new sector queues one CREATE_SECTOR proposal');
+  sec = await proposeMaster(d1, proposer, { type: 'sector', summary: 'Add Railway', fields: sectorFields('Railway Services') }, deps, masters);
+  assert(sec.status === 'POSSIBLE_MATCH' && !sec.queued && inserted.length === before + 1, 'a similar sector already waiting in the queue is not queued again');
+  const SEC = 'prop_00000000-0000-4000-8000-000000000009';
+  const secRow = queuedRow(SEC, 'CREATE_SECTOR', { ...sectorFields('Railways & Transport'), slug: 'railways-transport' });
+  const secDeps: ProposalDeps = { ...deps, get: async (_d, id) => (id === SEC ? secRow : undefined) };
+  const railPost = await proposeMaster(d1, proposer, { type: 'post', summary: 'Add post', fields: { departmentId: 'dept_gad', sectorId: SEC, title: 'Loco Pilot' } }, secDeps, masters);
+  assert(railPost.status === 'NOT_FOUND' && railPost.queued && inserted[inserted.length - 1].payload.sectorId === SEC, 'a post can be queued under a sector that is still a pending proposal');
+  const madeSectors: string[] = [];
+  const secDecision: DecisionDeps = { ...decision, get: async () => secRow, finalize: async () => true, createMaster: async kind => { madeSectors.push(kind); return 'sec_new'; } };
+  r = await approveProposal(d1, SEC, 'admin@x.in', {}, secDecision);
+  assert(r.ok && r.createdId === 'sec_new' && madeSectors.join() === 'CREATE_SECTOR', 'approving a sector proposal creates the sector');
+  madeSectors.length = 0;
+  r = await approveProposal(d1, SEC, 'admin@x.in', {}, { ...secDecision, masters: { ...masters, sectors: async () => [{ id: 'sec_rail', name: 'Railway Jobs', slug: 'railway-jobs' }] } });
+  assert(!r.ok && madeSectors.length === 0, 'a sector is not created when a similar one appeared before approval');
+
+  // ── 11. Sources must be official ─────────────────────────────────────────────────────────────────
+  assert(isOfficialUrl('https://ssc.gov.in/notice.pdf') && isOfficialUrl('https://mponline.gov.in/x') && isOfficialUrl('https://recruitment.nta.ac.in/'), 'government and academic domains are official');
+  assert(isOfficialUrl('https://ibpsonline.ibps.in/crp', 'https://www.ibps.in/') && isOfficialUrl('https://sbi.co.in/careers', 'https://bank.sbi.co.in'), "a sub-site of the organisation's own website is official");
+  assert(!isOfficialUrl('https://www.sarkariresult.com/ssc/') && !isOfficialUrl('https://example.co.in/x', 'https://sbi.co.in') && !isOfficialUrl('https://fakessc.gov.in.example.com/'), 'job portals, other .co.in sites and look-alike hosts are not official');
+  let unofficial = '';
+  try {
+    await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'portal', changes: asi.changes, evidence: asi.evidence.map(e => ({ ...e, sourceUrl: 'https://www.freejobalert.com/ssc' })) }, base());
+  } catch (e: any) { unofficial = e.code; }
+  assert(unofficial === 'UNOFFICIAL_SOURCE', 'a recruitment quoted from a job portal is refused as UNOFFICIAL_SOURCE');
 
   console.log('\nAll regression checks passed.');
 }

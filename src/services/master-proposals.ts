@@ -1,9 +1,9 @@
 /**
- * MasterProposalService (PROPOSE). The private MCP may ask for a missing canonical master (organisation, department, post);
+ * MasterProposalService (PROPOSE). The private MCP may ask for a missing canonical master (sector, organisation, department, post);
  * it never creates one.
  *
  *   MCP tool -> proposeMaster() -> resolve against existing masters -> change_proposals (PENDING, only when NOT_FOUND)
- *   Admin    -> approveProposal() -> createOrganisation / createDepartment / createCanonicalPost
+ *   Admin    -> approveProposal() -> createSector / createOrganisation / createDepartment / createCanonicalPost
  *
  * Like change-proposals.ts this module must NOT import the master writers (the MCP bundles it).
  */
@@ -22,16 +22,19 @@ import {
   type ProposalDeps,
 } from './change-proposals';
 import type { Actor } from './recruitment-query';
+import { SECTOR_ICONS, SECTOR_THEMES } from './sector-theme';
 
-export const MASTER_TYPES = ['organisation', 'department', 'post'] as const;
+export const MASTER_TYPES = ['sector', 'organisation', 'department', 'post'] as const;
 export type MasterType = (typeof MASTER_TYPES)[number];
 
 export const MASTER_KIND: Record<MasterType, MasterProposalKind> = {
+  sector: 'CREATE_SECTOR',
   organisation: 'CREATE_ORGANISATION',
   department: 'CREATE_DEPARTMENT',
   post: 'CREATE_POST',
 };
 export const MASTER_TYPE_OF_KIND: Record<MasterProposalKind, MasterType> = {
+  CREATE_SECTOR: 'sector',
   CREATE_ORGANISATION: 'organisation',
   CREATE_DEPARTMENT: 'department',
   CREATE_POST: 'post',
@@ -51,6 +54,8 @@ export interface MasterRecord {
 
 /** Everything the matcher needs to see, loaded once. Replaceable in tests. */
 export interface MasterDeps {
+  /** Every sector, hidden ones included: a hidden sector must be reactivated, not created again. */
+  sectors: (d1: D1Database) => Promise<MasterRecord[]>;
   organisations: (d1: D1Database) => Promise<MasterRecord[]>;
   departments: (d1: D1Database) => Promise<MasterRecord[]>;
   posts: (d1: D1Database) => Promise<MasterRecord[]>;
@@ -59,6 +64,7 @@ export interface MasterDeps {
 }
 
 export const defaultMasterDeps: MasterDeps = {
+  sectors: async d1 => (await getAllSectors(d1, { includeInactive: true })).map(s => ({ id: s.id, name: s.name, slug: s.slug })),
   organisations: async d1 => (await getAllOrganisations(d1)).map(o => ({ id: o.id, name: o.name, slug: o.slug, shortName: o.shortName, stateId: o.stateId, websiteUrl: o.websiteUrl })),
   departments: async d1 => (await getAllDepartments(d1)).map(d => ({ id: d.id, name: d.name, slug: d.slug, organisationId: d.organisationId })),
   posts: async d1 => (await getAllCanonicalPosts(d1)).filter(p => p.isActive !== 0).map(p => ({ id: p.id, name: p.title, slug: p.slug, departmentId: p.departmentId })),
@@ -79,9 +85,15 @@ const host = (u?: string) => { try { return new URL(u ?? '').hostname.replace(/^
 const slugify = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 const names = (e: MasterRecord) => [e.name, e.shortName, e.slug].map(norm).filter(Boolean);
 
+/** Words that say nothing about which field of work a sector is. */
+const SECTOR_FILLER = new Set(['and', 'of', 'the', 'for', 'in', 'services', 'service', 'sector', 'sectors', 'jobs', 'job', 'government', 'govt', 'public', 'department', 'departments', 'other', 'general', 'related', 'allied']);
+/** Significant words, cut to a 5-letter stem so "Finance" and "Financial", "Teacher" and "Teaching" meet. */
+const sectorWords = (v: string) => new Set(v.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !SECTOR_FILLER.has(w)).map(w => w.slice(0, 5)));
+
 /**
  * MATCH when a name, short name or slug is identical after normalisation within the same parent (state for an organisation,
- * organisation for a department, department for a post). POSSIBLE_MATCH when an organisation has the same name in another state,
+ * organisation for a department, department for a post; a sector has none). A sector sharing half its significant words with an
+ * existing one is a POSSIBLE_MATCH, so near-duplicates like "Police & Defence" / "Defence and Police Services" are never queued. POSSIBLE_MATCH when an organisation has the same name in another state,
  * or one name contains the other under the same parent, or an organisation shares the official website host. Anything else is NOT_FOUND:
  * a department or post with the same name under another parent belongs to another body or state and is not a duplicate.
  */
@@ -98,6 +110,12 @@ export function resolveMaster(type: MasterType, candidate: { name: string; short
     if (identical && sameParent) exactSame.push(e);
     else if (identical && type === 'organisation') possible.set(e.id, { rec: e, reason: `"${e.name}" has the same name under a different parent (${parentOf(e)}).` });
     else if (contained && sameParent) possible.set(e.id, { rec: e, reason: `"${e.name}" has a similar name.` });
+    else if (type === 'sector') {
+      // Sectors are few and national: sharing half the significant words means the same field of work.
+      const mine = sectorWords(candidate.name), theirs = sectorWords(e.name);
+      const shared = [...mine].filter(w => theirs.has(w));
+      if (shared.length && shared.length / Math.min(mine.size, theirs.size) >= 0.5) possible.set(e.id, { rec: e, reason: `"${e.name}" covers the same field of work. Reuse it unless the job clearly belongs elsewhere.` });
+    }
     else if (type === 'organisation' && candidate.websiteUrl && host(candidate.websiteUrl) && host(candidate.websiteUrl) === host(e.websiteUrl)) {
       possible.set(e.id, { rec: e, reason: `"${e.name}" uses the same official website (${host(e.websiteUrl)}).` });
     }
@@ -111,7 +129,7 @@ export function resolveMaster(type: MasterType, candidate: { name: string; short
 export interface MasterInput {
   type: MasterType;
   summary: string;
-  /** organisation: stateId, name, shortName, websiteUrl. department: organisationId, name, description?. post: departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?. */
+  /** sector: name, description, icon, theme. organisation: stateId, name, shortName, websiteUrl. department: organisationId, name, description?. post: departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?. */
   fields: unknown;
   evidence?: unknown;
   /** Resolve only; never queue. */
@@ -138,12 +156,21 @@ export function sanitizeMasterFields(type: MasterType, raw: unknown): Record<str
 function sanitizeMasterFieldsRaw(type: MasterType, raw: unknown): Record<string, unknown> {
   if (!isObj(raw)) throw new InvalidProposalError('fields must be an object.');
   const allowed: Record<MasterType, string[]> = {
+    sector: ['name', 'description', 'icon', 'theme'],
     organisation: ['stateId', 'name', 'shortName', 'websiteUrl'],
     department: ['organisationId', 'name', 'description'],
     post: ['departmentId', 'sectorId', 'title', 'summary', 'payScale', 'defaultMinAge', 'defaultMaxAge', 'defaultQualification'],
   };
   const unknown = Object.keys(raw).filter(k => !allowed[type].includes(k));
   if (unknown.length) throw new InvalidProposalError(`Field(s) cannot be proposed for a ${type}: ${unknown.join(', ')}. Allowed: ${allowed[type].join(', ')}.`);
+  if (type === 'sector') {
+    const name = text(raw.name, 'name', 80)!;
+    const icon = String(raw.icon ?? '');
+    const theme = String(raw.theme ?? '');
+    if (!(icon in SECTOR_ICONS)) throw new InvalidProposalError(`icon must be one of: ${Object.keys(SECTOR_ICONS).join(', ')}.`);
+    if (!(theme in SECTOR_THEMES)) throw new InvalidProposalError(`theme must be one of: ${Object.keys(SECTOR_THEMES).join(', ')}.`);
+    return { name, slug: slugify(name), description: text(raw.description, 'description', 300)!, icon, theme };
+  }
   if (type === 'organisation') {
     const websiteUrl = text(raw.websiteUrl, 'websiteUrl', 500)!;
     let u: URL;
@@ -192,7 +219,10 @@ export async function proposeMaster(
   // Parent / jurisdiction must exist, or (department, post) be a master proposal queued in the same run.
   let parentId: string;
   let existing: MasterRecord[];
-  if (input.type === 'organisation') {
+  if (input.type === 'sector') {
+    parentId = '';
+    existing = await masters.sectors(d1);
+  } else if (input.type === 'organisation') {
     parentId = payload.stateId as string;
     if (!(await masters.stateIds(d1)).includes(parentId)) throw new InvalidProposalError(`stateId "${parentId}" is not a state. Use resolve_entity(state).`);
     existing = await masters.organisations(d1);
@@ -204,18 +234,23 @@ export async function proposeMaster(
     parentId = payload.departmentId = isProposalRef(payload.departmentId) ? await checkParentRef(d1, deps, 'departmentId', payload.departmentId) : payload.departmentId as string;
     existing = await masters.posts(d1);
     if (!isProposalRef(parentId) && !(await masters.departments(d1)).some(x => x.id === parentId)) throw new InvalidProposalError(`departmentId "${parentId}" is not a department. Queue it with propose_master and pass the returned proposal id.`);
-    if (!(await masters.sectorIds(d1)).includes(payload.sectorId as string)) throw new InvalidProposalError(`sectorId "${payload.sectorId}" is not a sector. Use resolve_entity(sector).`);
+    if (isProposalRef(payload.sectorId)) payload.sectorId = await checkParentRef(d1, deps, 'sectorId', payload.sectorId);
+    else if (!(await masters.sectorIds(d1)).includes(payload.sectorId as string)) throw new InvalidProposalError(`sectorId "${payload.sectorId}" is not a sector. Use resolve_entity(sector); if NOT_FOUND, queue it with propose_master(sector) and pass the returned proposal id.`);
   }
   // Nothing can exist yet under a parent that is still waiting for approval, so only the queue is checked for it.
   if (isProposalRef(parentId)) existing = [];
 
-  const resolution = resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, websiteUrl: payload.websiteUrl as string | undefined, parentId }, existing);
+  const resolution = resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, websiteUrl: payload.websiteUrl as string | undefined, parentId: parentId || undefined }, existing);
   if (resolution.status !== 'NOT_FOUND') return { ...resolution, status: resolution.status, queued: false };
 
   // The same master may already be waiting in the queue (under the same parent).
   const kind = MASTER_KIND[input.type];
   const queued = (await deps.list(d1, { status: 'PENDING', limit: 250 })).filter(p => p.kind === kind && p.payload);
-  const clash = queued.find(p => resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, parentId }, [{ id: p.id, name: String(p.payload.name ?? p.payload.title ?? ''), slug: String(p.payload.slug ?? ''), shortName: p.payload.shortName as string | undefined, stateId: p.payload.stateId as string | undefined, organisationId: p.payload.organisationId as string | undefined, departmentId: p.payload.departmentId as string | undefined }]).status === 'MATCH');
+  // A sector has no parent to tell two apart, so a similar queued sector is a clash too.
+  const clash = queued.find(p => {
+    const status = resolveMaster(input.type, { name: (payload.name ?? payload.title) as string, shortName: payload.shortName as string | undefined, slug: payload.slug as string, parentId: parentId || undefined }, [{ id: p.id, name: String(p.payload.name ?? p.payload.title ?? ''), slug: String(p.payload.slug ?? ''), shortName: p.payload.shortName as string | undefined, stateId: p.payload.stateId as string | undefined, organisationId: p.payload.organisationId as string | undefined, departmentId: p.payload.departmentId as string | undefined }]).status;
+    return input.type === 'sector' ? status !== 'NOT_FOUND' : status === 'MATCH';
+  });
   if (clash) return { status: 'POSSIBLE_MATCH', queued: false, matches: [{ id: clash.id, name: String(clash.payload.name ?? clash.payload.title), slug: String(clash.payload.slug) }], reasons: [`Already waiting as PENDING proposal ${clash.id}.`] };
 
   if (input.dryRun) return { status: 'NOT_FOUND', queued: false, dryRun: true, payload };

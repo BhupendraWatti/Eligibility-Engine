@@ -23,6 +23,7 @@ import {
 } from '../../src/services/change-proposals';
 
 import { MASTER_TYPES, proposeMaster } from '../../src/services/master-proposals';
+import { SECTOR_ICONS, SECTOR_THEMES } from '../../src/services/sector-theme';
 import { checkLink } from './links';
 import { ENTITY_TYPES, SCOPE_RULES, getDomainSchema, listEntities, resolveEntity } from '../../src/services/reference-data';
 
@@ -155,6 +156,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
         'Only recruitments selected by a written or computer-based exam (selectionStages must show it, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
         'officialLinks must include an APPLY_ONLINE link to the page where candidates fill the form, not a PDF (else APPLY_LINK_REQUIRED / INVALID_LINK). ' +
+        'Every source and evidence sourceUrl must be on a government domain (.gov.in, .nic.in, .ac.in ...) or the organisation\'s own website, else UNOFFICIAL_SOURCE. ' +
         'A CONFIRMED_DUPLICATE is refused (same advt number, source URL, or same organisation with a near-identical name in an overlapping apply window or the same vacancies and last date); to add its new source, propose_recruitment_update on the matched record. A possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
@@ -169,13 +171,14 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   server.registerTool(
     'propose_master',
     {
-      title: 'Propose a missing master (organisation, department or post)',
+      title: 'Propose a missing master (sector, organisation, department or post)',
       description:
         'Resolve first, then queue a request to add a missing canonical master for owner approval. Returns MATCH (reuse entity.id), POSSIBLE_MATCH (a human decides) or NOT_FOUND. ' +
         'Only NOT_FOUND queues a proposal; nothing is created until an admin approves it in /admin/pending-changes, after which resolve_entity finds it. ' +
-        'An organisation needs an existing stateId and a post an existing sectorId (use resolve_entity). The organisationId of a department and the departmentId of a post may be an existing id OR the proposal id (prop_...) this tool returned for a parent queued in the same run, ' +
-        'so organisation -> department -> post -> propose_new_recruitment can all be queued at once; the owner approves them parent first. ' +
-        'fields: organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ' +
+        'An organisation needs an existing stateId (use resolve_entity). The organisationId of a department, and the departmentId and sectorId of a post, may be an existing id OR the proposal id (prop_...) this tool returned for a parent queued in the same run, ' +
+        'so sector -> organisation -> department -> post -> propose_new_recruitment can all be queued at once; the owner approves them parent first. ' +
+        'A sector is a national job family shown as a homepage card (e.g. "Police, Defence & Prisons", "Teaching & Education"). Propose one only after list_entities(sector) shows that no existing sector fits the job; a sector sharing half its words with an existing one is POSSIBLE_MATCH and is never queued: reuse that sector. ' +
+        `fields: sector {name, description (max 300 chars), icon (${Object.keys(SECTOR_ICONS).join('|')}), theme (${Object.keys(SECTOR_THEMES).join('|')})}; organisation {stateId, name, shortName, websiteUrl}; department {organisationId, name, description?}; post {departmentId, sectorId, title, summary?, payScale?, defaultMinAge?, defaultMaxAge?, defaultQualification?}. ` +
         'Names, descriptions and the summary must be in English (use the body\'s English name, or translate it). Masters belong to one state: the same post name in another state is not a duplicate, so queue the new state\'s own chain. ' +
         'Set dryRun=true to resolve without queuing. Include evidence (sourceUrl of the official site) for name and websiteUrl.',
       inputSchema: {
@@ -202,7 +205,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
         'a before/after row per field and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),

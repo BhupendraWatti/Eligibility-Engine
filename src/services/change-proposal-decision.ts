@@ -14,6 +14,8 @@ import {
   createOrganisation,
   createDepartment,
   createCanonicalPost,
+  createSector,
+  getAllSectors,
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
@@ -94,7 +96,12 @@ export const defaultDecisionDeps: DecisionDeps = {
   create: (input, d1) => createRecruitmentAtomic(input, d1),
   update: (id, input, d1) => updateRecruitmentAtomic(id, input, d1),
   masters: defaultMasterDeps,
-  createMaster: (kind, p, adminEmail, d1) => {
+  createMaster: async (kind, p, adminEmail, d1) => {
+    if (kind === 'CREATE_SECTOR') {
+      // A new sector goes to the end of the homepage list.
+      const order = (await getAllSectors(d1, { includeInactive: true })).length + 1;
+      return createSector({ name: p.name as string, slug: p.slug as string, description: p.description as string, icon: p.icon as string, theme: p.theme as string, displayOrder: order, isActive: 1, adminEmail }, d1);
+    }
     if (kind === 'CREATE_ORGANISATION') return createOrganisation({ stateId: p.stateId as string, name: p.name as string, shortName: p.shortName as string, slug: p.slug as string, websiteUrl: p.websiteUrl as string, adminEmail }, d1);
     if (kind === 'CREATE_DEPARTMENT') return createDepartment({ organisationId: p.organisationId as string, name: p.name as string, slug: p.slug as string, description: (p.description as string | undefined) ?? undefined, adminEmail }, d1);
     return createCanonicalPost({ departmentId: p.departmentId as string, sectorId: p.sectorId as string, title: p.title as string, slug: p.slug as string, summary: (p.summary as string) ?? '', payScale: (p.payScale as string | undefined) ?? null, defaultMinAge: p.defaultMinAge as number | undefined, defaultMaxAge: p.defaultMaxAge as number | undefined, defaultQualification: p.defaultQualification as string | undefined } as Parameters<typeof createCanonicalPost>[0], d1);
@@ -236,10 +243,12 @@ export async function approveProposal(
     if (isMasterKind(proposal.kind)) {
       // Re-check against the masters as they are now: someone may have added it since the proposal was queued.
       const type = MASTER_TYPE_OF_KIND[proposal.kind];
-      const existing: MasterRecord[] = await (type === 'organisation' ? deps.masters.organisations(d1) : type === 'department' ? deps.masters.departments(d1) : deps.masters.posts(d1));
-      const parentId = (type === 'organisation' ? p.stateId : type === 'department' ? p.organisationId : p.departmentId) as string;
+      const existing: MasterRecord[] = await (type === 'sector' ? deps.masters.sectors(d1) : type === 'organisation' ? deps.masters.organisations(d1) : type === 'department' ? deps.masters.departments(d1) : deps.masters.posts(d1));
+      const parentId = (type === 'sector' ? undefined : type === 'organisation' ? p.stateId : type === 'department' ? p.organisationId : p.departmentId) as string | undefined;
       const found = resolveMaster(type, { name: (p.name ?? p.title) as string, shortName: p.shortName as string | undefined, slug: p.slug as string, websiteUrl: p.websiteUrl as string | undefined, parentId }, existing);
       if (found.status === 'MATCH') return await fail(`This ${type} already exists (${found.matches[0].id}). Reject the proposal and reuse it.`);
+      // Sectors are public homepage cards: a near-duplicate is never created, even on approval.
+      if (type === 'sector' && found.status === 'POSSIBLE_MATCH') return await fail(`A similar sector already exists (${found.matches.map(m => m.name).join(', ')}). Reject the proposal and reuse it.`);
       const masterId = await deps.createMaster(proposal.kind, p, adminEmail, d1);
       const note = `Created ${type} ${masterId}${found.status === 'POSSIBLE_MATCH' ? ' (similar master(s) exist: ' + found.matches.map(m => m.id).join(', ') + ')' : ''}.`;
       await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note, createdId: masterId }, audit('APPROVE', masterId, proposal.summary));

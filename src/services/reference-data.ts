@@ -10,7 +10,14 @@ import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 export const SCOPE_RULES = [
   'Add only government recruitments that select by a written or computer-based exam. Skip honorary, volunteer, walk-in, interview-only, merit-only and "fill the form and we will call you" posts in every state (refused as NO_EXAM_STAGE).',
   'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the form. A notice or rulebook PDF is NOTIFICATION_PDF or RULEBOOK, never APPLY_ONLINE. officialLinks replaces the whole list, so an update must keep an existing apply link.',
-  'Masters belong to one state: organisation -> department -> post. A post or department with the same name in another state is not a duplicate; queue the new state\'s own chain instead of reusing another state\'s post.',
+  'Masters belong to one state: organisation -> department -> post. A post or department with the same name in another state is not a duplicate; queue the new state\'s own chain instead of reusing another state\'s post. Sectors are national and shared by every state: reuse an existing sector whenever the job fits it, and propose a new one only when none does.',
+  'Nobody re-checks your work before it goes live: the admin only approves. So verify every proposal yourself, in this order, and stop rather than guess. ' +
+    '(1) Find the notice on the recruiting body\'s own official website or a government domain (.gov.in, .nic.in). A job portal, coaching site, news article or social post is only a lead, never a source, and is refused as UNOFFICIAL_SOURCE. ' +
+    '(2) Confirm it is genuine and current: the body really exists, the advertisement number, year and dates are on the official page, the notice is not fake, expired, cancelled or superseded, and check_links shows every link is live. ' +
+    '(3) search_recruitments (includeUnpublished) by organisation, post, advertisement number and source URL. If the recruitment already exists, use propose_recruitment_update instead. ' +
+    '(4) resolve_entity / list_entities for the sector, organisation, department and post. Reuse every MATCH; on POSSIBLE_MATCH reuse the one that fits; queue a master only on NOT_FOUND. ' +
+    '(5) Read every value from the official notice and quote it as evidence. Leave out any field the notice does not state or you are not sure of. ' +
+    '(6) preview_proposal, fix every flag (re-read needsReading / fromImage / handwritten fields), then propose.',
   'Write everything in plain English, for every state: names, summary and every text field. Translate a notice in Hindi, Gujarati or any other language; use the body\'s own English name where it has one. Text in another script is refused (evidence snippets and the advertisement number stay as printed).',
 ];
 

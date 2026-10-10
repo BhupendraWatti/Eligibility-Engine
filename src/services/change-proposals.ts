@@ -18,7 +18,7 @@ import type { Actor } from './recruitment-query';
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 /** Proposals to add a missing canonical master (see master-proposals.ts). Stored in the same table; applied only by an admin. */
-export const MASTER_PROPOSAL_KINDS = ['CREATE_ORGANISATION', 'CREATE_DEPARTMENT', 'CREATE_POST'] as const;
+export const MASTER_PROPOSAL_KINDS = ['CREATE_SECTOR', 'CREATE_ORGANISATION', 'CREATE_DEPARTMENT', 'CREATE_POST'] as const;
 export type MasterProposalKind = (typeof MASTER_PROPOSAL_KINDS)[number];
 /**
  * APPLYING is a short-lived claim held while an admin approval is being written (stops double-approve).
@@ -33,7 +33,7 @@ export class InvalidProposalError extends Error {}
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
     readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE'
-      | 'NO_EXAM_STAGE' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK',
+      | 'NO_EXAM_STAGE' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -102,7 +102,7 @@ export const CREATE_REQUIRED = ['title', 'postId', 'organisationId', 'totalVacan
  * so one MCP run can queue an organisation, its department, its post and the recruitment together. Approval swaps the
  * reference for the id the approved master was given (see change-proposal-decision.ts).
  */
-export const PARENT_REF_KIND = { organisationId: 'CREATE_ORGANISATION', departmentId: 'CREATE_DEPARTMENT', postId: 'CREATE_POST' } as const;
+export const PARENT_REF_KIND = { sectorId: 'CREATE_SECTOR', organisationId: 'CREATE_ORGANISATION', departmentId: 'CREATE_DEPARTMENT', postId: 'CREATE_POST' } as const;
 type ParentRefField = keyof typeof PARENT_REF_KIND;
 const PROPOSAL_ID = /^prop_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isProposalRef = (v: unknown): v is string => typeof v === 'string' && PROPOSAL_ID.test(v);
@@ -305,6 +305,37 @@ export function sanitizeEvidence(evidence: unknown, changes: Record<string, unkn
   return items;
 }
 
+/**
+ * Government and academic suffixes that only public bodies can register in India (plus .gov / .mil for central portals).
+ * Anything else counts as official only when it is the recruiting organisation's own site.
+ */
+const OFFICIAL_SUFFIXES = ['gov.in', 'nic.in', 'ac.in', 'edu.in', 'res.in', 'mil.in', 'gov', 'mil'];
+const SHARED_SLD = new Set(['co', 'org', 'net', 'gov', 'nic', 'ac', 'edu', 'res', 'mil', 'gen', 'firm', 'ind']);
+const hostOf = (u: string | undefined | null) => { try { return new URL(u ?? '').hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; } };
+/** example.co.in -> example.co.in; apply.ibps.in -> ibps.in */
+const siteOf = (host: string) => {
+  const parts = host.split('.');
+  return parts.slice(parts.length >= 3 && SHARED_SLD.has(parts[parts.length - 2]) ? -3 : -2).join('.');
+};
+
+/** True when the URL is on a government/academic domain or on the recruiting organisation's own site. */
+export function isOfficialUrl(url: string, organisationWebsite?: string | null): boolean {
+  const host = hostOf(url);
+  if (!host) return false;
+  if (OFFICIAL_SUFFIXES.some(s => host === s || host.endsWith(`.${s}`))) return true;
+  const own = hostOf(organisationWebsite);
+  return !!own && siteOf(host) === siteOf(own);
+}
+
+/** Every source and every evidence quote must come from an official site, never an aggregator or news page. */
+export function unofficialUrls(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined, organisationWebsite?: string | null): string[] {
+  const urls = [
+    ...((payload.sources as Array<{ sourceUrl: string }> | undefined) ?? []).map(s => s.sourceUrl),
+    ...(evidence ?? []).map(e => e.sourceUrl),
+  ];
+  return [...new Set(urls.filter(u => !isOfficialUrl(u, organisationWebsite)))];
+}
+
 /** Not facts from the notice: editorial SEO copy and master ids (those come from resolve_entity). */
 export const EVIDENCE_EXEMPT_FIELDS = ['seoTitle', 'seoDescription', 'postId', 'organisationId'];
 
@@ -395,6 +426,8 @@ export interface ProposalDeps {
   withdraw: (d1: D1Database, id: string, by: string) => Promise<boolean>;
   postExists: (d1: D1Database, postId: string) => Promise<boolean>;
   orgExists: (d1: D1Database, organisationId: string) => Promise<boolean>;
+  /** The organisation's registered official website (its sources may live there). */
+  orgWebsite: (d1: D1Database, organisationId: string) => Promise<string | undefined>;
   checkDuplicate: (d1: D1Database, candidate: RecruitmentCandidate) => Promise<DuplicateCheckResult>;
   /** One audit_logs row (skipped notices). */
   audit: (d1: D1Database, entry: { by: string; entity: string; entityId: string; action: string; field: string | null; newValue: string | null; reason: string }) => Promise<void>;
@@ -474,6 +507,7 @@ export const defaultProposalDeps: ProposalDeps = {
   },
   postExists: async (d1, postId) => (await getAllCanonicalPosts(d1)).some(p => p.id === postId && p.isActive !== 0),
   orgExists: async (d1, organisationId) => (await getAllOrganisations(d1)).some(o => o.id === organisationId),
+  orgWebsite: async (d1, organisationId) => (await getAllOrganisations(d1)).find(o => o.id === organisationId)?.websiteUrl || undefined,
   checkDuplicate: async (d1, candidate) => {
     const [existing, orgs] = await Promise.all([getAllActiveRecruitments(d1, { includeUnpublished: true, limit: 250 }), getAllOrganisations(d1)]);
     const org = orgs.find(o => o.id === candidate.organisationId);
@@ -549,6 +583,13 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   }
 }
 
+function requireOfficialSources(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined, organisationWebsite?: string | null) {
+  const bad = unofficialUrls(payload, evidence, organisationWebsite);
+  if (bad.length) {
+    throw new ProposalBlockedError('UNOFFICIAL_SOURCE', `Sources and evidence must come from the recruiting body's official website or a government domain (.gov.in, .nic.in, .ac.in ...), never a job portal, coaching site or news page. Find the same notice on the official site and quote that instead: ${bad.join(', ')}`, { urls: bad });
+  }
+}
+
 function requireD1(d1: D1Database | undefined): D1Database {
   if (!d1) throw new Error('D1 binding unavailable.');
   return d1;
@@ -589,6 +630,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
       throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');
     }
+    requireOfficialSources(payload, evidence, current.organisationUrl);
     baseSnapshot = snapshotFields(current, Object.keys(payload));
     diff = buildDiff(payload, current);
     // Best-effort (D1 has no cross-statement transaction); the admin stale-guard remains the backstop.
@@ -610,6 +652,10 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     }
     payload.postId = postId;
     payload.organisationId = organisationId;
+    const website = isProposalRef(organisationId)
+      ? (await deps.get(db, organisationId))?.payload.websiteUrl as string | undefined
+      : await deps.orgWebsite(db, organisationId);
+    requireOfficialSources(payload, evidence, website);
     const sources = payload.sources as Array<{ sourceUrl: string }> | undefined;
     const window = { totalVacancies: payload.totalVacancies as number, applicationStart: payload.applicationStart as string | undefined, applicationEnd: payload.applicationEnd as string | undefined };
     const dup = await deps.checkDuplicate(db, {
