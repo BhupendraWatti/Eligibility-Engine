@@ -7,8 +7,11 @@ import { readAdminSubmission } from '../../services/admin-integrity';
 class RequestValidationError extends Error {}
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
-const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
-const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
+// Picked by id: two recruitments can share a title (e.g. a draft and its published copy).
+const selectedParam = Astro.url.searchParams.get('recruitment') || '';
+const currentRec = recruitments.find(r => r.id === selectedParam)
+  || recruitments.find(r => r.title === selectedParam)
+  || recruitments[0];
 
 let message = '';
 let messageType: 'success' | 'error' = 'success';
@@ -179,7 +182,7 @@ const currentSource = currentRec?.sourcesList?.[0];
           class="px-3 py-2 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-800 font-medium focus:ring-2 focus:ring-zinc-900 outline-none shadow-2xs"
         >
           {recruitments.map((r: any) => (
-            <option value={r.title} selected={r.title === selectedTitle}>{r.title}</option>
+            <option value={r.id} selected={r.id === currentRec?.id}>{r.title} ({r.status.replace(/_/g, ' ').toLowerCase()}, {r.sourcesList?.length ?? 0} sources)</option>
           ))}
         </select>
       </form>

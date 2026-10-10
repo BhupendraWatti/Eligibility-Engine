@@ -28,6 +28,33 @@ const sectors = await getAllSectors();
 const organisations = await getAllOrganisations();
 const states = await getAllStates();
 
+// The form only shows part of a record. Everything it cannot show is carried over on save,
+// so saving never deletes dates, vacancy rows, sources or links added elsewhere (e.g. via MCP).
+const QUOTA_CODES = ['UR', 'OBC', 'SC', 'ST', 'EWS'] as const;
+const quotaCode = (v: any): string | undefined => {
+  const raw = String(v.code || v.category || '');
+  return QUOTA_CODES.find(c => raw === c || raw.endsWith(`(${c})`));
+};
+const existingVacancies: any[] = recruitment.vacanciesList || [];
+const vacanciesEditable = existingVacancies.every(v => quotaCode(v) && (v.gender || 'ALL') === 'ALL')
+  && new Set(existingVacancies.map(quotaCode)).size === existingVacancies.length
+  && new Set(existingVacancies.map(v => v.subPostName || '')).size <= 1;
+
+const FORM_DATE_TYPES = ['NOTIFICATION', 'APPLICATION_START', 'APPLICATION_END', 'CORRECTION_END', 'EXAM_DATE'];
+const datesList: any[] = recruitment.importantDatesList || [];
+const dateOf = (type: string) => datesList.find(d => d.eventType === type)?.date || '';
+
+const existingSources: any[] = recruitment.sourcesList || [];
+const existingLinks: any[] = recruitment.officialLinksList || [];
+const primarySource = existingSources[0];
+const notificationLink = existingLinks.find(l => l.linkType === 'NOTIFICATION_PDF');
+const primaryApplyLink = existingLinks.find(l => l.linkType === 'APPLY_ONLINE');
+const admitCardLink = existingLinks.find(l => l.linkType === 'ADMIT_CARD');
+const answerKeyLink = existingLinks.find(l => ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'].includes(l.linkType));
+const resultLink = existingLinks.find(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType));
+const formLinks = new Set([primaryApplyLink, admitCardLink, answerKeyLink, resultLink].filter(Boolean));
+const shownSourceUrl = primarySource?.sourceUrl || notificationLink?.url || '';
+
 let errorMessage = '';
 let validationErrors: string[] = [];
 let successMessage = '';
@@ -111,6 +138,9 @@ if (Astro.request.method === 'POST') {
     if (applicationEnd) importantDates.push({ eventType: 'APPLICATION_END', eventDate: applicationEnd, notes: 'Application deadline' });
     if (correctionEnd) importantDates.push({ eventType: 'CORRECTION_END', eventDate: correctionEnd, notes: 'Form correction window closes' });
     if (examDate) importantDates.push({ eventType: 'EXAM_DATE', eventDate: examDate, notes: 'Scheduled competitive examination' });
+    for (const d of datesList) {
+      if (!FORM_DATE_TYPES.includes(d.eventType)) importantDates.push({ eventType: d.eventType, eventDate: d.date, isTentative: d.isTentative || 0, notes: d.notes || undefined });
+    }
 
     // Salary & Cadre
     const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
@@ -128,16 +158,24 @@ if (Astro.request.method === 'POST') {
     const seoDescription = formData.get('seoDescription')?.toString().trim();
     const robotsIndex = formData.get('robotsIndex') === '1' ? 1 : 0;
 
-    const sources: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }> = [];
-    if (sourceUrl) {
-      sources.push({
-        sourceType: 'OFFICIAL_NOTIFICATION_PDF',
-        sourceTitle: sourceTitle || `${organisationShortName} Official Rulebook Gazette`,
-        sourceUrl,
-        publicationDate: notificationDate || applicationStart || undefined,
-      });
+    // Only the first source is editable here. Leave sources untouched when its URL is unchanged,
+    // so their verification stamps survive the save.
+    let sources: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }> | undefined;
+    if ((sourceUrl || '') !== (primarySource?.sourceUrl || '')) {
+      sources = existingSources.slice(1).map(s => ({ sourceType: s.sourceType, sourceTitle: s.sourceTitle, sourceUrl: s.sourceUrl, publicationDate: s.publicationDate || undefined }));
+      if (sourceUrl) {
+        sources.unshift({
+          sourceType: 'OFFICIAL_NOTIFICATION_PDF',
+          sourceTitle: sourceTitle || `${organisationShortName} Official Rulebook Gazette`,
+          sourceUrl,
+          publicationDate: notificationDate || applicationStart || undefined,
+        });
+      }
     }
-    const officialLinks: Array<{ linkType: string; title: string; url: string }> = [];
+    // Links the form does not show (rulebook, official website, extra keys...) are kept as they are.
+    const officialLinks: Array<{ linkType: string; title: string; url: string }> = existingLinks
+      .filter(l => !formLinks.has(l) && !(l.linkType === 'NOTIFICATION_PDF' && l.url === shownSourceUrl))
+      .map(l => ({ linkType: l.linkType, title: l.title, url: l.url }));
     if (officialApplyUrl) {
       officialLinks.push({
         linkType: 'APPLY_ONLINE',
@@ -145,7 +183,7 @@ if (Astro.request.method === 'POST') {
         url: officialApplyUrl,
       });
     }
-    if (sourceUrl) {
+    if (sourceUrl && !officialLinks.some(l => l.linkType === 'NOTIFICATION_PDF' && l.url === sourceUrl)) {
       officialLinks.push({
         linkType: 'NOTIFICATION_PDF',
         title: 'Download Official Notification PDF',
@@ -204,7 +242,8 @@ if (Astro.request.method === 'POST') {
         applicationStart,
         applicationEnd,
         examDate,
-        vacanciesBreakdown,
+        // A breakdown the five quota boxes cannot show (posts, codes, genders) is left as it is.
+        vacanciesBreakdown: vacanciesEditable ? vacanciesBreakdown : undefined,
         importantDates,
         sources,
         officialLinks,
@@ -235,26 +274,13 @@ const postsBySector = sectors.map(sec => ({
 })).filter(group => group.posts.length > 0);
 
 // Pre-fill helpers
-const vacMap = new Map((recruitment.vacanciesList || []).map((v: any) => [v.code || v.category, v.count]));
-const vacUr = vacMap.get('UR') || 0;
-const vacObc = vacMap.get('OBC') || 0;
-const vacSt = vacMap.get('ST') || 0;
-const vacSc = vacMap.get('SC') || 0;
-const vacEws = vacMap.get('EWS') || 0;
-const firstSubPost = recruitment.vacanciesList?.find((v: any) => v.subPostName)?.subPostName || '';
-
-const datesList = recruitment.importantDatesList || [];
-const notifDateObj = datesList.find((d: any) => d.eventType === 'NOTIFICATION');
-const appStartDateObj = datesList.find((d: any) => d.eventType === 'APPLICATION_START');
-const appEndDateObj = datesList.find((d: any) => d.eventType === 'APPLICATION_END');
-const corrDateObj = datesList.find((d: any) => d.eventType === 'CORRECTION_END');
-const examDateObj = datesList.find((d: any) => d.eventType === 'EXAM_DATE');
-
-const primarySource = recruitment.sourcesList?.[0];
-const primaryApplyLink = recruitment.officialLinksList?.find((l: any) => l.linkType === 'APPLY_ONLINE');
-const admitCardLink = recruitment.officialLinksList?.find((l: any) => l.linkType === 'ADMIT_CARD');
-const answerKeyLink = recruitment.officialLinksList?.find((l: any) => ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'].includes(l.linkType));
-const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType));
+const vacCount = (code: string) => existingVacancies.filter(v => quotaCode(v) === code).reduce((n, v) => n + (v.count || 0), 0);
+const vacUr = vacCount('UR');
+const vacObc = vacCount('OBC');
+const vacSt = vacCount('ST');
+const vacSc = vacCount('SC');
+const vacEws = vacCount('EWS');
+const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || '';
 ---
 
 <AdminLayout
@@ -474,6 +500,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
                   type="text"
                   name="subPostName"
                   value={firstSubPost}
+                  disabled={!vacanciesEditable}
                   placeholder="e.g. Constable (GD) or Patwari"
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs focus:ring-2 focus:ring-zinc-900 outline-none"
                 />
@@ -502,26 +529,31 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
               </div>
 
               <!-- Reservation Quota Rows -->
+              {!vacanciesEditable && (
+                <p class="sm:col-span-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  This record has {existingVacancies.length} vacancy rows by post code or gender, which these boxes cannot show. They are kept as they are when you save.
+                </p>
+              )}
               <div class="sm:col-span-2 grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
                 <div>
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">UR / General</label>
-                  <input type="number" name="vac_ur" value={vacUr} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                  <input type="number" name="vac_ur" value={vacUr} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
                 <div>
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">OBC</label>
-                  <input type="number" name="vac_obc" value={vacObc} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                  <input type="number" name="vac_obc" value={vacObc} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
                 <div>
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">SC</label>
-                  <input type="number" name="vac_sc" value={vacSc} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                  <input type="number" name="vac_sc" value={vacSc} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
                 <div>
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">ST</label>
-                  <input type="number" name="vac_st" value={vacSt} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                  <input type="number" name="vac_st" value={vacSt} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
                 <div>
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">EWS</label>
-                  <input type="number" name="vac_ews" value={vacEws} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
+                  <input type="number" name="vac_ews" value={vacEws} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
               </div>
             </div>
@@ -621,23 +653,23 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Gazette Notification Date</label>
-                <input type="date" name="notificationDate" value={notifDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+                <input type="date" name="notificationDate" value={dateOf('NOTIFICATION')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Application Start</label>
-                <input type="date" name="applicationStart" value={appStartDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+                <input type="date" name="applicationStart" value={dateOf('APPLICATION_START')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Application Deadline</label>
-                <input type="date" name="applicationEnd" value={appEndDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+                <input type="date" name="applicationEnd" value={dateOf('APPLICATION_END')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Correction Deadline</label>
-                <input type="date" name="correctionEnd" value={corrDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+                <input type="date" name="correctionEnd" value={dateOf('CORRECTION_END')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
               <div class="space-y-1.5">
                 <label class="block text-xs font-semibold text-zinc-800">Scheduled Exam Date</label>
-                <input type="date" name="examDate" value={examDateObj?.eventDate || ''} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
+                <input type="date" name="examDate" value={dateOf('EXAM_DATE')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
             </div>
           </div>
@@ -655,7 +687,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
                 <input
                   type="url"
                   name="sourceUrl"
-                  value={primarySource?.sourceUrl || ''}
+                  value={shownSourceUrl}
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none"
                 />
               </div>

@@ -3423,29 +3423,13 @@ export async function createRecruitmentAtomic(
 
   // 1. Validation & Duplicate Detection
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
-  const isTestFixture = data.title.toLowerCase().includes('test') || (data.advtNumber ?? '').toLowerCase().includes('test');
+  // No title-based exemption: most exam names contain "Test" ("Recruitment Test 2026").
   const duplicateCheck = detectDuplicates(
-    {
-      id: newId,
-      title: data.title,
-      advtNumber: cleanAdvt(data.advtNumber),
-      organisationShortName: org.shortName,
-      sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
-      postId: data.postId,
-      cycleYear: data.cycleYear || new Date().getFullYear(),
-    },
-    existingRecruitments.map(r => ({
-      id: r.id,
-      title: r.title,
-      advtNumber: r.advtNumber,
-      organisationShortName: r.organisationShortName,
-      sourceUrl: r.sourcesList?.[0]?.sourceUrl,
-      postId: r.postId,
-      cycleYear: r.cycleYear,
-    }))
+    duplicateCandidate(newId, data, org),
+    existingRecruitments.map(duplicateRecord)
   );
 
-  if (duplicateCheck.status === 'CONFIRMED_DUPLICATE' && !isTestFixture) {
+  if (duplicateCheck.status === 'CONFIRMED_DUPLICATE') {
     return { success: false, id: newId, validation: null, errors: [duplicateCheck.summary], message: duplicateCheck.summary };
   }
 
@@ -3806,6 +3790,43 @@ export async function createRecruitmentAtomic(
   };
 }
 
+/** Every identity signal the duplicate detector understands, for a recruitment being written. */
+function duplicateCandidate(id: string, data: CreateRecruitmentInput, org: { id: string; shortName: string }) {
+  const urls = [data.sourceUrl, ...(data.sources ?? []).map(s => s.sourceUrl)].filter((u): u is string => !!u);
+  return {
+    id,
+    title: data.title,
+    advtNumber: cleanAdvt(data.advtNumber),
+    organisationShortName: org.shortName,
+    organisationId: org.id,
+    sourceUrl: urls[0],
+    sourceUrls: urls,
+    postId: data.postId,
+    cycleYear: data.cycleYear || new Date().getFullYear(),
+    totalVacancies: data.totalVacancies,
+    applicationStart: data.applicationStart,
+    applicationEnd: data.applicationEnd,
+  };
+}
+
+function duplicateRecord(r: RecruitmentWithDetails) {
+  const urls = (r.sourcesList ?? []).map((s: any) => s.sourceUrl).filter(Boolean);
+  return {
+    id: r.id,
+    title: r.title,
+    advtNumber: r.advtNumber,
+    organisationShortName: r.organisationShortName,
+    organisationId: r.organisationId,
+    sourceUrl: urls[0],
+    sourceUrls: urls,
+    postId: r.postId,
+    cycleYear: r.cycleYear,
+    totalVacancies: r.totalVacancies,
+    applicationStart: r.applicationStart,
+    applicationEnd: r.applicationEnd,
+  };
+}
+
 /**
  * Version history: a statement that stores the recruitment as it is NOW (before the change in the same batch).
  * Returns null when history is unavailable (migration 0015 not applied) so the change itself is never blocked.
@@ -3838,24 +3859,7 @@ export async function updateRecruitmentAtomic(
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
-  const duplicateCheck = detectDuplicates({
-    id,
-    title: data.title,
-    advtNumber: cleanAdvt(data.advtNumber),
-    organisationShortName: org.shortName,
-    organisationId: org.id,
-    sourceUrl: data.sourceUrl || data.sources?.[0]?.sourceUrl,
-    postId: data.postId,
-    cycleYear: data.cycleYear,
-  }, existingRecruitments.map(r => ({
-    id: r.id,
-    title: r.title,
-    advtNumber: r.advtNumber,
-    organisationShortName: r.organisationShortName,
-    sourceUrl: r.sourcesList?.[0]?.sourceUrl,
-    postId: r.postId,
-    cycleYear: r.cycleYear,
-  })));
+  const duplicateCheck = detectDuplicates(duplicateCandidate(id, data, org), existingRecruitments.map(duplicateRecord));
   if (duplicateCheck.status === 'CONFIRMED_DUPLICATE') {
     return { success: false, id, validation: null, errors: [duplicateCheck.summary], message: duplicateCheck.summary };
   }

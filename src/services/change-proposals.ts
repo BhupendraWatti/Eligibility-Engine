@@ -53,6 +53,11 @@ export const EXAM_STATUSES = ['NOT_SCHEDULED', 'SCHEDULED', 'COMPLETED', 'CANCEL
 export const RESULT_STATUSES = ['NOT_DECLARED', 'DECLARED'];
 export const GENDERS = ['ALL', 'MALE', 'FEMALE'];
 export const RESERVATION_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'];
+/** importantDates types the site and admin editor understand (a free-text type is shown nowhere useful). */
+export const DATE_TYPES = [
+  'NOTIFICATION', 'APPLICATION_START', 'APPLICATION_END', 'FEE_PAYMENT_END', 'CORRECTION_END', 'ADMIT_CARD', 'EXAM_DATE',
+  'ANSWER_KEY', 'ANSWER_KEY_OBJECTION_END', 'PHYSICAL_TEST', 'SKILL_TEST', 'DOCUMENT_VERIFICATION', 'INTERVIEW', 'RESULT',
+];
 /** officialLinks types an MCP proposal may use. APPLY_ONLINE is the page where candidates start filling the form. */
 export const LINK_TYPES = [
   'APPLY_ONLINE', 'NOTIFICATION_PDF', 'RULEBOOK', 'SYLLABUS_PDF', 'ADMIT_CARD', 'ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY',
@@ -224,7 +229,7 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
       }));
     case 'dates':
       return list(v, field, 50, (s, i) => ({
-        eventType: str(s.eventType, `${field}[${i}].eventType`, 50),
+        eventType: validateField(`${field}[${i}].eventType`, { enum: DATE_TYPES }, s.eventType) as string,
         eventDate: isoDate(s.eventDate, `${field}[${i}].eventDate`),
         isTentative: s.isTentative === undefined ? 0 : (s.isTentative ? 1 : 0),
         notes: s.notes === undefined ? undefined : str(s.notes, `${field}[${i}].notes`, 500),
