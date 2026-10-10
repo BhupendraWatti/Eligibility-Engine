@@ -6,7 +6,6 @@ import {
   InvalidSearchInputError,
   searchRecruitments,
   type Actor,
-  type RecruitmentQueryDeps,
 } from '../../src/services/recruitment-query';
 import {
   CREATE_ONLY_FIELDS,
@@ -20,23 +19,16 @@ import {
   listProposals,
   previewProposal,
   withdrawProposal,
-  type ProposalDeps,
   type ProposalInput,
 } from '../../src/services/change-proposals';
 
-import { MASTER_TYPES, proposeMaster, type MasterDeps } from '../../src/services/master-proposals';
+import { MASTER_TYPES, proposeMaster } from '../../src/services/master-proposals';
 import { checkLink } from './links';
-import { ENTITY_TYPES, SCOPE_RULES, getDomainSchema, listEntities, resolveEntity, type EntityLoader, type EntityType } from '../../src/services/reference-data';
+import { ENTITY_TYPES, SCOPE_RULES, getDomainSchema, listEntities, resolveEntity } from '../../src/services/reference-data';
 
 export interface ServerContext {
   d1: D1Database | undefined;
   actor: Actor;
-  deps?: RecruitmentQueryDeps;
-  proposalDeps?: ProposalDeps;
-  /** Test seam: replaces the master-data loaders. */
-  entityLoaders?: Partial<Record<EntityType, EntityLoader>>;
-  /** Test seam: replaces the master loaders used by propose_master. */
-  masterDeps?: MasterDeps;
 }
 
 const text = z.string().trim().min(1).max(100);
@@ -82,7 +74,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       // Minimal audit boundary: who called what, with which filter keys (never values or secrets).
       console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'search_recruitments', actor: ctx.actor.id, mode: ctx.actor.mode, filters: Object.keys(args) }));
       try {
-        return result(await searchRecruitments(ctx.d1, ctx.actor, args as never, ctx.deps) as unknown as Record<string, unknown>);
+        return result(await searchRecruitments(ctx.d1, args as never) as unknown as Record<string, unknown>);
       } catch (error) {
         if (error instanceof InvalidSearchInputError) return result({ error: { code: 'INVALID_INPUT', message: error.message } }, true);
         // Never leak internals (SQL, bindings, stack) to the model.
@@ -104,7 +96,6 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     'Numbers, dates and the advertisement number must appear in their snippet, or the proposal is refused as VALUE_NOT_IN_QUOTE (a total may instead equal the sum of vacanciesBreakdown rows). ' +
     'Never invent or estimate values: leave a field out if the official source does not state it.',
   );
-  const supersedesField = z.string().trim().min(1).max(100).optional().describe('id of your own PENDING proposal that this one replaces (it is withdrawn atomically). Same kind and target.');
 
   /** Run a proposal-service call and map its errors to stable codes. Internals are never leaked. */
   const guarded = async (tool: string, run: () => Promise<Record<string, unknown>>, failure: string) => {
@@ -121,7 +112,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
   const propose = async (tool: string, input: ProposalInput) => {
     console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, kind: input.kind, fields: input.changes && typeof input.changes === 'object' ? Object.keys(input.changes) : [] }));
     return guarded(tool, async () => ({
-      ...(await createProposal(ctx.d1, ctx.actor, { ...input, requireEvidence: true }, ctx.proposalDeps)),
+      ...(await createProposal(ctx.d1, ctx.actor, input)),
       message: 'Proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.',
     }), 'Could not queue the proposal.');
   };
@@ -139,17 +130,16 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
         'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
-        'Returns PENDING_CHANGE_CONFLICT if an open proposal already changes the same fields (withdraw or supersede it). Call get_domain_schema for exact formats.',
+        'Returns PENDING_CHANGE_CONFLICT if an open proposal already changes the same fields (withdraw it first). Call get_domain_schema for exact formats.',
       inputSchema: {
         recruitmentId: z.string().trim().min(1).max(100).describe('id from search_recruitments'),
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()).describe('Object of field -> new value'),
         evidence: evidenceField,
-        supersedes: supersedesField,
       },
       annotations: proposeAnnotations,
     },
-    async (args) => propose('propose_recruitment_update', { kind: 'UPDATE_RECRUITMENT', recruitmentId: args.recruitmentId, summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
+    async (args) => propose('propose_recruitment_update', { kind: 'UPDATE_RECRUITMENT', recruitmentId: args.recruitmentId, summary: args.summary, changes: args.changes, evidence: args.evidence }),
   );
 
   server.registerTool(
@@ -165,16 +155,15 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +
         'Only recruitments selected by a written or computer-based exam (selectionStages must show it, else NO_EXAM_STAGE); honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope. ' +
         'officialLinks must include an APPLY_ONLINE link to the page where candidates fill the form, not a PDF (else APPLY_LINK_REQUIRED / INVALID_LINK). ' +
-        'A CONFIRMED_DUPLICATE is refused (same advt number, source URL, or same organisation with a near-identical name in an overlapping apply window or the same vacancies and last date); any new source it cites is queued onto the existing record. A possible duplicate is queued with a warning for the reviewer.',
+        'A CONFIRMED_DUPLICATE is refused (same advt number, source URL, or same organisation with a near-identical name in an overlapping apply window or the same vacancies and last date); to add its new source, propose_recruitment_update on the matched record. A possible duplicate is queued with a warning for the reviewer.',
       inputSchema: {
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()).describe('Object of field -> value'),
         evidence: evidenceField,
-        supersedes: supersedesField,
       },
       annotations: proposeAnnotations,
     },
-    async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes, evidence: args.evidence, supersedes: args.supersedes }),
+    async (args) => propose('propose_new_recruitment', { kind: 'CREATE_RECRUITMENT', summary: args.summary, changes: args.changes, evidence: args.evidence }),
   );
 
   server.registerTool(
@@ -201,7 +190,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'propose_master', actor: ctx.actor.id, mode: ctx.actor.mode, type: args.type, dryRun: args.dryRun === true }));
       return guarded('propose_master', async () => {
-        const out = await proposeMaster(ctx.d1, ctx.actor, args, ctx.proposalDeps, ctx.masterDeps);
+        const out = await proposeMaster(ctx.d1, ctx.actor, args);
         return { ...out, ...(out.status === 'NOT_FOUND' && out.queued ? { message: 'Master proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.' } : {}) } as Record<string, unknown>;
       }, 'Could not process the master proposal.');
     },
@@ -214,21 +203,20 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
         'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK) and checks (fields to re-read: needsReading, fromImage, handwritten), ' +
-        'a before/after row per field, evidenceMissing and approval. Always preview before proposing.',
+        'a before/after row per field and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),
         recruitmentId: z.string().trim().min(1).max(100).optional().describe('Required for UPDATE_RECRUITMENT'),
         summary: summaryField,
         changes: z.record(z.string(), z.unknown()),
         evidence: evidenceField,
-        supersedes: supersedesField,
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'preview_proposal', actor: ctx.actor.id, mode: ctx.actor.mode, kind: args.kind }));
       try {
-        return result({ ...(await previewProposal(ctx.d1, ctx.actor, { ...(args as ProposalInput), requireEvidence: true }, ctx.proposalDeps)) });
+        return result({ ...(await previewProposal(ctx.d1, ctx.actor, args as ProposalInput)) });
       } catch (error) {
         if (error instanceof ProposalBlockedError) return result({ action: error.code, message: error.message, ...error.details });
         if (error instanceof InvalidProposalError) return result({ error: { code: 'INVALID_INPUT', message: error.message } }, true);
@@ -266,7 +254,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'list_my_proposals', actor: ctx.actor.id, mode: ctx.actor.mode, filters: Object.keys(args) }));
       try {
-        const rows = await listProposals(ctx.d1, ctx.actor, args, ctx.proposalDeps);
+        const rows = await listProposals(ctx.d1, ctx.actor, args);
         return result({
           items: rows.map(r => ({
             id: r.id, kind: r.kind, recruitmentId: r.recruitmentId, summary: r.summary, status: r.status, supersedesId: r.supersedesId,
@@ -283,7 +271,6 @@ export function createMcpServer(ctx: ServerContext): McpServer {
 
   const read = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
   const entityType = z.enum(ENTITY_TYPES);
-  const loader = (type: EntityType) => ctx.entityLoaders?.[type];
   const audit = (tool: string, args: object) => console.info(JSON.stringify({ evt: 'mcp.tool', tool, actor: ctx.actor.id, mode: ctx.actor.mode, filters: Object.keys(args) }));
 
   server.registerTool(
@@ -299,7 +286,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       audit('resolve_entity', args);
       try {
-        return result(await resolveEntity(ctx.d1, args.type, args.query, loader(args.type)) as unknown as Record<string, unknown>);
+        return result(await resolveEntity(ctx.d1, args.type, args.query) as unknown as Record<string, unknown>);
       } catch (error) {
         console.error('[mcp] resolve_entity failed:', error);
         return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not resolve the entity.' } }, true);
@@ -318,7 +305,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       audit('list_entities', args);
       try {
-        return result(await listEntities(ctx.d1, args.type, args.q, loader(args.type)) as unknown as Record<string, unknown>);
+        return result(await listEntities(ctx.d1, args.type, args.q) as unknown as Record<string, unknown>);
       } catch (error) {
         console.error('[mcp] list_entities failed:', error);
         return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not list entities.' } }, true);
@@ -351,7 +338,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     async (args) => {
       audit('get_proposal', args);
       return guarded('get_proposal', async () => {
-        const r = await getProposal(ctx.d1, ctx.actor, args.id, ctx.proposalDeps);
+        const r = await getProposal(ctx.d1, ctx.actor, args.id);
         return { ...r, createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null };
       }, 'Could not load the proposal.');
     },
@@ -363,13 +350,13 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Withdraw a proposal',
       description:
         'Take back one of your own PENDING proposals (for example it was wrong). Status becomes WITHDRAWN; the record stays and is never edited. ' +
-        'To correct a proposal, prefer the "supersedes" argument on the propose tools, which withdraws and replaces atomically.',
+        'To correct a proposal, withdraw it, then propose the corrected version.',
       inputSchema: { id: z.string().trim().min(1).max(100) },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (args) => {
       audit('withdraw_proposal', args);
-      return guarded('withdraw_proposal', async () => ({ ...(await withdrawProposal(ctx.d1, ctx.actor, args.id, ctx.proposalDeps)), message: 'Proposal withdrawn.' }), 'Could not withdraw the proposal.');
+      return guarded('withdraw_proposal', async () => ({ ...(await withdrawProposal(ctx.d1, ctx.actor, args.id)), message: 'Proposal withdrawn.' }), 'Could not withdraw the proposal.');
     },
   );
 

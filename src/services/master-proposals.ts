@@ -170,7 +170,7 @@ function sanitizeMasterFieldsRaw(type: MasterType, raw: unknown): Record<string,
 export type MasterOutcome =
   | { status: 'MATCH' | 'POSSIBLE_MATCH'; matches: MasterRecord[]; reasons: string[]; queued: false }
   | { status: 'NOT_FOUND'; queued: false; dryRun: true; payload: Record<string, unknown> }
-  | { status: 'NOT_FOUND'; queued: true; id: string; kind: MasterProposalKind; payload: Record<string, unknown>; evidenceMissing: string[] };
+  | { status: 'NOT_FOUND'; queued: true; id: string; kind: MasterProposalKind; payload: Record<string, unknown> };
 
 /**
  * Resolve first, queue only on NOT_FOUND. A parent master must exist, or be named by the id of its own pending proposal
@@ -183,7 +183,6 @@ export async function proposeMaster(
   deps: ProposalDeps = defaultProposalDeps,
   masters: MasterDeps = defaultMasterDeps,
 ): Promise<MasterOutcome> {
-  if (actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for proposals.');
   if (!d1) throw new Error('D1 binding unavailable.');
   if (!(MASTER_TYPES as readonly string[]).includes(input.type)) throw new InvalidProposalError(`type must be one of: ${MASTER_TYPES.join(', ')}.`);
   const summary = assertEnglish(text(input.summary, 'summary', 300)!, 'summary');
@@ -223,5 +222,5 @@ export async function proposeMaster(
   if ((await deps.countPending(d1, actor.id)) >= MAX_PENDING_PROPOSALS) throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
   const id = `prop_${crypto.randomUUID()}`;
   await deps.insert(d1, { id, kind, recruitmentId: null, summary, payload, baseSnapshot: null, meta: evidence?.length ? { evidence } : null, supersedesId: null, proposedBy: actor.id });
-  return { status: 'NOT_FOUND', queued: true, id, kind, payload, evidenceMissing: [] };
+  return { status: 'NOT_FOUND', queued: true, id, kind, payload };
 }

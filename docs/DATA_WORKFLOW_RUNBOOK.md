@@ -29,11 +29,11 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
    returned proposal id (`prop_...`) as the child's `organisationId` / `departmentId` / `postId`. The admin approves parents first; one MCP run is enough.
 5. **Check NIRNAY first**: `search_recruitments` by `advtNumber`, `sourceUrl`, `title`/`organisation`, with `includeUnpublished: true`; then `list_my_proposals status=PENDING`.
    - Found and same notice: UPDATE (or nothing to do). Found with a different notice (corrigendum, admit card, result): UPDATE the same recruitment. Not found: NEW. Unsure: AMBIGUOUS, report it.
-6. **`preview_proposal`** with the full input and evidence. Read `action`, the before/after rows, `duplicateWarning`, `evidenceMissing`.
+6. **`preview_proposal`** with the full input and evidence. Read `action`, the before/after rows and `duplicateWarning`.
    - `CONFIRMED_DUPLICATE`, `PENDING_CHANGE_CONFLICT`, `UNKNOWN_POST`, `UNKNOWN_ORGANISATION`, `NO_EXAM_STAGE`: do not propose; report.
    - `APPLY_LINK_REQUIRED`, `INVALID_LINK`: fix the links from the official source, then preview again.
-   - `evidenceMissing` not empty: add evidence or drop that field.
-7. **`propose_new_recruitment` / `propose_recruitment_update`** with the same input. Use `supersedes` to correct your own pending proposal.
+   - `EVIDENCE_REQUIRED`, `VALUE_NOT_IN_QUOTE`: add a quote for that field or drop it.
+7. **`propose_new_recruitment` / `propose_recruitment_update`** with the same input. To correct your own pending proposal, `withdraw_proposal` it and propose again.
 8. An admin approves or rejects in `/admin/pending-changes`. Status shown on the site comes from the lifecycle resolver; never propose a status.
 
 One task = one MCP run: masters (step 4) and the recruitments that need them are all queued together. Report back with the proposal

@@ -118,7 +118,7 @@ const items = await Promise.all(proposals.map(async (p) => {
     waiting,
     parents,
     // Masters carry names and ids, not notice facts: only recruitment proposals are checked value-by-value.
-    checks: checkFacts(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT' ? p.payload : {}, evidenceOf(p), Array.isArray(p.meta?.quoteInDocument) ? (p.meta!.quoteInDocument as string[]) : []),
+    checks: checkFacts(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT' ? p.payload : {}, evidenceOf(p)),
     p,
     diff: buildDiff(p.payload, current),
     stale: staleFields(p.baseSnapshot, current),
@@ -309,7 +309,6 @@ const badge: Record<string, string> = {
                         <span class={`px-1.5 py-0.5 rounded border ${CHECK_LABEL[c.status][1]}`}>{CHECK_LABEL[c.status][0]}</span>
                         {c.handwritten && <span class="px-1.5 py-0.5 rounded border bg-rose-50 text-rose-700 border-rose-200">handwritten</span>}
                         {c.fromImage && <span class="px-1.5 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200">scanned</span>}
-                        {c.quoteInDocument && <span class="px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">quote in page</span>}
                       </div>
                     ))}
                   </td>

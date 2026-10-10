@@ -3,7 +3,7 @@
  * confidence: a number or date either appears in its quote or it does not. Fields a machine cannot compare (summaries,
  * enums, yes/no, links) are reported as needing a human read, never as passed.
  *
- * Admin-only: the result is shown in /admin/pending-changes and gates pipeline auto-publish. It is never shown publicly.
+ * Admin-only: the result is shown in /admin/pending-changes. It is never shown publicly.
  * Pure functions, no imports of writers (the MCP bundles this through change-proposals.ts).
  */
 
@@ -18,8 +18,6 @@ export interface FieldCheck {
   fromImage: boolean;
   /** The proposer marked the value as handwritten on the notice. */
   handwritten: boolean;
-  /** The quote was found in the document text by the pipeline (HTML pages only). */
-  quoteInDocument: boolean;
 }
 
 export interface FactCheckSummary {
@@ -167,11 +165,8 @@ function checkValue(field: string, value: unknown, quotes: string[], payload: Re
   return { status: 'NEEDS_READING', detail: 'Cannot be compared mechanically (summary, category, yes/no or link). Read it against the quote.' };
 }
 
-/**
- * Check every fact field of a proposal. `quoteInDocument` lists fields whose quote a trusted caller (the pipeline, HTML only)
- * found in the document text; the MCP cannot set it.
- */
-export function checkFacts(payload: Record<string, unknown>, evidence: CheckEvidence[] | undefined, quoteInDocument: string[] = []): FactCheckSummary {
+/** Check every fact field of a proposal against its quotes. */
+export function checkFacts(payload: Record<string, unknown>, evidence: CheckEvidence[] | undefined): FactCheckSummary {
   const ev = evidence ?? [];
   const fields: FieldCheck[] = [];
   const matched = new Set<string>();
@@ -182,7 +177,7 @@ export function checkFacts(payload: Record<string, unknown>, evidence: CheckEvid
     const quotes = items.map(e => e.snippet ?? '').filter(Boolean);
     const fromImage = items.some(e => e.method === 'VISION' || e.method === 'OCR');
     const handwritten = items.some(e => e.handwritten === true);
-    const base = { field, fromImage, handwritten, quoteInDocument: quoteInDocument.includes(field) };
+    const base = { field, fromImage, handwritten };
     if (!quotes.length) { fields.push({ ...base, status: 'NO_QUOTE', detail: 'No quote from the official source.' }); continue; }
     const r = checkValue(field, payload[field], quotes, payload, matched);
     if (r.status === 'MATCHES_QUOTE') matched.add(field);
@@ -199,7 +194,3 @@ export function checkFacts(payload: Record<string, unknown>, evidence: CheckEvid
     handwritten: pick(c => c.handwritten),
   };
 }
-
-/** True only when every fact was found in its quote and every quote was found in the document text (pipeline auto-publish gate). */
-export const fullyMachineChecked = (s: FactCheckSummary) =>
-  s.total > 0 && s.fields.every(c => c.status === 'MATCHES_QUOTE' && c.quoteInDocument && !c.fromImage && !c.handwritten);

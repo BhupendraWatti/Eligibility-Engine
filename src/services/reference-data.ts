@@ -23,9 +23,7 @@ export type ResolveResult =
   | { status: 'AMBIGUOUS'; matches: Entity[] }
   | { status: 'NOT_FOUND'; suggestions: Entity[]; next: string };
 
-export type EntityLoader = (d1: D1Database) => Promise<Entity[]>;
-
-export const entityLoaders: Record<EntityType, EntityLoader> = {
+const entityLoaders: Record<EntityType, (d1: D1Database) => Promise<Entity[]>> = {
   state: async d1 => (await getAllStates(d1)).map(s => ({ id: s.id, name: s.name, slug: s.slug, code: s.code })),
   organisation: async d1 => (await getAllOrganisations(d1)).map(o => ({ id: o.id, name: o.name, slug: o.slug, shortName: o.shortName, stateId: o.stateId })),
   department: async d1 => (await getAllDepartments(d1)).map(d => ({ id: d.id, name: d.name, slug: d.slug, organisationId: d.organisationId })),
@@ -50,17 +48,17 @@ export function resolveFrom(entities: Entity[], query: string): ResolveResult {
   return { status: 'NOT_FOUND', suggestions, next: NOT_FOUND_NEXT };
 }
 
-export async function resolveEntity(d1: D1Database | undefined, type: EntityType, query: string, load: EntityLoader = entityLoaders[type]): Promise<ResolveResult> {
+export async function resolveEntity(d1: D1Database | undefined, type: EntityType, query: string): Promise<ResolveResult> {
   if (!d1) throw new Error('D1 binding unavailable.');
-  return resolveFrom(await load(d1), query);
+  return resolveFrom(await entityLoaders[type](d1), query);
 }
 
 const LIST_LIMIT = 100;
 
-export async function listEntities(d1: D1Database | undefined, type: EntityType, q?: string, load: EntityLoader = entityLoaders[type]) {
+export async function listEntities(d1: D1Database | undefined, type: EntityType, q?: string) {
   if (!d1) throw new Error('D1 binding unavailable.');
   const needle = q ? norm(q) : '';
-  const all = (await load(d1)).filter(e => !needle || aliases(e).some(a => a.includes(needle)));
+  const all = (await entityLoaders[type](d1)).filter(e => !needle || aliases(e).some(a => a.includes(needle)));
   return { items: all.slice(0, LIST_LIMIT), total: all.length, truncated: all.length > LIST_LIMIT };
 }
 

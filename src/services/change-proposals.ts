@@ -300,24 +300,13 @@ export function sanitizeEvidence(evidence: unknown, changes: Record<string, unkn
   return items;
 }
 
-/** Fields a reader relies on; a proposal changing one without evidence is flagged to the reviewer (advisory, not blocking). */
-export const CONSEQUENTIAL_FIELDS = [
-  'advtNumber', 'totalVacancies', 'applicationStart', 'applicationEnd', 'examDate', 'ageCutoffDate', 'minAge', 'maxAgeGeneral',
-  'minQualificationLevel', 'vacanciesBreakdown', 'importantDates',
-];
-
 /** Not facts from the notice: editorial SEO copy and master ids (those come from resolve_entity). */
 export const EVIDENCE_EXEMPT_FIELDS = ['seoTitle', 'seoDescription', 'postId', 'organisationId'];
 
-/** Strict mode: every changed fact needs an evidence item that quotes the official source (a snippet). */
+/** Every changed fact needs an evidence item that quotes the official source (a snippet). */
 export function unsupportedFields(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined): string[] {
   const quoted = new Set((evidence ?? []).filter(e => e.snippet).map(e => e.field));
   return Object.keys(payload).filter(f => !EVIDENCE_EXEMPT_FIELDS.includes(f) && !quoted.has(f));
-}
-
-export function evidenceGaps(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined): string[] {
-  const covered = new Set((evidence ?? []).map(e => e.field));
-  return CONSEQUENTIAL_FIELDS.filter(f => f in payload && !covered.has(f));
 }
 
 // ── Reading current values (for the stale guard and the before/after diff) ──────────────────────────
@@ -399,12 +388,10 @@ export interface ProposalDeps {
   findOpen: (d1: D1Database, recruitmentId: string) => Promise<ProposalRow[]>;
   /** Guarded PENDING -> WITHDRAWN for the proposer's own row. False when it was no longer PENDING. */
   withdraw: (d1: D1Database, id: string, by: string) => Promise<boolean>;
-  /** Atomically withdraw `oldId` and insert the replacement. False when the old row was no longer PENDING. */
-  supersede: (d1: D1Database, oldId: string, row: NewProposal) => Promise<boolean>;
   postExists: (d1: D1Database, postId: string) => Promise<boolean>;
   orgExists: (d1: D1Database, organisationId: string) => Promise<boolean>;
   checkDuplicate: (d1: D1Database, candidate: RecruitmentCandidate) => Promise<DuplicateCheckResult>;
-  /** One audit_logs row (skipped notices, merged duplicates). */
+  /** One audit_logs row (skipped notices). */
   audit: (d1: D1Database, entry: { by: string; entity: string; entityId: string; action: string; field: string | null; newValue: string | null; reason: string }) => Promise<void>;
 }
 
@@ -480,14 +467,6 @@ export const defaultProposalDeps: ProposalDeps = {
     const results = await d1.batch(withdrawStatements(d1, id, by, WITHDRAWN_BY_PROPOSER));
     return (results[0].meta?.changes ?? 0) === 1;
   },
-  supersede: async (d1, oldId, row) => {
-    const note = `Superseded by ${row.id}`;
-    const [withdraw, audit] = withdrawStatements(d1, oldId, row.proposedBy, note);
-    const insert = d1.prepare(SUPERSEDE_INSERT_SQL).bind(row.id, row.kind, row.recruitmentId, row.summary, JSON.stringify(row.payload), row.baseSnapshot ? JSON.stringify(row.baseSnapshot) : null, row.supersedesId, row.meta ? JSON.stringify(row.meta) : null, row.proposedBy, oldId, note);
-    // One D1 batch is one transaction: the guarded withdraw, the replacement (inserted only if the withdraw landed) and the audit row.
-    const results = await d1.batch([withdraw, insert, audit]);
-    return (results[0].meta?.changes ?? 0) === 1 && (results[1].meta?.changes ?? 0) === 1;
-  },
   postExists: async (d1, postId) => (await getAllCanonicalPosts(d1)).some(p => p.id === postId && p.isActive !== 0),
   orgExists: async (d1, organisationId) => (await getAllOrganisations(d1)).some(o => o.id === organisationId),
   checkDuplicate: async (d1, candidate) => {
@@ -506,14 +485,10 @@ export const defaultProposalDeps: ProposalDeps = {
 
 const WITHDRAWN_BY_PROPOSER = 'Withdrawn by proposer';
 
-// Exported so the D1 integration test runs the exact statements production runs. Params: see withdrawStatements / supersede.
-export const WITHDRAW_SQL = "UPDATE change_proposals SET status = 'WITHDRAWN', decided_by = ?, decided_at = unixepoch(), decision_note = ? WHERE id = ? AND status = 'PENDING' AND proposed_by = ?";
-export const WITHDRAW_AUDIT_SQL =
+const WITHDRAW_SQL = "UPDATE change_proposals SET status = 'WITHDRAWN', decided_by = ?, decided_at = unixepoch(), decision_note = ? WHERE id = ? AND status = 'PENDING' AND proposed_by = ?";
+const WITHDRAW_AUDIT_SQL =
   "INSERT INTO audit_logs (id, admin_email, entity, entity_id, action, field, new_value, reason, source) " +
   "SELECT ?, ?, 'PROPOSAL', ?, 'WITHDRAW', 'status', 'WITHDRAWN', ?, 'MCP' WHERE EXISTS (SELECT 1 FROM change_proposals WHERE id = ? AND status = 'WITHDRAWN' AND decision_note = ?)";
-export const SUPERSEDE_INSERT_SQL =
-  "INSERT INTO change_proposals (id, kind, recruitment_id, summary, payload, base_snapshot, status, supersedes_id, meta, proposed_by) " +
-  "SELECT ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ? WHERE EXISTS (SELECT 1 FROM change_proposals WHERE id = ? AND status = 'WITHDRAWN' AND decision_note = ?)";
 
 /** [guarded withdraw, audit row]. The audit row is written only if the withdraw actually landed. */
 function withdrawStatements(d1: D1Database, id: string, by: string, note: string) {
@@ -529,14 +504,8 @@ export interface ProposalInput {
   recruitmentId?: string;
   summary: string;
   changes: unknown;
-  /** Optional field-level provenance; see sanitizeEvidence. */
+  /** Field-level provenance; see sanitizeEvidence. Every changed fact needs a quote. */
   evidence?: unknown;
-  /** Id of one of the caller's own PENDING proposals that this one replaces (same kind and target). */
-  supersedes?: string;
-  /** Trusted in-process callers only (the MCP tools never pass it): confidence and pipeline provenance for the reviewer. */
-  meta?: Record<string, unknown>;
-  /** Set by the MCP server (never by the model): refuse any changed fact without a quoted official source. */
-  requireEvidence?: boolean;
 }
 
 // Stage names are English (assertEnglish), so only English wording is matched.
@@ -550,7 +519,7 @@ const isExamStage = (s: { name: string; desc: string }) => {
 };
 
 /**
- * MCP scope rules (requireEvidence callers only): known link types, an apply link that is not a PDF,
+ * MCP scope rules: known link types, an apply link that is not a PDF,
  * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
  * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
  */
@@ -575,8 +544,7 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   }
 }
 
-function requirePropose(actor: Actor, d1: D1Database | undefined): D1Database {
-  if (actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for proposals.');
+function requireD1(d1: D1Database | undefined): D1Database {
   if (!d1) throw new Error('D1 binding unavailable.');
   return d1;
 }
@@ -587,33 +555,19 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   const summary = assertEnglish(str(input.summary, 'summary', MAX_SUMMARY), 'summary');
   const payload = sanitizeChanges(input.kind, input.changes);
   const evidence = sanitizeEvidence(input.evidence, payload);
-  const evidenceMissing = evidenceGaps(payload, evidence);
-  if (input.requireEvidence) {
-    const fields = unsupportedFields(payload, evidence);
-    if (fields.length) {
-      throw new ProposalBlockedError('EVIDENCE_REQUIRED', `Every changed field needs evidence quoting the official source (sourceUrl + snippet). Missing for: ${fields.join(', ')}. Leave out any value the source does not state.`, { fields });
-    }
+  const unsupported = unsupportedFields(payload, evidence);
+  if (unsupported.length) {
+    throw new ProposalBlockedError('EVIDENCE_REQUIRED', `Every changed field needs evidence quoting the official source (sourceUrl + snippet). Missing for: ${unsupported.join(', ')}. Leave out any value the source does not state.`, { fields: unsupported });
   }
   const meta: Record<string, unknown> = {};
   if (evidence?.length) meta.evidence = evidence;
-  if (input.meta) Object.assign(meta, input.meta);
-  const checks = checkFacts(payload, evidence, Array.isArray(meta.quoteInDocument) ? meta.quoteInDocument as string[] : []);
-  if (input.requireEvidence) {
-    const wrong = checks.fields.filter(c => c.status === 'NOT_IN_QUOTE');
-    if (wrong.length) {
-      throw new ProposalBlockedError('VALUE_NOT_IN_QUOTE', `These values do not appear in their quoted text: ${wrong.map(c => `${c.field} (${c.detail})`).join(' ')} Re-read the source: fix the value or the quote, or leave the field out.`, { fields: wrong.map(c => c.field) });
-    }
-    // An update is checked once the live record is loaded (below), so its existing link types can be kept.
-    if (input.kind === 'CREATE_RECRUITMENT') checkMcpScope(input.kind, payload);
+  const checks = checkFacts(payload, evidence);
+  const wrong = checks.fields.filter(c => c.status === 'NOT_IN_QUOTE');
+  if (wrong.length) {
+    throw new ProposalBlockedError('VALUE_NOT_IN_QUOTE', `These values do not appear in their quoted text: ${wrong.map(c => `${c.field} (${c.detail})`).join(' ')} Re-read the source: fix the value or the quote, or leave the field out.`, { fields: wrong.map(c => c.field) });
   }
-
-  let old: ProposalRow | undefined;
-  if (input.supersedes) {
-    old = await deps.get(db, input.supersedes);
-    if (!old || old.proposedBy !== actor.id) throw new InvalidProposalError('Proposal to supersede was not found.');
-    if (old.status !== 'PENDING') throw new InvalidProposalError(`Only a PENDING proposal can be superseded (this one is ${old.status}).`);
-    if (old.kind !== input.kind) throw new InvalidProposalError('A replacement must have the same kind as the proposal it supersedes.');
-  }
+  // An update is checked once the live record is loaded (below), so its existing link types can be kept.
+  if (input.kind === 'CREATE_RECRUITMENT') checkMcpScope(input.kind, payload);
 
   let recruitmentId: string | null = null;
   let baseSnapshot: Record<string, unknown> | null = null;
@@ -621,24 +575,22 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   let diff: DiffRow[] | undefined;
   if (input.kind === 'UPDATE_RECRUITMENT') {
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
-    if (old && old.recruitmentId !== recruitmentId) throw new InvalidProposalError('A replacement must target the same recruitment.');
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
-    if (input.requireEvidence) checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
+    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
     // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
     const hadApply = (current.officialLinksList ?? []).some(l => l.isActive !== 0 && l.linkType === 'APPLY_ONLINE');
     const links = payload.officialLinks as Array<{ linkType: string }> | undefined;
-    if (input.requireEvidence && links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
+    if (links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
       throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');
     }
-    // Re-snapshot the live record, never reuse the superseded proposal's snapshot.
     baseSnapshot = snapshotFields(current, Object.keys(payload));
     diff = buildDiff(payload, current);
     // Best-effort (D1 has no cross-statement transaction); the admin stale-guard remains the backstop.
-    const clash = (await deps.findOpen(db, recruitmentId)).filter(p => p.id !== old?.id && Object.keys(p.payload).some(f => f in payload));
+    const clash = (await deps.findOpen(db, recruitmentId)).filter(p => Object.keys(p.payload).some(f => f in payload));
     if (clash.length) {
       const fields = [...new Set(clash.flatMap(p => Object.keys(p.payload).filter(f => f in payload)))];
-      throw new ProposalBlockedError('PENDING_CHANGE_CONFLICT', `Open proposal(s) already change ${fields.join(', ')} on this recruitment. Withdraw or supersede them first.`, { conflictingIds: clash.map(p => p.id), fields });
+      throw new ProposalBlockedError('PENDING_CHANGE_CONFLICT', `Open proposal(s) already change ${fields.join(', ')} on this recruitment. Withdraw them first.`, { conflictingIds: clash.map(p => p.id), fields });
     }
   } else {
     if (input.recruitmentId) throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
@@ -671,19 +623,19 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     }
     // The same notice may already be waiting in the queue as another PENDING create: that is a duplicate too.
     const queued = (await deps.list(db, { status: 'PENDING', limit: 250 }))
-      .filter(p => p.kind === 'CREATE_RECRUITMENT' && p.id !== old?.id && p.payload && typeof p.payload.title === 'string');
+      .filter(p => p.kind === 'CREATE_RECRUITMENT' && p.payload && typeof p.payload.title === 'string');
     const pendingDup = detectDuplicates(
       { title: payload.title as string, advtNumber: (payload.advtNumber as string | null | undefined) ?? null, organisationId, postId, cycleYear: (payload.cycleYear as number | undefined) ?? new Date().getFullYear(), sourceUrls: (sources ?? []).map(s => s.sourceUrl), ...window },
       queued.map(p => ({ id: p.id, title: p.payload.title as string, advtNumber: (p.payload.advtNumber as string | null | undefined) ?? null, organisationId: p.payload.organisationId as string, postId: p.payload.postId as string, cycleYear: (p.payload.cycleYear as number | undefined) ?? new Date(p.createdAt).getFullYear(), sourceUrls: ((p.payload.sources as Array<{ sourceUrl: string }> | undefined) ?? []).map(s => s.sourceUrl), totalVacancies: p.payload.totalVacancies as number | undefined, applicationStart: p.payload.applicationStart as string | undefined, applicationEnd: p.payload.applicationEnd as string | undefined })),
     );
     if (pendingDup.status === 'CONFIRMED_DUPLICATE') {
-      throw new ProposalBlockedError('CONFIRMED_DUPLICATE', 'The same recruitment is already waiting as a PENDING proposal. Supersede or withdraw it instead.', { pendingProposalIds: pendingDup.matches.map(m => m.matchedRecruitmentId), matches: pendingDup.matches });
+      throw new ProposalBlockedError('CONFIRMED_DUPLICATE', 'The same recruitment is already waiting as a PENDING proposal. Withdraw it first.', { pendingProposalIds: pendingDup.matches.map(m => m.matchedRecruitmentId), matches: pendingDup.matches });
     }
   }
 
   const id = `prop_${crypto.randomUUID()}`;
-  const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: old?.id ?? null, proposedBy: actor.id };
-  return { row, old, duplicateWarning, diff, evidenceMissing, checks };
+  const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: null, proposedBy: actor.id };
+  return { row, duplicateWarning, diff, checks };
 }
 
 /** What the reviewer will be asked to look at hardest, returned to the proposer so it can re-read those fields first. */
@@ -694,21 +646,21 @@ const reviewerFlags = (c: FactCheckSummary) => ({
 
 /** Dry run: what createProposal would do, without queuing anything or using a pending slot. Blocked outcomes are thrown as ProposalBlockedError. */
 export async function previewProposal(d1: D1Database | undefined, actor: Actor, input: ProposalInput, deps: ProposalDeps = defaultProposalDeps) {
-  const db = requirePropose(actor, d1);
+  const db = requireD1(d1);
   let checked: Awaited<ReturnType<typeof checkProposal>>;
   try {
     checked = await checkProposal(db, actor, input, deps);
   } catch (e) {
-    // A no-exam notice refused at preview still belongs on the Skipped list (the MCP stops there); no merge from a dry run.
-    if (e instanceof ProposalBlockedError && e.code === 'NO_EXAM_STAGE') await recordBlocked(db, actor, input, e, deps);
+    // A no-exam notice refused at preview still belongs on the Skipped list (the MCP stops there).
+    if (e instanceof ProposalBlockedError) await recordBlocked(db, actor, input, e, deps);
     throw e;
   }
-  const { row, old, duplicateWarning, diff, evidenceMissing, checks } = checked;
+  const { row, duplicateWarning, diff, checks } = checked;
   return {
     action: row.kind === 'CREATE_RECRUITMENT' ? (duplicateWarning ? 'NEW_POSSIBLE_DUPLICATE' : 'NEW') : 'UPDATE',
-    kind: row.kind, recruitmentId: row.recruitmentId, ...(old ? { supersedes: old.id } : {}),
+    kind: row.kind, recruitmentId: row.recruitmentId,
     changes: diff ?? Object.entries(row.payload).map(([field, after]) => ({ field, before: null, after, changed: true })),
-    evidenceMissing, ...(duplicateWarning ? { duplicateWarning } : {}),
+    ...(duplicateWarning ? { duplicateWarning } : {}),
     checks: reviewerFlags(checks),
     approval: 'REQUIRED',
   };
@@ -720,8 +672,8 @@ export async function createProposal(
   actor: Actor,
   input: ProposalInput,
   deps: ProposalDeps = defaultProposalDeps,
-): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; supersedes?: string; duplicateWarning?: DuplicateCheckResult; evidenceMissing: string[]; checks: ReturnType<typeof reviewerFlags> }> {
-  const db = requirePropose(actor, d1);
+): Promise<{ id: string; status: 'PENDING'; kind: ProposalKind; recruitmentId: string | null; duplicateWarning?: DuplicateCheckResult; checks: ReturnType<typeof reviewerFlags> }> {
+  const db = requireD1(d1);
   let checked: Awaited<ReturnType<typeof checkProposal>>;
   try {
     checked = await checkProposal(db, actor, input, deps);
@@ -729,60 +681,24 @@ export async function createProposal(
     if (e instanceof ProposalBlockedError) await recordBlocked(db, actor, input, e, deps);
     throw e;
   }
-  const { row, old, duplicateWarning, evidenceMissing, checks } = checked;
+  const { row, duplicateWarning, checks } = checked;
   const { id, recruitmentId } = row;
-  const kind = row.kind as ProposalKind;
-  if (old) {
-    // The withdraw frees the slot the replacement takes, so the pending cap is not re-checked.
-    if (!(await deps.supersede(db, old.id, row))) throw new InvalidProposalError('Proposal to supersede is no longer PENDING (an admin may have just decided it).');
-  } else {
-    if ((await deps.countPending(db, actor.id)) >= MAX_PENDING_PROPOSALS) {
-      throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
-    }
-    await deps.insert(db, row);
+  if ((await deps.countPending(db, actor.id)) >= MAX_PENDING_PROPOSALS) {
+    throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
   }
-  return { id, status: 'PENDING', kind, recruitmentId, evidenceMissing, checks: reviewerFlags(checks), ...(old ? { supersedes: old.id } : {}), ...(duplicateWarning ? { duplicateWarning } : {}) };
+  await deps.insert(db, row);
+  return { id, status: 'PENDING', kind: row.kind as ProposalKind, recruitmentId, checks: reviewerFlags(checks), ...(duplicateWarning ? { duplicateWarning } : {}) };
 }
 
-type Source = { sourceUrl: string };
-
-/**
- * A refused create leaves a trace for the reviewer: a notice with no selection exam goes on the Skipped list
- * (audit action SKIPPED), and a duplicate of a live recruitment hands its new source(s) to that record as an
- * UPDATE proposal (audit action DUPLICATE_MERGED). Never throws: the original refusal is what the caller sees.
- */
+/** A no-exam notice refused on create goes on the Skipped list (audit action SKIPPED). Never throws: the original refusal is what the caller sees. */
 async function recordBlocked(db: D1Database, actor: Actor, input: ProposalInput, e: ProposalBlockedError, deps: ProposalDeps): Promise<void> {
-  if (input.kind !== 'CREATE_RECRUITMENT') return;
+  if (input.kind !== 'CREATE_RECRUITMENT' || e.code !== 'NO_EXAM_STAGE') return;
   try {
     const changes = isObj(input.changes) ? input.changes : {};
     const title = typeof changes.title === 'string' ? changes.title : String(input.summary ?? 'Untitled notice');
-    const sources = (Array.isArray(changes.sources) ? changes.sources : []) as Source[];
-    if (e.code === 'NO_EXAM_STAGE') {
-      const stages = Array.isArray(changes.selectionStages) ? (changes.selectionStages as Array<{ name?: string }>).map(s => s?.name).filter(Boolean).join(', ') : '';
-      await deps.audit(db, { by: actor.id, entity: 'PROPOSAL', entityId: title, action: 'SKIPPED', field: sources[0]?.sourceUrl ?? null, newValue: stages || null, reason: `NO_EXAM: ${stages ? `selection is ${stages}` : 'no selection stages given'}` });
-      return;
-    }
-    // Only a duplicate of a live record (a queued one is reported as pendingProposalIds) gets the source handed over.
-    const matches = e.code === 'CONFIRMED_DUPLICATE' && !e.details.pendingProposalIds ? (e.details.matches as DuplicateCheckResult['matches'] | undefined) ?? [] : [];
-    const target = matches.find(m => m.confidence === 'HIGH')?.matchedRecruitmentId;
-    if (!target) return;
-    const current = await deps.loadRecruitment(db, target);
-    // The identical-title rule ignores the organisation: never hand a source to another body's record.
-    if (!current || current.organisationId !== changes.organisationId) return;
-    const have = currentFieldValue(current, 'sources') as Source[];
-    const known = new Set(have.map(s => s.sourceUrl.trim().toLowerCase()));
-    const extra = ((sanitizeChanges('CREATE_RECRUITMENT', changes).sources as Source[] | undefined) ?? []).filter(s => !known.has(s.sourceUrl.trim().toLowerCase()));
-    if (!extra.length || (await deps.findOpen(db, target)).some(p => 'sources' in p.payload)) return;
-    const row: NewProposal = {
-      id: `prop_${crypto.randomUUID()}`, kind: 'UPDATE_RECRUITMENT', recruitmentId: target,
-      summary: `Add source(s) from a duplicate notice: ${title}`.slice(0, MAX_SUMMARY),
-      payload: { sources: [...have, ...extra] }, baseSnapshot: snapshotFields(current, ['sources']),
-      meta: { duplicateMerged: { title, matches } }, supersedesId: null, proposedBy: actor.id,
-    };
-    await deps.insert(db, row);
-    await deps.audit(db, { by: actor.id, entity: 'RECRUITMENT', entityId: target, action: 'DUPLICATE_MERGED', field: 'sources', newValue: extra.map(s => s.sourceUrl).join(' '), reason: `Duplicate of "${title}"; new source queued as ${row.id}` });
-    Object.assign(e.details, { mergedInto: target, sourceProposalId: row.id });
-    e.message += ` Not created. Its new source(s) were queued onto ${target} as ${row.id}.`;
+    const sources = (Array.isArray(changes.sources) ? changes.sources : []) as Array<{ sourceUrl: string }>;
+    const stages = Array.isArray(changes.selectionStages) ? (changes.selectionStages as Array<{ name?: string }>).map(s => s?.name).filter(Boolean).join(', ') : '';
+    await deps.audit(db, { by: actor.id, entity: 'PROPOSAL', entityId: title, action: 'SKIPPED', field: sources[0]?.sourceUrl ?? null, newValue: stages || null, reason: `NO_EXAM: ${stages ? `selection is ${stages}` : 'no selection stages given'}` });
   } catch (err) {
     console.error('[proposals] could not record blocked proposal', err);
   }
@@ -790,7 +706,7 @@ async function recordBlocked(db: D1Database, actor: Actor, input: ProposalInput,
 
 /** One of the caller's own proposals, in full. */
 export async function getProposal(d1: D1Database | undefined, actor: Actor, id: string, deps: ProposalDeps = defaultProposalDeps): Promise<ProposalRow> {
-  const db = requirePropose(actor, d1);
+  const db = requireD1(d1);
   const row = await deps.get(db, str(id, 'id', 100));
   if (!row || row.proposedBy !== actor.id) throw new InvalidProposalError('Proposal not found.');
   return row;
@@ -810,7 +726,7 @@ export async function listProposals(
   options: ListOptions = {},
   deps: ProposalDeps = defaultProposalDeps,
 ): Promise<ProposalRow[]> {
-  const db = requirePropose(actor, d1);
+  const db = requireD1(d1);
   const limit = options.limit ?? 20;
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new InvalidProposalError('limit must be an integer between 1 and 50.');
   // The MCP only ever sees its own proposals.

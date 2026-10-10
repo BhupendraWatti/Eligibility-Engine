@@ -9,12 +9,12 @@
 import { getAllActiveRecruitments, type RecruitmentWithDetails, type CanonicalLifecycle } from '../db/queries';
 
 /**
- * Who is calling and in which operating mode. PROPOSE implies READ plus the right to queue change
- * proposals (src/services/change-proposals.ts). No mode may write live recruitment data.
+ * Who is calling. PROPOSE = read plus the right to queue change proposals (src/services/change-proposals.ts).
+ * It can never write live recruitment data.
  */
 export interface Actor {
   id: string;
-  mode: 'READ' | 'PROPOSE';
+  mode: 'PROPOSE';
 }
 
 export const APPLICATION_STATUSES = ['UPCOMING', 'OPEN', 'CLOSED'] as const;
@@ -46,7 +46,7 @@ export interface RecruitmentSearchFilters {
   advtNumber?: string;
   /** Exact URL of a recorded source or official link. */
   sourceUrl?: string;
-  /** Also search drafts and pending-verification records. Default true for a PROPOSE actor, false for READ. */
+  /** Also search drafts and pending-verification records. Default true. */
   includeUnpublished?: boolean;
   lifecycle?: CanonicalLifecycle;
   applicationStatus?: ApplicationStatus;
@@ -197,12 +197,9 @@ export function matchesFilters(r: RecruitmentWithDetails, f: RecruitmentSearchFi
 
 export async function searchRecruitments(
   d1: D1Database | undefined,
-  actor: Actor,
   filters: RecruitmentSearchFilters,
   deps: RecruitmentQueryDeps = defaultDeps,
 ): Promise<RecruitmentSearchResult> {
-  // READ (and PROPOSE, which includes read access) only; reject anything else so a future mode cannot reach this path by accident.
-  if (actor.mode !== 'READ' && actor.mode !== 'PROPOSE') throw new Error('Operating mode not permitted for recruitment search.');
   // Explicit D1 only: never fall back to the demo data set that the shared query layer serves in dev.
   if (!d1) throw new Error('D1 binding unavailable.');
 
@@ -212,9 +209,9 @@ export async function searchRecruitments(
   }
   const offset = decodeCursor(filters.cursor);
 
-  // The public website never calls this. An authenticated PROPOSE actor sees drafts and pending-verification records by default,
-  // so duplicate checks cannot miss them; it may still pass includeUnpublished=false. A READ actor only ever sees PUBLISHED rows.
-  const includeUnpublished = actor.mode === 'PROPOSE' ? filters.includeUnpublished !== false : filters.includeUnpublished === true;
+  // The public website never calls this. The MCP sees drafts and pending-verification records by default,
+  // so duplicate checks cannot miss them; it may still pass includeUnpublished=false.
+  const includeUnpublished = filters.includeUnpublished !== false;
   const rows = await deps.load(d1, { includeUnpublished, limit: SCAN_WINDOW });
   const matched = rows
     .filter(r => (includeUnpublished || r.status === 'PUBLISHED') && matchesFilters(r, filters))

@@ -1,7 +1,7 @@
 /**
  * Mechanical value-vs-quote checks shown to the admin reviewer. Run: `tsx src/services/fact-checks.test.ts`.
  */
-import { checkFacts, datesIn, fullyMachineChecked, numbersIn } from './fact-checks';
+import { checkFacts, datesIn, numbersIn } from './fact-checks';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -66,13 +66,8 @@ assert(s.total === 2 && s.matched === 0 && s.needsReading.length === 2, 'summari
 s = checkFacts({ totalVacancies: 6 }, []);
 assert(s.notInQuote.includes('totalVacancies') && s.fields[0].status === 'NO_QUOTE', 'a fact without a quote is flagged');
 
-// Risk flags and the auto-publish gate
-s = checkFacts({ applicationEnd: '2026-10-26' }, [q('applicationEnd', '26.10.26', { method: 'VISION', handwritten: true })], ['applicationEnd']);
+// Risk flags
+s = checkFacts({ applicationEnd: '2026-10-26' }, [q('applicationEnd', '26.10.26', { method: 'VISION', handwritten: true })]);
 assert(s.fromImage[0] === 'applicationEnd' && s.handwritten[0] === 'applicationEnd', 'scanned and handwritten values are flagged');
-assert(!fullyMachineChecked(s), 'a scanned or handwritten value can never auto-publish');
-s = checkFacts({ applicationEnd: '2026-10-26' }, [q('applicationEnd', 'Last date 26.10.2026')]);
-assert(!fullyMachineChecked(s), 'a value matching only its quote, with the quote unchecked against the page, cannot auto-publish');
-s = checkFacts({ applicationEnd: '2026-10-26' }, [q('applicationEnd', 'Last date 26.10.2026')], ['applicationEnd']);
-assert(fullyMachineChecked(s), 'auto-publish needs the value in its quote and the quote in the page text');
 
 console.log('\nAll fact-check tests passed.');

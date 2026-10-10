@@ -25,7 +25,7 @@ Publication status, the Verified badge, featured, robots, post and organisation 
 The propose tools require `evidence[]` (field, sourceUrl, page, section, snippet, method NATIVE/OCR/VISION, confidence;
 shown to the reviewer as an unverified claim): one item with a snippet quoted from the official source for every changed
 field except `seoTitle`, `seoDescription`, `postId` and `organisationId`, otherwise the proposal is refused as `EVIDENCE_REQUIRED`.
-They also take `supersedes` (the id of its own PENDING proposal to replace atomically).
+To correct one, `withdraw_proposal` it and propose again.
 They refuse with a stable error code instead of queueing: `EVIDENCE_REQUIRED`, `PENDING_CHANGE_CONFLICT` (an open proposal already changes
 the same fields of that recruitment), `CONFIRMED_DUPLICATE`, and `UNKNOWN_POST` (the post is not in the master data:
 queue it with `propose_master`; the MCP can never create masters, an admin approves them). A possible duplicate is queued with a warning for the reviewer.

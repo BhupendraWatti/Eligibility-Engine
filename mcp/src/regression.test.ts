@@ -27,9 +27,8 @@ function assert(condition: boolean, msg: string) {
 
 const d1 = {} as D1Database;
 const proposer: Actor = { id: 'mcp-client', mode: 'PROPOSE' };
-const reader: Actor = { id: 'reader', mode: 'READ' };
 
-// ── 1 + 2. Internal search sees drafts; public/read paths do not ───────────────────────────────────
+// ── 1 + 2. Internal search sees drafts; the public query layer does not ──────────────────────────────
 function row(over: Record<string, unknown>): any {
   return {
     id: 'r', title: 'Police Subedar (Stenographic) 2026', slug: 's', advtNumber: null, cycleYear: 2026, totalVacancies: 135, status: 'PUBLISHED',
@@ -42,12 +41,10 @@ let lastOptions: { includeUnpublished: boolean } | undefined;
 const queryDeps: RecruitmentQueryDeps = { load: async (_d, o) => { lastOptions = o; return DATA; } };
 
 async function run() {
-  let res = await searchRecruitments(d1, proposer, { title: 'Subedar' }, queryDeps);
-  assert(res.items.map(i => i.id).sort().join() === 'draft,pub,pv' && lastOptions?.includeUnpublished === true, 'internal (PROPOSE) search finds draft and pending-verification records by default');
-  res = await searchRecruitments(d1, proposer, { title: 'Subedar', includeUnpublished: false }, queryDeps);
-  assert(res.items.map(i => i.id).join() === 'pub', 'internal search can still be limited to published rows');
-  res = await searchRecruitments(d1, reader, { title: 'Subedar' }, queryDeps);
-  assert(res.items.map(i => i.id).join() === 'pub' && lastOptions?.includeUnpublished === false, 'READ search hides drafts');
+  let res = await searchRecruitments(d1, { title: 'Subedar' }, queryDeps);
+  assert(res.items.map(i => i.id).sort().join() === 'draft,pub,pv' && lastOptions?.includeUnpublished === true, 'internal search finds draft and pending-verification records by default');
+  res = await searchRecruitments(d1, { title: 'Subedar', includeUnpublished: false }, queryDeps);
+  assert(res.items.map(i => i.id).join() === 'pub' && lastOptions?.includeUnpublished === false, 'internal search can still be limited to published rows');
   const publicList = await getAllActiveRecruitments(undefined);
   assert(publicList.length > 0 && publicList.every(r => r.status === 'PUBLISHED'), 'the public query layer still returns PUBLISHED rows only');
 
@@ -76,7 +73,6 @@ async function run() {
     get: async () => undefined,
     findOpen: async () => [],
     withdraw: async () => true,
-    supersede: async () => true,
     postExists: async () => true,
     orgExists: async () => true,
     checkDuplicate: async () => ({ status: 'NO_DUPLICATE', matches: [], summary: '' }),
@@ -148,39 +144,47 @@ async function run() {
   assert(gujaratiSummary, 'a master proposal summary in another script is refused');
 
   // ── 7. Evidence is stored beside the payload ───────────────────────────────────────────────────
+  const quote = (field: string) => ({ field, sourceUrl: rulebook, page: 1, snippet: 'quoted line', method: 'NATIVE' });
+  const examAndApply = {
+    selectionStages: [{ name: 'Written exam', desc: 'Computer-based test of 100 marks' }],
+    officialLinks: [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: 'https://esb.mp.gov.in/apply' }],
+  };
+  /** A create that passes every MCP check: an exam stage, an apply link and a quote for every fact. */
+  const full = (changes: Record<string, unknown>) => {
+    const all: Record<string, unknown> = { ...examAndApply, ...changes };
+    const evidence = Object.keys(all).filter(f => !['seoTitle', 'seoDescription', 'postId', 'organisationId'].includes(f))
+      .map(f => ({ ...quote(f), snippet: `Total posts: ${all.totalVacancies}` }));
+    return { changes: all, evidence };
+  };
   const evDeps = base();
+  const asi = full(create);
   const made = await createProposal(d1, proposer, {
-    kind: 'CREATE_RECRUITMENT', summary: 'ASI (Stenographic) per rulebook', changes: create,
-    evidence: [{ field: 'totalVacancies', sourceUrl: rulebook, page: 5, snippet: 'Post codes 03-06: 100 + 370 + 25 + 25', method: 'VISION', confidence: 0.9 }],
+    kind: 'CREATE_RECRUITMENT', summary: 'ASI (Stenographic) per rulebook', changes: asi.changes,
+    evidence: [...asi.evidence.filter(e => e.field !== 'totalVacancies'), { field: 'totalVacancies', sourceUrl: rulebook, page: 5, snippet: 'Post codes 03-06: 520 posts', method: 'VISION', confidence: 0.9 }],
   }, evDeps);
-  const ev = (store[store.length - 1]?.meta as any)?.evidence?.[0];
-  assert(made.status === 'PENDING' && !made.evidenceMissing.includes('totalVacancies'), 'evidence for totalVacancies clears the evidence-missing flag');
-  assert(!!ev && ev.field === 'totalVacancies' && ev.page === 5 && ev.method === 'VISION' && ev.snippet.startsWith('Post codes'), 'field-level evidence (field, page, snippet, method) is preserved on the queued proposal');
+  const ev = ((store[store.length - 1]?.meta as any)?.evidence ?? []).find((e: any) => e.field === 'totalVacancies');
+  assert(made.status === 'PENDING', 'a create with a quote for every fact is queued');
+  assert(!!ev && ev.page === 5 && ev.method === 'VISION' && ev.snippet.startsWith('Post codes'), 'field-level evidence (field, page, snippet, method) is preserved on the queued proposal');
 
   // A second PENDING create for the same post and source is refused, while a different post may share the PDF.
   const queuedCreate = { id: 'prop_q', kind: 'CREATE_RECRUITMENT', payload: { ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 't', sourceUrl: rulebook }] }, status: 'PENDING', createdAt: new Date() } as unknown as ProposalRow;
   const withQueue: ProposalDeps = { ...base(), list: async () => [queuedCreate] };
   let blockedCode = '';
-  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'dup', changes: { ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 't', sourceUrl: rulebook }] } }, withQueue); } catch (e: any) { blockedCode = e.code; }
+  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'dup', ...full({ ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 't', sourceUrl: rulebook }] }) }, withQueue); } catch (e: any) { blockedCode = e.code; }
   assert(blockedCode === 'CONFIRMED_DUPLICATE', 'a PENDING create for the same notice and post blocks a second one');
-  const otherPost = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Subedar', changes: { ...create, title: 'Subedar (Stenographic) 2026', postId: 'post_mp_subedar_steno', sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 't', sourceUrl: rulebook }] } }, withQueue);
+  const otherPost = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Subedar', ...full({ ...create, title: 'Subedar (Stenographic) 2026', postId: 'post_mp_subedar_steno', sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 't', sourceUrl: rulebook }] }) }, withQueue);
   assert(otherPost.status === 'PENDING', 'a different post under the same rulebook URL can be queued');
 
-  // ── 7b. MCP proposals (requireEvidence) must quote the official source for every changed fact ──────
+  // ── 7b. MCP proposals must quote the official source for every changed fact ──────────────────────
   const strictDeps = base();
   const strict = async (changes: Record<string, unknown>, evidence?: unknown) => {
-    try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'strict', changes, evidence, requireEvidence: true }, strictDeps); return 'QUEUED'; }
+    try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'strict', changes, evidence }, strictDeps); return 'QUEUED'; }
     catch (e: any) { return `${e.code}:${(e.details?.fields ?? []).join(',')}`; }
   };
-  const quote = (field: string) => ({ field, sourceUrl: rulebook, page: 1, snippet: 'quoted line', method: 'NATIVE' });
   const strictCreate = { ...create, title: 'Strict test 2026', postId: 'post_strict' };
   assert(await strict(strictCreate) === 'EVIDENCE_REQUIRED:title,totalVacancies', 'a strict proposal without evidence is refused and names the unsupported fields');
   assert(await strict(strictCreate, [quote('title'), { ...quote('totalVacancies'), snippet: undefined }]) === 'EVIDENCE_REQUIRED:totalVacancies', 'evidence without a quoted snippet does not count');
   const quoteVacancies = { ...quote('totalVacancies'), snippet: 'Total posts: 520' };
-  const examAndApply = {
-    selectionStages: [{ name: 'Written exam', desc: 'Computer-based test of 100 marks' }],
-    officialLinks: [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: 'https://esb.mp.gov.in/apply' }],
-  };
   assert(await strict({ ...strictCreate, ...examAndApply, seoTitle: 'SEO copy' }, [quote('title'), quoteVacancies, quote('selectionStages'), quote('officialLinks')]) === 'QUEUED', 'quoted evidence for every fact queues it; SEO copy and master ids are exempt');
   assert(await strict(strictCreate, [quote('title'), { ...quoteVacancies, snippet: 'Total posts: 502' }]) === 'VALUE_NOT_IN_QUOTE:totalVacancies', 'a value that is not in its own quote is refused');
   assert(await strict({ ...strictCreate, ...examAndApply, title: 'Strict handwritten 2026', postId: 'post_hw', applicationEnd: '2026-10-26' }, [quote('title'), quoteVacancies, quote('selectionStages'), quote('officialLinks'), { ...quote('applicationEnd'), snippet: 'दिनांक 11.10.26 से 26.10.26 अपराह्न 5:00 बजे तक', handwritten: true }]) === 'QUEUED', 'a handwritten Hindi date that matches its quote is queued (and flagged)');
@@ -201,7 +205,7 @@ async function run() {
   const skipDeps = base();
   let skipCode = '';
   try {
-    await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Home Guard enrolment', requireEvidence: true,
+    await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Home Guard enrolment',
       changes: { title: 'Home Guard Enrolment 2026', postId: 'post_hg', organisationId: 'org_hg', totalVacancies: 50, selectionStages: [{ name: 'Interview', desc: 'Direct interview' }], officialLinks: [applyPage], sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'n', sourceUrl: 'https://x.gov.in/hg.pdf' }] },
       evidence: ['title', 'totalVacancies', 'selectionStages', 'officialLinks', 'sources'].map(f => ({ ...quote(f), snippet: f === 'totalVacancies' ? 'posts 50' : 'quoted line' })) }, skipDeps);
   } catch (e: any) { skipCode = e.code; }
@@ -214,7 +218,7 @@ async function run() {
   const dropDeps: ProposalDeps = { ...base(), loadRecruitment: async () => withApply };
   let dropCode = '';
   try {
-    await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_apply', summary: 'links', requireEvidence: true,
+    await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_apply', summary: 'links',
       changes: { officialLinks: [{ linkType: 'NOTIFICATION_PDF', title: 'Notice', url: 'https://x.gov.in/n.pdf' }] }, evidence: [quote('officialLinks')] }, dropDeps);
   } catch (e: any) { dropCode = e.code; }
   assert(dropCode === 'APPLY_LINK_REQUIRED', 'an update that drops the existing apply link is refused');
@@ -278,7 +282,7 @@ async function run() {
   const post = await proposeMaster(d1, proposer, { type: 'post', summary: 'Add post', fields: { departmentId: DEPT, sectorId: 'sec_admin', title: 'Clerk' } }, chainDeps, masters);
   assert(post.status === 'NOT_FOUND' && post.queued, 'a post can be queued under a department that is still a pending proposal');
   chain.set(POST, queuedRow(POST, 'CREATE_POST', { departmentId: DEPT, sectorId: 'sec_admin', title: 'Clerk', slug: 'clerk' }));
-  const rec = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Clerk 2026', changes: { title: 'Clerk 2026', postId: POST, organisationId: ORG, totalVacancies: 10 } }, chainDeps);
+  const rec = await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'Clerk 2026', ...full({ title: 'Clerk 2026', postId: POST, organisationId: ORG, totalVacancies: 10 }) }, chainDeps);
   assert(rec.status === 'PENDING', 'a recruitment can be queued on a pending post and organisation');
   let wrong = '';
   try { await proposeMaster(d1, proposer, { type: 'post', summary: 'x', fields: { departmentId: ORG, sectorId: 'sec_admin', title: 'Typist' } }, chainDeps, masters); } catch (e: any) { wrong = e.message; }
@@ -327,20 +331,16 @@ async function run() {
   await rejectProposal(d1, 'prop_r', 'admin@x.in', 'not an exam', rejDeps);
   assert(rejected2.join() === ['prop_r', POST, DEPT].join(), 'rejecting a recruitment rejects its unused pending post and department, but keeps an organisation another proposal still uses');
 
-  // A confirmed duplicate of a live record is not created; its new source is queued onto that record.
-  audits.length = 0;
-  const liveDup: any = { ...row({ id: 'rec_live' }), organisationId: 'org_mpesb', sourcesList: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'old', sourceUrl: 'https://x.gov.in/old.pdf' }] };
-  const mergeStore: NewProposal[] = [];
-  const mergeDeps: ProposalDeps = {
-    ...base(), loadRecruitment: async () => liveDup, insert: async (_d, r) => { mergeStore.push(r); },
+  // A confirmed duplicate of a live record is refused and nothing is queued; the refusal names the matched record.
+  const dupStore: NewProposal[] = [];
+  const dupDeps: ProposalDeps = {
+    ...base(), insert: async (_d, r) => { dupStore.push(r); },
     checkDuplicate: async () => ({ status: 'CONFIRMED_DUPLICATE', summary: 'dup', matches: [{ matchedRecruitmentId: 'rec_live', matchedTitle: 't', matchedAdvtNumber: null, matchedOrganisation: 'o', confidence: 'HIGH', reasons: ['same'] }] }),
   };
-  let mergeErr: any;
-  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'again', changes: { ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'new', sourceUrl: 'https://x.gov.in/new.pdf' }] } }, mergeDeps); } catch (e) { mergeErr = e; }
-  const merged = mergeStore[0];
-  assert(mergeErr?.code === 'CONFIRMED_DUPLICATE' && mergeErr.details.mergedInto === 'rec_live' && merged?.kind === 'UPDATE_RECRUITMENT' && merged.recruitmentId === 'rec_live'
-    && (merged.payload.sources as any[]).map(s => s.sourceUrl).join() === 'https://x.gov.in/old.pdf,https://x.gov.in/new.pdf' && audits.some(a => a.action === 'DUPLICATE_MERGED' && a.entityId === 'rec_live'),
-    'a duplicate is not created: its new source is queued onto the existing record and logged as DUPLICATE_MERGED');
+  let dupErr: any;
+  try { await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'again', ...full({ ...create, sources: [{ sourceType: 'OFFICIAL_NOTIFICATION_PDF', sourceTitle: 'new', sourceUrl: 'https://x.gov.in/new.pdf' }] }) }, dupDeps); } catch (e) { dupErr = e; }
+  assert(dupErr?.code === 'CONFIRMED_DUPLICATE' && dupErr.details.matches[0].matchedRecruitmentId === 'rec_live' && dupStore.length === 0,
+    'a confirmed duplicate is refused, names the existing record, and queues nothing');
 
   console.log('\nAll regression checks passed.');
 }
