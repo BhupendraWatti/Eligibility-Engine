@@ -24,6 +24,16 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   const isAdminHost = isAdminSubdomain(hostname);
   const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
 
+  // On the admin host the panel lives at the root (admin.example.com/states), never under /admin.
+  // Old /admin/... links and bookmarks are sent to the clean path; 308 keeps the method for form posts.
+  // `adminRewritten` marks our own internal rewrite below so it is not redirected back.
+  const alreadyRewritten = (locals as { adminRewritten?: boolean }).adminRewritten === true;
+  if (isAdminHost && isAdminPath && !alreadyRewritten) {
+    const cleanUrl = new URL(url.toString());
+    cleanUrl.pathname = url.pathname.slice('/admin'.length) || '/';
+    return Response.redirect(cleanUrl.toString(), 308);
+  }
+
   // The admin panel is served only from the admin.* subdomain (behind Cloudflare Access).
   // On every other production host, /admin does not exist, so it is not advertised or probeable.
   if (!isAdminHost && !isLocal && isAdminPath) {
@@ -123,6 +133,7 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     locals.adminEmail = userEmail;
 
     if (isAdminHost && !isAdminPath) {
+      (locals as { adminRewritten?: boolean }).adminRewritten = true;
       return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
     }
   } else {

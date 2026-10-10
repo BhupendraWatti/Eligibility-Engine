@@ -34,7 +34,7 @@ const versions = d1 && id ? await listVersions(d1, id).catch(() => []) : [];
 const when = (t: number) => new Date(t * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
 ---
 
-<AdminLayout title="Version history" currentSection="recruitments" breadcrumbs={[{ label: 'Recruitments', href: '/admin/recruitments' }, { label: recruitment?.title ?? 'Recruitment', href: `/admin/recruitments/${id}/edit` }, { label: 'History' }]}>
+<AdminLayout title="Version history" currentSection="recruitments" breadcrumbs={[{ label: 'Recruitments', href: '/recruitments' }, { label: recruitment?.title ?? 'Recruitment', href: `/recruitments/${id}/edit` }, { label: 'History' }]}>
   <div class="mx-auto max-w-4xl space-y-6">
     {message && <div class={`p-3 rounded-lg border text-xs ${messageType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`} role="status">{message}</div>}
     <div class="border-b border-slate-200 pb-4">

@@ -95,7 +95,7 @@ const filterOptions = [
       </div>
 
       <a
-        href="/admin/recruitments/new"
+        href="/recruitments/new"
         class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -105,7 +105,7 @@ const filterOptions = [
 
     <!-- Search & Secondary Toolbar -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <form method="get" action="/admin/recruitments" class="relative max-w-sm w-full">
+      <form method="get" action="/recruitments" class="relative max-w-sm w-full">
         <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
           type="search"
@@ -177,7 +177,7 @@ const filterOptions = [
     <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-zinc-200">
       {filterOptions.map((opt) => (
         <a
-          href={`/admin/recruitments?status=${opt.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+          href={`/recruitments?status=${opt.value}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
           class={`px-3 py-1.5 rounded-md font-medium transition-all whitespace-nowrap ${
             filterStatus === opt.value
               ? 'bg-primary text-white font-semibold shadow-xs'
@@ -247,7 +247,7 @@ const filterOptions = [
               <tr>
                 <td colspan="11" class="py-12 text-center text-zinc-500">
                   <p class="font-medium">No recruitments found matching current criteria.</p>
-                  <a href="/admin/recruitments" class="mt-1 text-xs font-semibold text-zinc-950 underline inline-block">
+                  <a href="/recruitments" class="mt-1 text-xs font-semibold text-zinc-950 underline inline-block">
                     Clear all filters
                   </a>
                 </td>
@@ -267,7 +267,7 @@ const filterOptions = [
                       />
                     </td>
                     <td class="py-3 px-3">
-                      <a href={`/admin/recruitments/${r.id}/edit`} class="font-semibold text-zinc-950 hover:underline block leading-tight">
+                      <a href={`/recruitments/${r.id}/edit`} class="font-semibold text-zinc-950 hover:underline block leading-tight">
                         {r.title}
                       </a>
                       <div class="text-[10px] text-zinc-400 font-mono mt-0.5">
@@ -310,12 +310,12 @@ const filterOptions = [
                     </td>
                     <td class="py-3 px-3 whitespace-nowrap">
                       {isVerified ? (
-                        <a href={`/admin/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-emerald-700 text-[11px] font-medium hover:underline">
+                        <a href={`/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-emerald-700 text-[11px] font-medium hover:underline">
                           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
                           <span>Verified</span>
                         </a>
                       ) : (
-                        <a href={`/admin/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-amber-700 text-[11px] font-medium hover:underline">
+                        <a href={`/sources?recruitment=${encodeURIComponent(r.title)}`} class="inline-flex items-center gap-1 text-amber-700 text-[11px] font-medium hover:underline">
                           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                           <span>Needs verification</span>
                         </a>
@@ -328,7 +328,7 @@ const filterOptions = [
                       <div class="flex items-center justify-end gap-1">
                         <!-- Edit Button -->
                         <a
-                          href={`/admin/recruitments/${r.id}/edit`}
+                          href={`/recruitments/${r.id}/edit`}
                           title="Edit Recruitment"
                           class="p-1 rounded text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
                         >
@@ -347,7 +347,7 @@ const filterOptions = [
 
                         <!-- Eligibility Rules Link -->
                         <a
-                          href={`/admin/eligibility-rules?recruitment=${encodeURIComponent(r.title)}`}
+                          href={`/eligibility-rules?recruitment=${encodeURIComponent(r.title)}`}
                           title="Eligibility Rules"
                           class="p-1 rounded text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
                         >

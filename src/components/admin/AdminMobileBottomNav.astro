@@ -5,12 +5,12 @@ interface Props {
 }
 
 const { current = 'dashboard' } = Astro.props;
-const pathname = Astro.url.pathname;
+const pathname = Astro.url.pathname.replace(/^\/admin(?=\/|$)/, '') || '/';
 
-const isDashboard = current === 'dashboard' || pathname === '/admin' || pathname === '/admin/';
-const isRecruitments = current === 'recruitments' || pathname.startsWith('/admin/recruitments');
-const isSources = current === 'sources' || pathname.startsWith('/admin/sources');
-const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/eligibility-rules');
+const isDashboard = current === 'dashboard' || pathname === '/';
+const isRecruitments = current === 'recruitments' || pathname.startsWith('/recruitments');
+const isSources = current === 'sources' || pathname.startsWith('/sources');
+const isRules = current === 'eligibility-rules' || pathname.startsWith('/eligibility-rules');
 ---
 
 <!-- Mobile Bottom Navigation Dock (Visible only on < md screens) -->
@@ -21,7 +21,7 @@ const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/e
   <div class="flex items-center justify-around max-w-md mx-auto">
     <!-- 1. Dashboard -->
     <a
-      href="/admin"
+      href="/"
       class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
         isDashboard
           ? 'text-zinc-950 font-bold'
@@ -38,7 +38,7 @@ const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/e
 
     <!-- 2. Recruitments -->
     <a
-      href="/admin/recruitments"
+      href="/recruitments"
       class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
         isRecruitments
           ? 'text-zinc-950 font-bold'
@@ -55,7 +55,7 @@ const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/e
 
     <!-- 3. Sources (with pending alert indicator) -->
     <a
-      href="/admin/sources"
+      href="/sources"
       class={`relative flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
         isSources
           ? 'text-zinc-950 font-bold'
@@ -73,7 +73,7 @@ const isRules = current === 'eligibility-rules' || pathname.startsWith('/admin/e
 
     <!-- 4. Rules -->
     <a
-      href="/admin/eligibility-rules"
+      href="/eligibility-rules"
       class={`flex flex-col items-center justify-center min-w-[56px] py-1 px-1 rounded-xl transition-all ${
         isRules
           ? 'text-zinc-950 font-bold'

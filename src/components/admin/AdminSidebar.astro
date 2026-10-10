@@ -1,11 +1,12 @@
 ---
 // src/components/admin/AdminSidebar.astro
+import { PIPELINE_ENABLED } from '../../lib/features';
 interface Props {
   current?: string;
 }
 
 const { current = 'dashboard' } = Astro.props;
-const pathname = Astro.url.pathname;
+const pathname = Astro.url.pathname.replace(/^\/admin(?=\/|$)/, '') || '/';
 // @ts-ignore
 const adminEmail = Astro.locals?.adminEmail || 'Unknown';
 
@@ -15,16 +16,16 @@ const navSections = [
     items: [
       {
         name: 'Dashboard',
-        href: '/admin',
+        href: '/',
         key: 'dashboard',
-        active: current === 'dashboard' || pathname === '/admin' || pathname === '/admin/',
+        active: current === 'dashboard' || pathname === '/',
         icon: 'dashboard',
       },
       {
         name: 'Recruitments',
-        href: '/admin/recruitments',
+        href: '/recruitments',
         key: 'recruitments',
-        active: current === 'recruitments' || pathname.startsWith('/admin/recruitments'),
+        active: current === 'recruitments' || pathname.startsWith('/recruitments'),
         icon: 'briefcase',
       },
     ],
@@ -36,37 +37,37 @@ const navSections = [
     items: [
       {
         name: 'States & Jurisdictions',
-        href: '/admin/states',
+        href: '/states',
         key: 'states',
-        active: current === 'states' || pathname.startsWith('/admin/states'),
+        active: current === 'states' || pathname.startsWith('/states'),
         icon: 'map-pin',
       },
       {
         name: 'Canonical Posts',
-        href: '/admin/masters',
+        href: '/masters',
         key: 'masters',
-        active: current === 'masters' || pathname.startsWith('/admin/masters'),
+        active: current === 'masters' || pathname.startsWith('/masters'),
         icon: 'file-text',
       },
       {
         name: 'Sectors & Posts',
-        href: '/admin/sectors-posts',
+        href: '/sectors-posts',
         key: 'sectors-posts',
-        active: current === 'sectors-posts' || pathname.startsWith('/admin/sectors-posts'),
+        active: current === 'sectors-posts' || pathname.startsWith('/sectors-posts'),
         icon: 'layers',
       },
       {
         name: 'Departments',
-        href: '/admin/departments',
+        href: '/departments',
         key: 'departments',
-        active: current === 'departments' || pathname.startsWith('/admin/departments'),
+        active: current === 'departments' || pathname.startsWith('/departments'),
         icon: 'network',
       },
       {
         name: 'Organisations',
-        href: '/admin/organisations',
+        href: '/organisations',
         key: 'organisations',
-        active: current === 'organisations' || pathname.startsWith('/admin/organisations'),
+        active: current === 'organisations' || pathname.startsWith('/organisations'),
         icon: 'building',
       },
     ],
@@ -76,24 +77,24 @@ const navSections = [
     items: [
       {
         name: 'Eligibility rules',
-        href: '/admin/eligibility-rules',
+        href: '/eligibility-rules',
         key: 'eligibility-rules',
-        active: current === 'eligibility-rules' || pathname.startsWith('/admin/eligibility-rules'),
+        active: current === 'eligibility-rules' || pathname.startsWith('/eligibility-rules'),
         icon: 'list-checks',
       },
       {
         name: 'Sources',
-        href: '/admin/sources',
+        href: '/sources',
         key: 'sources',
-        active: current === 'sources' || pathname.startsWith('/admin/sources'),
+        active: current === 'sources' || pathname.startsWith('/sources'),
         icon: 'link',
         hasAlert: true,
       },
       {
         name: 'Documents',
-        href: '/admin/documents',
+        href: '/documents',
         key: 'documents',
-        active: current === 'documents' || pathname.startsWith('/admin/documents'),
+        active: current === 'documents' || pathname.startsWith('/documents'),
         icon: 'file-text',
       },
     ],
@@ -103,44 +104,46 @@ const navSections = [
     items: [
       {
         name: 'SEO',
-        href: '/admin/seo',
+        href: '/seo',
         key: 'seo',
-        active: current === 'seo' || pathname.startsWith('/admin/seo'),
+        active: current === 'seo' || pathname.startsWith('/seo'),
         icon: 'search-check',
       },
       {
         name: 'Pending changes',
-        href: '/admin/pending-changes',
+        href: '/pending-changes',
         key: 'pending-changes',
-        active: current === 'pending-changes' || pathname.startsWith('/admin/pending-changes'),
+        active: current === 'pending-changes' || pathname.startsWith('/pending-changes'),
         icon: 'inbox',
       },
-      {
-        name: 'Pipeline',
-        href: '/admin/pipeline',
-        key: 'pipeline',
-        active: current === 'pipeline' || pathname.startsWith('/admin/pipeline'),
-        icon: 'list-checks',
-      },
-      {
-        name: 'Source registry',
-        href: '/admin/source-registry',
-        key: 'source-registry',
-        active: current === 'source-registry' || pathname.startsWith('/admin/source-registry'),
-        icon: 'link',
-      },
+      ...(PIPELINE_ENABLED ? [
+        {
+          name: 'Pipeline',
+          href: '/pipeline',
+          key: 'pipeline',
+          active: current === 'pipeline' || pathname.startsWith('/pipeline'),
+          icon: 'list-checks',
+        },
+        {
+          name: 'Source registry',
+          href: '/source-registry',
+          key: 'source-registry',
+          active: current === 'source-registry' || pathname.startsWith('/source-registry'),
+          icon: 'link',
+        },
+      ] : []),
       {
         name: 'Audit log',
-        href: '/admin/audit-log',
+        href: '/audit-log',
         key: 'audit-log',
-        active: current === 'audit-log' || pathname.startsWith('/admin/audit-log'),
+        active: current === 'audit-log' || pathname.startsWith('/audit-log'),
         icon: 'scroll-text',
       },
       {
         name: 'Settings',
-        href: '/admin/settings',
+        href: '/settings',
         key: 'settings',
-        active: current === 'settings' || pathname.startsWith('/admin/settings'),
+        active: current === 'settings' || pathname.startsWith('/settings'),
         icon: 'settings',
       },
     ],
@@ -155,7 +158,7 @@ const navSections = [
   <div class="space-y-3.5">
     <!-- Brand Mark -->
     <div class="sidebar-brand px-2 py-2 flex items-center justify-between border-b border-slate-200 pb-2.5">
-      <a href="/admin" class="flex items-center gap-2.5 group">
+      <a href="/" class="flex items-center gap-2.5 group">
         <div class="size-7 rounded bg-primary text-white font-black text-xs flex items-center justify-center font-mono shadow-xs group-hover:scale-105 transition-transform shrink-0">
           GR
         </div>

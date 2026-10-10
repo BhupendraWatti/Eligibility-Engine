@@ -9,6 +9,9 @@ import {
   KNOWN_MODELS, dayStart, dismissItem, getSettings, listAttentionItems, listBrokenLinks, listRunItems, listRuns, listSources,
   llmCostThisMonth, llmCostToday, newDraftsToday, recordSettingAudit, setSetting, type ItemRow, type RunRow,
 } from '../../services/pipeline-store';
+import { PIPELINE_ENABLED } from '../../lib/features';
+
+if (!PIPELINE_ENABLED) return Astro.redirect('/');
 
 const adminEmail = Astro.locals.adminEmail;
 const d1 = getAdminD1('managing the data pipeline');
@@ -105,7 +108,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-slate-950 font-heading">Pipeline</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Automated source checks. It only proposes; you approve in <a href="/admin/pending-changes" class="text-primary underline">Pending changes</a>.</p>
+        <p class="text-xs text-slate-500 mt-0.5">Automated source checks. It only proposes; you approve in <a href="/pending-changes" class="text-primary underline">Pending changes</a>.</p>
       </div>
       {settings && (
         <form method="POST" onsubmit={`return confirm(${JSON.stringify(settings.automationPaused ? 'Resume all automation?' : 'Pause ALL automation (checks, extraction, link checks)?')})`}>
@@ -135,7 +138,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class={label}>Sources</div>
           <div class="text-xl font-bold text-slate-950 font-mono">{sources.length - failing.length - unverified.length} active</div>
-          <div class="text-[11px] text-slate-500">{failing.length} failing · {unverified.length} unverified · <a href="/admin/source-registry" class="text-primary underline">manage</a></div>
+          <div class="text-[11px] text-slate-500">{failing.length} failing · {unverified.length} unverified · <a href="/source-registry" class="text-primary underline">manage</a></div>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class={label}>Last run</div>
@@ -176,7 +179,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
           </tr></thead>
           <tbody>{runs.map(r => (
             <tr class="border-b border-slate-100 align-top hover:bg-slate-50">
-              <td class="py-2 px-3 whitespace-nowrap"><a href={`/admin/pipeline?run=${r.id}`} class="text-primary underline">{when(r.startedAt)}</a></td>
+              <td class="py-2 px-3 whitespace-nowrap"><a href={`/pipeline?run=${r.id}`} class="text-primary underline">{when(r.startedAt)}</a></td>
               <td class="py-2 px-3 font-mono">{r.kind}{r.dryRun ? ' · dry run' : ''} <span class="text-slate-400">· {r.triggerBy}</span></td>
               <td class="py-2 px-3"><span class={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${chip(r.status)}`}>{r.status}</span></td>
               <td class="py-2 px-3 text-right font-mono">{r.sourcesChecked} <span class="text-slate-400">({r.sourcesChanged} changed)</span></td>
@@ -226,7 +229,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
       <p class="text-[11px] text-slate-500 mb-3">Weekly check. A link is flagged after two failed weeks. Fix it in the recruitment's edit page.</p>
       {broken.length === 0 ? <p class="text-xs text-slate-400">No broken links.</p> : (
         <ul class="space-y-1.5 text-[11px]">{broken.map(l => (
-          <li class="flex flex-wrap gap-x-2"><a href={`/admin/recruitments/${l.recruitmentId}/edit`} class="text-primary underline">{l.recruitmentTitle}</a><span class="font-mono text-slate-500">{l.linkType}</span><span class="font-mono text-rose-700 break-all">{l.url}</span><span class="text-slate-400">{l.failures} failed checks · {when(l.checkedAt)}</span></li>))}</ul>
+          <li class="flex flex-wrap gap-x-2"><a href={`/recruitments/${l.recruitmentId}/edit`} class="text-primary underline">{l.recruitmentTitle}</a><span class="font-mono text-slate-500">{l.linkType}</span><span class="font-mono text-rose-700 break-all">{l.url}</span><span class="text-slate-400">{l.failures} failed checks · {when(l.checkedAt)}</span></li>))}</ul>
       )}
     </section>
   </div>

@@ -8,6 +8,9 @@ import {
   REGISTRY_CATEGORIES, SOURCE_STATUSES, SOURCE_TYPES, deleteSource, listSources, recordSettingAudit, saveSource, setSourceStatus,
   type SourceInput, type SourceRow,
 } from '../../services/pipeline-store';
+import { PIPELINE_ENABLED } from '../../lib/features';
+
+if (!PIPELINE_ENABLED) return Astro.redirect('/');
 
 const adminEmail = Astro.locals.adminEmail;
 const d1 = getAdminD1('managing the source registry');
@@ -63,7 +66,7 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
 const safeHref = (u: string) => (u.startsWith('https://') || u.startsWith('http://') ? u : undefined);
 ---
 
-<AdminLayout title="Source registry" currentSection="source-registry" breadcrumbs={[{ label: 'Pipeline', href: '/admin/pipeline' }, { label: 'Source registry' }]}>
+<AdminLayout title="Source registry" currentSection="source-registry" breadcrumbs={[{ label: 'Pipeline', href: '/pipeline' }, { label: 'Source registry' }]}>
   <div class="mx-auto max-w-6xl space-y-6">
     {message && <div class={`p-3 rounded-lg border text-xs ${messageType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`} role="status">{message}</div>}
     {loadError && <div class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">{loadError}</div>}

@@ -83,7 +83,7 @@ const today = new Date().toLocaleDateString('en-IN', {
       <!-- Quick Action Buttons (Optimized for Mobile Touch) -->
       <div class="flex items-center gap-2 pt-1 sm:pt-0">
         <a
-          href="/admin/sources"
+          href="/sources"
           class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-semibold text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950 transition-colors shadow-2xs active:scale-[0.98]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -91,7 +91,7 @@ const today = new Date().toLocaleDateString('en-IN', {
         </a>
 
         <a
-          href="/admin/recruitments/new"
+          href="/recruitments/new"
           class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold transition-all shadow-xs active:scale-[0.98]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -124,7 +124,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
             {needsVerificationCount > 0 && (
               <a
-                href="/admin/sources"
+                href="/sources"
                 class="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold transition-colors shadow-2xs"
               >
                 Review Sources &rarr;
@@ -132,7 +132,7 @@ const today = new Date().toLocaleDateString('en-IN', {
             )}
             {closingTodayCount > 0 && (
               <a
-                href="/admin/recruitments?status=CLOSING_SOON"
+                href="/recruitments?status=CLOSING_SOON"
                 class="px-2.5 py-1 rounded-md bg-white border border-blue-300 text-blue-900 hover:bg-blue-100/50 text-[11px] font-semibold transition-colors shadow-2xs"
               >
                 View Closing &rarr;
@@ -178,7 +178,7 @@ const today = new Date().toLocaleDateString('en-IN', {
       <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
         <!-- 1. Total Active Recruitments -->
         <a
-          href="/admin/recruitments"
+          href="/recruitments"
           class="metric-card block rounded-xl border border-zinc-200 bg-white p-3.5 sm:p-4.5 shadow-2xs hover:border-zinc-400/80 transition-all hover:shadow-xs group"
           data-category="general"
         >
@@ -200,7 +200,7 @@ const today = new Date().toLocaleDateString('en-IN', {
 
         <!-- 2. Open Applications -->
         <a
-          href="/admin/recruitments?status=OPEN"
+          href="/recruitments?status=OPEN"
           class="metric-card block rounded-xl border border-emerald-200/80 bg-emerald-50/20 p-3.5 sm:p-4.5 shadow-2xs hover:border-emerald-300 transition-all hover:shadow-xs group"
           data-category="general"
         >
@@ -222,7 +222,7 @@ const today = new Date().toLocaleDateString('en-IN', {
 
         <!-- 3. Closing Today / In 7 Days -->
         <a
-          href="/admin/recruitments?status=CLOSING_SOON"
+          href="/recruitments?status=CLOSING_SOON"
           class="metric-card block rounded-xl border border-blue-200/90 bg-blue-50/30 p-3.5 sm:p-4.5 shadow-2xs hover:border-blue-300 transition-all hover:shadow-xs group"
           data-category="urgent"
         >
@@ -246,7 +246,7 @@ const today = new Date().toLocaleDateString('en-IN', {
 
         <!-- 4. Needs Verification -->
         <a
-          href="/admin/sources"
+          href="/sources"
           class="metric-card block rounded-xl border border-blue-200/90 bg-blue-50/30 p-3.5 sm:p-4.5 shadow-2xs hover:border-blue-300 transition-all hover:shadow-xs group"
           data-category="urgent"
         >
@@ -268,7 +268,7 @@ const today = new Date().toLocaleDateString('en-IN', {
 
         <!-- 5. Draft Records -->
         <a
-          href="/admin/recruitments?status=DRAFT"
+          href="/recruitments?status=DRAFT"
           class="metric-card block rounded-xl border border-zinc-200 bg-white p-3.5 sm:p-4.5 shadow-2xs hover:border-zinc-400/80 transition-all hover:shadow-xs group"
           data-category="general"
         >
@@ -290,7 +290,7 @@ const today = new Date().toLocaleDateString('en-IN', {
 
         <!-- 6. Expired Recruitments -->
         <a
-          href="/admin/recruitments?status=ARCHIVED"
+          href="/recruitments?status=ARCHIVED"
           class="metric-card block rounded-xl border border-rose-200/80 bg-rose-50/20 p-3.5 sm:p-4.5 shadow-2xs hover:border-rose-300 transition-all hover:shadow-xs group"
           data-category="urgent"
         >
@@ -319,7 +319,7 @@ const today = new Date().toLocaleDateString('en-IN', {
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <a
-            href="/admin/recruitments/new"
+            href="/recruitments/new"
             class="flex items-center gap-2.5 p-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all text-xs font-medium text-zinc-800"
           >
             <div class="size-7 rounded bg-primary text-white flex items-center justify-center shrink-0">
@@ -332,7 +332,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           </a>
 
           <a
-            href="/admin/sources"
+            href="/sources"
             class="flex items-center gap-2.5 p-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all text-xs font-medium text-zinc-800"
           >
             <div class="size-7 rounded bg-blue-500 text-white flex items-center justify-center shrink-0">
@@ -345,7 +345,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           </a>
 
           <a
-            href="/admin/eligibility-rules"
+            href="/eligibility-rules"
             class="flex items-center gap-2.5 p-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all text-xs font-medium text-zinc-800"
           >
             <div class="size-7 rounded bg-blue-600 text-white flex items-center justify-center shrink-0">
@@ -358,7 +358,7 @@ const today = new Date().toLocaleDateString('en-IN', {
           </a>
 
           <a
-            href="/admin/audit-log"
+            href="/audit-log"
             class="flex items-center gap-2.5 p-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all text-xs font-medium text-zinc-800"
           >
             <div class="size-7 rounded bg-zinc-700 text-white flex items-center justify-center shrink-0">
@@ -383,7 +383,7 @@ const today = new Date().toLocaleDateString('en-IN', {
             <p class="text-[11px] text-zinc-500">Recruitment records & audit feed</p>
           </div>
           <a
-            href="/admin/audit-log"
+            href="/audit-log"
             class="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-900 hover:underline p-1"
           >
             <span>Audit log</span>
@@ -442,7 +442,7 @@ const today = new Date().toLocaleDateString('en-IN', {
               </span>
             </div>
             <a
-              href="/admin/sources"
+              href="/sources"
               class="font-semibold text-zinc-950 hover:underline text-xs shrink-0 p-1"
             >
               Review &rarr;
@@ -456,7 +456,7 @@ const today = new Date().toLocaleDateString('en-IN', {
               <span class="text-zinc-800 font-medium truncate">{kpis.sourceExpired || 0} missing official links</span>
             </div>
             <a
-              href="/admin/sources"
+              href="/sources"
               class="font-semibold text-zinc-950 hover:underline text-xs shrink-0 p-1"
             >
               Resolve &rarr;
@@ -470,7 +470,7 @@ const today = new Date().toLocaleDateString('en-IN', {
               <span class="text-zinc-800 font-medium truncate">{kpis.needsReview || 0} recruitments need review</span>
             </div>
             <a
-              href="/admin/eligibility-rules"
+              href="/eligibility-rules"
               class="font-semibold text-zinc-950 hover:underline text-xs shrink-0 p-1"
             >
               Review &rarr;
@@ -486,7 +486,7 @@ const today = new Date().toLocaleDateString('en-IN', {
               </span>
             </div>
             <a
-              href="/admin/recruitments?status=ARCHIVED"
+              href="/recruitments?status=ARCHIVED"
               class="font-semibold text-zinc-950 hover:underline text-xs shrink-0 p-1"
             >
               Review &rarr;

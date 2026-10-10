@@ -200,11 +200,11 @@ const badge: Record<string, string> = {
       </div>
       <nav class="flex flex-wrap gap-1.5" aria-label="Filter by status">
         {BY_FILTERS.map(([v, l]) => (
-          <a href={`/admin/pending-changes?status=${filter}${v ? `&by=${v}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${v === by ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'}`}>{l}</a>
+          <a href={`/pending-changes?status=${filter}${v ? `&by=${v}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${v === by ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'}`}>{l}</a>
         ))}
         <span class="w-px bg-slate-200 mx-1" aria-hidden="true"></span>
         {FILTERS.map(f => (
-          <a href={`/admin/pending-changes?status=${f}${by ? `&by=${by}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${f === filter ? 'bg-blue-50 text-primary border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+          <a href={`/pending-changes?status=${f}${by ? `&by=${by}` : ''}`} class={`px-2.5 py-1 rounded-md border text-[11px] font-semibold transition-colors ${f === filter ? 'bg-blue-50 text-primary border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
             {f.charAt(0) + f.slice(1).toLowerCase()}
           </a>
         ))}

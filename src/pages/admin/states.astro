@@ -68,7 +68,7 @@ if (Astro.request.method === 'POST') {
         });
       }
     }
-    return Astro.redirect('/admin/states?saved=1', 303);
+    return Astro.redirect('/states?saved=1', 303);
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
     Astro.response.status = 400;
@@ -116,7 +116,7 @@ const totalCentral = statesWithMeta.filter(s => s.isCentral).length;
   title="States & Jurisdictions | Master Records"
   currentSection="states"
   breadcrumbs={[
-    { label: 'Master records', href: '/admin/masters' },
+    { label: 'Master records', href: '/masters' },
     { label: 'States & Jurisdictions' },
   ]}
 >

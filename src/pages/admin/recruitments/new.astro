@@ -181,7 +181,7 @@ if (Astro.request.method === 'POST' && masterDataError) {
             },
           });
         }
-        return Astro.redirect(`/admin/recruitments?status=${status}&createdId=${result.id}`);
+        return Astro.redirect(`/recruitments?status=${status}&createdId=${result.id}`);
       } else {
         errorMessage = result.message || 'Failed to create recruitment.';
         validationErrors = result.errors || [];
@@ -239,7 +239,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
   title="Create Recruitment"
   currentSection="recruitments"
   breadcrumbs={[
-    { label: 'Recruitments', href: '/admin/recruitments' },
+    { label: 'Recruitments', href: '/recruitments' },
     { label: 'New recruitment' },
   ]}
 >
@@ -258,7 +258,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
 
       <div class="flex items-center gap-2.5">
         <a
-          href="/admin/recruitments"
+          href="/recruitments"
           class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
         >
           Cancel
@@ -347,7 +347,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
                   <label class="block text-xs font-semibold text-zinc-800">Organisation *</label>
-                  <a href="/admin/organisations" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Organisation ↗</a>
+                  <a href="/organisations" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Organisation ↗</a>
                 </div>
                 <select
                   name="organisationId"
@@ -372,7 +372,7 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
               <div class="sm:col-span-2 space-y-1.5">
                 <div class="flex items-center justify-between">
                   <label class="block text-xs font-semibold text-zinc-800">Canonical Post Reference *</label>
-                  <a href="/admin/masters" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Canonical Post ↗</a>
+                  <a href="/masters" target="_blank" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5">+ Add Canonical Post ↗</a>
                 </div>
                 <select
                   name="postId"

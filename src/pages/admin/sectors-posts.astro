@@ -217,7 +217,7 @@ if (Astro.request.method === 'POST') {
     const selectedSector = Astro.url.searchParams.get('sector');
     const redirectQuery = new URLSearchParams({ saved: '1' });
     if (selectedSector) redirectQuery.set('sector', selectedSector);
-    return Astro.redirect(`/admin/sectors-posts?${redirectQuery}`, 303);
+    return Astro.redirect(`/sectors-posts?${redirectQuery}`, 303);
   } catch (error: any) {
     statusMessage = { type: 'error', text: error.message };
     Astro.response.status = 400;
@@ -276,7 +276,7 @@ const standardPayBands = [
   title="Sectors & Posts | Master Records"
   currentSection="sectors-posts"
   breadcrumbs={[
-    { label: 'Master records', href: '/admin/masters' },
+    { label: 'Master records', href: '/masters' },
     { label: 'Sectors & posts' },
   ]}
 >
@@ -330,7 +330,7 @@ const standardPayBands = [
           <span>Add Sector</span>
         </button>
         <a
-          href="/admin/masters"
+          href="/masters"
           class="px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
         >
           Raw Masters Table
@@ -376,7 +376,7 @@ const standardPayBands = [
 
             return (
               <a
-                href={`/admin/sectors-posts?sector=${sec.slug}`}
+                href={`/sectors-posts?sector=${sec.slug}`}
                 data-sector-name={sec.name.toLowerCase()}
                 class={`sector-item flex items-center justify-between p-3 text-xs transition-colors ${
                   isSelected
@@ -551,7 +551,7 @@ const standardPayBands = [
                         {p.payScale || 'Level 4 (State)'}
                       </td>
                       <td class="py-3.5 px-4 text-right">
-                        <a href={`/admin/masters#edit-${p.id}`} class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                        <a href={`/masters#edit-${p.id}`} class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
                           Edit in Master Grid &rarr;
                         </a>
                       </td>
@@ -601,7 +601,7 @@ const standardPayBands = [
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <label class="block font-semibold text-zinc-800">Governing Department *</label>
-              <a href="/admin/departments" target="_blank" class="text-[11px] text-indigo-600 font-semibold hover:underline">+ New Department ↗</a>
+              <a href="/departments" target="_blank" class="text-[11px] text-indigo-600 font-semibold hover:underline">+ New Department ↗</a>
             </div>
             <select id="postDeptSelect" name="departmentId" required class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs bg-white focus:ring-2 focus:ring-zinc-900 outline-none">
               <option value="" disabled selected>-- Select Governing Department --</option>

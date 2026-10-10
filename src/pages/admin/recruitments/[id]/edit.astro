@@ -15,12 +15,12 @@ import {
 
 const { id } = Astro.params;
 if (!id) {
-  return Astro.redirect('/admin/recruitments');
+  return Astro.redirect('/recruitments');
 }
 
 const recruitment = await getRecruitmentById(id);
 if (!recruitment) {
-  return Astro.redirect('/admin/recruitments');
+  return Astro.redirect('/recruitments');
 }
 
 const posts = await getAllCanonicalPosts();
@@ -261,7 +261,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
   title={`Edit ${recruitment.title}`}
   currentSection="recruitments"
   breadcrumbs={[
-    { label: 'Recruitments', href: '/admin/recruitments' },
+    { label: 'Recruitments', href: '/recruitments' },
     { label: `Edit: ${advtLabel(recruitment.advtNumber)}` },
   ]}
 >
@@ -275,7 +275,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
         <div class="flex items-center gap-2 text-xs text-zinc-500 font-mono">
           <span>Advt: {advtLabel(recruitment.advtNumber)}</span>
           <span>·</span>
-          <a href={`/admin/recruitments/${recruitment.id}/versions`} class="text-primary underline">History</a>
+          <a href={`/recruitments/${recruitment.id}/versions`} class="text-primary underline">History</a>
           <span>·</span>
           <span>Slug: {recruitment.slug}</span>
         </div>
@@ -766,7 +766,7 @@ const resultLink = recruitment.officialLinksList?.find((l: any) => ['RESULT', 'S
           <p class="text-zinc-500 text-[11px]">
             Changes to age or qualification immediately update candidate eligibility evaluation across the state engine.
           </p>
-          <a href={`/admin/eligibility-rules?recruitment=${encodeURIComponent(recruitment.title)}`} class="inline-block text-xs font-semibold text-zinc-950 hover:underline">
+          <a href={`/eligibility-rules?recruitment=${encodeURIComponent(recruitment.title)}`} class="inline-block text-xs font-semibold text-zinc-950 hover:underline">
             Manage Custom Rules &rarr;
           </a>
         </div>
