@@ -5,7 +5,23 @@
 
 export const REGISTRY_CATEGORIES = ['JOBS', 'ADMIT_CARDS', 'RESULTS', 'ANSWER_KEYS', 'ADMISSIONS', 'SCHOLARSHIPS', 'SYLLABUS', 'BOOKS', 'KNOWLEDGE'] as const;
 export const SOURCE_TYPES = ['NOTICE_PAGE', 'RSS', 'PDF_LIST'] as const;
-export const SOURCE_STATUSES = ['NEEDS_VERIFICATION', 'ACTIVE', 'PAUSED', 'FAILING'] as const;
+/** NEEDS_VERIFICATION -> (robot fetches it OK) -> VERIFIED -> (admin approves) -> ACTIVE. Only ACTIVE sources are read for notices.
+ *  A FAILING source that loads again goes back to VERIFIED, so it needs approval again. */
+export const SOURCE_STATUSES = ['NEEDS_VERIFICATION', 'VERIFIED', 'ACTIVE', 'PAUSED', 'FAILING'] as const;
+
+/** Official Indian government / public-body domains. Anything else is refused, at registration and at fetch time. */
+export const ALLOWED_DOMAINS = ['gov.in', 'nic.in', 'ac.in', 'ibps.in', 'sbi.co.in', 'rbi.org.in', 'bank.in'];
+
+export function isAllowedHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  return ALLOWED_DOMAINS.some(d => h === d || h.endsWith(`.${d}`));
+}
+export function isAllowedUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && isAllowedHost(u.hostname);
+  } catch { return false; }
+}
 /** Categories checked on the 3-hourly run; the rest run on the daily one. */
 export const NOTICE_CATEGORIES = ['JOBS', 'ADMIT_CARDS', 'RESULTS', 'ANSWER_KEYS', 'ADMISSIONS', 'SCHOLARSHIPS'];
 export const DAILY_CATEGORIES = ['SYLLABUS', 'BOOKS', 'KNOWLEDGE'];
@@ -126,10 +142,10 @@ export async function listSources(d1: D1Database): Promise<SourceRow[]> {
   return ((await d1.prepare(`SELECT ${sourceCols} FROM source_registry ORDER BY category, name`).all<SourceRow>()).results ?? []);
 }
 
-/** Sources that are due: not paused, and last checked more than `frequency_hours` ago. */
+/** Sources that are due: not paused or awaiting approval, and last checked more than `frequency_hours` ago. */
 export async function dueSources(d1: D1Database, categories: string[], limit: number): Promise<SourceRow[]> {
   const marks = categories.map(() => '?').join(',');
-  return ((await d1.prepare(`SELECT ${sourceCols} FROM source_registry WHERE status != 'PAUSED' AND category IN (${marks}) AND (last_checked_at IS NULL OR unixepoch() - last_checked_at >= frequency_hours * 3600 - 60) ORDER BY COALESCE(last_checked_at, 0) LIMIT ?`)
+  return ((await d1.prepare(`SELECT ${sourceCols} FROM source_registry WHERE status NOT IN ('PAUSED', 'VERIFIED') AND category IN (${marks}) AND (last_checked_at IS NULL OR unixepoch() - last_checked_at >= frequency_hours * 3600 - 60) ORDER BY COALESCE(last_checked_at, 0) LIMIT ?`)
     .bind(...categories, limit).all<SourceRow>()).results ?? []);
 }
 
@@ -137,13 +153,14 @@ export async function getSource(d1: D1Database, id: string): Promise<SourceRow |
   return one<SourceRow>(d1, `SELECT ${sourceCols} FROM source_registry WHERE id = ?`, id);
 }
 
-export async function markSourceChecked(d1: D1Database, id: string, r: { hash?: string | null; error?: string | null; verified?: boolean }): Promise<void> {
+/** A successful check never activates a source: unverified or failing ones become VERIFIED and wait for an admin. */
+export async function markSourceChecked(d1: D1Database, id: string, r: { hash?: string | null; error?: string | null }): Promise<void> {
   if (r.error) {
     await d1.prepare("UPDATE source_registry SET last_checked_at = unixepoch(), last_error = ?, consecutive_failures = consecutive_failures + 1, status = CASE WHEN status = 'PAUSED' THEN status WHEN consecutive_failures + 1 >= 3 THEN 'FAILING' ELSE status END, updated_at = unixepoch() WHERE id = ?")
       .bind(r.error.slice(0, 300), id).run();
     return;
   }
-  await d1.prepare("UPDATE source_registry SET last_checked_at = unixepoch(), last_content_hash = COALESCE(?, last_content_hash), last_error = NULL, consecutive_failures = 0, status = CASE WHEN status IN ('NEEDS_VERIFICATION', 'FAILING') THEN 'ACTIVE' ELSE status END, updated_at = unixepoch() WHERE id = ?")
+  await d1.prepare("UPDATE source_registry SET last_checked_at = unixepoch(), last_content_hash = COALESCE(?, last_content_hash), last_error = NULL, consecutive_failures = 0, status = CASE WHEN status IN ('NEEDS_VERIFICATION', 'FAILING') THEN 'VERIFIED' ELSE status END, updated_at = unixepoch() WHERE id = ?")
     .bind(r.hash ?? null, id).run();
 }
 
@@ -179,6 +196,7 @@ export function validateSourceInput(i: SourceInput): string | null {
   let u: URL;
   try { u = new URL(i.url); } catch { return 'URL is not valid.'; }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return 'URL must be http(s).';
+  if (!isAllowedHost(u.hostname)) return `Only official domains can be added (${ALLOWED_DOMAINS.join(', ')}).`;
   if (!(SOURCE_TYPES as readonly string[]).includes(i.sourceType)) return 'Unknown source type.';
   if (!(REGISTRY_CATEGORIES as readonly string[]).includes(i.category)) return 'Unknown category.';
   if (!Number.isInteger(i.frequencyHours) || i.frequencyHours < 1 || i.frequencyHours > 168) return 'Frequency must be 1 to 168 hours.';
@@ -190,8 +208,10 @@ export async function saveSource(d1: D1Database, i: SourceInput, id?: string): P
   if (err) throw new Error(err);
   const sid = id ?? `src_${crypto.randomUUID()}`;
   if (id) {
-    await d1.prepare('UPDATE source_registry SET name = ?, url = ?, source_type = ?, category = ?, state_code = ?, department = ?, organisation_id = ?, frequency_hours = ?, updated_at = unixepoch() WHERE id = ?')
-      .bind(i.name.trim(), i.url.trim(), i.sourceType, i.category, i.stateCode || null, i.department || null, i.organisationId || null, i.frequencyHours, id).run();
+    // A new URL is a new site: it goes back through the robot's check and admin approval (SET reads the old url).
+    const url = i.url.trim();
+    await d1.prepare("UPDATE source_registry SET name = ?, url = ?, source_type = ?, category = ?, state_code = ?, department = ?, organisation_id = ?, frequency_hours = ?, status = CASE WHEN url = ? OR status = 'PAUSED' THEN status ELSE 'NEEDS_VERIFICATION' END, last_content_hash = CASE WHEN url = ? THEN last_content_hash ELSE NULL END, consecutive_failures = CASE WHEN url = ? THEN consecutive_failures ELSE 0 END, updated_at = unixepoch() WHERE id = ?")
+      .bind(i.name.trim(), url, i.sourceType, i.category, i.stateCode || null, i.department || null, i.organisationId || null, i.frequencyHours, url, url, url, id).run();
   } else {
     await d1.prepare('INSERT INTO source_registry (id, name, url, source_type, category, state_code, department, organisation_id, frequency_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(sid, i.name.trim(), i.url.trim(), i.sourceType, i.category, i.stateCode || null, i.department || null, i.organisationId || null, i.frequencyHours).run();
@@ -199,8 +219,15 @@ export async function saveSource(d1: D1Database, i: SourceInput, id?: string): P
   return sid;
 }
 
-export async function setSourceStatus(d1: D1Database, id: string, status: (typeof SOURCE_STATUSES)[number]): Promise<void> {
+/** Pause or resume. Resuming re-verifies the source; only approveSource() can make it ACTIVE. */
+export async function setSourceStatus(d1: D1Database, id: string, status: 'PAUSED' | 'NEEDS_VERIFICATION'): Promise<void> {
   await d1.prepare('UPDATE source_registry SET status = ?, consecutive_failures = CASE WHEN ? = \'PAUSED\' THEN consecutive_failures ELSE 0 END, updated_at = unixepoch() WHERE id = ?').bind(status, status, id).run();
+}
+
+/** Admin approval: only a source the robot has verified can go ACTIVE. */
+export async function approveSource(d1: D1Database, id: string): Promise<void> {
+  const r = await d1.prepare("UPDATE source_registry SET status = 'ACTIVE', updated_at = unixepoch() WHERE id = ? AND status = 'VERIFIED'").bind(id).run();
+  if (!r.meta?.changes) throw new Error('Only a verified source can be approved. Wait for the robot to check it.');
 }
 
 export async function deleteSource(d1: D1Database, id: string): Promise<void> {

@@ -74,6 +74,7 @@ const selectedRun = Astro.url.searchParams.get('run');
 const runItems = d1 && selectedRun ? await listRunItems(d1, selectedRun).catch(() => []) : [];
 const failing = sources.filter(s => s.status === 'FAILING');
 const unverified = sources.filter(s => s.status === 'NEEDS_VERIFICATION');
+const awaitingApproval = sources.filter(s => s.status === 'VERIFIED');
 
 const when = (t: number | null) => t ? new Date(t * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
@@ -137,8 +138,8 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class={label}>Sources</div>
-          <div class="text-xl font-bold text-slate-950 font-mono">{sources.length - failing.length - unverified.length} active</div>
-          <div class="text-[11px] text-slate-500">{failing.length} failing · {unverified.length} unverified · <a href="/source-registry" class="text-primary underline">manage</a></div>
+          <div class="text-xl font-bold text-slate-950 font-mono">{sources.filter(s => s.status === 'ACTIVE').length} active</div>
+          <div class="text-[11px] text-slate-500">{failing.length} failing · {unverified.length} unverified · {awaitingApproval.length} awaiting approval · <a href="/source-registry" class="text-primary underline">manage</a></div>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4">
           <div class={label}>Last run</div>

@@ -91,6 +91,15 @@ export async function runPipeline(env: Env, opts: RunOptions): Promise<RunSummar
       const text = new TextDecoder().decode(page.body);
       const kind = source.sourceType === 'RSS' || /xml|rss|atom/i.test(page.contentType) ? 'RSS' : 'HTML';
       const candidates: Candidate[] = extractLinks(text, page.url, kind);
+      // Not approved yet (new, edited, resumed or recovering): this run only proves the official page loads and lists
+      // notices. Nothing is read from it until an admin approves it in the source registry.
+      if (source.status !== 'ACTIVE') {
+        const error = candidates.length ? null : 'Page loaded but lists no notices or documents.';
+        if (!dryRun) await markSourceChecked(d1, source.id, { error });
+        summary.sourceNotes.push(`${source.name}: ${error ?? `verified (${candidates.length} links), awaiting admin approval`}`);
+        if (error) errors.push(`${source.name}: ${error}`);
+        continue;
+      }
       const hash = await candidatesHash(candidates);
       if (!dryRun && hash === source.lastContentHash) {
         await markSourceChecked(d1, source.id, { hash });

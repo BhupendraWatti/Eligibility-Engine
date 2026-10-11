@@ -5,19 +5,9 @@
 export const USER_AGENT = 'NirnayBot/1.0 (official-notice checker for nirnay; respects robots.txt)';
 const ROBOTS_TOKEN = 'nirnaybot';
 
-/** Official Indian government / public-body domains. Anything else is refused, whatever the registry says. */
-export const ALLOWED_DOMAINS = ['gov.in', 'nic.in', 'ac.in', 'ibps.in', 'sbi.co.in', 'rbi.org.in', 'bank.in'];
-
-export function isAllowedHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/\.$/, '');
-  return ALLOWED_DOMAINS.some(d => h === d || h.endsWith(`.${d}`));
-}
-export function isAllowedUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return (u.protocol === 'https:' || u.protocol === 'http:') && isAllowedHost(u.hostname);
-  } catch { return false; }
-}
+import { isAllowedUrl } from '../../src/services/pipeline-store';
+// The allow-list lives with the registry so the admin page refuses the same domains the robot does.
+export { ALLOWED_DOMAINS, isAllowedHost, isAllowedUrl } from '../../src/services/pipeline-store';
 
 const MIN_GAP_MS = 2000;
 const lastHit = new Map<string, number>();
