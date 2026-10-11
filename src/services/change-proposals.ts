@@ -607,21 +607,31 @@ function requireOfficialSources(payload: Record<string, unknown>, evidence: Evid
 }
 
 /**
- * domicileScope must match what its quoted clause says (docs/designs/domicile-scope.md). Refuse mode: a mismatch or an
- * unclear clause is refused, so a row the classifier cannot read stays "Not checked yet" instead of getting a wrong label.
+ * domicileScope must match what its quoted clause says (docs/designs/domicile-scope.md). A clause that reads as another
+ * scope is refused. A clause the classifier cannot read (unusual wording, another script), or a lock that names only
+ * "the State" and not the state itself, is accepted with a flag the admin must read: returned for meta.domicileFlag.
  */
-function checkDomicileScope(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined, stateCode: string | undefined) {
+function checkDomicileScope(payload: Record<string, unknown>, evidence: EvidenceItem[] | undefined, stateCode: string | undefined, adminState?: string): string | undefined {
   const scope = payload.domicileScope as string | undefined;
   if (scope === undefined) return;
+  // The MCP is held to the recruitment's own state; only an admin can point the scope at another one.
+  if (adminState) throw new ProposalBlockedError('DOMICILE_SCOPE_INVALID', `An admin set who may apply for this recruitment against ${jurisdictionName(adminState)}. Leave domicileScope out.`, { domicileScope: scope, domicileState: adminState });
   if (stateCode === CENTRAL_CODE) {
     if (scope === 'OPEN') { delete payload.domicileScope; return; } // forced anyway: no evidence or clause check
     throw new ProposalBlockedError('DOMICILE_SCOPE_INVALID', 'A Central Government recruitment is always open to every Indian citizen. Leave domicileScope out.', { domicileScope: scope });
   }
   const quotes = (evidence ?? []).filter(e => e.field === 'domicileScope' && e.snippet).map(e => e.snippet as string);
-  const stateName = stateCode ? jurisdictionName(stateCode) : null;
-  const results = quotes.map(q => classifyDomicileClause(q, stateName));
-  if (results.some(r => r.classification === scope)) return;
+  const results = quotes.map(q => classifyDomicileClause(q, stateCode));
+  const stateName = jurisdictionName(stateCode);
+  const matching = results.filter(r => r.classification === scope);
+  if (matching.length) {
+    if (scope !== 'STATE_ONLY' || matching.some(r => r.namesState)) return;
+    return `The quoted clause bars outsiders but does not name ${stateName} (only "the State"). Check it is this state's notice.`;
+  }
   const seen = results.map(r => `${r.classification} (${r.signals.join('; ')})`).join(', ') || 'no quote';
+  if (results.length && results.every(r => r.classification === 'UNCLEAR')) {
+    return `The quoted clause could not be read by machine as ${scope} (read as ${seen}). Read it and confirm who may apply.`;
+  }
   const example = DOMICILE_CLAUSE_EXAMPLES[scope as keyof typeof DOMICILE_CLAUSE_EXAMPLES];
   throw new ProposalBlockedError('DOMICILE_CLAUSE_MISMATCH', `domicileScope ${scope} is not what the quoted clause says: read as ${seen}. Quote the eligibility sentence about candidates from other states (a domicile certificate line or the citizenship line is not enough), for example: "${example}". If the notice does not say, leave domicileScope out.`, { domicileScope: scope, read: results });
 }
@@ -656,12 +666,15 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
   let duplicateWarning: DuplicateCheckResult | undefined;
   let diff: DiffRow[] | undefined;
   let stateCode: string | undefined;
+  let adminState: string | undefined;
   if (input.kind === 'UPDATE_RECRUITMENT') {
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
     checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
     stateCode = current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
+    const scopeState = current.criteria?.domicileScope !== 'OPEN' ? current.criteria?.reservationStateCode : null;
+    if (scopeState && scopeState !== stateCode) adminState = scopeState;
     // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
     const hadApply = (current.officialLinksList ?? []).some(l => l.isActive !== 0 && l.linkType === 'APPLY_ONLINE');
     const links = payload.officialLinks as Array<{ linkType: string }> | undefined;
@@ -728,7 +741,8 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     }
   }
 
-  checkDomicileScope(payload, evidence, stateCode);
+  const domicileFlag = checkDomicileScope(payload, evidence, stateCode, adminState);
+  if (domicileFlag) meta.domicileFlag = domicileFlag;
 
   const id = `prop_${crypto.randomUUID()}`;
   const row: NewProposal = { id, kind: input.kind, recruitmentId, summary, payload, baseSnapshot, meta: Object.keys(meta).length ? meta : null, supersedesId: null, proposedBy: actor.id };
@@ -736,9 +750,10 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
 }
 
 /** What the reviewer will be asked to look at hardest, returned to the proposer so it can re-read those fields first. */
-const reviewerFlags = (c: FactCheckSummary) => ({
+const reviewerFlags = (c: FactCheckSummary, meta: Record<string, unknown> | null) => ({
   machineChecked: `${c.matched} of ${c.total} fields matched their quote`,
   needsReading: c.needsReading, fromImage: c.fromImage, handwritten: c.handwritten,
+  ...(typeof meta?.domicileFlag === 'string' ? { domicileFlag: meta.domicileFlag } : {}),
 });
 
 /** Dry run: what createProposal would do, without queuing anything or using a pending slot. Blocked outcomes are thrown as ProposalBlockedError. */
@@ -758,7 +773,7 @@ export async function previewProposal(d1: D1Database | undefined, actor: Actor, 
     kind: row.kind, recruitmentId: row.recruitmentId,
     changes: diff ?? Object.entries(row.payload).map(([field, after]) => ({ field, before: null, after, changed: true })),
     ...(duplicateWarning ? { duplicateWarning } : {}),
-    checks: reviewerFlags(checks),
+    checks: reviewerFlags(checks, row.meta),
     approval: 'REQUIRED',
   };
 }
@@ -784,7 +799,7 @@ export async function createProposal(
     throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
   }
   await deps.insert(db, row);
-  return { id, status: 'PENDING', kind: row.kind as ProposalKind, recruitmentId, checks: reviewerFlags(checks), ...(duplicateWarning ? { duplicateWarning } : {}) };
+  return { id, status: 'PENDING', kind: row.kind as ProposalKind, recruitmentId, checks: reviewerFlags(checks, row.meta), ...(duplicateWarning ? { duplicateWarning } : {}) };
 }
 
 /** A no-exam notice refused on create goes on the Skipped list (audit action SKIPPED). Never throws: the original refusal is what the caller sees. */

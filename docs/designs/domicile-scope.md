@@ -155,7 +155,7 @@ Every save ends in one of three `src/db/queries.ts` writers: `createRecruitmentA
 
 A new pure function in `src/services/fact-checks.ts`, `classifyDomicileClause(snippet, stateName)`, returns `STATE_ONLY`, `OPEN_STATE_QUOTA`, `OPEN` or `UNCLEAR`.
 
-**It ships in refuse mode.** A `domicileScope` proposal is accepted only when its quote classifies as exactly that scope. A different scope **or `UNCLEAR`** is refused with `DOMICILE_CLAUSE_MISMATCH`, and the message tells the MCP to quote the eligibility clause or leave the field out (so the row stays "Not checked yet"). There is no flag-only mode, because the admin does not re-read. A clause the classifier cannot read (another script, unusual wording) costs a "Not checked yet" label, never a wrong one.
+**Refuse on contradiction, flag on doubt** (decided 2026-10-11, replacing the original refuse-only mode). A `domicileScope` proposal is accepted cleanly when its quote classifies as exactly that scope and, for `STATE_ONLY`, the lock sentence names the state itself. The name match accepts the ways notices write a state: the English name, old spellings (Orissa, Uttaranchal), the capitalised code and its dotted form ("MP", "M.P.", "M. P."), and the Hindi name ("मध्य प्रदेश", "मध्यप्रदेश"); "native of" / "मूल निवासी" count as residence words, and obligation wording ("must be a native of M.P.", "होना चाहिए") counts as a lock only when the state is named. A quote that classifies as a *different* scope is refused with `DOMICILE_CLAUSE_MISMATCH`. A quote that is `UNCLEAR`, or a lock that names only "the State", is accepted with `meta.domicileFlag`: a plain-English note shown on the proposal in `/admin/pending-changes` and returned to the MCP as `checks.domicileFlag`. Open-to-all needs wording like "all Indian citizens" or "candidates from any state"; the citizenship line alone stays `UNCLEAR` and is flagged. A notice page number is not required (possible later, with Approach C).
 
 Signals are matched within one sentence. Sentences split on `.`, `?`, the Hindi danda `।` and line breaks, never on `;` or `,` (the required fixtures pin this).
 
@@ -459,3 +459,13 @@ Implemented 2026-10-11 (uncommitted). Deviations: the state code comes from the 
 - **VERDICT:** No review CLEAR yet; every eng finding is mapped to approved tasks T1-T7. eng review required (re-run after implementation).
 
 NO UNRESOLVED DECISIONS
+
+## Revision 2026-10-11: own state, admin can override
+
+Premise 4 changed. Some Central posts are limited by domicile or region (Delhi Police, UT posts, regional Railway/SSC posts, North-East quotas), so "Central is never locked" refused valid recruitments.
+
+- **MCP unchanged and strict:** it never sends a state; Central is refused (`DOMICILE_SCOPE_INVALID`), and so is any `domicileScope` on a recruitment whose state an admin overrode.
+- **Admin can pick the state** ("Domicile state" on new/edit; empty = recruitment's own). No migration: the picked state is stored as `reservation_state_code`, which every non-`OPEN` scope already carries. `nextScope` returns `{ scope, state }`; an undefined requested state keeps the stored one, so an MCP-approved update never wipes the override.
+- Central with no picked state is still `OPEN`; a Central `STATE_ONLY` / `OPEN_STATE_QUOTA` without a state is a save error, never silently opened.
+- Listing: a `STATE_ONLY` row locks against its scope state (`domicile_state_code`), checked before the home and central tiers. Labels name the scope state.
+- Not covered: multi-state quotas (North-East as a group). Add a state list when a real notice needs it.

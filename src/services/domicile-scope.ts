@@ -1,6 +1,8 @@
 /**
  * Who may apply to a recruitment, as one value (docs/designs/domicile-scope.md).
- * The state it refers to is always the recruitment's own state, never stored separately.
+ * The state it refers to is the recruitment's own, unless an admin picked another (Delhi Police, UT posts, regional
+ * Central posts). That state is stored as reservation_state_code, which every non-OPEN scope carries. MCP proposals
+ * never send a state: they are held to the recruitment's own (change-proposals.ts).
  * The legacy columns (domicile_state_code, reservation_state_code, requires_mp_domicile) are derived
  * from it here and nowhere else, so old readers keep working and can never disagree with the scope.
  * Pure: no imports of writers (the MCP bundles this through change-proposals.ts).
@@ -25,20 +27,38 @@ export function stateCodeForId(stateId: string): string {
   return INDIA_JURISDICTIONS.find(j => j.id === stateId)?.code ?? stateId.replace(/^st_/, '').toUpperCase();
 }
 
-/** The scope a writer stores: Central is always OPEN; anything unrecognised is UNKNOWN. */
+/** The scope a writer stores: no state (Central) means OPEN; anything unrecognised is UNKNOWN. */
 export function normaliseScope(scope: unknown, stateCode: string): DomicileScope {
   if (stateCode.toUpperCase() === CENTRAL_CODE) return 'OPEN';
   return isDomicileScope(scope) ? scope : 'UNKNOWN';
 }
 
+/** States an admin may pick as the scope's state (Central is not a domicile). */
+export const DOMICILE_STATES = INDIA_JURISDICTIONS.filter(j => j.code !== CENTRAL_CODE);
+
 /**
- * The scope to store on a save. A state change resets it (the old scope described another jurisdiction's
- * notice), then a scope supplied with the same save applies. Undefined `requested` keeps the stored value.
+ * The scope and its state to store on a save. A state change of the recruitment resets both (the old scope described
+ * another jurisdiction's notice). Undefined `requested` / `requestedState` keep the stored value; an empty
+ * `requestedState` means the recruitment's own state. Without a state (Central, no admin pick) the scope is OPEN.
  */
-export function nextScope(opts: { stored?: unknown; requested?: unknown; previousStateCode?: string | null; stateCode: string }): DomicileScope {
-  const moved = !!opts.previousStateCode && opts.previousStateCode.toUpperCase() !== opts.stateCode.toUpperCase();
-  const base = moved ? 'UNKNOWN' : opts.stored;
-  return normaliseScope(opts.requested === undefined ? base : opts.requested, opts.stateCode);
+export function nextScope(opts: {
+  stored?: unknown; storedState?: string | null; requested?: unknown; requestedState?: string | null;
+  previousStateCode?: string | null; stateCode: string;
+}): { scope: DomicileScope; state: string } {
+  const own = opts.stateCode.toUpperCase();
+  const moved = !!opts.previousStateCode && opts.previousStateCode.toUpperCase() !== own;
+  const kept = !moved && opts.storedState ? opts.storedState.toUpperCase() : own;
+  let state = own;
+  if (opts.requestedState === undefined) state = kept;
+  else if (opts.requestedState) {
+    state = opts.requestedState.toUpperCase();
+    if (!DOMICILE_STATES.some(j => j.code === state)) throw new Error(`Unknown domicile state: ${opts.requestedState}`);
+  }
+  if (state === CENTRAL_CODE && (opts.requested === 'STATE_ONLY' || opts.requested === 'OPEN_STATE_QUOTA')) {
+    throw new Error('Pick the domicile state: a Central recruitment can only be limited to a named state.');
+  }
+  const scope = normaliseScope(opts.requested === undefined ? (moved ? 'UNKNOWN' : opts.stored) : opts.requested, state);
+  return { scope, state };
 }
 
 export interface DomicileColumns {
@@ -65,8 +85,8 @@ export function deriveDomicileColumns(scope: DomicileScope, stateCode: string): 
 /** Choices for the admin "Who may apply" picker, in the order an editor reads them. */
 export const DOMICILE_SCOPE_OPTIONS: Array<{ value: DomicileScope; label: string }> = [
   { value: 'UNKNOWN', label: 'Not checked yet' },
-  { value: 'STATE_ONLY', label: "Only domiciles of this recruitment's state" },
-  { value: 'OPEN_STATE_QUOTA', label: "Open to all; reservation only for this state's domiciles" },
+  { value: 'STATE_ONLY', label: 'Only domiciles of the state' },
+  { value: 'OPEN_STATE_QUOTA', label: "Open to all; reservation only for the state's domiciles" },
   { value: 'OPEN', label: 'Open to all Indian citizens' },
 ];
 

@@ -1,7 +1,7 @@
 ---
 import { advtLabel, cleanAdvt } from '../../../services/advt-number';
 import { parseQualificationByCategory } from '../../../engine/eligibility';
-import { DOMICILE_SCOPE_OPTIONS, isDomicileScope } from '../../../services/domicile-scope';
+import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../../services/domicile-scope';
 // src/pages/admin/recruitments/new.astro (FlowStep Screen 22)
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../components/admin/AgeRangeGuard.astro';
@@ -72,9 +72,10 @@ if (Astro.request.method === 'POST' && masterDataError) {
     const experienceMonths = parseIntegerInput(input.value('experienceMonths', 'experience_months'), 0);
     const allowedStreams = parseStringListInput(input.value('allowedStreams', 'allowed_streams'));
     const additionalSkills = parseStringListInput(input.value('additionalSkills', 'additional_skills'));
-    // The writer forces OPEN for a Central recruitment and derives the legacy domicile columns.
+    // The writer derives the legacy domicile columns; with no state picked, Central stays OPEN.
     const scopeInput = input.text('domicileScope', 'domicile_scope');
     const domicileScope = isDomicileScope(scopeInput) ? scopeInput : 'UNKNOWN';
+    const domicileScopeState = input.text('domicileScopeState');
     const qualificationByCategory = parseQualificationByCategory(input.text('qualificationByCategory', 'qualification_by_category'));
     const requiresMpEmploymentReg = parseBooleanInput(input.value('requiresMpEmploymentReg', 'requires_mp_employment_reg'));
     const employmentRegistrationLabel = input.text('employmentRegistrationLabel', 'employment_registration_label') || null;
@@ -138,6 +139,7 @@ if (Astro.request.method === 'POST' && masterDataError) {
         allowedStreams,
         additionalSkills,
         domicileScope,
+        domicileScopeState,
         qualificationByCategory,
         requiresMpEmploymentReg,
         employmentRegistrationLabel,
@@ -556,7 +558,8 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
                 <label><input type="checkbox" name="requiresMpEmploymentReg" value="1" /> Employment registration required</label>
                 <label><input type="checkbox" name="requiresCpct" value="1" /> CPCT required</label>
               </div>
-              <label class="text-xs font-semibold text-zinc-800">Who may apply<select name="domicileScope" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={'UNKNOWN' === option.value}>{option.label}</option>)}</select><span class="mt-1 block font-normal text-zinc-500">From the eligibility clause of the notice. Central recruitments are always open to all.</span></label>
+              <label class="text-xs font-semibold text-zinc-800">Who may apply<select name="domicileScope" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={'UNKNOWN' === option.value}>{option.label}</option>)}</select><span class="mt-1 block font-normal text-zinc-500">From the eligibility clause of the notice. A Central recruitment with no domicile state is always open to all.</span></label>
+              <label class="text-xs font-semibold text-zinc-800">Domicile state<select name="domicileScopeState" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white"><option value="">Recruitment's own state</option>{DOMICILE_STATES.map(j => <option value={j.code} selected={'' === j.code}>{j.name}</option>)}</select><span class="mt-1 block font-normal text-zinc-500">Change only when the notice limits applicants to another state (e.g. a Central post for Delhi domiciles).</span></label>
               <label class="text-xs font-semibold text-zinc-800">Employment registration key<input type="text" name="employmentRegistrationLabel" placeholder="e.g. MP_ROJGAR or UP_SEWAYOJAN" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
               <label class="text-xs font-semibold text-zinc-800">Category-wise minimum qualification<input type="text" name="qualificationByCategory" placeholder="e.g. ST:8TH, SC:10TH" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
               <label class="text-xs font-semibold text-zinc-800">Allowed gender<select name="genderAllowed" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200"><option value="ALL">All</option><option value="MALE">Male only</option><option value="FEMALE">Female only</option></select></label>

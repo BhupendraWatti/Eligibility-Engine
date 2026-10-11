@@ -103,10 +103,13 @@ export async function loadPublicRecruitments(
   return merged;
 }
 
-/** Only a checked STATE_ONLY scope locks; "not checked yet" stays visible in the open tier (its label says so). */
+/**
+ * Only a checked STATE_ONLY scope locks; "not checked yet" stays visible in the open tier (its label says so).
+ * The scope's state is usually the recruitment's own, but an admin may point it elsewhere (Delhi Police -> DL).
+ */
 export function isDomicileLocked(rec: RecruitmentWithDetails, homeCode: string | null): boolean {
   if (rec.criteria.domicileScope !== 'STATE_ONLY') return false;
-  return rec.stateCode?.toUpperCase() !== homeCode;
+  return (rec.criteria.domicileStateCode || rec.stateCode)?.toUpperCase() !== homeCode;
 }
 
 /** Splits rows into Relevance Tiers, keeping input order within each tier. Null without a Home State. */
@@ -115,9 +118,9 @@ export function rankByRelevance(rows: RecruitmentWithDetails[], homeCode: string
   const tiers: RelevanceTiers = { home: [], central: [], open: [], locked: [] };
   for (const rec of rows) {
     const code = rec.stateCode?.toUpperCase();
-    if (code === homeCode) tiers.home.push(rec);
+    if (isDomicileLocked(rec, homeCode)) tiers.locked.push(rec);
+    else if (code === homeCode) tiers.home.push(rec);
     else if (code === CENTRAL_CODE) tiers.central.push(rec);
-    else if (isDomicileLocked(rec, homeCode)) tiers.locked.push(rec);
     else tiers.open.push(rec);
   }
   // Within the open tier, checked rows come before "not checked yet" ones (stable, keeps page sort otherwise).

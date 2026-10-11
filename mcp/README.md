@@ -14,7 +14,7 @@ recruitment link; nothing in it is tied to one state. Use `resolve_entity` / `li
 | `list_my_proposals` | Check the status of proposals this MCP queued (`status=PENDING` is the open queue). |
 | `get_proposal` | Full detail of one of its own proposals (payload, evidence, duplicate warning, decision). |
 | `withdraw_proposal` | Take back its own PENDING proposal (status becomes WITHDRAWN; nothing is edited or removed). |
-| `propose_master` | Resolve a missing organisation, department or post against existing masters (MATCH / POSSIBLE_MATCH / NOT_FOUND); only NOT_FOUND queues a `CREATE_ORGANISATION` / `CREATE_DEPARTMENT` / `CREATE_POST` proposal for admin approval. `dryRun` resolves only. |
+| `propose_master` | Resolve a missing sector, organisation, department or post against existing masters (MATCH / POSSIBLE_MATCH / NOT_FOUND); only NOT_FOUND queues a `CREATE_SECTOR` / `CREATE_ORGANISATION` / `CREATE_DEPARTMENT` / `CREATE_POST` proposal. A sector sharing half its words with an existing one is POSSIBLE_MATCH and never queued. Proposals wait for admin approval. `dryRun` resolves only. |
 | `resolve_entity` | Exact lookup of a state, organisation, department, sector or post: MATCH, AMBIGUOUS or NOT_FOUND. Never guesses. |
 | `list_entities` | List active masters of one type, optionally filtered. |
 | `get_domain_schema` | Allowed fields, formats, enums and the evidence format, generated from the validators. |

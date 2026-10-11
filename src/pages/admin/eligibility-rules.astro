@@ -5,6 +5,7 @@ import AgeRangeGuard from '../../components/admin/AgeRangeGuard.astro';
 import { getAllActiveRecruitments, getAllStates, updateRecruitmentEligibility } from '../../db/queries';
 import { parseBooleanInput, parseIntegerInput, readAdminSubmission } from '../../services/admin-integrity';
 import { DOMICILE_SCOPE_OPTIONS, domicileScopeLabel, isDomicileScope } from '../../services/domicile-scope';
+import { jurisdictionName } from '../../data/india-jurisdictions';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
 const states = await getAllStates();
@@ -242,7 +243,7 @@ if (Astro.request.method === 'POST') {
               </div>
               <div>
                 <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Target Value</label>
-                <select name="domicileScope" disabled={selectedRec?.stateCode === 'IN'} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-medium">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={(selectedRec?.criteria.domicileScope ?? 'UNKNOWN') === option.value}>{option.label}</option>)}</select>
+                <select name="domicileScope" disabled={selectedRec?.stateCode === 'IN' && !selectedRec?.criteria.reservationStateCode} class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs bg-white text-zinc-800 font-medium">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={(selectedRec?.criteria.domicileScope ?? 'UNKNOWN') === option.value}>{option.label}</option>)}</select>
               </div>
             </div>
           </div>
@@ -269,7 +270,7 @@ if (Astro.request.method === 'POST') {
           </div>
 
           <p class="text-xs text-zinc-700 leading-relaxed bg-zinc-50 p-3 rounded-lg border border-zinc-200 font-sans">
-            Candidate must have at least <strong>{selectedRec?.criteria.minQualificationLevel}</strong>, be aged <strong>{selectedRec?.criteria.minAge}–{selectedRec?.criteria.maxAgeGeneral}</strong> on the cutoff date{selectedRec?.criteria.domicileScope === 'STATE_ONLY' ? `, and hold ${selectedRec.stateName || selectedRec.stateCode} domicile` : ''}.
+            Candidate must have at least <strong>{selectedRec?.criteria.minQualificationLevel}</strong>, be aged <strong>{selectedRec?.criteria.minAge}–{selectedRec?.criteria.maxAgeGeneral}</strong> on the cutoff date{selectedRec?.criteria.domicileScope === 'STATE_ONLY' ? `, and hold ${jurisdictionName(selectedRec.criteria.reservationStateCode || selectedRec.stateCode)} domicile` : ''}.
           </p>
 
           <!-- Validation Notice Callout -->
@@ -298,7 +299,7 @@ if (Astro.request.method === 'POST') {
             </div>
             <div class="flex justify-between py-1 border-b border-zinc-100">
               <span class="text-zinc-500">Domicile:</span>
-              <span class="font-mono font-semibold">{domicileScopeLabel(selectedRec?.criteria.domicileScope, selectedRec?.stateName || selectedRec?.stateCode || 'this state')}</span>
+              <span class="font-mono font-semibold">{domicileScopeLabel(selectedRec?.criteria.domicileScope, jurisdictionName(selectedRec?.criteria.reservationStateCode || selectedRec?.stateCode))}</span>
             </div>
             <div class="mt-2 pt-2 flex items-center justify-between font-bold">
               <span class="text-zinc-800">Deterministic Match:</span>

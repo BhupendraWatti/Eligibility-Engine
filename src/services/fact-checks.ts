@@ -6,6 +6,7 @@
  * Admin-only: the result is shown in /admin/pending-changes. It is never shown publicly.
  * Pure functions, no imports of writers (the MCP bundles this through change-proposals.ts).
  */
+import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
 
 export type FieldCheckStatus = 'MATCHES_QUOTE' | 'NOT_IN_QUOTE' | 'NO_QUOTE' | 'NEEDS_READING';
 
@@ -207,38 +208,77 @@ export const DOMICILE_PHRASES = {
   outsider: /candidates?\s+(?:of|from|belonging\s+to)\s+(?:any\s+)?other\s+states?|outside\s+the\s+state|other\s+than\s+(?:the\s+)?domiciles?|अन्य\s*राज्य/i,
   benefit: /reservation|relaxation|benefit\s+of|आरक्षण|छूट/i,
   bar: /\bonly\b|\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|केवल|पात्र\s*नहीं/i,
+  obligation: /\b(?:must|should|shall)\s+be\b|होना\s+(?:चाहिए|अनिवार्य)|होने\s+चाहिए/i,
   outsiderBar: /\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|cannot\s+apply|can\s*not\s+apply|पात्र\s*नहीं/i,
-  residence: /domicile|\bresidents?\b|bona\s*fide|\bnative\b|मूल\s*निवासी|निवासी/i,
+  residence: /domicile|\bresidents?\b|bona\s*fide|\bnatives?\b|मूल\s*निवासी|निवासी|अधिवासी/i,
   exclusion: /certificate|प्रमाण\s*पत्र|(?:native|local|regional)\s+language|mother\s+tongue|स्थानीय\s+भाषा/i,
   genericState: /\b(?:the|this)\s+state\b|राज्य|प्रदेश/i,
-  open: /candidates?\s+(?:of|from)\s+any\s+state|candidates?\s+(?:of|from)\s+other\s+states?\s+(?:may|can)\s+(?:also\s+)?apply|domicile\s+is\s+not\s+(?:required|necessary|mandatory)|(?:on\s+an?\s+)?all[\s-]india\s+basis|सभी\s+राज्यों\s+के\s+अभ्यर्थी/i,
+  open: /(?:all|any)\s+indian\s+citizens?|any\s+citizen\s+of\s+india|all\s+citizens\s+of\s+india|सभी\s+भारतीय\s+नागरिक|candidates?\s+(?:of|from)\s+any\s+state|candidates?\s+(?:of|from)\s+other\s+states?\s+(?:may|can)\s+(?:also\s+)?apply|domicile\s+is\s+not\s+(?:required|necessary|mandatory)|(?:on\s+an?\s+)?all[\s-]india\s+basis|सभी\s+राज्यों\s+के\s+अभ्यर्थी/i,
 };
 
-/** Sentences split on . ? । and line breaks, never on ; or , (a quota clause often joins its halves with ;). */
+/**
+ * Sentences split on . ? । and line breaks, never on ; or , (a quota clause often joins its halves with ;). The dot of a
+ * single capital initial ("M.P.", "U. P.") is not a sentence end.
+ */
 export function clauseSentences(text: string): string[] {
-  return text.split(/[.?।\n]+/).map(s => s.trim()).filter(Boolean);
+  return text.split(/(?:(?<!(?:^|[^A-Za-z])[A-Z])\.|[?।\n])+/).map(s => s.trim()).filter(Boolean);
 }
 
-export interface DomicileClauseResult { classification: DomicileClauseClass; signals: string[] }
+/** How notices write a state besides its English name: old spellings and the Hindi name. Codes and "M.P." are derived. */
+const STATE_ALIASES: Record<string, string[]> = {
+  AP: ['आंध्र प्रदेश', 'आन्ध्र प्रदेश'], AR: ['अरुणाचल प्रदेश'], AS: ['असम'], BR: ['बिहार'],
+  CG: ['Chattisgarh', 'Chhatisgarh', 'छत्तीसगढ़', 'छत्तीसगढ'], GA: ['गोवा'], GJ: ['गुजरात'], HR: ['हरियाणा'],
+  HP: ['हिमाचल प्रदेश'], JH: ['झारखंड', 'झारखण्ड'], KA: ['कर्नाटक'], KL: ['केरल'], MP: ['मध्य प्रदेश', 'मध्यप्रदेश'],
+  MH: ['महाराष्ट्र'], MN: ['मणिपुर'], ML: ['मेघालय'], MZ: ['मिजोरम', 'मिज़ोरम'], NL: ['नागालैंड', 'नगालैंड'],
+  OD: ['Orissa', 'ओडिशा', 'उड़ीसा'], PB: ['पंजाब'], RJ: ['राजस्थान'], SK: ['सिक्किम'], TN: ['तमिलनाडु', 'तमिल नाडु'],
+  TG: ['TS', 'तेलंगाना'], TR: ['त्रिपुरा'], UP: ['उत्तर प्रदेश', 'उत्तरप्रदेश'], UK: ['UA', 'Uttaranchal', 'उत्तराखंड', 'उत्तराखण्ड'],
+  WB: ['पश्चिम बंगाल'], AN: ['अंडमान'], CH: ['चंडीगढ़'], DN: ['दादरा', 'दमण', 'दमन'], DL: ['NCT of Delhi', 'दिल्ली'],
+  JK: ['J&K', 'J & K', 'जम्मू'], LA: ['लद्दाख'], LD: ['लक्षद्वीप'], PY: ['Pondicherry', 'पुडुचेरी'],
+};
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Whether a sentence names the state however a notice writes it: "Madhya Pradesh", "MP", "M.P.", "M. P.", "मध्य प्रदेश".
+ * The two-letter code must be in capitals and stand alone, so "up to" or "mp3" never count. Null for Central or an unknown code.
+ */
+export function stateNameMatcher(stateCode?: string | null): ((s: string) => boolean) | null {
+  const j = INDIA_JURISDICTIONS.find(x => x.code === stateCode?.toUpperCase());
+  if (!j || j.code === 'IN') return null;
+  const aliases = STATE_ALIASES[j.code] ?? [];
+  // Whole words only, so Assam (असम) is not found inside असमर्थ.
+  const names = new RegExp(`(?<![\\p{L}\\p{M}])(?:${[j.name, ...aliases].map(n => escapeRe(n).replace(/\s+/g, '\\s*')).join('|')})(?![\\p{L}\\p{M}])`, 'iu');
+  const codes = [j.code, ...aliases.filter(a => /^[A-Z]{2}$/.test(a))].map(c => `${c[0]}\\.?\\s?${c[1]}\\.?`);
+  const abbrev = new RegExp(`(?<![A-Za-z])(?:${codes.join('|')})(?![A-Za-z])`); // case-sensitive on purpose
+  return s => names.test(s) || abbrev.test(s);
+}
+
+export interface DomicileClauseResult {
+  classification: DomicileClauseClass;
+  signals: string[];
+  /** The lock sentence names the state itself (any spelling), not only "the State". */
+  namesState: boolean;
+}
 
 /** What a quoted eligibility clause says about candidates from other states. */
-export function classifyDomicileClause(snippet: string, stateName?: string | null): DomicileClauseResult {
+export function classifyDomicileClause(snippet: string, stateCode?: string | null): DomicileClauseResult {
   const P = DOMICILE_PHRASES;
   const sentences = clauseSentences(snippet);
   const signals: string[] = [];
-  const nameRe = stateName ? new RegExp(stateName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*'), 'i') : null;
-  const refersToState = (s: string) => (nameRe?.test(s) ?? false) || P.genericState.test(s);
+  const names = stateNameMatcher(stateCode) ?? (() => false);
+  const refersToState = (s: string) => names(s) || P.genericState.test(s);
 
-  let lock = false, quota = false, open = false;
+  let lock = false, quota = false, open = false, namesState = false;
   for (const s of sentences) {
     const outsider = P.outsider.test(s);
     const benefit = P.benefit.test(s);
     if (outsider && benefit) { quota = true; signals.push('benefit limited, outsiders still apply'); continue; }
     if (P.exclusion.test(s)) { signals.push('certificate or language wording (never a lock)'); continue; }
     if (benefit) continue; // a bar on a benefit is not a bar on applying
-    const bar = P.bar.test(s);
+    // "Must be a native of M.P." bars outsiders too, but only when it names the state: "must be a resident of the State" stays unclear.
+    const bar = P.bar.test(s) || (P.obligation.test(s) && names(s));
     // "Candidates of other states may only apply for unreserved posts" is not a bar: outsiders need an explicit "not eligible".
-    if ((bar && P.residence.test(s) && refersToState(s)) || (outsider && P.outsiderBar.test(s))) { lock = true; signals.push('outsiders barred'); continue; }
+    if ((bar && P.residence.test(s) && refersToState(s)) || (outsider && P.outsiderBar.test(s))) { lock = true; namesState ||= names(s); signals.push('outsiders barred'); continue; }
     if (P.open.test(s)) { open = true; signals.push('other-state candidates may apply'); }
   }
   if (!sentences.length) signals.push('empty quote');
@@ -249,7 +289,7 @@ export function classifyDomicileClause(snippet: string, stateName?: string | nul
           : 'UNCLEAR';
   if (classification === 'UNCLEAR' && !signals.length) signals.push('no sentence about candidates from other states');
   if (lock && quota) signals.push('both a bar and a quota sentence');
-  return { classification, signals };
+  return { classification, signals, namesState };
 }
 
 /** One sentence per scope that passes, for refusal messages. */

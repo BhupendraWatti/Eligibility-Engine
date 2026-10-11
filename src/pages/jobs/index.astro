@@ -59,7 +59,7 @@ function hrefWithout(name: string): string {
 }
 
 function domicileLabel(job: RecruitmentWithDetails): string {
-  return domicileScopeLabel(job.criteria.domicileScope, job.stateName || jurisdictionName(job.stateCode));
+  return domicileScopeLabel(job.criteria.domicileScope, jurisdictionName(job.criteria.reservationStateCode || job.stateCode));
 }
 
 // Format date helper

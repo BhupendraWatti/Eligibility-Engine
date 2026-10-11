@@ -1,7 +1,7 @@
 ---
 import { advtLabel, cleanAdvt } from '../../../../services/advt-number';
 import { formatQualificationByCategory, parseQualificationByCategory } from '../../../../engine/eligibility';
-import { DOMICILE_SCOPE_OPTIONS, isDomicileScope } from '../../../../services/domicile-scope';
+import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../../../services/domicile-scope';
 // src/pages/admin/recruitments/[id]/edit.astro (FlowStep Screen 22)
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../../components/admin/AgeRangeGuard.astro';
@@ -96,9 +96,10 @@ if (Astro.request.method === 'POST') {
     const allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean);
     const additionalSkills = formData.get('additionalSkills')?.toString().split(',').map(v => v.trim()).filter(Boolean);
 
-    // The writer forces OPEN for a Central recruitment and derives the legacy domicile columns.
+    // The writer derives the legacy domicile columns; with no state picked, Central stays OPEN.
     const scopeInput = formData.get('domicileScope')?.toString().trim();
     const domicileScope = isDomicileScope(scopeInput) ? scopeInput : undefined;
+    const domicileScopeState = formData.get('domicileScopeState')?.toString().trim();
     const qualificationByCategory = parseQualificationByCategory(formData.get('qualificationByCategory')?.toString());
     const requiresMpEmploymentReg = formData.get('requiresMpEmploymentReg') === '1';
     const employmentRegistrationLabel = formData.get('employmentRegistrationLabel')?.toString().trim() || null;
@@ -227,6 +228,7 @@ if (Astro.request.method === 'POST') {
         allowedStreams,
         additionalSkills,
         domicileScope,
+        domicileScopeState,
         qualificationByCategory,
         requiresMpEmploymentReg,
         employmentRegistrationLabel,
@@ -600,9 +602,8 @@ const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || 
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <label class="text-xs font-semibold text-zinc-800">Who may apply{recruitment.stateCode === 'IN'
-                ? <><input type="hidden" name="domicileScope" value="OPEN" /><select disabled class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50"><option>Open to all Indian citizens (Central)</option></select></>
-                : <select name="domicileScope" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={(recruitment.criteria?.domicileScope ?? 'UNKNOWN') === option.value}>{option.label}</option>)}</select>}<span class="mt-1 block font-normal text-zinc-500">From the eligibility clause of the notice. The state is always this recruitment's own.</span></label>
+              <label class="text-xs font-semibold text-zinc-800">Who may apply<select name="domicileScope" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white">{DOMICILE_SCOPE_OPTIONS.map(option => <option value={option.value} selected={(recruitment.criteria?.domicileScope ?? 'UNKNOWN') === option.value}>{option.label}</option>)}</select><span class="mt-1 block font-normal text-zinc-500">From the eligibility clause of the notice. A Central recruitment with no domicile state is always open to all.</span></label>
+              <label class="text-xs font-semibold text-zinc-800">Domicile state<select name="domicileScopeState" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white"><option value="">Recruitment's own state</option>{DOMICILE_STATES.map(j => <option value={j.code} selected={(recruitment.criteria?.reservationStateCode !== recruitment.stateCode ? recruitment.criteria?.reservationStateCode : '') === j.code}>{j.name}</option>)}</select><span class="mt-1 block font-normal text-zinc-500">Change only when the notice limits applicants to another state (e.g. a Central post for Delhi domiciles).</span></label>
               <label class="text-xs font-semibold text-zinc-800">Employment registration key<input type="text" name="employmentRegistrationLabel" value={recruitment.criteria?.employmentRegistrationLabel || ''} placeholder="e.g. MP_ROJGAR" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
               <label class="text-xs font-semibold text-zinc-800">Category-wise minimum qualification<input type="text" name="qualificationByCategory" value={formatQualificationByCategory(recruitment.criteria?.qualificationByCategory)} placeholder="e.g. ST:8TH, SC:10TH" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 font-mono" /></label>
             </div>

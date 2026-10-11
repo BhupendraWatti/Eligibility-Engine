@@ -279,6 +279,9 @@ const badge: Record<string, string> = {
               : <><strong>Cannot be applied.</strong> Its <span class="font-mono">{w.field}</span> is <span class="font-mono">{w.id}</span>, which is {w.parent?.status?.toLowerCase() ?? 'missing'}. Reject this proposal.</>}
           </div>
         ))}
+        {typeof p.meta?.domicileFlag === 'string' && (
+          <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>Who may apply needs your read.</strong> {p.meta.domicileFlag}</div>
+        )}
         {(checks.notInQuote.length > 0 || checks.handwritten.length > 0 || checks.fromImage.length > 0 || checks.needsReading.length > 0) && (
           <div class="mx-4 mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 space-y-0.5">
             <p class="font-semibold">Check these against the official page before approving:</p>

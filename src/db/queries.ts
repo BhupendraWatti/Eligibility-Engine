@@ -3351,6 +3351,8 @@ export interface CreateRecruitmentInput {
   allowedStreams?: string[];
   /** Who may apply. Undefined on an update keeps the stored value. The legacy fields below are ignored by the writers. */
   domicileScope?: DomicileScope;
+  /** Admin only: the state the scope refers to. Undefined keeps the stored one; '' is the recruitment's own state. */
+  domicileScopeState?: string;
   requiresMpDomicile?: boolean;
   domicileStateCode?: string | null;
   reservationStateCode?: string | null;
@@ -3414,30 +3416,32 @@ async function resolveRecruitmentMasters(data: CreateRecruitmentInput, d1?: D1Da
 }
 
 /** The stored scope and state of a recruitment, so a save can keep the scope or reset it on a state change. */
-async function storedDomicile(recruitmentId: string, d1?: D1Database): Promise<{ scope?: string; stateId?: string } | undefined> {
+type StoredDomicile = { scope?: string; scopeState?: string | null; stateId?: string };
+async function storedDomicile(recruitmentId: string, d1?: D1Database): Promise<StoredDomicile | undefined> {
   if (!d1) {
     const existing = FALLBACK_RECRUITMENTS.find(r => r.id === recruitmentId || r.slug === recruitmentId);
-    return existing ? { scope: existing.criteria.domicileScope, stateId: existing.stateId } : undefined;
+    return existing ? { scope: existing.criteria.domicileScope, scopeState: existing.criteria.reservationStateCode, stateId: existing.stateId } : undefined;
   }
   const row = await d1.prepare(
-    'SELECT r.state_id AS stateId, e.domicile_scope AS scope FROM recruitments r LEFT JOIN recruitment_eligibility e ON e.recruitment_id = r.id WHERE r.id = ?'
-  ).bind(recruitmentId).first<{ stateId: string; scope: string | null }>();
-  return row ? { scope: row.scope ?? undefined, stateId: row.stateId } : undefined;
+    'SELECT r.state_id AS stateId, e.domicile_scope AS scope, e.reservation_state_code AS scopeState FROM recruitments r LEFT JOIN recruitment_eligibility e ON e.recruitment_id = r.id WHERE r.id = ?'
+  ).bind(recruitmentId).first<{ stateId: string; scope: string | null; scopeState: string | null }>();
+  return row ? { scope: row.scope ?? undefined, scopeState: row.scopeState, stateId: row.stateId } : undefined;
 }
 
 /**
  * The only place the domicile columns are computed (docs/designs/domicile-scope.md): every save of a recruitment's
  * eligibility goes through here, so the scope and the legacy columns can never disagree.
  */
-function domicileForSave(requested: unknown, stateId: string, stored?: { scope?: string; stateId?: string }): DomicileColumns & { scope: DomicileScope } {
-  const stateCode = stateCodeForId(stateId);
-  const scope = nextScope({
+function domicileForSave(requested: unknown, requestedState: string | null | undefined, stateId: string, stored?: StoredDomicile): DomicileColumns & { scope: DomicileScope } {
+  const { scope, state } = nextScope({
     stored: stored?.scope,
+    storedState: stored?.scopeState,
     requested,
+    requestedState,
     previousStateCode: stored?.stateId ? stateCodeForId(stored.stateId) : null,
-    stateCode,
+    stateCode: stateCodeForId(stateId),
   });
-  return { scope, ...deriveDomicileColumns(scope, stateCode) };
+  return { scope, ...deriveDomicileColumns(scope, state) };
 }
 
 /**
@@ -3453,7 +3457,7 @@ export async function createRecruitmentAtomic(
   let slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
-  const dom = domicileForSave(data.domicileScope, stateId);
+  const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId);
 
   // 1. Validation & Duplicate Detection
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -3893,7 +3897,7 @@ export async function updateRecruitmentAtomic(
 ): Promise<{ success: boolean; id: string; validation: any; errors?: string[]; message?: string }> {
   const d1 = resolveD1(providedD1, 'updating a recruitment');
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
-  const dom = domicileForSave(data.domicileScope, stateId, await storedDomicile(id, d1));
+  const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId, await storedDomicile(id, d1));
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -4327,14 +4331,14 @@ export async function updateRecruitmentEligibility(
   const fallback = FALLBACK_RECRUITMENTS.find(item => item.id === recruitmentId);
   if (!d1) {
     if (!fallback?.stateId) return false;
-    const dom = domicileForSave(data.domicileScope, fallback.stateId, { scope: fallback.criteria.domicileScope, stateId: fallback.stateId });
+    const dom = domicileForSave(data.domicileScope, undefined, fallback.stateId, { scope: fallback.criteria.domicileScope, scopeState: fallback.criteria.reservationStateCode, stateId: fallback.stateId });
     fallback.criteria = { ...fallback.criteria, ...data, ...dom, domicileScope: dom.scope };
     FALLBACK_AUDIT_LOGS.unshift({ id: `audit_${crypto.randomUUID()}`, adminEmail: data.adminEmail, entity: 'ELIGIBILITY', entityId: recruitmentId, action: 'UPDATE', field: 'core_rules', oldValue: null, newValue: JSON.stringify(data), reason: 'Eligibility rules updated', source: null, createdAt: new Date() });
     return true;
   }
   const stored = await storedDomicile(recruitmentId, d1);
   if (!stored?.stateId) return false;
-  const dom = domicileForSave(data.domicileScope, stored.stateId, stored);
+  const dom = domicileForSave(data.domicileScope, undefined, stored.stateId, stored);
   const db = getDb(d1);
   const eligibilityValues = {
     minAge: data.minAge,
