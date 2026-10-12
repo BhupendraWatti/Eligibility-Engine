@@ -42,10 +42,20 @@ const NUMBER_FIELDS = new Set([
   'totalVacancies', 'cycleYear', 'minAge', 'maxAgeGeneral', 'ageRelaxationScSt', 'ageRelaxationObc', 'ageRelaxationFemale', 'ageRelaxationEws',
   'minHeightMaleCm', 'minHeightFemaleCm', 'minChestMaleCm', 'minPercentageRequired',
 ]);
+const RELAXATION_FIELDS = new Set(['ageRelaxationScSt', 'ageRelaxationObc', 'ageRelaxationFemale', 'ageRelaxationEws']);
+/** "पूर्ण न की हो", "पूरी न की हो", "not have completed", "not attained": the limit itself is excluded. */
+const NOT_COMPLETED = /(पूर्ण|पूरी)\s*(न|नहीं)(?=[\s,।.]|$)|not\s+(have\s+)?(completed|attained)/i;
 const DATE_FIELDS = new Set(['applicationStart', 'applicationEnd', 'examDate', 'ageCutoffDate']);
 const EXACT_TEXT_FIELDS = new Set(['advtNumber']);
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+/** Hindi month names after folding nukta and "म्ब" -> "ंब" (सितम्बर = सितंबर). */
+const HI_MONTHS: Record<string, number> = {
+  'जनवरी': 1, 'फरवरी': 2, 'मार्च': 3, 'अप्रैल': 4, 'अप्रेल': 4, 'मई': 5, 'जून': 6, 'जुलाई': 7, 'अगस्त': 8,
+  'सितंबर': 9, 'अक्टूबर': 10, 'अक्तूबर': 10, 'नवंबर': 11, 'दिसंबर': 12,
+};
+const monthOf = (w: string) =>
+  /^[a-z]/.test(w) ? MONTHS.indexOf(w.slice(0, 3)) + 1 : HI_MONTHS[w.replace(/़/g, '').replace(/म्ब/g, 'ंब')] ?? 0;
 
 /** Devanagari and other Indic digits to ASCII, so "०१/२०२६" compares like "01/2026". */
 export function asciiDigits(s: string): string {
@@ -113,15 +123,21 @@ export function wordNumbers(text: string): number[] {
 
 const iso = (y: number, m: number, d: number) => (m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y < 100 ? 2000 + y : y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null);
 
-/** Every date written in the text, as ISO: 10.10.2026, 10/10/26, 2026-10-10, 10 October 2026, October 10, 2026. */
+/**
+ * Every date written in the text, as ISO: 10.10.2026, 10/10/26, 2026-10-10, 10 October 2026, October 10, 2026,
+ * 01 जुलाई, 2026, and day lists sharing a month ("15 and 16 December 2026", "03 व 04 दिसम्बर, 2026" give both days).
+ */
 export function datesIn(text: string): string[] {
   const t = asciiDigits(text).toLowerCase();
   const out: Array<string | null> = [];
   for (const m of t.matchAll(/\b(\d{4})[-./](\d{1,2})[-./](\d{1,2})\b/g)) out.push(iso(+m[1], +m[2], +m[3]));
   for (const m of t.matchAll(/\b(\d{1,2})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{4}|\d{2})\b/g)) out.push(iso(+m[3], +m[2], +m[1]));
-  const month = (w: string) => MONTHS.indexOf(w.slice(0, 3)) + 1;
-  for (const m of t.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(\d{4})\b/g)) if (month(m[2])) out.push(iso(+m[3], month(m[2]), +m[1]));
-  for (const m of t.matchAll(/\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/g)) if (month(m[1])) out.push(iso(+m[3], month(m[1]), +m[2]));
+  const dayList = /(?<!\d)(\d{1,2}(?:(?:st|nd|rd|th)?\s*(?:,|and|&|व|एवं|और|तथा)\s*\d{1,2})*)(?:st|nd|rd|th)?\s+([a-z]{3,9}|[ऀ-ॿ]+)\.?,?\s+(\d{4})\b/g;
+  for (const m of t.matchAll(dayList)) {
+    const month = monthOf(m[2]);
+    if (month) for (const d of m[1].match(/\d{1,2}/g) ?? []) out.push(iso(+m[3], month, +d));
+  }
+  for (const m of t.matchAll(/\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/g)) if (monthOf(m[1])) out.push(iso(+m[3], monthOf(m[1]), +m[2]));
   return out.filter((d): d is string => !!d);
 }
 
@@ -131,6 +147,15 @@ function checkValue(field: string, value: unknown, quotes: string[], payload: Re
   const all = quotes.join(' \n ');
   if (NUMBER_FIELDS.has(field) && typeof value === 'number') {
     if (numbersIn(all).includes(value)) return { status: 'MATCHES_QUOTE', detail: `${value} appears in the quote.` };
+    // "must not have completed 40 years" allows 39 completed years, the value the engine compares.
+    if (field === 'maxAgeGeneral' && NOT_COMPLETED.test(all) && numbersIn(all).includes(value + 1)) {
+      return { status: 'MATCHES_QUOTE', detail: `The quote says the candidate must not have completed ${value + 1} years, so at most ${value} completed years.` };
+    }
+    // A relaxation is often printed as the relaxed limit ("SC/ST: 38 years" against a general 33).
+    const base = payload.maxAgeGeneral;
+    if (RELAXATION_FIELDS.has(field) && typeof base === 'number' && value > 0 && numbersIn(all).includes(base + value)) {
+      return { status: 'MATCHES_QUOTE', detail: `The quote gives the relaxed limit ${base + value}, which is ${value} years above the general ${base}.` };
+    }
     // A total is often printed only per category or area: accept it when it is exactly the sum of checked rows.
     if (field === 'totalVacancies' && matched.has('vacanciesBreakdown')) {
       const sum = (payload.vacanciesBreakdown as Array<{ count: number }>).reduce((a, v) => a + v.count, 0);
@@ -205,8 +230,11 @@ export type DomicileClauseClass = 'STATE_ONLY' | 'OPEN_STATE_QUOTA' | 'OPEN' | '
 
 /** Shared with tests and the MCP docs. Latin and Devanagari only; other scripts classify as UNCLEAR. */
 export const DOMICILE_PHRASES = {
-  outsider: /candidates?\s+(?:of|from|belonging\s+to)\s+(?:any\s+)?other\s+states?|outside\s+the\s+state|other\s+than\s+(?:the\s+)?domiciles?|अन्य\s*राज्य/i,
-  benefit: /reservation|relaxation|benefit\s+of|आरक्षण|छूट/i,
+  outsider: /candidates?\s+(?:of|from|belonging\s+to)\s+(?:any\s+)?other\s+states?|outside\s+the\s+state|other\s+than\s+(?:the\s+)?domiciles?|not\s+(?:a\s+)?(?:domiciles?|natives?|bona\s*fide\s+residents?)\s+of|अन्य\s*राज्य|अन्य\s*प्रदेश|(?:राज्य|प्रदेश)\s*के\s*बाहर|(?:मूल\s*निवासी|अधिवासी)\s*(?:\([^)]*\)\s*)?नहीं/i,
+  // "Reserved posts are only for natives" limits a benefit, it does not bar outsiders. अनारक्षित (unreserved) is not आरक्षित.
+  benefit: /reservation|relaxation|benefit\s+of|(?<!un)reserved\s+posts?|आरक्षण|(?<!अन)आरक्षित|छूट/i,
+  // Outsiders allowed against unreserved posts only: they still apply, so this is a quota, not a lock.
+  unreserved: /unreserved|अनारक्षित/i,
   bar: /\bonly\b|\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|केवल|पात्र\s*नहीं/i,
   obligation: /\b(?:must|should|shall)\s+be\b|होना\s+(?:चाहिए|अनिवार्य)|होने\s+चाहिए/i,
   outsiderBar: /\bnot\s+eligible\b|shall\s+not\s+be\s+eligible|cannot\s+apply|can\s*not\s+apply|पात्र\s*नहीं/i,
@@ -272,7 +300,7 @@ export function classifyDomicileClause(snippet: string, stateCode?: string | nul
   for (const s of sentences) {
     const outsider = P.outsider.test(s);
     const benefit = P.benefit.test(s);
-    if (outsider && benefit) { quota = true; signals.push('benefit limited, outsiders still apply'); continue; }
+    if (outsider && (benefit || P.unreserved.test(s))) { quota = true; signals.push('benefit limited, outsiders still apply'); continue; }
     if (P.exclusion.test(s)) { signals.push('certificate or language wording (never a lock)'); continue; }
     if (benefit) continue; // a bar on a benefit is not a bar on applying
     // "Must be a native of M.P." bars outsiders too, but only when it names the state: "must be a resident of the State" stays unclear.

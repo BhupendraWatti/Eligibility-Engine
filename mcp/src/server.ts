@@ -18,6 +18,7 @@ import {
   getProposal,
   listProposals,
   previewProposal,
+  readRecruitmentEligibility,
   withdrawProposal,
   type ProposalInput,
 } from '../../src/services/change-proposals';
@@ -81,6 +82,29 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         // Never leak internals (SQL, bindings, stack) to the model.
         console.error('[mcp] search_recruitments failed:', error);
         return result({ error: { code: 'INTERNAL_ERROR', message: 'Recruitment search failed.' } }, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_recruitment_eligibility',
+    {
+      title: 'Read the eligibility rules of a recruitment',
+      description:
+        'READ-only. Every eligibility field the engine uses for one recruitment (age, relaxations, qualification, streams, certificates, who may apply, physical standards, post-wise rules), ' +
+        'plus "unchecked": fields still empty or unverified. An empty requirement is not checked at all, so a candidate passes it. ' +
+        'Read this before proposing an eligibility update, and compare every field with the official notice.',
+      inputSchema: { recruitmentId: z.string().trim().min(1).max(100).describe('id from search_recruitments') },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'get_recruitment_eligibility', actor: ctx.actor.id, mode: ctx.actor.mode }));
+      try {
+        return result(await readRecruitmentEligibility(ctx.d1, args.recruitmentId) as unknown as Record<string, unknown>);
+      } catch (error) {
+        if (error instanceof InvalidProposalError) return result({ error: { code: 'NOT_FOUND', message: error.message } }, true);
+        console.error('[mcp] get_recruitment_eligibility failed:', error);
+        return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not read the eligibility rules.' } }, true);
       }
     },
   );

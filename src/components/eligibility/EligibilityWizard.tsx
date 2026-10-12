@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { evaluateEligibility, type UserEligibilityProfile, type RecruitmentCriteria } from '../../engine/eligibility';
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
+import { CERTIFICATES, STREAM_ALIASES, requirementOptions } from '../../data/credentials';
 
 interface RecruitmentData {
   id: string;
@@ -31,9 +32,8 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
   const [dobInput, setDobInput] = useState<string>('');
   const [selectedGender, setSelectedGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('');
   const [selectedQualification, setSelectedQualification] = useState<UserEligibilityProfile['qualificationLevel'] | ''>('');
-  const [degree, setDegree] = useState<string>('B.Tech');
-  const [stream, setStream] = useState<string>('Computer Science');
-  const [passingYear, setPassingYear] = useState<string>('2024');
+  // Blank until the candidate types it: a pre-filled subject would fail every post that asks for another one.
+  const [stream, setStream] = useState<string>('');
 
   const [domicileStateCode, setDomicileStateCode] = useState<string>(chosenStateCode ?? '');
   const [registrations, setRegistrations] = useState<string>('');
@@ -44,6 +44,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
   const [heightCm, setHeightCm] = useState<string>('');
   const [chestCm, setChestCm] = useState<string>('');
   const [skills, setSkills] = useState<string>('');
+  const [heldCertificates, setHeldCertificates] = useState<string[]>([]);
   const [hasTechCert, setHasTechCert] = useState<boolean>(false);
 
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -62,14 +63,24 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
       hasMpRojgarPanjiyan: registrations ? registrations.toUpperCase().split(',').map(value => value.trim()).includes('MP_ROJGAR') : undefined,
       hasCpct: hasTechCert,
       qualificationLevel: (selectedQualification || 'GRADUATION') as any,
-      stream: stream || undefined,
+      stream: stream.trim() || undefined,
       percentage: percentage ? Number(percentage) : undefined,
       heightCm: heightCm ? Number(heightCm) : undefined,
       chestCm: chestCm ? Number(chestCm) : undefined,
       experienceMonths: experienceMonths ? Number(experienceMonths) : undefined,
-      additionalSkills: skills.split(',').map(value => value.trim()).filter(Boolean),
+      // Nothing ticked or typed = not answered, so certificate rules ask instead of failing.
+      additionalSkills: (() => {
+        const held = [...heldCertificates, ...skills.split(',').map(value => value.trim()).filter(Boolean)];
+        return held.length ? held : undefined;
+      })(),
     };
-  }, [dobInput, selectedGender, selectedCategory, domicileStateCode, registrations, hasTechCert, selectedQualification, stream, percentage, heightCm, chestCm, experienceMonths, skills]);
+  }, [dobInput, selectedGender, selectedCategory, domicileStateCode, registrations, hasTechCert, selectedQualification, stream, percentage, heightCm, chestCm, experienceMonths, skills, heldCertificates]);
+
+  // Only certificates some listed recruitment asks for, so the list stays short and relevant.
+  const askedCertificates = useMemo(() => {
+    const asked = new Set(recruitments.flatMap(r => (r.criteria.additionalSkills ?? []).flatMap(requirementOptions)));
+    return CERTIFICATES.filter(c => asked.has(c.code));
+  }, [recruitments]);
 
   // Evaluate candidate results across all recruitments
   const results = useMemo(() => {
@@ -321,50 +332,25 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                     ))}
                   </div>
 
-                  {selectedQualification === 'GRADUATION' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/40 border border-border mb-4">
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Degree Type</label>
-                        <select
-                          value={degree}
-                          onChange={e => setDegree(e.target.value)}
-                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
-                        >
-                          <option value="B.Tech">B.Tech / B.E.</option>
-                          <option value="B.Sc">B.Sc</option>
-                          <option value="B.Com">B.Com</option>
-                          <option value="B.A.">B.A.</option>
-                          <option value="Other">Other Bachelor Degree</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Discipline / Stream</label>
-                        <select
-                          value={stream}
-                          onChange={e => setStream(e.target.value)}
-                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
-                        >
-                          <option value="Computer Science">Computer Science / IT</option>
-                          <option value="Mechanical">Mechanical Engineering</option>
-                          <option value="Civil">Civil Engineering</option>
-                          <option value="General">General / Humanities</option>
-                          <option value="Commerce">Commerce / Accounts</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Passing Year</label>
-                        <select
-                          value={passingYear}
-                          onChange={e => setPassingYear(e.target.value)}
-                          className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
-                        >
-                          <option value="2026">2026 (Final Year)</option>
-                          <option value="2025">2025</option>
-                          <option value="2024">2024</option>
-                          <option value="2023">2023</option>
-                          <option value="2022">2022 or earlier</option>
-                        </select>
-                      </div>
+                  {selectedQualification && !['7TH', '8TH', '10TH', 'ITI'].includes(selectedQualification) && (
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border mb-4">
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1" htmlFor="stream-input">
+                        Main subject of your highest qualification
+                      </label>
+                      <input
+                        id="stream-input"
+                        list="stream-options"
+                        value={stream}
+                        onChange={e => setStream(e.target.value)}
+                        placeholder="e.g. Law, Mathematics, Hindi, Commerce"
+                        className="w-full text-xs p-2.5 rounded-lg bg-card border border-border text-foreground outline-none"
+                      />
+                      <datalist id="stream-options">
+                        {Object.values(STREAM_ALIASES).map(names => names[0]).concat(['Hindi', 'English', 'Mathematics', 'Physics', 'Chemistry', 'History', 'Geography', 'Economics', 'Sociology', 'Psychology', 'Sanskrit', 'Urdu', 'Science', 'Arts']).map(name => (
+                          <option key={name} value={name.charAt(0).toUpperCase() + name.slice(1)} />
+                        ))}
+                      </datalist>
+                      <p className="text-[11px] text-muted-foreground mt-1">Some posts accept only certain subjects. Leave blank if unsure; we will ask you to check.</p>
                     </div>
                   )}
 
@@ -524,6 +510,26 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                         </div>
                       </label>
                     </div>
+
+                    {askedCertificates.length > 0 && (
+                      <fieldset className="p-4 rounded-xl bg-card border border-border">
+                        <legend className="text-xs font-semibold text-foreground px-1">Certificates you hold</legend>
+                        <p className="text-[11px] text-muted-foreground mb-3">Tick every one you have. Posts that need a certificate you leave unticked will ask you to check.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {askedCertificates.map(c => (
+                            <label key={c.code} className="flex items-start gap-2 text-xs text-foreground cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={heldCertificates.includes(c.code)}
+                                onChange={e => setHeldCertificates(prev => e.target.checked ? [...prev, c.code] : prev.filter(code => code !== c.code))}
+                                className="size-4 rounded text-primary focus:ring-primary mt-0.5"
+                              />
+                              <span>{c.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    )}
 
                     <div className="p-4 rounded-xl bg-card border border-border">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

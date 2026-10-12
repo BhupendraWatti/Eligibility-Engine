@@ -119,14 +119,21 @@ async function run() {
   const create = sanitizeChanges('CREATE_RECRUITMENT', { title: 'ASI (Stenographic) 2026', postId: 'post_mp_asi_steno', organisationId: 'org_mpesb', totalVacancies: 520 });
   assert(create.advtNumber === undefined && create.totalVacancies === 520, 'a create without advtNumber is valid');
 
-  // ── 6b. State-scoped reservation and category-wise qualification can be proposed ──────────────
-  const scoped = sanitizeChanges('UPDATE_RECRUITMENT', { reservationStateCode: 'mp', qualificationByCategory: { ST: '8TH' } });
-  assert(scoped.reservationStateCode === 'MP' && (scoped.qualificationByCategory as Record<string, string>).ST === '8TH', 'reservation state and category-wise qualification are accepted and normalised');
+  // ── 6b. Category-wise qualification can be proposed; the old domicile fields are retired ────────
+  const scoped = sanitizeChanges('UPDATE_RECRUITMENT', { qualificationByCategory: { ST: '8TH' } });
+  assert((scoped.qualificationByCategory as Record<string, string>).ST === '8TH', 'category-wise qualification is accepted');
   let refused = 0;
-  for (const bad of [{ qualificationByCategory: { MBC: '8TH' } }, { qualificationByCategory: { ST: 'PHD' } }, { reservationStateCode: 'Madhya Pradesh' }]) {
+  for (const bad of [{ qualificationByCategory: { MBC: '8TH' } }, { qualificationByCategory: { ST: 'PHD' } }, { reservationStateCode: 'MP' }]) {
     try { sanitizeChanges('UPDATE_RECRUITMENT', bad); } catch { refused++; }
   }
-  assert(refused === 3, 'unknown categories, levels and non-code states are rejected');
+  assert(refused === 3, 'unknown categories and levels, and the retired reservationStateCode, are rejected');
+
+  // ── 6b2. Certificates are catalogue codes; "|" joins alternatives; post-wise rules are text ────────
+  const certs = sanitizeChanges('UPDATE_RECRUITMENT', { additionalSkills: ['DELED|BELED', 'UPTET_PRIMARY|CTET_PAPER_1'], postSpecificRules: 'Lifeguards need Class 10; coaches need a degree.' });
+  assert((certs.additionalSkills as string[]).length === 2 && typeof certs.postSpecificRules === 'string', 'certificate codes with alternatives and post-wise rules are accepted');
+  let badCert = '';
+  try { sanitizeChanges('UPDATE_RECRUITMENT', { additionalSkills: ['B.Ed or D.El.Ed'] }); } catch (e) { badCert = (e as Error).message; }
+  assert(badCert.includes('B.Ed or D.El.Ed') && badCert.includes('DELED'), 'free-text certificates are refused with the list of codes');
 
   // ── 6c. Everything shown on the site is English; evidence snippets may stay in the notice language ─
   let nonEnglish = 0;

@@ -144,6 +144,7 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
     qualificationDetailsMarkdown: c.qualificationDetailsMarkdown ?? undefined,
     relaxationNotesMarkdown: c.relaxationNotesMarkdown ?? undefined,
     specialConditionsNotes: c.specialConditionsNotes ?? undefined,
+    postSpecificRules: c.postSpecificRules ?? undefined,
     experienceMonths: c.experienceMonths,
     allowedStreams: c.allowedStreams ?? undefined,
     // Carried so an update that does not mention it keeps the checked scope; the writer derives the legacy columns.

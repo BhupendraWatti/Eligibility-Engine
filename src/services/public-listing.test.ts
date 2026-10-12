@@ -40,7 +40,7 @@ function rec(id: string, stateCode: string, extra: Partial<RecruitmentWithDetail
     resolvedLifecycle: 'APPLICATION_OPEN',
     lifecycleStatus: 'APPLICATION_OPEN',
     status: 'PUBLISHED',
-    criteria: { minQualificationLevel: '12TH', requiresMpDomicile: false, domicileStateCode: domicile ?? null, ...criteria },
+    criteria: { minQualificationLevel: '12TH', requiresMpDomicile: false, domicileStateCode: domicile ?? null, domicileScope: domicile ? 'STATE_ONLY' : 'OPEN', ...criteria },
     ...rest,
   } as unknown as RecruitmentWithDetails;
 }
@@ -111,7 +111,7 @@ async function main() {
       rec('central', 'IN'),
       rec('openRJ', 'RJ'),
       rec('home', 'UP', { domicile: 'UP' }),
-      rec('legacyMP', 'MP', { criteria: { requiresMpDomicile: true } as never }),
+      rec('legacyMP', 'MP', { criteria: { requiresMpDomicile: true, domicileScope: 'STATE_ONLY' } as never }),
       rec('central2', 'IN'),
     ];
     const tiers = rankByRelevance(rows, 'UP')!;
@@ -121,6 +121,9 @@ async function main() {
     assert(ids(tiers.locked) === 'lockedMP,legacyMP', 'domicile rules (incl. legacy flag) are locked');
     const crossDomicile = rankByRelevance([rec('x', 'DL', { domicile: 'UP' })], 'UP')!;
     assert(crossDomicile.open.length === 1, "another state's post requiring the visitor's own domicile is open, not locked");
+    const delhiOnly = rec('dp', 'IN', { domicile: 'DL' });
+    assert(rankByRelevance([delhiOnly], 'UP')!.locked.length === 1, 'a Central post an admin limited to Delhi is locked for a UP visitor');
+    assert(rankByRelevance([delhiOnly], 'DL')!.central.length === 1, 'and stays in the central tier for a Delhi visitor');
     assert(ids(inRelevanceOrder({ homeCode: 'UP', items: rows, tiers })) === 'home,central,central2,openRJ,lockedMP,legacyMP', 'relevance order flattens tiers');
   }
 

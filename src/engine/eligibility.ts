@@ -1,6 +1,7 @@
 export type RuleStatus = 'MATCH' | 'FAIL' | 'UNKNOWN';
 export type OverallEligibilityStatus = 'ELIGIBLE' | 'NOT_ELIGIBLE' | 'NEEDS_VERIFICATION';
 import { jurisdictionName } from '../data/india-jurisdictions';
+import { credentialKey, requirementLabel, requirementOptions, streamCode } from '../data/credentials';
 
 export interface UserEligibilityProfile {
   dob?: string; // 'YYYY-MM-DD'
@@ -50,6 +51,9 @@ export interface RecruitmentCriteria {
   reservationStateCode?: string | null;
   /** Category-specific minimum qualification overriding minQualificationLevel, e.g. { ST: '8TH' }. */
   qualificationByCategory?: Partial<Record<string, string>> | null;
+  /** Set when one recruitment covers posts with different rules: the criteria above are the least strict rule any
+   * post accepts, and this says how the posts differ. A candidate who passes is then told to check it. */
+  postSpecificRules?: string | null;
 }
 
 export interface RuleEvaluationItem {
@@ -330,10 +334,14 @@ export function evaluateEligibility(
       } else {
         const streamLower = user.stream.toLowerCase().trim();
         const streamTokens = streamLower.split(/[^a-z0-9]+/).filter(Boolean);
+        // Known subjects compare by meaning ("LLB" is Law, "Zoology" is Biology) before any text matching.
+        const candidateSubjects = new Set([user.stream, ...user.stream.split(/[,/()&]| and /i), ...user.stream.split(/[\s,/()&]+/)].map(part => streamCode(part.trim())).filter(Boolean));
         // Substring matching only for 3+ chars so a one/two-letter entry cannot match every stream.
         const hasMatchingStream = criteria.allowedStreams.some(allowed => {
           const aLower = allowed.toLowerCase().trim();
-          return aLower === streamLower
+          const subject = streamCode(allowed);
+          return (subject !== null && candidateSubjects.has(subject))
+            || aLower === streamLower
             || streamTokens.includes(aLower)
             || (aLower.length >= 3 && streamLower.includes(aLower))
             || (streamLower.length >= 3 && aLower.includes(streamLower));
@@ -518,39 +526,30 @@ export function evaluateEligibility(
     }
   }
 
-  // 10. Additional Skills / Exams (e.g., Hindi Typing, Stenographer Certification)
+  // 10. Certificates (B.Ed, a TET, a driving licence...). Each requirement is met by any one of its "|" options;
+  // names compare by catalogue code, so "BTC" satisfies "D.El.Ed" (src/data/credentials.ts).
   if (criteria.additionalSkills && criteria.additionalSkills.length > 0) {
+    const requirementText = criteria.additionalSkills.map(requirementLabel).join('; ');
     if (!user.additionalSkills || user.additionalSkills.length === 0) {
       items.push({
         ruleName: 'Additional Skills / Certifications',
         status: 'UNKNOWN',
         userValue: 'Not provided',
-        requirement: criteria.additionalSkills.join(', '),
-        message: `Required certifications: ${criteria.additionalSkills.join(', ')}. Status not provided.`,
+        requirement: requirementText,
+        message: `Required certificates: ${requirementText}. Tell us which certificates you hold.`,
       });
     } else {
-      const userSkillsNormalized = user.additionalSkills.map(s => s.toUpperCase().trim());
-      const missingSkills = criteria.additionalSkills.filter(
-        s => !userSkillsNormalized.includes(s.toUpperCase().trim())
-      );
-
-      if (missingSkills.length > 0) {
-        items.push({
-          ruleName: 'Additional Skills / Certifications',
-          status: 'FAIL',
-          userValue: user.additionalSkills.join(', '),
-          requirement: criteria.additionalSkills.join(', '),
-          message: `Missing required certifications: ${missingSkills.join(', ')}.`,
-        });
-      } else {
-        items.push({
-          ruleName: 'Additional Skills / Certifications',
-          status: 'MATCH',
-          userValue: user.additionalSkills.join(', '),
-          requirement: criteria.additionalSkills.join(', '),
-          message: 'All required certifications satisfied.',
-        });
-      }
+      const held = new Set(user.additionalSkills.map(credentialKey));
+      const missing = criteria.additionalSkills.filter(entry => !requirementOptions(entry).some(option => held.has(option)));
+      items.push({
+        ruleName: 'Additional Skills / Certifications',
+        status: missing.length ? 'FAIL' : 'MATCH',
+        userValue: user.additionalSkills.join(', '),
+        requirement: requirementText,
+        message: missing.length
+          ? `Missing required certificate${missing.length > 1 ? 's' : ''}: ${missing.map(requirementLabel).join('; ')}.`
+          : 'All required certificates held.',
+      });
     }
   }
 
@@ -573,6 +572,18 @@ export function evaluateEligibility(
         message: meetsExperience ? 'Experience requirement satisfied.' : 'Candidate experience is below the required duration.',
       });
     }
+  }
+
+  // 12. One recruitment, several posts with different rules: passing the least strict rule is not enough to say
+  // "eligible", so the candidate is pointed at the post-wise difference instead.
+  if (criteria.postSpecificRules?.trim()) {
+    items.push({
+      ruleName: 'Post-wise rules',
+      status: 'UNKNOWN',
+      userValue: 'Depends on the post you choose',
+      requirement: criteria.postSpecificRules.trim(),
+      message: `Rules differ between the posts in this recruitment. ${criteria.postSpecificRules.trim()}`,
+    });
   }
 
   // Composite Calculation

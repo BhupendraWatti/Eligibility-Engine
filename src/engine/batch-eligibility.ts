@@ -166,7 +166,7 @@ const FIELD_QUESTION_META: Record<string, Omit<StructuredQuestion, 'fieldKey' | 
   additionalSkills: {
     labelHindi: 'अतिरिक्त कौशल या प्रमाणपत्र?',
     labelEnglish: 'Additional skills or certifications you hold?',
-    description: 'Some posts require specific certifications like Hindi Typing, Stenographer, etc.',
+    description: 'Some posts need a certificate such as B.Ed, D.El.Ed, a teacher eligibility test (CTET/UPTET), a driving licence or a recruitment test scorecard.',
     inputType: 'text',
   },
 };

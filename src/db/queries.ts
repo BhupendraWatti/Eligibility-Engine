@@ -238,6 +238,7 @@ export interface RecruitmentWithDetails {
     qualificationDetailsMarkdown?: string | null;
     relaxationNotesMarkdown?: string | null;
     specialConditionsNotes?: string | null;
+    postSpecificRules?: string | null;
     experienceMonths?: number;
   };
 }
@@ -3292,6 +3293,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
       qualificationDetailsMarkdown: r.eligibility?.qualificationDetailsMarkdown,
       relaxationNotesMarkdown: r.eligibility?.relaxationNotesMarkdown,
       specialConditionsNotes: r.eligibility?.specialConditionsNotes,
+      postSpecificRules: r.eligibility?.postSpecificRules ?? null,
       experienceMonths: r.eligibility?.experienceMonths,
     },
   };
@@ -3347,6 +3349,7 @@ export interface CreateRecruitmentInput {
   qualificationDetailsMarkdown?: string;
   relaxationNotesMarkdown?: string;
   specialConditionsNotes?: string;
+  postSpecificRules?: string;
   experienceMonths?: number;
   allowedStreams?: string[];
   /** Who may apply. Undefined on an update keeps the stored value. The legacy fields below are ignored by the writers. */
@@ -3637,6 +3640,7 @@ export async function createRecruitmentAtomic(
       qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
       relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
       specialConditionsNotes: data.specialConditionsNotes || null,
+      postSpecificRules: data.postSpecificRules || null,
       experienceMonths: data.experienceMonths || 0,
     },
   };
@@ -3715,6 +3719,7 @@ export async function createRecruitmentAtomic(
           minChestMaleCm: data.minChestMaleCm ?? null,
           experienceMonths: data.experienceMonths || 0,
           specialConditionsNotes: data.specialConditionsNotes || null,
+          postSpecificRules: data.postSpecificRules || null,
           qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
           relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
         })
@@ -4039,6 +4044,7 @@ export async function updateRecruitmentAtomic(
         qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
         relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
         specialConditionsNotes: data.specialConditionsNotes || null,
+        postSpecificRules: data.postSpecificRules || null,
         experienceMonths: data.experienceMonths || 0,
         minPercentageRequired: data.minPercentageRequired ?? null,
         additionalSkills: data.additionalSkills || null,
@@ -4145,6 +4151,7 @@ export async function updateRecruitmentAtomic(
             additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
             experienceMonths: data.experienceMonths || 0,
             specialConditionsNotes: data.specialConditionsNotes || null,
+            postSpecificRules: data.postSpecificRules || null,
             qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
             relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
           })
@@ -4176,6 +4183,7 @@ export async function updateRecruitmentAtomic(
               additionalSkillsJson: data.additionalSkills?.length ? JSON.stringify(data.additionalSkills) : null,
               experienceMonths: data.experienceMonths || 0,
               specialConditionsNotes: data.specialConditionsNotes || null,
+              postSpecificRules: data.postSpecificRules || null,
               qualificationDetailsMarkdown: data.qualificationDetailsMarkdown || null,
               relaxationNotesMarkdown: data.relaxationNotesMarkdown || null,
             },

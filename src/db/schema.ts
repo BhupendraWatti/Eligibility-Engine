@@ -140,6 +140,8 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   additionalSkillsJson: text('additional_skills_json'),
   experienceMonths: integer('experience_months').notNull().default(0),
   specialConditionsNotes: text('special_conditions_notes'),
+  // How the posts in one recruitment differ when the stored criteria are the least strict rule (migration 0018).
+  postSpecificRules: text('post_specific_rules'),
   qualificationDetailsMarkdown: text('qualification_details_markdown'),
   relaxationNotesMarkdown: text('relaxation_notes_markdown'),
 });

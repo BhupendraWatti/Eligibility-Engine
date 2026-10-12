@@ -15,6 +15,7 @@ import { checkFacts, classifyDomicileClause, DOMICILE_CLAUSE_EXAMPLES, type Fact
 import { CENTRAL_CODE, PROPOSABLE_DOMICILE_SCOPES, RETIRED_DOMICILE_FIELDS, stateCodeForId } from './domicile-scope';
 import { jurisdictionName } from '../data/india-jurisdictions';
 import { isPdfUrl } from './cadre-guide';
+import { CERTIFICATE_CODES, unknownRequirementParts } from '../data/credentials';
 import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
@@ -68,7 +69,7 @@ export const LINK_TYPES = [
 ];
 
 type FieldSpec =
-  | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList'
+  | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList' | 'certificateList'
   | 'nullableString' | 'nullableNumber' | 'nullableStateCode' | 'categoryQualifications'
   | { enum: string[] }
   | 'selectionStages' | 'vacancies' | 'dates' | 'sources' | 'links';
@@ -81,7 +82,9 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   ageRelaxationScSt: 'int', ageRelaxationObc: 'int', ageRelaxationFemale: 'int', ageRelaxationEws: 'int',
   minQualificationLevel: { enum: QUALIFICATIONS },
   qualificationDetailsMarkdown: 'text', relaxationNotesMarkdown: 'text', specialConditionsNotes: 'text',
-  experienceMonths: 'int', allowedStreams: 'stringList', additionalSkills: 'stringList',
+  // Least strict rule above + how the posts differ, for a recruitment whose posts have different rules.
+  postSpecificRules: 'text',
+  experienceMonths: 'int', allowedStreams: 'stringList', additionalSkills: 'certificateList',
   // Who may apply. The state is always the recruitment's own; the old domicile/reservation fields are retired.
   domicileScope: { enum: PROPOSABLE_DOMICILE_SCOPES }, qualificationByCategory: 'categoryQualifications',
   requiresMpEmploymentReg: 'bool', employmentRegistrationLabel: 'nullableString', requiresCpct: 'bool',
@@ -196,6 +199,13 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
     case 'stringList':
       if (!Array.isArray(v) || v.length > 50) throw new InvalidProposalError(`${field} must be an array of at most 50 strings.`);
       return v.map((s, i) => str(s, `${field}[${i}]`, 100));
+    case 'certificateList': {
+      // Codes only, so the engine can match what a candidate ticks. "A|B" = either one is enough.
+      const entries = validateField(field, 'stringList', v) as string[];
+      const unknown = entries.flatMap(unknownRequirementParts);
+      if (unknown.length) throw new InvalidProposalError(`${field} must use certificate codes (join alternatives with "|"); unknown: ${unknown.join(', ')}. Codes: ${CERTIFICATE_CODES.join(', ')}.`);
+      return entries;
+    }
     case 'nullableString': return v === null ? null : str(v, field, 100);
     case 'nullableStateCode':
       if (v === null) return null;
@@ -814,6 +824,37 @@ async function recordBlocked(db: D1Database, actor: Actor, input: ProposalInput,
   } catch (err) {
     console.error('[proposals] could not record blocked proposal', err);
   }
+}
+
+/** Every field the eligibility engine reads, in the shape a proposal sends it. */
+export const ELIGIBILITY_FIELDS = [
+  'minAge', 'maxAgeGeneral', 'ageCutoffDate', 'ageRelaxationScSt', 'ageRelaxationObc', 'ageRelaxationFemale', 'ageRelaxationEws',
+  'minQualificationLevel', 'qualificationByCategory', 'allowedStreams', 'minPercentageRequired', 'experienceMonths', 'additionalSkills',
+  'domicileScope', 'genderAllowed', 'requiresMpEmploymentReg', 'employmentRegistrationLabel', 'requiresCpct',
+  'minHeightMaleCm', 'minHeightFemaleCm', 'minChestMaleCm', 'postSpecificRules',
+  'qualificationDetailsMarkdown', 'relaxationNotesMarkdown', 'specialConditionsNotes',
+] as const;
+
+/**
+ * The live eligibility rules of one recruitment (READ only), so a proposer can see what is stored before changing it.
+ * `unchecked` lists rules still at their unverified state: who may apply not checked, no certificates or physical standards.
+ */
+export async function readRecruitmentEligibility(d1: D1Database | undefined, recruitmentId: string) {
+  const r = await getRecruitmentById(recruitmentId, requireD1(d1));
+  if (!r) throw new InvalidProposalError(`Recruitment ${recruitmentId} was not found. Use search_recruitments for its id.`);
+  const fields = Object.fromEntries(ELIGIBILITY_FIELDS.map(f => [f, norm(currentFieldValue(r, f))]));
+  const empty = (v: unknown) => v === null || v === '' || (Array.isArray(v) && v.length === 0);
+  return {
+    recruitmentId: r.id,
+    title: r.title,
+    stateCode: r.stateId ? stateCodeForId(r.stateId) : null,
+    fields,
+    unchecked: [
+      ...(fields.domicileScope === 'UNKNOWN' ? ['domicileScope'] : []),
+      ...ELIGIBILITY_FIELDS.filter(f => f !== 'domicileScope' && empty(fields[f])),
+    ],
+    note: 'Fields in "unchecked" are empty or not verified. An empty requirement is NOT checked by the engine, so leave it empty only when the notice has no such rule.',
+  };
 }
 
 /** One of the caller's own proposals, in full. */

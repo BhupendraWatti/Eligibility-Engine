@@ -1,7 +1,7 @@
 /**
  * Mechanical value-vs-quote checks shown to the admin reviewer. Run: `tsx src/services/fact-checks.test.ts`.
  */
-import { checkFacts, datesIn, numbersIn } from './fact-checks';
+import { checkFacts, classifyDomicileClause, datesIn, numbersIn, stateNameMatcher } from './fact-checks';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -41,6 +41,11 @@ assert(datesIn('Last date to apply - 15/10/2026 11:59 PM').includes('2026-10-15'
 assert(datesIn('Dated.- 10-09-2026').includes('2026-09-10'), 'dd-mm-yyyy');
 assert(datesIn('closes on 14 October 2026').includes('2026-10-14') && datesIn('October 14, 2026').includes('2026-10-14'), 'month names both ways');
 assert(!datesIn('31.02.2026 and 13.13.2026').includes('2026-13-13'), 'an impossible month is not a date');
+assert(datesIn('न्यूनतम आयु दिनांक 01 जुलाई, 2026 को 21 वर्ष').includes('2026-07-01'), 'Hindi month name (UPESSC 05/2026)');
+assert(['2026-12-03', '2026-12-04'].every(d => datesIn('परीक्षा तिथि 03 व 04 दिसम्बर, 2026').includes(d)), 'Hindi day list, सितम्बर/दिसम्बर spelling');
+assert(datesIn('15 and 16 December 2026').includes('2026-12-15') && datesIn('15 and 16 December 2026').includes('2026-12-16'), 'English day list');
+assert(datesIn('13 अक्तूबर 2026').includes('2026-10-13') && datesIn('13 अक्टूबर 2026').includes('2026-10-13'), 'both spellings of October');
+assert(!datesIn('कुल 12 पद 2026').length, 'a Hindi word that is not a month makes no date');
 
 // Field checks
 let s = checkFacts({ totalVacancies: 6, applicationEnd: '2026-10-10' }, [q('totalVacancies', 'No. of vacant positions 06'), q('applicationEnd', 'The last date for receipt of completed Application Forms is 10.10.2026')]);
@@ -69,5 +74,39 @@ assert(s.notInQuote.includes('totalVacancies') && s.fields[0].status === 'NO_QUO
 // Risk flags
 s = checkFacts({ applicationEnd: '2026-10-26' }, [q('applicationEnd', '26.10.26', { method: 'VISION', handwritten: true })]);
 assert(s.fromImage[0] === 'applicationEnd' && s.handwritten[0] === 'applicationEnd', 'scanned and handwritten values are flagged');
+
+// Domicile clause: the state may be written as its name, code, dotted code or in Hindi
+const dc = (t: string, state = 'MP') => classifyDomicileClause(t, state);
+const named = (t: string, state = 'MP') => { const r = dc(t, state); return r.classification === 'STATE_ONLY' && r.namesState; };
+assert(named('Only domiciles of Madhya Pradesh are eligible to apply.'), 'full state name');
+assert(named('Only bona fide residents of MP are eligible.') && named('Only residents of M.P. may apply.') && named('Only residents of M. P. may apply.'), 'MP, M.P. and M. P.');
+assert(named('The candidate must be a native of M.P.'), '"native of" with obligation wording');
+assert(named('केवल मध्य प्रदेश के मूल निवासी आवेदन कर सकते हैं।') && named('अभ्यर्थी मध्यप्रदेश का मूल निवासी होना चाहिए।'), 'Hindi name and मूल निवासी');
+assert(named('Only domiciles of Orissa may apply.', 'OD') && named('Only residents of the NCT of Delhi may apply.', 'DL'), 'old spellings and other states');
+assert(dc('Only bona fide residents of the State are eligible to apply.').classification === 'STATE_ONLY' && !dc('Only bona fide residents of the State are eligible to apply.').namesState, '"the State" still locks but does not name the state');
+assert(!named('Only residents of Rajasthan are eligible.'), 'another state is not this state');
+assert(!named('Candidates must be residents of the state up to 1 Jan.'), '"up" in lower case is not UP, and obligation without the name is not a lock');
+assert(!stateNameMatcher('AS')!('अभ्यर्थी असमर्थ है') && stateNameMatcher('AS')!('असम के निवासी'), 'whole Hindi words only');
+assert(dc('Open to all Indian citizens.').classification === 'OPEN', '"all Indian citizens" is open');
+assert(dc('Candidate must be a citizen of India.').classification === 'UNCLEAR', 'the citizenship line alone is not open');
+assert(stateNameMatcher('IN') === null, 'Central has no state name');
+// Real Hindi clauses refused as UNCLEAR before (MPESB Driver 2026, MPPSC 13/2026, UPSSSC 23-Exam/2026)
+assert(dc('ऐसे अभ्यर्थी जो मध्यप्रदेश के स्थाई अधिवासी (domicile) नहीं है, सिर्फ अनारक्षित ओपन के अन्तर्गत ही अपना आवेदन प्रस्तुत कर सकते है। किसी भी प्रकार के आरक्षण की पात्रता हेतु म.प्र. राज्य का स्थाई अधिवासी (domicile) होना अनिवार्य है।').classification === 'OPEN_STATE_QUOTA', 'non-domicile may apply only for unreserved: quota');
+assert(dc('आरक्षित पद केवल मध्य प्रदेश के मूल निवासी हेतु आरक्षित है। अन्य प्रदेशों के मूल निवासी ऐसे अभ्यर्थी अनारक्षित पदों हेतु विचारित किया जाएगा।').classification === 'OPEN_STATE_QUOTA', '"reserved posts only for natives" is not a lock');
+assert(dc('अभ्यर्थी, जो उ0प्र0 राज्य के मूल निवासी नहीं हैं, उन्हें आरक्षण का लाभ अनुमन्य नहीं है।', 'UP').classification === 'OPEN_STATE_QUOTA', '"not a native ... no reservation" is a quota');
+assert(dc('Candidates who are not domiciles of MP are not eligible.').classification === 'STATE_ONLY', 'English "not domiciles ... not eligible" is still a lock');
+assert(dc('Candidates of other states may apply only against unreserved posts.').classification === 'OPEN_STATE_QUOTA', 'English unreserved-only is a quota');
+
+// Age limits as notices write them (MPPSC 13/2026, MPESB Driver 2026)
+{
+  const mppsc = '21 वर्ष की आयु पूर्ण कर ली हो किन्तु 40 वर्ष की आयु पूर्ण न की हो।';
+  assert(!checkFacts({ maxAgeGeneral: 39 }, [q('maxAgeGeneral', mppsc)]).notInQuote.includes('maxAgeGeneral'), '"must not have completed 40" supports 39 completed years');
+  assert(checkFacts({ maxAgeGeneral: 38 }, [q('maxAgeGeneral', mppsc)]).notInQuote.includes('maxAgeGeneral'), 'but not any lower number');
+  assert(checkFacts({ maxAgeGeneral: 39 }, [q('maxAgeGeneral', 'अधिकतम आयु 40 वर्ष से अधिक नहीं होनी चाहिए।')]).notInQuote.includes('maxAgeGeneral'), '"not more than 40" does not support 39');
+  assert(!checkFacts({ maxAgeGeneral: 39 }, [q('maxAgeGeneral', 'must not have completed 40 years of age')]).notInQuote.includes('maxAgeGeneral'), 'English "not have completed" too');
+  const driver = 'आरक्षित श्रेणी (अनु.जाति/अ.ज.जा./अ.पि.व.) का अभ्यर्थी 38 वर्ष';
+  assert(!checkFacts({ maxAgeGeneral: 33, ageRelaxationScSt: 5 }, [q('maxAgeGeneral', 'मध्यप्रदेश के अनारक्षित 33 वर्ष'), q('ageRelaxationScSt', driver)]).notInQuote.includes('ageRelaxationScSt'), 'a relaxation printed as the relaxed limit (38 vs 33) supports 5');
+  assert(checkFacts({ maxAgeGeneral: 33, ageRelaxationScSt: 3 }, [q('maxAgeGeneral', 'मध्यप्रदेश के अनारक्षित 33 वर्ष'), q('ageRelaxationScSt', driver)]).notInQuote.includes('ageRelaxationScSt'), 'a wrong relaxation is still caught');
+}
 
 console.log('\nAll fact-check tests passed.');

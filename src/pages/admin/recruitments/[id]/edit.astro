@@ -1,4 +1,5 @@
 ---
+import { CERTIFICATES } from '../../../../data/credentials';
 import { advtLabel, cleanAdvt } from '../../../../services/advt-number';
 import { formatQualificationByCategory, parseQualificationByCategory } from '../../../../engine/eligibility';
 import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../../../services/domicile-scope';
@@ -91,6 +92,9 @@ if (Astro.request.method === 'POST') {
     const minQualificationLevel = formData.get('minQualificationLevel')?.toString().trim() || '10TH';
     const qualificationDetailsMarkdown = formData.get('qualificationDetailsMarkdown')?.toString().trim();
     const relaxationNotesMarkdown = formData.get('relaxationNotesMarkdown')?.toString().trim();
+    // The writer overwrites every eligibility column, so both notes are always sent back (empty clears them).
+    const specialConditionsNotes = formData.get('specialConditionsNotes')?.toString().trim() ?? '';
+    const postSpecificRules = formData.get('postSpecificRules')?.toString().trim() ?? '';
     const minPercentageRequired = formData.get('minPercentageRequired') ? Number(formData.get('minPercentageRequired')) : null;
     const experienceMonths = parseInt(formData.get('experienceMonths')?.toString() || '0', 10);
     const allowedStreams = formData.get('allowedStreams')?.toString().split(',').map(v => v.trim()).filter(Boolean);
@@ -223,6 +227,8 @@ if (Astro.request.method === 'POST') {
         minQualificationLevel,
         qualificationDetailsMarkdown,
         relaxationNotesMarkdown,
+        specialConditionsNotes,
+        postSpecificRules,
         minPercentageRequired,
         experienceMonths,
         allowedStreams,
@@ -623,11 +629,21 @@ const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || 
               <label class="text-xs font-semibold text-zinc-800">Minimum percentage<input type="number" min="0" max="100" step="0.01" name="minPercentageRequired" value={recruitment.criteria?.minPercentageRequired ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Experience months<input type="number" min="0" name="experienceMonths" value={recruitment.criteria?.experienceMonths ?? 0} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Allowed streams<input type="text" name="allowedStreams" value={recruitment.criteria?.allowedStreams?.join(', ') || ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
-              <label class="text-xs font-semibold text-zinc-800">Required certificates<input type="text" name="additionalSkills" value={recruitment.criteria?.additionalSkills?.join(', ') || ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
+              <label class="text-xs font-semibold text-zinc-800">Required certificates<input type="text" name="additionalSkills" list="certificate-codes" placeholder="DELED|BELED, UPTET_PRIMARY|CTET_PAPER_1" value={recruitment.criteria?.additionalSkills?.join(', ') || ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /><span class="mt-1 block font-normal text-[11px] text-zinc-500">Codes, comma between requirements, "|" between alternatives.</span><datalist id="certificate-codes">{CERTIFICATES.map(c => <option value={c.code}>{c.label}</option>)}</datalist></label>
               <label class="text-xs font-semibold text-zinc-800">Male height (cm)<input type="number" step="0.1" name="minHeightMaleCm" value={recruitment.criteria?.minHeightMaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Female height (cm)<input type="number" step="0.1" name="minHeightFemaleCm" value={recruitment.criteria?.minHeightFemaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Male chest (cm)<input type="number" step="0.1" name="minChestMaleCm" value={recruitment.criteria?.minChestMaleCm ?? ''} class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200" /></label>
               <label class="text-xs font-semibold text-zinc-800">Allowed gender<select name="genderAllowed" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200"><option value="ALL" selected={recruitment.criteria?.genderAllowed === 'ALL'}>All</option><option value="MALE" selected={recruitment.criteria?.genderAllowed === 'MALE'}>Male only</option><option value="FEMALE" selected={recruitment.criteria?.genderAllowed === 'FEMALE'}>Female only</option></select></label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <label class="text-xs font-semibold text-zinc-800">Post-wise rules
+                <textarea name="postSpecificRules" rows="3" placeholder="Only when posts in this recruitment have different rules. Store the least strict rule above and describe each post here." class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-normal">{recruitment.criteria?.postSpecificRules || ''}</textarea>
+                <span class="mt-1 block font-normal text-[11px] text-zinc-500">When filled, candidates who pass are told to check this instead of being shown "eligible".</span>
+              </label>
+              <label class="text-xs font-semibold text-zinc-800">Special conditions
+                <textarea name="specialConditionsNotes" rows="3" class="mt-1 w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-normal">{recruitment.criteria?.specialConditionsNotes || ''}</textarea>
+              </label>
             </div>
 
             <div class="space-y-1.5 pt-2">

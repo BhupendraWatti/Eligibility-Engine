@@ -52,6 +52,33 @@ assert(batch.askNextQuestions[0]?.fieldKey === 'isMpDomicile', 'batch asks for d
 const batch2 = getEligibleJobs({ dob: '2000-01-01', gender: 'MALE', qualificationLevel: '8TH', domicileStateCode: 'MP' }, [job('constable', constable)]);
 assert(batch2.askNextQuestions.some(x => x.fieldKey === 'category'), 'batch asks for category when category-wise qualification decides');
 
+// ── Certificates by code, with alternatives (UPESSC 05/2026 Assistant Teacher) ───────────────────
+const cert = 'Additional Skills / Certifications';
+const teacher: RecruitmentCriteria = { ...base, minQualificationLevel: 'GRADUATION', additionalSkills: ['DELED|BELED|DED_SPECIAL_EDUCATION', 'UPTET_PRIMARY|CTET_PAPER_1'] };
+assert(status({ additionalSkills: ['BTC', 'CTET Paper 1'] }, teacher, cert) === 'MATCH', '"BTC" counts as D.El.Ed and "CTET Paper 1" as CTET_PAPER_1');
+assert(status({ additionalSkills: ['BELED', 'UPTET_PRIMARY'] }, teacher, cert) === 'MATCH', 'either alternative of a requirement is enough');
+assert(status({ additionalSkills: ['B.Ed', 'CTET_PAPER_1'] }, teacher, cert) === 'FAIL', 'B.Ed does not replace the D.El.Ed requirement');
+assert(evaluateEligibility({ additionalSkills: ['DELED'] }, teacher).items.find(i => i.ruleName === cert)?.message.includes('UPTET primary level') === true, 'the missing requirement is named in plain words');
+assert(status({}, teacher, cert) === 'UNKNOWN', 'no certificates given asks instead of failing');
+assert(status({ additionalSkills: ['hindi typing'] }, { ...base, additionalSkills: ['Hindi Typing'] }, cert) === 'MATCH', 'older free-text requirements still match');
+assert(status({ additionalSkills: ['HMV Licence'] }, { ...base, additionalSkills: ['DRIVING_LICENCE_HMV'] }, cert) === 'MATCH', 'HMV licence spelling matches the driving licence code');
+
+// ── Subjects by meaning (MPPSC 13/2026 Law Officer: degree in Law) ─────────────────────────────────
+const law: RecruitmentCriteria = { ...base, minQualificationLevel: 'GRADUATION', allowedStreams: ['Law'] };
+const stream = 'Degree Subject / Stream';
+assert(status({ qualificationLevel: 'GRADUATION', stream: 'LLB' }, law, stream) === 'MATCH', 'LLB satisfies a Law degree requirement');
+assert(status({ qualificationLevel: 'GRADUATION', stream: 'B.A. LL.B (Hons)' }, law, stream) === 'MATCH', 'LL.B written with dots and other words still matches');
+assert(status({ qualificationLevel: 'GRADUATION', stream: 'Commerce' }, law, stream) === 'FAIL', 'Commerce does not satisfy Law');
+assert(status({ qualificationLevel: 'POST_GRADUATION' }, law, stream) === 'UNKNOWN', 'a post-graduate with no subject given is asked, not failed');
+
+// ── One recruitment, posts with different rules (UPSSSC 22-Exam/2026) ──────────────────────────────
+const sports: RecruitmentCriteria = { ...base, minQualificationLevel: '10TH', postSpecificRules: 'Coaches need a degree and an NIS coaching diploma; lifeguards need Class 10.' };
+const sportsResult = evaluateEligibility({ dob: '2000-01-01', gender: 'MALE', category: 'UR', qualificationLevel: 'GRADUATION' }, sports);
+assert(sportsResult.overallStatus === 'NEEDS_VERIFICATION', 'passing the least strict rule is "check the post", not "eligible"');
+assert(sportsResult.items.some(i => i.ruleName === 'Post-wise rules' && i.message.includes('NIS')), 'the post-wise difference is shown to the candidate');
+assert(evaluateEligibility({ dob: '2000-01-01', gender: 'MALE', category: 'UR', qualificationLevel: '8TH' }, sports).overallStatus === 'NOT_ELIGIBLE', 'failing the least strict rule is still not eligible');
+assert(evaluateEligibility({ dob: '2000-01-01', gender: 'MALE', category: 'UR', qualificationLevel: 'GRADUATION' }, { ...sports, postSpecificRules: '  ' }).overallStatus === 'ELIGIBLE', 'a blank note changes nothing');
+
 // ── Admin form parser ─────────────────────────────────────────────────────────────────────────────
 const parsed = parseQualificationByCategory(' st:8th, XX:10TH, SC:PHD ');
 assert(JSON.stringify(parsed) === '{"ST":"8TH"}', 'form parser keeps valid category:level pairs only');

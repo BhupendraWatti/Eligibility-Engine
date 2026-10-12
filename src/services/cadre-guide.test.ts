@@ -77,7 +77,7 @@ const stepIds = (g: ReturnType<typeof buildCadreGuide>) => g.steps.map(s => s.id
 
 // --- Requirements become a preparation step ---
 {
-  const g = buildCadreGuide({ recruitments: [rec({ criteria: { requiresCpct: true, requiresMpEmploymentReg: true, domicileStateCode: 'UP' } })], referenceDate: '2026-09-25' });
+  const g = buildCadreGuide({ recruitments: [rec({ criteria: { requiresCpct: true, requiresMpEmploymentReg: true, domicileScope: 'STATE_ONLY', domicileStateCode: 'UP' } })], referenceDate: '2026-09-25' });
   const req = g.steps.find(s => s.id === 'requirements');
   assert(!!req && req.body.includes('CPCT certificate') && req.body.includes('employment office'), 'CPCT and registration listed');
   assert(!!req && req.body.includes('Uttar Pradesh'), 'domicile names the notice state, not MP');

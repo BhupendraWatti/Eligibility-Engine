@@ -5,6 +5,7 @@
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
 import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES, LINK_TYPES, DATE_TYPES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
+import { CERTIFICATES, STREAM_ALIASES } from '../data/credentials';
 
 /** What the MCP may add, for every state and central body. Shown in get_domain_schema and the MCP server instructions. */
 export const SCOPE_RULES = [
@@ -83,6 +84,11 @@ export function getDomainSchema() {
     eligibilityNotes: {
       domicileScope: 'Who may apply, always about the recruitment\'s own state. STATE_ONLY: only its domiciles may apply ("Only bona fide residents of the State are eligible to apply."). OPEN_STATE_QUOTA: anyone may apply, but reservation and relaxations are only for its domiciles ("Candidates of other states may apply but will not get the benefit of reservation."). OPEN: candidates from any state may apply ("Candidates from other states may also apply."). Quote that eligibility sentence as evidence; it is classified and a mismatch or unclear quote is refused (DOMICILE_CLAUSE_MISMATCH). A domicile certificate line or the "citizen of India" line is not enough. Leave domicileScope out when the notice does not say: the recruitment then shows "not checked yet". Never send it for a Central recruitment, or for one where an admin set another domicile state (both DOMICILE_SCOPE_INVALID); only an admin can limit a recruitment to a state other than its own. requiresMpDomicile, domicileStateCode and reservationStateCode are retired (FIELD_RETIRED).',
       qualificationByCategory: 'Only when the notice prescribes a different minimum for a category, e.g. {"ST":"8TH"}. minQualificationLevel stays the general minimum.',
+      ageLimits: 'minAge/maxAgeGeneral are COMPLETED years on ageCutoffDate. "Must not have completed 40 years" (40 वर्ष की आयु पूर्ण न की हो) means maxAgeGeneral 39; "not more than 40 years" means 40. Relaxations are years added to maxAgeGeneral: "SC/ST 38 years" against a general 33 is 5 (send maxAgeGeneral in the same proposal). Female relaxation does not stack with category; the engine uses the larger. Leave a relaxation out when the notice does not state it.',
+      additionalSkills: 'Certificates every eligible candidate must hold, as certificate codes (list below). Each entry is one requirement; join alternatives with "|" ("DELED|BELED" = D.El.Ed or B.El.Ed). A degree subject goes in allowedStreams, experience in experienceMonths, CPCT in requiresCpct. A certificate not in the list cannot be proposed: describe it in specialConditionsNotes and report it.',
+      allowedStreams: 'Degree subjects in plain English ("Law", "Mathematics"). Known spellings are matched by meaning, e.g. LLB = Law.',
+      postSpecificRules: 'Only when one recruitment covers posts with different rules. Store the LEAST strict rule any post accepts in the other fields (lowest qualification, widest age range, lowest height, only certificates every post needs), and write here, in plain English, how each post differs. A candidate who passes is then shown "check the post-wise rules" instead of "eligible".',
+      experienceMonths: 'Months of required experience: "two years as an advocate" is 24.',
     },
     lifecycles: LIFECYCLES,
     applicationStatuses: APPLICATION_STATUSES,
@@ -93,6 +99,8 @@ export function getDomainSchema() {
       required: `MCP proposals need one item with a snippet for every changed field except ${EVIDENCE_EXEMPT_FIELDS.join(', ')} (else EVIDENCE_REQUIRED).`,
     },
     linkTypes: LINK_TYPES,
+    certificateCodes: CERTIFICATES.map(c => ({ code: c.code, label: c.label, alsoKnownAs: c.aliases })),
+    streamSubjects: STREAM_ALIASES,
     scope: SCOPE_RULES,
     sourceTypeExamples: ['OFFICIAL_NOTIFICATION_PDF', 'GOVT_GAZETTE', 'OFFICIAL_PORTAL'],
     dateFormat: 'ISO YYYY-MM-DD',
