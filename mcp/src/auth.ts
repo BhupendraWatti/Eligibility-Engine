@@ -1,13 +1,12 @@
 /**
- * MCP authentication boundary. The MCP is private: every request needs the MCP_API_TOKEN bearer
- * secret. Fail-closed: if the secret is not configured the endpoint refuses to serve (503).
+ * MCP authentication boundary. The MCP is private: every request needs either the owner's MCP_API_TOKEN
+ * bearer secret or an OAuth token from the login page (/authorize), which asks for a per-person access
+ * code from MCP_USERS. Fail-closed: if no secret is configured nothing gets in.
  * Pure functions (no Astro / cloudflare:workers imports) so they can be tested under tsx.
  */
 import type { Actor } from '../../src/services/recruitment-query';
 
 export const MIN_TOKEN_LENGTH = 24;
-
-export type AuthResult = { ok: true; actor: Actor } | { ok: false; status: 401 | 503; message: string };
 
 async function sha256(value: string): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
@@ -21,19 +20,55 @@ export async function secretsMatch(provided: string, expected: string): Promise<
   return diff === 0;
 }
 
-export async function authenticateMcpRequest(
-  request: Request,
-  configuredToken: string | undefined,
-): Promise<AuthResult> {
-  if (!configuredToken || configuredToken.length < MIN_TOKEN_LENGTH) {
-    return { ok: false, status: 503, message: 'MCP endpoint is not configured.' };
+/** True when the bearer token is the owner's static MCP_API_TOKEN (never true while that secret is unset or too short). */
+export async function isStaticToken(token: string, configuredToken: string | undefined): Promise<boolean> {
+  return !!configuredToken && configuredToken.length >= MIN_TOKEN_LENGTH && (await secretsMatch(token, configuredToken));
+}
+
+/**
+ * The owner's static MCP_API_TOKEN (Claude Code, Claude Desktop via mcp-remote).
+ * PROPOSE = read + queue change proposals. It can never write live data; an admin approves in /admin.
+ */
+export const STATIC_TOKEN_ACTOR: Actor = { id: 'mcp-client', mode: 'PROPOSE' };
+
+/** A person signed in through the claude.ai connector login page. Shown as "proposed by" in /admin/pending-changes. */
+export const personActor = (name: string): Actor => ({ id: `mcp-${name}`, mode: 'PROPOSE' });
+
+const USER_NAME = /^[a-z0-9-]{2,32}$/;
+
+/**
+ * MCP_USERS secret: one access code per person, e.g. {"himanshu":"<long random code>"}.
+ * Entries with a bad name or a code shorter than MIN_TOKEN_LENGTH are ignored (fail closed).
+ * Removing a person from the secret revokes them: every MCP request re-checks the list.
+ */
+export function parseUsers(raw: string | undefined): Map<string, string> {
+  const users = new Map<string, string>();
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw ?? '{}'); } catch { return users; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return users;
+  for (const [name, code] of Object.entries(parsed)) {
+    if (USER_NAME.test(name) && typeof code === 'string' && code.length >= MIN_TOKEN_LENGTH) users.set(name, code);
   }
-  const header = request.headers.get('authorization') ?? '';
-  const match = /^Bearer\s+(\S+)$/i.exec(header);
-  if (!match || !(await secretsMatch(match[1], configuredToken))) {
-    return { ok: false, status: 401, message: 'Unauthorized.' };
+  return users;
+}
+
+/** The person whose access code this is, or null. Compares against every entry so timing does not reveal which matched. */
+export async function userForCode(raw: string | undefined, code: string): Promise<string | null> {
+  let found: string | null = null;
+  for (const [name, expected] of parseUsers(raw)) {
+    if ((await secretsMatch(code, expected)) && !found) found = name;
   }
-  // Single shared token today; per-client tokens would yield distinct actor ids here.
-  // PROPOSE = read + queue change proposals. It can never write live data; an admin approves in /admin.
-  return { ok: true, actor: { id: 'mcp-client', mode: 'PROPOSE' } };
+  return found;
+}
+
+/**
+ * Where a login may send its tokens: claude.ai / claude.com connectors, or an app on this computer
+ * (Claude Code, Claude Desktop). Any other app that registers itself is refused before the code is asked for.
+ */
+export function isAllowedRedirect(redirectUri: string): boolean {
+  let url: URL;
+  try { url = new URL(redirectUri); } catch { return false; }
+  const host = url.hostname.toLowerCase();
+  if (url.protocol === 'http:') return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  return url.protocol === 'https:' && ['claude.ai', 'claude.com'].some(d => host === d || host.endsWith(`.${d}`));
 }

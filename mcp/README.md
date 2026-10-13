@@ -37,8 +37,11 @@ ids. A child whose parent is still pending is refused with `WAITING` and stays P
 `/admin/pending-changes` lists parents first and disables Approve on a child until its parent is approved.
 The conflict and duplicate checks are best-effort (D1 has no cross-statement transaction); the admin stale-record guard is the backstop.
 
-**Known limits.** Every authenticated client is the same actor (`mcp-client`), so any MCP client can see and withdraw
-any MCP proposal, and the pending cap (50) is shared. Add per-client tokens before running a second agent. Tool
+**Who is calling.** The owner's static `MCP_API_TOKEN` acts as `mcp-client`. A person who signs in through the claude.ai
+connector login acts as `mcp-<name>` (their `MCP_USERS` name), so `/admin/pending-changes` shows who proposed what, and
+each person sees and withdraws only their own proposals and has their own pending cap (50). Both can only read and propose.
+
+**Known limits.** Tool
 deferral/loading in the AI client is client-side and cannot be changed from this server. A notice with no
 advertisement number is proposed by omitting `advtNumber` (stored as NULL after migration 0014, shown as "Not stated");
 never put an unrelated letter number there.
@@ -61,7 +64,7 @@ Both use the same D1 database. It exposes no SQL and no generic CRUD.
 
 ## Run locally
 1. `cd mcp && npm install`
-2. `cp .dev.vars.example .dev.vars` and set `MCP_API_TOKEN` (24+ chars).
+2. `cp .dev.vars.example .dev.vars` and set `MCP_API_TOKEN` (24+ chars) and, to try the login page, `MCP_USERS`.
 3. `npm run dev` (serves `http://127.0.0.1:8787/mcp`, shares the website's local D1 state in `../.wrangler/state`).
 4. `npm test` and `npm run typecheck`.
 
@@ -69,8 +72,24 @@ Both use the same D1 database. It exposes no SQL and no generic CRUD.
 ```
 cd mcp
 npx wrangler secret put MCP_API_TOKEN --config wrangler.jsonc
+npx wrangler secret put MCP_USERS --config wrangler.jsonc   # people who use the claude.ai connector
 npm run deploy        # -> https://nirnay-mcp.<your-subdomain>.workers.dev/mcp
 ```
+
+## Give someone access from their own Claude account (claude.ai connector)
+claude.ai custom connectors (web, desktop, phone) sign in with OAuth, not a fixed header. The Worker serves the OAuth
+endpoints itself (`/.well-known/...`, `/register`, `/token`, tokens kept hashed in the `OAUTH_KV` namespace) and a login page
+at `/authorize` that asks for a per-person access code.
+
+1. Add the person to the `MCP_USERS` secret, a JSON object of name -> access code (24+ random chars, names `a-z0-9-`):
+   `npx wrangler secret put MCP_USERS --config wrangler.jsonc` and paste e.g. `{"himanshu":"<code>"}`. Putting the secret
+   replaces the whole list, so include everyone.
+2. They open claude.ai -> Settings -> Connectors -> Add custom connector, URL `https://nirnay-mcp.bhupendrawatti24.workers.dev/mcp`,
+   no client ID or secret, then Connect and type their access code.
+3. To remove someone, put the secret again without them. Their access stops on the next request.
+
+Only claude.ai / claude.com and Claude apps on the person's own computer (loopback redirect) can sign in; any other app is
+refused before the code is asked for.
 
 ## Connect Claude Desktop (no Claude API key, uses your Claude subscription)
 Claude Desktop's custom connectors cannot send a static bearer header, so use the `mcp-remote` bridge

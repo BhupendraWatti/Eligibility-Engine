@@ -3,7 +3,7 @@
   "name": "nirnay-mcp",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-16",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Same D1 database as the website. Migrations stay owned by the website (../migrations).
   "d1_databases": [
     {
@@ -12,9 +12,11 @@
       "database_id": "a6e065fb-e899-498b-a4e6-e0cb7b1c1e2e"
     }
   ],
+  // OAuth clients, grants and tokens for the claude.ai connector login (tokens stored only as hashes).
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "33b1e77ee89e49c59042973424d6307d" }],
   // Keep the workers.dev URL, but no extra per-version preview URLs (they would share the same secrets).
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true }
-  // Secret (not stored here): npx wrangler secret put MCP_API_TOKEN
+  // Secrets (not stored here): npx wrangler secret put MCP_API_TOKEN / MCP_USERS
 }

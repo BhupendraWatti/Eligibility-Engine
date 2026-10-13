@@ -16,6 +16,7 @@ import {
 } from '../../src/services/change-proposals';
 import { approveProposal, type DecisionDeps } from '../../src/services/change-proposal-decision';
 import { findApplyLink, isPdfUrl } from '../../src/services/cadre-guide';
+import { isAllowedRedirect, isStaticToken, parseUsers, personActor, userForCode } from './auth';
 import { proposeMaster, resolveMaster, type MasterDeps, type MasterRecord } from '../../src/services/master-proposals';
 
 function assert(condition: boolean, msg: string) {
@@ -394,6 +395,18 @@ async function run() {
     await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'portal', changes: asi.changes, evidence: asi.evidence.map(e => ({ ...e, sourceUrl: 'https://www.freejobalert.com/ssc' })) }, base());
   } catch (e: any) { unofficial = e.code; }
   assert(unofficial === 'UNOFFICIAL_SOURCE', 'a recruitment quoted from a job portal is refused as UNOFFICIAL_SOURCE');
+
+  // ── 12. Login: per-person access codes and allowed redirects ────────────────────────────────────────
+  const codeA = 'a'.repeat(32), codeB = 'b'.repeat(32);
+  const users = JSON.stringify({ himanshu: codeA, owner: codeB, short: 'tooshort', 'Bad Name': codeA });
+  assert([...parseUsers(users).keys()].join() === 'himanshu,owner', 'MCP_USERS drops short codes and bad names');
+  assert(parseUsers('not json').size === 0 && parseUsers(undefined).size === 0 && parseUsers('[]').size === 0, 'a missing or broken MCP_USERS lets nobody in');
+  assert((await userForCode(users, codeA)) === 'himanshu' && (await userForCode(users, codeB)) === 'owner', 'an access code signs in as its own person');
+  assert((await userForCode(users, 'x'.repeat(32))) === null && (await userForCode(users, '')) === null, 'a wrong or empty code signs in nobody');
+  assert(personActor('himanshu').id === 'mcp-himanshu' && personActor('himanshu').mode === 'PROPOSE', 'a signed-in person can only read and propose, under their own name');
+  assert((await isStaticToken(codeA, codeA)) && !(await isStaticToken(codeA, undefined)) && !(await isStaticToken('short', 'short')), 'the static token works only when configured with 24+ chars');
+  assert(isAllowedRedirect('https://claude.ai/api/mcp/auth_callback') && isAllowedRedirect('https://claude.com/api/mcp/auth_callback') && isAllowedRedirect('http://localhost:33418/callback') && isAllowedRedirect('http://127.0.0.1:5000/cb'), 'claude.ai, claude.com and local apps may receive tokens');
+  assert(!isAllowedRedirect('https://evil.example/cb') && !isAllowedRedirect('https://claude.ai.evil.example/cb') && !isAllowedRedirect('http://claude.ai/cb') && !isAllowedRedirect('cursor://x'), 'any other app is refused before the code is asked for');
 
   console.log('\nAll regression checks passed.');
 }
