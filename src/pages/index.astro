@@ -4,7 +4,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectorCard from '../components/common/SectorCard.astro';
 import StatePicker from '../components/common/StatePicker.astro';
 import { getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
-import { calculateRecruitmentMetrics, isActiveDrive, resolveMilestonePresentation } from '../services/lifecycle';
+import { calculateRecruitmentMetrics, isActiveDrive, resolveApplicationWindow, resolveMilestonePresentation } from '../services/lifecycle';
 import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
 import { jurisdictionName } from '../data/india-jurisdictions';
 
@@ -35,7 +35,7 @@ function formatDate(dateStr?: string): string {
   if (!dateStr) return 'TBA';
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
   } catch {
     return dateStr;
   }
@@ -45,13 +45,15 @@ function formatDate(dateStr?: string): string {
 const milestones: Array<{ date: string; title: string; desc: string; status: string; statusClass: string; slug: string }> = [];
 
 recruitments.forEach((r) => {
-  if (r.applicationEnd && milestones.length < 3) {
-    const presentation = resolveMilestonePresentation(r.applicationEnd, 'APPLICATION_END');
+  if ((r.applicationStart || r.applicationEnd) && milestones.length < 3) {
+    // Use the whole window: a drive that has not opened yet is "Upcoming", never "Applications Open".
+    const presentation = resolveApplicationWindow(r.applicationStart, r.applicationEnd);
     if (!presentation.isPast) {
+      const opensLater = presentation.category === 'UPCOMING' && r.applicationStart;
       milestones.push({
-        date: formatDate(r.applicationEnd),
+        date: formatDate(opensLater ? r.applicationStart : (r.applicationEnd || r.applicationStart)),
         title: r.title,
-        desc: 'Online registration closes',
+        desc: presentation.summary,
         status: presentation.label,
         statusClass: presentation.badgeClass,
         slug: r.slug,

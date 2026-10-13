@@ -56,8 +56,36 @@ export interface MinimalRecruitmentInput {
 /** Default closing soon threshold: 7 days before application closing date */
 export const CLOSING_SOON_THRESHOLD_DAYS = 7;
 
+/** Recruitment dates are Indian calendar dates, so "today" is the date in India, not in UTC. */
+export const IST_TIME_ZONE = 'Asia/Kolkata';
+
+const IST_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: IST_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const IST_WEEKDAY = new Intl.DateTimeFormat('en-IN', { timeZone: IST_TIME_ZONE, weekday: 'short' });
+
+/** YYYY-MM-DD of the given moment in India. */
+export function todayIST(now: Date = new Date()): string {
+  return IST_DATE.format(now);
+}
+
+/** Midnight IST at the start of a YYYY-MM-DD date. */
+function istMidnight(iso: string): Date {
+  return new Date(`${iso}T00:00:00+05:30`);
+}
+
+/** "16 Sep" for a YYYY-MM-DD date. */
+export function formatDayMonthIST(iso: string): string {
+  const [, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]}`;
+}
+
+/** "Wed" for a YYYY-MM-DD date. */
+export function weekdayIST(iso: string): string {
+  return IST_WEEKDAY.format(istMidnight(iso));
+}
+
 /**
- * Normalizes input date to YYYY-MM-DD string in UTC/IST boundary
+ * Normalizes input date to a YYYY-MM-DD date in India (IST).
  */
 export function normalizeDateString(d: Date | string | undefined | null): string | null {
   if (!d) return null;
@@ -66,10 +94,10 @@ export function normalizeDateString(d: Date | string | undefined | null): string
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
     const parsed = new Date(trimmed);
     if (isNaN(parsed.getTime())) return null;
-    return parsed.toISOString().split('T')[0];
+    return todayIST(parsed);
   }
   if (isNaN(d.getTime())) return null;
-  return d.toISOString().split('T')[0];
+  return todayIST(d);
 }
 
 /**
@@ -88,7 +116,7 @@ export function resolveRecruitmentLifecycle(
   rec: MinimalRecruitmentInput,
   referenceDateInput?: Date | string
 ): CanonicalLifecycle {
-  const refDateStr = normalizeDateString(referenceDateInput) || new Date().toISOString().split('T')[0];
+  const refDateStr = normalizeDateString(referenceDateInput) || todayIST();
 
   // 1. Authoritative Result Status override or legacy RESULT_DECLARED / FINAL_RESULT
   if (
@@ -358,14 +386,15 @@ export interface MilestonePresentation {
 }
 
 /**
- * Resolves the milestone status for calendar/timeline events relative to a reference date.
+ * Resolves the status of a single-date event (exam day, correction deadline) relative to a reference date.
+ * Application windows need both dates: use resolveApplicationWindow.
  */
 export function resolveMilestonePresentation(
   rawDate: string | null | undefined,
-  eventType: 'APPLICATION_START' | 'APPLICATION_END' | 'EXAM_DATE' | 'NOTIFICATION',
+  eventType: 'EXAM_DATE' | 'CORRECTION_END' | 'NOTIFICATION',
   referenceDateInput?: Date | string
 ): MilestonePresentation {
-  const refDateStr = normalizeDateString(referenceDateInput) || new Date().toISOString().split('T')[0];
+  const refDateStr = normalizeDateString(referenceDateInput) || todayIST();
   const dateStr = normalizeDateString(rawDate);
 
   if (!dateStr) {
@@ -379,59 +408,6 @@ export function resolveMilestonePresentation(
   }
 
   const isPast = refDateStr > dateStr;
-
-  if (eventType === 'APPLICATION_END') {
-    if (isPast) {
-      return {
-        label: 'Closed',
-        badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
-        isUrgent: false,
-        isPast: true,
-        category: 'PAST',
-      };
-    }
-
-    const endTimestamp = new Date(`${dateStr}T23:59:59Z`).getTime();
-    const refTimestamp = new Date(`${refDateStr}T00:00:00Z`).getTime();
-    const diffDays = Math.ceil((endTimestamp - refTimestamp) / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= CLOSING_SOON_THRESHOLD_DAYS) {
-      return {
-        label: 'Closing Soon',
-        badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 animate-pulse font-bold',
-        isUrgent: true,
-        isPast: false,
-        category: 'CLOSING_SOON',
-      };
-    }
-
-    return {
-      label: 'Applications Open',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold',
-      isUrgent: false,
-      isPast: false,
-      category: 'OPEN_NOW',
-    };
-  }
-
-  if (eventType === 'APPLICATION_START') {
-    if (isPast) {
-      return {
-        label: 'Applications Open',
-        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold',
-        isUrgent: false,
-        isPast: false,
-        category: 'OPEN_NOW',
-      };
-    }
-    return {
-      label: 'Upcoming',
-      badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-medium',
-      isUrgent: false,
-      isPast: false,
-      category: 'UPCOMING',
-    };
-  }
 
   if (eventType === 'EXAM_DATE') {
     if (isPast) {
@@ -461,3 +437,67 @@ export function resolveMilestonePresentation(
   };
 }
 
+export interface ApplicationWindowPresentation extends MilestonePresentation {
+  /** "Opens 14 Oct · Closes 4 Nov", "Opened 16 Sep · Closes 15 Oct" or "Opened 16 Sep · Closed 15 Oct". */
+  summary: string;
+}
+
+/**
+ * Status of a drive's application window. Uses both dates, so a drive is never "open" before its start date
+ * just because its closing date is in the future.
+ */
+export function resolveApplicationWindow(
+  applicationStart: string | null | undefined,
+  applicationEnd: string | null | undefined,
+  referenceDateInput?: Date | string
+): ApplicationWindowPresentation {
+  const ref = normalizeDateString(referenceDateInput) || todayIST();
+  const start = normalizeDateString(applicationStart);
+  const end = normalizeDateString(applicationEnd);
+
+  const parts: string[] = [];
+  if (start) parts.push(`${ref < start ? 'Opens' : 'Opened'} ${formatDayMonthIST(start)}`);
+  if (end) parts.push(`${ref > end ? 'Closed' : 'Closes'} ${formatDayMonthIST(end)}`);
+  const summary = parts.join(' · ') || 'Dates not announced';
+
+  if (start && ref < start) {
+    return { summary, label: 'Upcoming', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-medium', isUrgent: false, isPast: false, category: 'UPCOMING' };
+  }
+  if (end && ref > end) {
+    return { summary, label: 'Closed', badgeClass: 'bg-slate-100 text-slate-700 border-slate-300', isUrgent: false, isPast: true, category: 'PAST' };
+  }
+  if (end) {
+    const daysLeft = Math.round((istMidnight(end).getTime() - istMidnight(ref).getTime()) / 864e5);
+    if (daysLeft <= CLOSING_SOON_THRESHOLD_DAYS) {
+      return { summary, label: 'Closing Soon', badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 font-bold', isUrgent: true, isPast: false, category: 'CLOSING_SOON' };
+    }
+  }
+  if (!start && !end) {
+    return { summary, label: 'Date TBA', badgeClass: 'bg-muted text-muted-foreground border-border', isUrgent: false, isPast: false, category: 'UPCOMING' };
+  }
+  return { summary, label: 'Applications Open', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold', isUrgent: false, isPast: false, category: 'OPEN_NOW' };
+}
+
+export interface ExamDateGroup {
+  start: string;
+  end: string;
+  /** "3–4 Dec", "30 Nov – 2 Dec" or "13 Dec". */
+  label: string;
+}
+
+/** Sorts exam dates and merges consecutive days into ranges (a 3 and 4 Dec exam is one "3–4 Dec" entry). */
+export function groupExamDates(dates: string[]): ExamDateGroup[] {
+  const sorted = [...new Set(dates.map(d => normalizeDateString(d)).filter((d): d is string => Boolean(d)))].sort();
+  const groups: Array<{ start: string; end: string }> = [];
+  for (const d of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && istMidnight(d).getTime() - istMidnight(last.end).getTime() === 864e5) last.end = d;
+    else groups.push({ start: d, end: d });
+  }
+  return groups.map(({ start, end }) => {
+    if (start === end) return { start, end, label: formatDayMonthIST(start) };
+    const [sd, sm] = formatDayMonthIST(start).split(' ');
+    const [ed, em] = formatDayMonthIST(end).split(' ');
+    return { start, end, label: sm === em ? `${sd}–${ed} ${em}` : `${sd} ${sm} – ${ed} ${em}` };
+  });
+}

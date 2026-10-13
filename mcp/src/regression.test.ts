@@ -224,6 +224,10 @@ async function run() {
   assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [{ ...applyPage, url: 'https://x.gov.in/advt.pdf?v=2' }] }) === 'INVALID_LINK', 'an APPLY_ONLINE link to a PDF is refused');
   assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [applyPage, { linkType: 'BROCHURE', title: 'b', url: 'https://x.gov.in/b' }] }) === 'INVALID_LINK', 'an unknown link type is refused');
   assert(scopeCode('UPDATE_RECRUITMENT', { officialLinks: [applyPage, { linkType: 'BROCHURE', title: 'b', url: 'https://x.gov.in/b' }] }, ['BROCHURE']) === 'OK', 'a link type already on the live record can be kept');
+  const examCreate = { ...stage('Written exam'), officialLinks: [applyPage], examStatus: 'SCHEDULED' };
+  assert(scopeCode('CREATE_RECRUITMENT', { ...examCreate, importantDates: [{ eventType: 'APPLICATION_END', eventDate: '2026-10-15' }] }) === 'EXAM_DATE_REQUIRED', 'a scheduled exam whose dates are only in prose is refused');
+  assert(scopeCode('CREATE_RECRUITMENT', { ...examCreate, importantDates: [{ eventType: 'EXAM_DATE', eventDate: '2026-12-03' }, { eventType: 'EXAM_DATE', eventDate: '2026-12-04' }] }) === 'OK', 'a scheduled exam with EXAM_DATE rows is accepted');
+  assert(scopeCode('UPDATE_RECRUITMENT', { examStatus: 'SCHEDULED' }) === 'OK', 'an update that leaves importantDates untouched keeps the live exam dates');
   const withApply: any = { ...row({ id: 'rec_apply' }), officialLinksList: [{ ...applyPage, isActive: 1 }] };
   const dropDeps: ProposalDeps = { ...base(), loadRecruitment: async () => withApply };
   let dropCode = '';

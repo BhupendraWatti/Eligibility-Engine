@@ -37,7 +37,7 @@ export class ProposalBlockedError extends InvalidProposalError {
   constructor(
     readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE'
       | 'NO_EXAM_STAGE' | 'SELECTION_STAGES_REQUIRED' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE'
-      | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH',
+      | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH' | 'EXAM_DATE_REQUIRED',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -603,6 +603,11 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   }
   if (stages && !stages.some(isExamStage)) {
     throw new ProposalBlockedError('NO_EXAM_STAGE', 'selectionStages must include a written or computer-based exam. Only government recruitments selected by such an exam are added; honorary, volunteer, walk-in, interview-only and merit-only posts are out of scope in every state. Do not propose this one.');
+  }
+  // The calendar reads exam days from importantDates, never from prose, so a scheduled exam needs its EXAM_DATE rows.
+  const dates = payload.importantDates as Array<{ eventType: string }> | undefined;
+  if (payload.examStatus === 'SCHEDULED' && (create || dates) && !payload.examDate && !dates?.some(d => d.eventType === 'EXAM_DATE')) {
+    throw new ProposalBlockedError('EXAM_DATE_REQUIRED', 'examStatus is SCHEDULED but importantDates has no EXAM_DATE. Add one EXAM_DATE row for each exam day the notice gives (a 3 and 4 December exam is two rows) and quote it, or leave examStatus out if the notice gives no exam date.');
   }
   if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
     throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');

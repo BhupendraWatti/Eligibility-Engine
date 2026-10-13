@@ -1,10 +1,21 @@
 ---
 // src/pages/calendar.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getAllActiveRecruitments } from '../db/queries';
-import { resolveMilestonePresentation, type MilestonePresentation } from '../services/lifecycle';
+import { getAllActiveRecruitments, getLastVerifiedAt } from '../db/queries';
+import {
+  resolveApplicationWindow,
+  resolveMilestonePresentation,
+  groupExamDates,
+  formatDayMonthIST,
+  weekdayIST,
+  todayIST,
+} from '../services/lifecycle';
 
-const allRecruitments = await getAllActiveRecruitments();
+// Statuses depend on today's date in India, so never serve this page from a shared cache.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+const [allRecruitments, lastVerified] = await Promise.all([getAllActiveRecruitments(), getLastVerifiedAt()]);
+const today = todayIST();
 
 interface CalendarMilestone {
   rawDate: string;
@@ -20,85 +31,94 @@ interface CalendarMilestone {
   isUrgent: boolean;
   isPast: boolean;
   slug: string;
+  sourceUrl?: string;
+  checkedOn?: string;
 }
 
-function formatDateParts(dateStr: string): { formatted: string; weekday: string } {
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { formatted: dateStr, weekday: '' };
-    return {
-      formatted: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      weekday: d.toLocaleDateString('en-GB', { weekday: 'short' }),
-    };
-  } catch {
-    return { formatted: dateStr, weekday: '' };
-  }
+const withYear = (iso: string) => `${formatDayMonthIST(iso)} ${iso.slice(0, 4)}`;
+
+function toIsoDate(value: Date | string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const d = value instanceof Date ? value : new Date(value);
+  return isNaN(d.getTime()) ? undefined : todayIST(d);
 }
+
+const APPLICATION_DESC: Record<CalendarMilestone['category'], string> = {
+  UPCOMING: 'Online applications have not started yet.',
+  OPEN_NOW: 'Online applications are open on the official portal.',
+  CLOSING_SOON: 'Applications close soon. Pay the fee and submit the form before the last date.',
+  PAST: 'The application window has closed.',
+  EXAM: '',
+};
 
 const milestones: CalendarMilestone[] = [];
 
 allRecruitments.forEach((job) => {
-  if (job.applicationStart) {
-    const p = resolveMilestonePresentation(job.applicationStart, 'APPLICATION_START');
-    const { formatted, weekday } = formatDateParts(job.applicationStart);
+  const dates = job.importantDatesList ?? [];
+  const source = [...(job.sourcesList ?? [])].sort((a, b) => String(toIsoDate(b.lastVerifiedAt) ?? '').localeCompare(String(toIsoDate(a.lastVerifiedAt) ?? '')))[0];
+  const provenance = { sourceUrl: source?.sourceUrl, checkedOn: toIsoDate(source?.lastVerifiedAt) };
+  const org = `${job.organisationShortName} · ${job.postTitle}`;
+
+  if (job.applicationStart || job.applicationEnd) {
+    const w = resolveApplicationWindow(job.applicationStart, job.applicationEnd, today);
+    const key = (w.category === 'UPCOMING' ? job.applicationStart : job.applicationEnd) || job.applicationStart || job.applicationEnd!;
     milestones.push({
-      rawDate: job.applicationStart,
-      formattedDate: formatted,
-      weekday,
+      rawDate: key,
+      formattedDate: w.summary,
+      weekday: '',
       title: job.title,
-      org: `${job.organisationShortName} · ${job.postTitle}`,
-      desc: `Official online application registration opens on the authority portal.`,
-      status: p.label,
-      badgeClass: p.badgeClass,
-      type: 'Applications Open',
-      category: p.category,
-      isUrgent: p.isUrgent,
-      isPast: p.isPast,
+      org,
+      desc: APPLICATION_DESC[w.category],
+      status: w.label,
+      badgeClass: w.badgeClass,
+      type: 'Online application',
+      category: w.category,
+      isUrgent: w.isUrgent,
+      isPast: w.isPast,
       slug: job.slug,
+      ...provenance,
     });
   }
 
-  if (job.applicationEnd) {
-    const p = resolveMilestonePresentation(job.applicationEnd, 'APPLICATION_END');
-    const { formatted, weekday } = formatDateParts(job.applicationEnd);
+  for (const d of dates.filter(d => d.eventType === 'CORRECTION_END')) {
+    const p = resolveMilestonePresentation(d.date, 'CORRECTION_END', today);
     milestones.push({
-      rawDate: job.applicationEnd,
-      formattedDate: formatted,
-      weekday,
+      rawDate: d.date,
+      formattedDate: withYear(d.date),
+      weekday: weekdayIST(d.date),
       title: job.title,
-      org: `${job.organisationShortName} · ${job.postTitle}`,
-      desc: p.isPast
-        ? `Application window has concluded. Form submission and fee payment closed.`
-        : `Final deadline for submission of online application forms and fee payment.`,
-      status: p.label,
+      org,
+      desc: p.isPast ? 'The window to correct submitted forms has closed.' : 'Last date to correct a submitted application form.',
+      status: p.isPast ? 'Closed' : 'Correction Window',
       badgeClass: p.badgeClass,
-      type: 'Applications Close',
+      type: 'Form correction ends',
       category: p.category,
-      isUrgent: p.isUrgent,
+      isUrgent: false,
       isPast: p.isPast,
       slug: job.slug,
+      ...provenance,
     });
   }
 
-  if (job.examDate) {
-    const p = resolveMilestonePresentation(job.examDate, 'EXAM_DATE');
-    const { formatted, weekday } = formatDateParts(job.examDate);
+  const examDays = dates.filter(d => d.eventType === 'EXAM_DATE').map(d => d.date);
+  if (examDays.length === 0 && job.examDate) examDays.push(job.examDate);
+  for (const g of groupExamDates(examDays)) {
+    const p = resolveMilestonePresentation(g.end, 'EXAM_DATE', today);
     milestones.push({
-      rawDate: job.examDate,
-      formattedDate: formatted,
-      weekday,
+      rawDate: g.start,
+      formattedDate: `${g.label} ${g.end.slice(0, 4)}`,
+      weekday: g.start === g.end ? weekdayIST(g.start) : `${weekdayIST(g.start)}–${weekdayIST(g.end)}`,
       title: `${job.title} - Written Examination`,
       org: job.organisationShortName,
-      desc: p.isPast
-        ? `Examination concluded across state centers. Model answer key scrutiny underway.`
-        : `Competitive examination scheduled across the authority's designated centers.`,
+      desc: p.isPast ? 'The written exam has been held.' : 'Written exam date from the official notice.',
       status: p.label,
       badgeClass: p.badgeClass,
-      type: 'Written Exam (CBT)',
+      type: 'Written exam',
       category: p.category,
-      isUrgent: p.isUrgent,
+      isUrgent: false,
       isPast: p.isPast,
       slug: job.slug,
+      ...provenance,
     });
   }
 });
@@ -131,13 +151,13 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide mb-3">
           <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-          <span>Verified State Schedule</span>
+          <span>Compiled from official notices{lastVerified && ` · last checked ${withYear(todayIST(lastVerified))}`}</span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
           Recruitment & Examination Calendar
         </h1>
         <p class="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
-          Verified timeline of active application deadlines, upcoming opportunities, and scheduled government examinations across India.
+          Application windows, form correction deadlines and written exam dates taken from each recruitment's official notice, for central and state recruitments across India.
         </p>
       </div>
 
@@ -251,7 +271,11 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
                   </p>
 
                   <div class="pt-3 border-t border-blue-200/60 flex items-center justify-between">
-                    <span class="text-[11px] text-blue-800 font-medium">Urgent Submission Window</span>
+                    {m.sourceUrl ? (
+                      <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer" class="text-[11px] text-blue-800 font-medium hover:underline">
+                        Official notice{m.checkedOn && ` · checked ${formatDayMonthIST(m.checkedOn)}`}
+                      </a>
+                    ) : <span class="text-[11px] text-blue-800 font-medium">Official notice</span>}
                     <a
                       href={`/recruitments/${m.slug}`}
                       class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
@@ -314,7 +338,11 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
                   </p>
 
                   <div class="pt-3 border-t border-border flex items-center justify-between">
-                    <span class="text-[11px] text-muted-foreground">Active Portal Registration</span>
+                    {m.sourceUrl ? (
+                      <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer" class="text-[11px] text-muted-foreground hover:underline">
+                        Official notice{m.checkedOn && ` · checked ${formatDayMonthIST(m.checkedOn)}`}
+                      </a>
+                    ) : <span class="text-[11px] text-muted-foreground">Official notice</span>}
                     <a
                       href={`/recruitments/${m.slug}`}
                       class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
@@ -379,7 +407,11 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
                     </p>
 
                     <div class="pt-3 border-t border-border flex items-center justify-between">
-                      <span class="text-[11px] text-muted-foreground">Gazetted State Schedule</span>
+                      {m.sourceUrl ? (
+                      <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer" class="text-[11px] text-muted-foreground hover:underline">
+                        Official notice{m.checkedOn && ` · checked ${formatDayMonthIST(m.checkedOn)}`}
+                      </a>
+                    ) : <span class="text-[11px] text-muted-foreground">Official notice</span>}
                       <a
                         href={`/recruitments/${m.slug}`}
                         class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
@@ -450,7 +482,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
             How dates are tracked
           </h3>
           <p class="text-xs text-muted-foreground leading-relaxed mb-4">
-            Dates are compiled from verified government notifications and authority gazettes. Always confirm final dates with the direct official notification.
+            Dates are compiled from each recruitment's official notice, and statuses follow today's date in India (IST). Always confirm final dates in the official notification.
           </p>
           <div class="pt-2 border-t border-border space-y-2 text-xs">
             <div class="flex items-center gap-2">
