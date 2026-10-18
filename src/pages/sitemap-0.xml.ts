@@ -2,6 +2,7 @@
 // public recruitment, organisation, post and sector page read live from D1.
 import type { APIRoute } from 'astro';
 import { getSitemapEntries, type SitemapEntry } from '../db/queries';
+import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
 
 // Public pages that are not database-driven. /search and /eligibility/report are left out (see robots.txt).
 const STATIC_PATHS = [
@@ -19,6 +20,8 @@ const STATIC_PATHS = [
   '/disclaimer',
   '/privacy',
   '/terms',
+  // One "{State} govt jobs" page per state and UT, plus central.
+  ...INDIA_JURISDICTIONS.map(j => `/jobs?state=${j.code}`),
 ];
 
 const escapeXml = (s: string) =>

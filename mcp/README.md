@@ -20,6 +20,7 @@ recruitment link; nothing in it is tied to one state. Use `resolve_entity` / `li
 | `get_domain_schema` | Allowed fields, formats, enums and the evidence format, generated from the validators. |
 
 `propose_recruitment_update` covers every tab of the admin editor (Basic, Vacancy, Eligibility, Dates, Sources, SEO).
+`seoTitle` and `seoDescription` are filled by `src/services/seo.ts` when a proposal leaves them out: state jobs lead with "{State} govt jobs", central jobs with "central government jobs", then the national "government jobs {year}" terms. On an update they are refreshed only while still empty or the generated text, never over an admin's own wording.
 Publication status, the Verified badge, featured, robots, post and organisation stay admin-only.
 
 The propose tools require `evidence[]` (field, sourceUrl, page, section, snippet, method NATIVE/OCR/VISION, confidence;

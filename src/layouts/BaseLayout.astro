@@ -4,6 +4,7 @@ import '../styles/global.css';
 import Header from '../components/common/Header.astro';
 import Footer from '../components/common/Footer.astro';
 import MobileBottomNav from '../components/common/MobileBottomNav.astro';
+import { SITE_NAME } from '../services/seo';
 
 interface Props {
   title: string;
@@ -12,6 +13,12 @@ interface Props {
   ogType?: string;
   isReportPage?: boolean;
   robotsIndex?: boolean;
+  /** Search keywords for this page (see src/services/seo.ts). */
+  keywords?: string[];
+  /** Add " | GovtRecruitments" to the title. Off when the title is already a full search title. */
+  appendSiteName?: boolean;
+  /** Structured data (schema.org) objects, written as JSON-LD. */
+  jsonLd?: Record<string, unknown>[];
 }
 
 const {
@@ -21,7 +28,16 @@ const {
   ogType = 'website',
   isReportPage = false,
   robotsIndex = true,
+  keywords = [],
+  appendSiteName = true,
+  jsonLd = [],
 } = Astro.props;
+
+const fullTitle = appendSiteName ? `${title} | ${SITE_NAME}` : title;
+// No social banner exists yet: the square logo works with the "summary" card.
+const ogImage = new URL('/brand/light/favicon-512x512.png', Astro.url.origin).href;
+// "<" is escaped so a title or description can never close the script tag.
+const jsonLdText = jsonLd.map(item => JSON.stringify({ '@context': 'https://schema.org', ...item }).replace(/</g, '\\u003c'));
 ---
 
 <!doctype html>
@@ -47,8 +63,9 @@ const {
     <link rel="icon" type="image/svg+xml" href="/brand/dark/favicon.svg" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>{title} | GovtRecruitments</title>
+    <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    {keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
     <link rel="canonical" href={canonicalUrl} />
     <link rel="sitemap" href="/sitemap-index.xml" />
 
@@ -58,18 +75,25 @@ const {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
     <!-- OpenGraph / Social -->
-    <meta property="og:title" content={`${title} | GovtRecruitments`} />
+    <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={ogType} />
-    <meta property="og:site_name" content="GovtRecruitments" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={`${title} | GovtRecruitments`} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content={`${SITE_NAME} logo`} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
     <!-- SEO & Indexing -->
     <meta name="robots" content={robotsIndex ? 'index, follow' : 'noindex, follow'} />
-    <meta name="author" content="GovtRecruitments" />
+    <meta name="author" content={SITE_NAME} />
+    {jsonLdText.map(text => <script is:inline type="application/ld+json" set:html={text} />)}
   </head>
   <body class="min-h-screen flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 print:pb-0 bg-background text-foreground selection:bg-primary selection:text-white">
     <!-- Print Only Header for Official Assessment Reports -->

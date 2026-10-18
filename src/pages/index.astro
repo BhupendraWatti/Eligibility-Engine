@@ -6,7 +6,8 @@ import StatePicker from '../components/common/StatePicker.astro';
 import { getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
 import { calculateRecruitmentMetrics, isActiveDrive, resolveApplicationWindow, resolveMilestonePresentation } from '../services/lifecycle';
 import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
-import { jurisdictionName } from '../data/india-jurisdictions';
+import { INDIA_JURISDICTIONS, jurisdictionName } from '../data/india-jurisdictions';
+import { homeSeo, currentYear } from '../services/seo';
 
 // Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -74,11 +75,56 @@ recruitments.forEach((r) => {
     }
   }
 });
+
+const year = currentYear();
+const seo = homeSeo(year);
+const stateLinks = INDIA_JURISDICTIONS.filter(j => j.code !== 'IN');
+
+// Shown on the page and sent as FAQPage data, so the two never differ.
+const faqs = [
+  {
+    q: 'Is this an official government website?',
+    a: 'No. GovtRecruitments is an independent website. We are not part of any government body. We collect jobs only from official sources and link you back to them.',
+  },
+  {
+    q: 'Is it free to use?',
+    a: 'Yes. Searching jobs and using the eligibility checker are free, and you do not need to sign up.',
+  },
+  {
+    q: 'How do I find govt jobs in my state?',
+    a: "Choose your state at the top of this page, or open your state from the list above. Your state's jobs will then show first.",
+  },
+  {
+    q: `Which government jobs ${year} are open right now?`,
+    a: 'The "Open right now" box at the top shows how many recruitments are taking forms today. The Closing Soon list shows the ones with the nearest last date.',
+  },
+  {
+    q: 'Can I apply for a job on this website?',
+    a: 'No. Use the "Apply Officially" button on the job page. It takes you to the official form on the government website.',
+  },
+];
+
+const siteUrl = new URL('/', Astro.url.origin).href;
+const jsonLd = [
+  {
+    '@type': 'WebSite',
+    name: 'GovtRecruitments',
+    url: siteUrl,
+    potentialAction: { '@type': 'SearchAction', target: `${siteUrl}search?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
+  },
+  {
+    '@type': 'FAQPage',
+    mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  },
+];
 ---
 
 <BaseLayout
-  title="Central & State Government Recruitment Discovery"
-  description="Explore verified central and state government recruitments across India, check eligibility, track important dates, and follow direct official job-post links."
+  title={seo.title}
+  description={seo.description}
+  keywords={seo.keywords}
+  canonicalUrl={siteUrl}
+  jsonLd={jsonLd}
 >
   <!-- Hero Section -->
   <section class="bg-background border-b border-border">
@@ -367,6 +413,96 @@ recruitments.forEach((r) => {
           </div>
         </a>
       ))}
+    </div>
+  </section>
+
+  <!-- About the site: written for people searching "government jobs", kept plain and factual -->
+  <section id="about-government-jobs" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 border-t border-border">
+    <div class="max-w-3xl mx-auto text-sm sm:text-base text-muted-foreground leading-relaxed space-y-4">
+      <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-normal font-heading">
+        Government Jobs {year}: Central and All State Govt Jobs in One Place
+      </h2>
+      <p>
+        GovtRecruitments is a free website that lists government jobs from across India. You will find central government jobs and govt jobs from all 28 states and 8 union territories in one place. Every job here comes from the official notice published by the recruiting body. We do not copy jobs from other job portals.
+      </p>
+      <p>
+        Most job websites show you a long list and leave the rest to you. You open a notice, read 30 pages, and only then find out that the age limit is 27 and you are 28. Our main tool, the <a href="/eligibility-checker" class="font-semibold text-primary hover:underline">eligibility checker</a>, does that reading for you. You enter your details once, and it tells you which govt job vacancy you can apply for and which ones you can't, with the reason.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">How the eligibility checker works</h3>
+      <p>
+        The checker asks a few short questions: your date of birth and gender, your education, your home state and your category. Then it checks each recruitment against the rules written in that recruitment's own notice:
+      </p>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li>The age limit, and the cut-off date the notice uses to count your age</li>
+        <li>Age relaxation for SC, ST, OBC, EWS and women, where the notice gives it</li>
+        <li>The minimum qualification, and the subject or stream if the notice asks for one</li>
+        <li>Domicile: whether the job is only for people of that state, or open to all of India</li>
+        <li>Other conditions such as height, employment office registration or a computer certificate</li>
+      </ul>
+      <p>
+        The result shows the jobs you can apply for, the jobs you can't, and the jobs where something needs a second look. Your details stay in your browser, and you do not need an account.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">Latest govt jobs recruitment, added as notices come out</h3>
+      <p>
+        When a new notice is released, we add it with its dates, number of posts, eligibility rules and official links. This page shows the applications closing soon, so you do not miss a last date. The <a href="/calendar" class="font-semibold text-primary hover:underline">exam calendar</a> lists form dates and exam dates. There are also separate pages for <a href="/admit-cards" class="font-semibold text-primary hover:underline">admit cards</a>, <a href="/answer-keys" class="font-semibold text-primary hover:underline">answer keys</a> and <a href="/results" class="font-semibold text-primary hover:underline">results</a>.
+      </p>
+      <p>
+        Each job page has a direct link to the official apply page. You fill the form on the government website, never on ours. We never ask for any fee. If a person or a website asks you for money to get you a government job, do not pay.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">Central government jobs</h3>
+      <p>
+        Central government jobs come from national bodies such as commissions, ministries, railways, defence and public sector units. Most of them are open to candidates from every state, so they show up for everyone. See the full list of <a href="/jobs?state=IN" class="font-semibold text-primary hover:underline">central government jobs</a>.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">All state government jobs</h3>
+      <p>
+        Each state hires through its own commissions and boards, such as the state public service commission, the staff selection board and the police recruitment board. Many state jobs are only for people who are domiciles of that state. Some are open to everyone, but the reserved seats go only to local candidates. Every job page says clearly which of these applies.
+      </p>
+      <p>
+        When you open the site, we show your own state's jobs first, then central jobs, then other states. You can change your state at any time. To see the jobs of one state only, pick it here:
+      </p>
+      <ul class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs sm:text-sm">
+        {stateLinks.map(j => (
+          <li><a href={`/jobs?state=${j.code}`} class="text-foreground hover:text-primary hover:underline">{j.name} govt jobs</a></li>
+        ))}
+      </ul>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">Government jobs after 12th</h3>
+      <p>
+        Many people search for government jobs after 12th, and there are a lot of them: police constable, clerk, data entry operator, forest guard, and many posts in the railways and defence. In the eligibility checker, choose 12th pass as your education and you will see only the jobs that accept it. From the search box you can also look for 10th pass, ITI, diploma and graduate jobs.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">High package government jobs</h3>
+      <p>
+        Pay in a government job depends on the pay level of the post, plus allowances such as DA and HRA. Posts filled through civil services and judiciary exams, and officer posts in banks and public sector units, usually pay the most. On each job page we show the pay exactly as the notice gives it, so you can compare posts before you apply. We do not show a salary figure that the notice does not give.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">Why you can trust this list</h3>
+      <ul class="list-disc pl-5 space-y-1.5">
+        <li>Every job comes from an official government website or notice.</li>
+        <li>We check that the official links open before a job goes live.</li>
+        <li>When a notice is changed by a corrigendum, we update the job.</li>
+        <li>If we are not sure of a detail, we leave it out and point you to the notice.</li>
+      </ul>
+      <p>
+        Even so, please read the official notice before you apply. The notice is always the final word.
+      </p>
+
+      <h3 class="pt-4 text-lg sm:text-xl font-bold text-foreground font-heading">Common questions</h3>
+      <div class="divide-y divide-border border-y border-border">
+        {faqs.map(f => (
+          <details class="group py-3">
+            <summary class="cursor-pointer list-none flex items-center justify-between gap-3 font-semibold text-foreground">
+              <span>{f.q}</span>
+              <span class="text-muted-foreground transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+            </summary>
+            <p class="mt-2">{f.a}</p>
+          </details>
+        ))}
+      </div>
     </div>
   </section>
 

@@ -15,6 +15,7 @@ import { checkFacts, classifyDomicileClause, DOMICILE_CLAUSE_EXAMPLES, type Fact
 import { CENTRAL_CODE, PROPOSABLE_DOMICILE_SCOPES, RETIRED_DOMICILE_FIELDS, stateCodeForId } from './domicile-scope';
 import { jurisdictionName } from '../data/india-jurisdictions';
 import { isPdfUrl } from './cadre-guide';
+import { recruitmentSeo, type RecruitmentSeoInput } from './seo';
 import { CERTIFICATE_CODES, unknownRequirementParts } from '../data/credentials';
 import type { Actor } from './recruitment-query';
 
@@ -657,6 +658,48 @@ function requireD1(d1: D1Database | undefined): D1Database {
 }
 
 /** Every check createProposal runs, with no write. Throws the same errors; returns what would be queued. */
+const SEO_FIELDS = ['seoTitle', 'seoDescription'] as const;
+
+const seoInputOf = (r: RecruitmentWithDetails): RecruitmentSeoInput => ({
+  title: r.title, postTitle: r.postTitle, organisationShortName: r.organisationShortName, stateCode: r.stateCode,
+  totalVacancies: r.totalVacancies, minQualificationLevel: r.criteria?.minQualificationLevel, cycleYear: r.cycleYear, applicationEnd: r.applicationEnd,
+});
+
+/** The SEO inputs a proposal may change, read from its payload. */
+const seoInputFromPayload = (payload: Record<string, unknown>): Partial<RecruitmentSeoInput> => Object.fromEntries(
+  (['title', 'totalVacancies', 'minQualificationLevel', 'cycleYear', 'applicationEnd'] as const)
+    .filter(f => payload[f] !== undefined && payload[f] !== null)
+    .map(f => [f, payload[f]]),
+);
+
+/**
+ * A new recruitment gets its search title and description from its own facts (src/services/seo.ts),
+ * so a state job targets "{State} govt jobs" and a central one "central government jobs".
+ * Values the proposer sent are kept. Returns true when anything was filled.
+ */
+function fillCreateSeo(payload: Record<string, unknown>, stateCode: string | undefined): boolean {
+  if (payload.seoTitle && payload.seoDescription) return false;
+  const seo = recruitmentSeo({ title: payload.title as string, stateCode, ...seoInputFromPayload(payload) });
+  let filled = false;
+  if (!payload.seoTitle) { payload.seoTitle = seo.title; filled = true; }
+  if (!payload.seoDescription) { payload.seoDescription = seo.description; filled = true; }
+  return filled;
+}
+
+/**
+ * On an update, refresh the stored SEO only while it is empty or still the generated text for the
+ * live record: text an admin wrote by hand is never replaced. Returns true when anything changed.
+ */
+function fillUpdateSeo(payload: Record<string, unknown>, current: RecruitmentWithDetails): boolean {
+  if (SEO_FIELDS.some(f => f in payload)) return false;
+  const before = recruitmentSeo(seoInputOf(current));
+  const after = recruitmentSeo({ ...seoInputOf(current), ...seoInputFromPayload(payload) });
+  let filled = false;
+  if ((!current.seoTitle || current.seoTitle === before.title) && current.seoTitle !== after.title) { payload.seoTitle = after.title; filled = true; }
+  if ((!current.seoDescription || current.seoDescription === before.description) && current.seoDescription !== after.description) { payload.seoDescription = after.description; filled = true; }
+  return filled;
+}
+
 async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput, deps: ProposalDeps) {
   if (!PROPOSAL_KINDS.includes(input.kind)) throw new InvalidProposalError('Unknown proposal kind.');
   const summary = assertEnglish(str(input.summary, 'summary', MAX_SUMMARY), 'summary');
@@ -697,14 +740,17 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
       throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');
     }
     requireOfficialSources(payload, evidence, current.organisationUrl);
-    baseSnapshot = snapshotFields(current, Object.keys(payload));
-    diff = buildDiff(payload, current);
     // Best-effort (D1 has no cross-statement transaction); the admin stale-guard remains the backstop.
-    const clash = (await deps.findOpen(db, recruitmentId)).filter(p => Object.keys(p.payload).some(f => f in payload));
+    const open = await deps.findOpen(db, recruitmentId);
+    const clash = open.filter(p => Object.keys(p.payload).some(f => f in payload));
     if (clash.length) {
       const fields = [...new Set(clash.flatMap(p => Object.keys(p.payload).filter(f => f in payload)))];
       throw new ProposalBlockedError('PENDING_CHANGE_CONFLICT', `Open proposal(s) already change ${fields.join(', ')} on this recruitment. Withdraw them first.`, { conflictingIds: clash.map(p => p.id), fields });
     }
+    // SEO follows the facts, unless an admin wrote their own or another open proposal already sets it.
+    if (!open.some(p => SEO_FIELDS.some(f => f in p.payload)) && fillUpdateSeo(payload, current)) meta.seoAutoFilled = true;
+    baseSnapshot = snapshotFields(current, Object.keys(payload));
+    diff = buildDiff(payload, current);
   } else {
     if (input.recruitmentId) throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
     // Either an existing master, or a master proposal queued in the same run (prop_…).
@@ -755,6 +801,8 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
       throw new ProposalBlockedError('CONFIRMED_DUPLICATE', 'The same recruitment is already waiting as a PENDING proposal. Withdraw it first.', { pendingProposalIds: pendingDup.matches.map(m => m.matchedRecruitmentId), matches: pendingDup.matches });
     }
   }
+
+  if (input.kind === 'CREATE_RECRUITMENT' && fillCreateSeo(payload, stateCode)) meta.seoAutoFilled = true;
 
   const domicileFlag = checkDomicileScope(payload, evidence, stateCode, adminState);
   if (domicileFlag) meta.domicileFlag = domicileFlag;

@@ -150,6 +150,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'Queue a field-level change to an EXISTING recruitment for owner approval. Does NOT change the live site. ' +
         'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification), ' +
         'Eligibility (age, relaxations, qualification, domicileScope = who may apply: STATE_ONLY / OPEN / OPEN_STATE_QUOTA, see get_domain_schema eligibilityNotes; physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
+        'SEO is filled automatically from the facts while it is empty or still the generated text (a state job targets "{State} govt jobs" / "{State} govt job vacancy" first, a central one "central government jobs", both then "government jobs {year}"); send seoTitle/seoDescription only to override with your own plain-English text. ' +
         `Allowed fields in "changes": ${editable}. ` +
         'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write every text field in plain, simple English, translating notices in Hindi, Gujarati or any other language (text in another script is refused; evidence snippets and advtNumber stay as printed): plain factual statements taken from the notice, no promotional tone, no guesses. ' +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
@@ -175,6 +176,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
         `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
         `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
+        'Leave out seoTitle and seoDescription: they are written for you from the title, state, vacancies, qualification and last date, so a state job reaches people searching for jobs in that state and also shows for all-India "government jobs {year}" searches. ' +
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
         'If the post or organisation is missing, queue it with propose_master in the same run and pass the returned proposal id (prop_...) instead: the owner approves the masters first, then this recruitment. ' +
         'If the official notice states no advertisement number, omit advtNumber (or send null): it is stored as NULL and shown as "Not stated". Never put a letter, memo or reference number in its place. ' +

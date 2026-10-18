@@ -7,6 +7,7 @@ import { listPublicRecruitments, type RelevanceTiers } from '../../services/publ
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
 import type { RecruitmentWithDetails } from '../../db/queries';
 import { domicileScopeLabel } from '../../services/domicile-scope';
+import { currentYear, stateKeywordName, stateListingSeo } from '../../services/seo';
 
 // Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -75,11 +76,26 @@ function formatDate(dateStr?: string): string {
 
 // Active filters count
 const hasActiveFilters = Boolean(q || qualification || org || status || state);
+
+// Search: /jobs?state=AS is the "Assam govt jobs" page. Any other filter mix points search engines
+// back to the state page (or /jobs), so filtered copies do not compete with it.
+const year = currentYear();
+const seo = state
+  ? stateListingSeo(state, year)
+  : {
+      title: `All Government Jobs ${year} – Govt Job Vacancy List`,
+      description: `All government jobs ${year} in one list: central and all state govt jobs recruitment with last date, eligibility and official apply link.`,
+      keywords: ['all government jobs', `government jobs ${year}`, 'govt jobs recruitment', 'govt job vacancy', 'all state government jobs', 'central government jobs'],
+    };
+const canonicalUrl = new URL(state ? `/jobs?state=${state}` : '/jobs', Astro.url.origin).href;
+const stateName = state ? stateKeywordName(state) : null;
 ---
 
 <BaseLayout
-  title="Government Jobs & Active Recruitment Drives"
-  description="Browse open, upcoming, and verified central and state government recruitment opportunities from official gazettes."
+  title={seo.title}
+  description={seo.description}
+  keywords={seo.keywords}
+  canonicalUrl={canonicalUrl}
 >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
     <!-- Breadcrumb -->
@@ -97,10 +113,14 @@ const hasActiveFilters = Boolean(q || qualification || org || status || state);
             Central & State Gazetted Notices
           </span>
           <h1 class="text-2xl sm:text-4xl font-black text-foreground tracking-tight font-heading">
-            Government Recruitment Directory
+            {state ? (stateName ? `${stateName} Govt Jobs ${year}` : `Central Government Jobs ${year}`) : 'Government Recruitment Directory'}
           </h1>
           <p class="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
-            Browse verified opportunities across all 28 states, 8 union territories, and central commissions with direct application links.
+            {stateName
+              ? `Every ${stateName} govt job vacancy we track, with the last date, who can apply and the official apply link. Central government jobs are open to ${stateName} candidates too: clear the state filter to see them.`
+              : state
+                ? 'Central government jobs from national bodies such as commissions, ministries, railways and defence. Most are open to candidates from every state.'
+                : 'Browse verified opportunities across all 28 states, 8 union territories, and central commissions with direct application links.'}
           </p>
         </div>
 

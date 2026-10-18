@@ -6,6 +6,7 @@ import { getRecruitmentWithRelations } from '../../db/queries';
 import { findApplyLink } from '../../services/cadre-guide';
 import { domicileScopeLabel } from '../../services/domicile-scope';
 import { jurisdictionName } from '../../data/india-jurisdictions';
+import { recruitmentSeo, stateKeywordName } from '../../services/seo';
 
 const { slug } = Astro.params;
 
@@ -60,6 +61,53 @@ const applyUrl = findApplyLink(recruitment?.officialLinksList)?.url;
 const applyLink = applyUrl
   ? { url: applyUrl, label: `Apply on ${recruitment!.organisationShortName} portal`, shortLabel: 'Apply Officially' }
   : { url: recruitment?.organisationUrl, label: `Visit ${recruitment?.organisationShortName} website`, shortLabel: 'Official Website' };
+
+// Search title and description: the admin's own text when set, else built from the record so it
+// targets the job's state first ("Assam govt job vacancy") and the national terms after.
+const seo = recruitment ? recruitmentSeo({
+  title: recruitment.title,
+  postTitle: recruitment.postTitle,
+  organisationShortName: recruitment.organisationShortName,
+  stateCode: recruitment.stateCode,
+  totalVacancies: recruitment.totalVacancies,
+  minQualificationLevel: recruitment.criteria.minQualificationLevel,
+  cycleYear: recruitment.cycleYear,
+  applicationEnd: recruitment.applicationEnd,
+}) : null;
+const canonicalUrl = recruitment ? new URL(`/recruitments/${recruitment.slug}`, Astro.url.origin).href : undefined;
+
+// Structured data. A JobPosting only for a published, verified record whose notice date is known
+// (Google needs datePosted), so nothing is guessed.
+const jsonLd: Record<string, unknown>[] = [];
+if (recruitment && canonicalUrl) {
+  const stateName = stateKeywordName(recruitment.stateCode);
+  jsonLd.push({
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: new URL('/', Astro.url.origin).href },
+      { '@type': 'ListItem', position: 2, name: stateName ? `${stateName} Govt Jobs` : 'Government Jobs', item: new URL(recruitment.stateCode ? `/jobs?state=${recruitment.stateCode}` : '/jobs', Astro.url.origin).href },
+      { '@type': 'ListItem', position: 3, name: recruitment.title, item: canonicalUrl },
+    ],
+  });
+  const notified = importantDates.find(d => d.eventType === 'NOTIFICATION')?.date
+    || recruitment.sourcesList?.find(src => src.publicationDate)?.publicationDate
+    || recruitment.applicationStart;
+  if (!isUnderVerification && !isInvalid && notified) {
+    jsonLd.push({
+      '@type': 'JobPosting',
+      title: recruitment.postTitle || recruitment.title,
+      description: recruitment.shortSummary || seo!.description,
+      datePosted: notified,
+      ...(recruitment.applicationEnd ? { validThrough: recruitment.applicationEnd } : {}),
+      employmentType: 'FULL_TIME',
+      ...(recruitment.totalVacancies > 0 ? { totalJobOpenings: recruitment.totalVacancies } : {}),
+      hiringOrganization: { '@type': 'Organization', name: recruitment.organisationName, sameAs: recruitment.organisationUrl },
+      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressCountry: 'IN', ...(stateName ? { addressRegion: stateName } : {}) } },
+      ...(recruitment.advtNumber ? { identifier: { '@type': 'PropertyValue', name: recruitment.organisationShortName, value: recruitment.advtNumber } } : {}),
+      url: canonicalUrl,
+    });
+  }
+}
 ---
 
 {!recruitment ? (
@@ -84,8 +132,13 @@ const applyLink = applyUrl
   </BaseLayout>
 ) : (
   <BaseLayout
-    title={recruitment.seoTitle || recruitment.title}
-    description={recruitment.seoDescription || `Official details, verified eligibility criteria, category vacancies, dates, and direct authority links for ${recruitment.title}.`}
+    title={recruitment.seoTitle || seo!.title}
+    description={recruitment.seoDescription || seo!.description}
+    keywords={seo!.keywords}
+    appendSiteName={false}
+    canonicalUrl={canonicalUrl}
+    ogType="article"
+    jsonLd={jsonLd}
     robotsIndex={recruitment.robotsIndex !== 0}
   >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-16 lg:mb-0">
