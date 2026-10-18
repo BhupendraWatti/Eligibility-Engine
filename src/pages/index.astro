@@ -492,6 +492,8 @@ const jsonLd = [
           select(tabs[(i + step + tabs.length) % tabs.length].dataset.tab!, true);
         });
       });
+      // The selected tab already names the stage, so the panel heading is only for screen readers on phones.
+      for (const panel of panels) panel.querySelector('h3')?.classList.add('max-md:sr-only');
       tablist.classList.remove('hidden');
       tablist.classList.add('grid');
       const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
