@@ -4,7 +4,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectorCard from '../components/common/SectorCard.astro';
 import StatePicker from '../components/common/StatePicker.astro';
 import { getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
-import { calculateRecruitmentMetrics, isActiveDrive, resolveApplicationWindow, resolveMilestonePresentation } from '../services/lifecycle';
+import { calculateRecruitmentMetrics, isActiveDrive, isUpcomingDrive, normalizeDateString, todayIST } from '../services/lifecycle';
 import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../data/india-jurisdictions';
 import { homeSeo, currentYear } from '../services/seo';
@@ -25,14 +25,7 @@ const activeDrivesBySector = calculateSectorActiveDrives(dbSectors, recruitments
 
 const metrics = calculateRecruitmentMetrics(recruitments);
 
-// Active drives by urgency (soonest closing date), the visitor's state first.
-const closingSoonListing = queryListing(recruitments.filter(r => isActiveDrive(r)), { sort: 'closing_asc' }, homeCode);
-const closingSoon = inRelevanceOrder(closingSoonListing).slice(0, 3);
-const homeHasNoActiveDrives = Boolean(homeCode) && closingSoonListing.tiers?.home.length === 0;
-const recentlyReleased = inRelevanceOrder(queryListing(recruitments, {}, homeCode)).slice(0, 3);
-
-
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr?: string | null): string {
   if (!dateStr) return 'TBA';
   try {
     const d = new Date(dateStr);
@@ -42,39 +35,120 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive calendar milestones dynamically using canonical status resolution
-const milestones: Array<{ date: string; title: string; desc: string; status: string; statusClass: string; slug: string }> = [];
+// Exam board: every published drive sorted into one stage, the visitor's state first in each.
+// gstack-shortcut(dec-ddc9fa57): bucket rules are inline and untested, upgrade to a tested src/services helper when a second page needs them.
+type Rec = (typeof recruitments)[number];
+const today = todayIST();
+const BOARD_LIMIT = 4;
+const RESULT_LINKS = ['RESULT', 'SCORECARD', 'MERIT_LIST'];
+const ANSWER_KEY_LINKS = ['ANSWER_KEY', 'PROVISIONAL_ANSWER_KEY', 'FINAL_ANSWER_KEY'];
+// A closed drive with no exam date stays "on-going" only this long, so drives nobody updated drop off.
+const ONGOING_UNDATED_DAYS = 120;
 
-recruitments.forEach((r) => {
-  if ((r.applicationStart || r.applicationEnd) && milestones.length < 3) {
-    // Use the whole window: a drive that has not opened yet is "Upcoming", never "Applications Open".
-    const presentation = resolveApplicationWindow(r.applicationStart, r.applicationEnd);
-    if (!presentation.isPast) {
-      const opensLater = presentation.category === 'UPCOMING' && r.applicationStart;
-      milestones.push({
-        date: formatDate(opensLater ? r.applicationStart : (r.applicationEnd || r.applicationStart)),
-        title: r.title,
-        desc: presentation.summary,
-        status: presentation.label,
-        statusClass: presentation.badgeClass,
-        slug: r.slug,
-      });
-    }
-  }
-  if (r.examDate && milestones.length < 5) {
-    const examPresentation = resolveMilestonePresentation(r.examDate, 'EXAM_DATE');
-    if (!examPresentation.isPast) {
-      milestones.push({
-        date: formatDate(r.examDate),
-        title: `${r.postTitle} CBT`,
-        desc: 'Written examination date',
-        status: examPresentation.label,
-        statusClass: examPresentation.badgeClass,
-        slug: r.slug,
-      });
-    }
-  }
+const day = (d?: string | null) => normalizeDateString(d);
+const daysFromToday = (iso: string) => {
+  const [y1, m1, d1] = today.split('-').map(Number);
+  const [y2, m2, d2] = iso.split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
+};
+const inDays = (verb: string, n: number) => (n === 0 ? `${verb} today` : n === 1 ? `${verb} tomorrow` : `${verb} in ${n} days`);
+const activeLink = (r: Rec, types: string[]) => r.officialLinksList?.find(l => types.includes(l.linkType) && l.isActive === 1);
+const resultDate = (r: Rec) => day(r.importantDatesList?.find(d => d.eventType === 'RESULT')?.date);
+const soonestFirst = (get: (r: Rec) => string | null) => (a: Rec, b: Rec) => (get(a) || '9999-12-31').localeCompare(get(b) || '9999-12-31');
+const tiered = (rows: Rec[]) => inRelevanceOrder(queryListing(rows, {}, homeCode));
+
+// Same rule as /results: declared, or an active result link. Results win over every other stage.
+const isResult = (r: Rec) => r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || Boolean(activeLink(r, RESULT_LINKS));
+const isOngoingExam = (r: Rec) => {
+  if (isResult(r)) return false;
+  if (r.resolvedLifecycle !== 'APPLICATION_CLOSED' && r.resolvedLifecycle !== 'EXAM_SCHEDULED') return false;
+  const exam = day(r.examDate);
+  if (exam) return exam >= today;
+  const end = day(r.applicationEnd);
+  return Boolean(end) && -daysFromToday(end!) <= ONGOING_UNDATED_DAYS;
+};
+
+const upcomingAll = tiered(recruitments.filter(r => isUpcomingDrive(r)).sort(soonestFirst(r => day(r.applicationStart))));
+const closingAll = tiered(recruitments.filter(r => isActiveDrive(r)).sort(soonestFirst(r => day(r.applicationEnd))));
+const ongoingAll = tiered(recruitments.filter(isOngoingExam).sort(soonestFirst(r => day(r.examDate))));
+const resultsAll = tiered(recruitments.filter(isResult).sort((a, b) => (resultDate(b) || '').localeCompare(resultDate(a) || '')));
+const boardDriveCount = upcomingAll.length + closingAll.length + ongoingAll.length;
+const homeHasNoBoardDrives = Boolean(homeCode) && boardDriveCount > 0
+  && ![...upcomingAll, ...closingAll, ...ongoingAll].some(r => r.stateCode?.toUpperCase() === homeCode);
+
+type Tone = 'urgent' | 'soon' | 'calm' | 'muted';
+interface BoardRow {
+  slug: string;
+  title: string;
+  org: string;
+  place: string;
+  when: string;
+  tone: Tone;
+  date: string | null;
+  posts: string | null;
+  flags: string[];
+  noticeUrl: string | null;
+}
+
+function toRow(r: Rec, when: string, tone: Tone, date: string | null, flags: string[] = []): BoardRow {
+  const notice = activeLink(r, ['NOTIFICATION_PDF', 'RULEBOOK']) ?? r.officialLinksList?.find(l => l.isActive === 1);
+  const code = r.stateCode?.toUpperCase();
+  return {
+    slug: r.slug,
+    title: r.title,
+    org: r.organisationShortName || r.authorityCode || 'Govt body',
+    place: code === 'IN' ? 'Central' : code ? jurisdictionName(code) : 'India',
+    when,
+    tone,
+    date: date ? formatDate(date) : null,
+    posts: r.totalVacancies ? `${r.totalVacancies.toLocaleString('en-IN')} ${r.totalVacancies === 1 ? 'post' : 'posts'}` : null,
+    flags,
+    noticeUrl: notice?.url ?? null,
+  };
+}
+
+const upcomingRows = upcomingAll.slice(0, BOARD_LIMIT).map(r => {
+  const start = day(r.applicationStart);
+  return toRow(r, start ? inDays('Opens', daysFromToday(start)) : 'Opening date not announced', 'calm', start);
 });
+const closingRows = closingAll.slice(0, BOARD_LIMIT).map(r => {
+  const end = day(r.applicationEnd);
+  const n = end ? daysFromToday(end) : null;
+  return toRow(r, n === null ? 'Last date in notice' : inDays('Closes', n), n !== null && n <= 2 ? 'urgent' : n !== null && n <= 7 ? 'soon' : 'calm', end);
+});
+const ongoingRows = ongoingAll.slice(0, BOARD_LIMIT).map(r => {
+  const exam = day(r.examDate);
+  const flags = [activeLink(r, ['ADMIT_CARD']) && 'Admit card out', activeLink(r, ANSWER_KEY_LINKS) && 'Answer key out'].filter(Boolean) as string[];
+  return toRow(r, exam ? inDays('Exam', daysFromToday(exam)) : 'Exam date not announced', exam ? 'calm' : 'muted', exam, flags);
+});
+const resultRows = resultsAll.slice(0, BOARD_LIMIT).map(r => {
+  const row = toRow(r, 'Result declared', 'calm', resultDate(r));
+  return { ...row, resultUrl: activeLink(r, RESULT_LINKS)?.url ?? null };
+});
+
+const boardColumns = [
+  {
+    id: 'upcoming', label: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
+    rule: 'border-sky-600 dark:border-sky-400',
+    empty: 'No announced drives are waiting to open. New notices appear here as soon as they are published.',
+  },
+  {
+    id: 'closing-soon', label: 'Closing soon', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
+    rule: 'border-amber-500 dark:border-amber-400',
+    empty: 'No applications are open right now. Drives taking forms appear here, nearest last date first.',
+  },
+  {
+    id: 'ongoing-exams', label: 'On-going exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
+    rule: 'border-primary',
+    empty: 'No exams are pending right now. Drives move here once their forms close.',
+  },
+];
+const toneClass: Record<Tone, string> = {
+  urgent: 'text-red-700 dark:text-red-400',
+  soon: 'text-amber-700 dark:text-amber-400',
+  calm: 'text-foreground',
+  muted: 'text-muted-foreground',
+};
 
 const year = currentYear();
 const seo = homeSeo(year);
@@ -96,7 +170,7 @@ const faqs = [
   },
   {
     q: `Which government jobs ${year} are open right now?`,
-    a: 'The "Open right now" box at the top shows how many recruitments are taking forms today. The Closing Soon list shows the ones with the nearest last date.',
+    a: 'The "Open right now" box at the top shows how many recruitments are taking forms today. In the exam board below it, the Closing soon column lists them with the nearest last date first.',
   },
   {
     q: 'Can I apply for a job on this website?',
@@ -156,10 +230,10 @@ const jsonLd = [
             <span>Check My Eligibility</span>
           </a>
           <a
-            href="#closing-soon"
-            class="font-semibold rounded-xl text-foreground bg-card hover:bg-muted text-sm px-5 py-3.5 border border-border transition-colors flex items-center justify-center gap-2 shadow-2xs"
+            href="#exam-board"
+            class="font-semibold rounded-xl text-foreground bg-card hover:bg-muted active:scale-[0.98] text-sm px-5 py-3.5 border border-border transition-[background-color,transform] flex items-center justify-center gap-2 shadow-2xs"
           >
-            <span>Browse Active Jobs ({metrics.activeDriveCount})</span>
+            <span>Browse Exams ({boardDriveCount})</span>
           </a>
           <a
             href="/calendar"
@@ -208,9 +282,9 @@ const jsonLd = [
       </div>
     </div>
 
-    <!-- Search Bar & Shortcut Chips -->
+    <!-- Search Bar -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
-      <form action="/search" method="get" class="relative max-w-4xl mx-auto mb-4">
+      <form action="/search" method="get" class="relative max-w-4xl mx-auto">
         <div class="flex items-center rounded-2xl bg-card border border-input shadow-sm p-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
           <div class="pl-3.5 pr-2 text-muted-foreground">
             <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -231,114 +305,199 @@ const jsonLd = [
           </button>
         </div>
       </form>
-
-      <!-- Shortcut chips: wrap on phones so none hide off-screen -->
-      <div class="flex flex-wrap items-center gap-x-1.5 max-w-4xl mx-auto py-1">
-        <span class="text-xs text-muted-foreground font-semibold shrink-0 mr-1">Popular:</span>
-        {['10th Pass', '12th Pass', 'ITI', 'Diploma', 'Graduate', 'Police', 'Civil Services', 'Teaching', 'Judiciary', 'Health'].map((chip) => (
-          <a
-            href={`/search?q=${encodeURIComponent(chip)}`}
-            class="px-1.5 py-2.5 text-xs font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary hover:text-primary transition-colors shrink-0"
-          >
-            {chip}
-          </a>
-        ))}
-      </div>
     </div>
   </section>
 
-  <!-- Section: Closing Soon -->
-  <section id="closing-soon" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+  <!-- Section: Exam board. Three stage columns plus a Results strip; phones get tabs (see script below). -->
+  <section id="exam-board" class="scroll-mt-24 py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6 sm:mb-8">
       <div>
         <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-normal font-heading">
-          Closing Soon Applications
+          Exams at every stage
         </h2>
-        <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-          Government recruitments with official application deadlines in the coming days.
+        <p class="mt-1.5 flex items-start gap-1.5 text-xs sm:text-sm text-muted-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 shrink-0 mt-px text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>Every drive links to its official notice.{homeCode && ` ${jurisdictionName(homeCode)} drives are shown first.`}</span>
         </p>
       </div>
-
-      <a href="/calendar" class="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1">
-        <span>View all in Exam Calendar</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
+      <a href="/calendar" class="text-xs sm:text-sm font-bold text-primary hover:underline inline-flex items-center gap-1">
+        <span>Exam calendar</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
     </div>
 
-    {homeHasNoActiveDrives && closingSoon.length > 0 && (
+    {homeHasNoBoardDrives && (
       <p class="mb-4 text-xs text-muted-foreground">
-        No current recruitments from <strong class="text-foreground">{jurisdictionName(homeCode)}</strong>. Central and open-to-all posts below.
+        No current drives from <strong class="text-foreground">{jurisdictionName(homeCode)}</strong>. Central and open-to-all drives are shown.
       </p>
     )}
 
-    {closingSoon.length === 0 && (
-      <div class="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-        <p class="font-bold text-foreground font-heading">No applications are closing soon</p>
-        <p class="text-sm text-muted-foreground mt-1 max-w-md mx-auto">Drives with an open application window appear here, soonest deadline first. Browse the full directory or check your eligibility in the meantime.</p>
-        <div class="mt-4 flex flex-wrap justify-center gap-3">
-          <a href="/jobs" class="text-xs font-bold px-4 py-2 rounded-lg border border-border bg-card hover:bg-muted transition-colors">Browse all recruitments</a>
-          <a href="/eligibility-checker" class="text-xs font-bold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors">Check my eligibility</a>
-        </div>
-      </div>
-    )}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {closingSoon.map((item: any) => (
-        <div class="bg-card rounded-2xl border border-border p-5 sm:p-6 flex flex-col justify-between hover:border-border/80 hover:shadow-md transition-all">
-          <div>
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${item.presentation?.badgeClass || 'bg-slate-100 text-slate-800 border border-slate-200'}`}>
-                {item.presentation?.label || 'Closing Soon'}
-              </span>
-              <span class="text-xs text-muted-foreground font-semibold">
-                {item.organisationShortName || item.authorityCode || 'Government Board'}
-              </span>
-            </div>
+    <!-- Phone tabs: hidden until the script runs, so without JS all three lists show stacked. -->
+    <div role="tablist" aria-label="Exam stage" data-exam-tabs class="hidden md:hidden grid-cols-3 gap-1 mb-3 rounded-xl border border-border bg-muted p-1">
+      {boardColumns.map((col) => (
+        <button
+          type="button"
+          role="tab"
+          id={`tab-${col.id}`}
+          aria-controls={col.id}
+          aria-selected={col.id === 'closing-soon' ? 'true' : 'false'}
+          data-tab={col.id}
+          class="min-h-11 rounded-lg px-1.5 text-xs font-bold leading-tight text-muted-foreground transition-colors aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {col.label} <span class="font-mono font-semibold">{col.total}</span>
+        </button>
+      ))}
+    </div>
 
-            <h3 class="font-bold text-base sm:text-lg text-foreground mb-3 line-clamp-2 leading-snug">
-              <a href={`/recruitments/${item.slug}`} class="hover:text-primary transition-colors">
-                {item.title}
-              </a>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 items-start">
+      {boardColumns.map((col) => (
+        <div id={col.id} data-panel={col.id} role="tabpanel" aria-labelledby={`tab-${col.id}`} class={`scroll-mt-24 bg-card border border-border border-t-2 ${col.rule} rounded-b-xl`}>
+          <div class="flex items-baseline justify-between gap-3 px-4 pt-3.5 pb-3 border-b border-border">
+            <h3 class="text-[11px] font-bold uppercase tracking-wider text-foreground">
+              {col.label}<span class="ml-1.5 font-mono font-semibold text-muted-foreground">{col.total}</span>
             </h3>
+            {col.total > 0 && (
+              <a href={col.href} class="text-xs font-bold text-primary hover:underline">All</a>
+            )}
+          </div>
 
-            <div class="space-y-2 text-xs text-muted-foreground mb-5 bg-muted/40 p-3 rounded-xl border border-border/60">
-              <div class="flex items-center justify-between">
-                <span>Total Vacancies:</span>
-                <span class="font-bold text-foreground font-mono">{item.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span>Min Qualification:</span>
-                <span class="font-semibold text-foreground">
-                  {item.criteria?.minQualificationLevel ? item.criteria.minQualificationLevel.replace(/_/g, ' ') : 'Refer Notice'}
-                </span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span>Application Deadline:</span>
-                <span class="font-bold text-foreground font-mono">
-                  {item.applicationEnd ? formatDate(item.applicationEnd) : 'Refer Notice'}
-                </span>
-              </div>
+          {col.rows.length === 0 ? (
+            <div class="m-4 rounded-lg border border-dashed border-border px-4 py-6 text-center">
+              <p class="text-xs text-muted-foreground leading-relaxed">{col.empty}</p>
+              <a href="/jobs" class="mt-2 inline-block py-1 text-xs font-bold text-primary hover:underline">Browse all recruitments</a>
             </div>
-          </div>
+          ) : (
+            <ul class="divide-y divide-border">
+              {col.rows.map((row, i) => (
+                <li class="board-row px-4 py-3.5" style={`--i:${i}`}>
+                  <div class="flex items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground">
+                    <span class="truncate">{row.org}</span>
+                    <span class="shrink-0 max-w-[50%] truncate">{row.place}</span>
+                  </div>
+                  <h4 class="mt-1 text-sm font-semibold leading-snug text-foreground line-clamp-2">
+                    <a href={`/recruitments/${row.slug}`} class="hover:text-primary transition-colors">{row.title}</a>
+                  </h4>
+                  <p class={`mt-1.5 text-sm font-bold ${toneClass[row.tone]}`}>{row.when}</p>
+                  {(row.date || row.posts) && (
+                    <p class="mt-0.5 font-mono tabular-nums text-xs text-muted-foreground">{[row.date, row.posts].filter(Boolean).join(' · ')}</p>
+                  )}
+                  {row.flags.length > 0 && (
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                      {row.flags.map((flag) => (
+                        <span class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">{flag}</span>
+                      ))}
+                    </div>
+                  )}
+                  {row.noticeUrl ? (
+                    <a href={row.noticeUrl} target="_blank" rel="noopener noreferrer" class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-medium text-muted-foreground hover:text-primary transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>Official notice</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+                    </a>
+                  ) : (
+                    <span class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-medium text-muted-foreground">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      <span>From the official notice</span>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
 
-          <div class="pt-3 border-t border-border flex items-center justify-between gap-2">
-            <span class="text-[11px] text-muted-foreground inline-flex items-center gap-1 font-medium">
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Official Gazette Verified
-            </span>
-            <a
-              href={`/recruitments/${item.slug}`}
-              class="font-bold text-xs text-primary hover:text-primary-hover inline-flex items-center gap-1"
-            >
-              <span>View Notice</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          {col.total > col.rows.length && (
+            <a href={col.href} class="flex items-center justify-between gap-2 px-4 py-3 border-t border-border text-xs font-bold text-primary hover:bg-muted/60 active:scale-[0.99] transition-[background-color,transform] rounded-b-xl">
+              <span>See all {col.total}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </a>
-          </div>
+          )}
         </div>
       ))}
     </div>
+
+    <!-- Results strip -->
+    <div id="results-declared" class="scroll-mt-24 mt-4 lg:mt-6 bg-card border border-border border-t-2 border-emerald-600 dark:border-emerald-400 rounded-b-xl">
+      <div class="flex items-baseline justify-between gap-3 px-4 pt-3.5 pb-3 border-b border-border">
+        <h3 class="text-[11px] font-bold uppercase tracking-wider text-foreground">
+          Results declared<span class="ml-1.5 font-mono font-semibold text-muted-foreground">{resultsAll.length}</span>
+        </h3>
+        <a href="/results" class="text-xs font-bold text-primary hover:underline">All results</a>
+      </div>
+      {resultRows.length === 0 ? (
+        <div class="m-4 rounded-lg border border-dashed border-border px-4 py-6 text-center">
+          <p class="text-xs text-muted-foreground leading-relaxed">No results have been declared for current drives yet. Results show up here with a link to the official result page.</p>
+          <a href="/results" class="mt-2 inline-block py-1 text-xs font-bold text-primary hover:underline">Open the results page</a>
+        </div>
+      ) : (
+        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {resultRows.map((row, i) => (
+            <li class="board-row px-4 py-3.5 border-t border-border first:border-t-0 sm:[&:nth-child(-n+2)]:border-t-0 lg:[&:nth-child(-n+4)]:border-t-0 sm:[&:nth-child(2n)]:border-l lg:border-l lg:[&:nth-child(4n+1)]:border-l-0" style={`--i:${i}`}>
+              <div class="flex items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground">
+                <span class="truncate">{row.org}</span>
+                <span class="shrink-0 max-w-[50%] truncate">{row.place}</span>
+              </div>
+              <h4 class="mt-1 text-sm font-semibold leading-snug text-foreground line-clamp-2">
+                <a href={`/recruitments/${row.slug}`} class="hover:text-primary transition-colors">{row.title}</a>
+              </h4>
+              <p class="mt-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">{row.when}</p>
+              {row.date && <p class="mt-0.5 font-mono tabular-nums text-xs text-muted-foreground">{row.date}</p>}
+              {row.resultUrl ? (
+                <a href={row.resultUrl} target="_blank" rel="noopener noreferrer" class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-bold text-primary hover:underline">
+                  <span>Official result</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+                </a>
+              ) : (
+                <a href={`/recruitments/${row.slug}`} class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-bold text-primary hover:underline">View details</a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   </section>
+
+  <style>
+    @media (prefers-reduced-motion: no-preference) {
+      .board-row {
+        animation: board-row-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: calc(var(--i, 0) * 40ms);
+      }
+    }
+    @keyframes board-row-in {
+      from { opacity: 0; transform: translateY(4px); }
+    }
+  </style>
+
+  <script>
+    // Phone tabs for the exam board. At md and up the tablist is hidden and every panel shows.
+    const tablist = document.querySelector<HTMLElement>('[data-exam-tabs]');
+    if (tablist) {
+      const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+      const panels = [...document.querySelectorAll<HTMLElement>('[data-panel]')];
+      const select = (id: string, focus = false) => {
+        for (const tab of tabs) {
+          const on = tab.dataset.tab === id;
+          tab.setAttribute('aria-selected', String(on));
+          tab.tabIndex = on ? 0 : -1;
+          if (on && focus) tab.focus();
+        }
+        for (const panel of panels) panel.classList.toggle('max-md:hidden', panel.dataset.panel !== id);
+      };
+      tabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => select(tab.dataset.tab!));
+        tab.addEventListener('keydown', (e) => {
+          const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          select(tabs[(i + step + tabs.length) % tabs.length].dataset.tab!, true);
+        });
+      });
+      tablist.classList.remove('hidden');
+      tablist.classList.add('grid');
+      const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
+      select(fromHash ?? 'closing-soon');
+    }
+  </script>
 
   <!-- Section: Explore by Sector -->
   <section id="sectors" class="scroll-mt-24 py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-muted/40 border-y border-border">
@@ -360,59 +519,6 @@ const jsonLd = [
           />
         ))}
       </div>
-    </div>
-  </section>
-
-  <!-- Section: Exam Calendar Milestone Timeline -->
-  <section class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-      <div>
-        <h2 class="text-2xl sm:text-3xl font-black text-foreground tracking-normal font-heading">
-          Upcoming Examination & Application Milestones
-        </h2>
-        <p class="text-xs sm:text-sm text-muted-foreground mt-1">
-          Chronological milestone timeline of notifications, closing dates, and written examination days.
-        </p>
-      </div>
-      <a href="/calendar" class="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1">
-        <span>Open interactive calendar</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </a>
-    </div>
-
-    <!-- Timeline Grid -->
-    {milestones.length === 0 && (
-      <div class="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-        <p class="font-bold text-foreground font-heading">No upcoming milestones yet</p>
-        <p class="text-sm text-muted-foreground mt-1 max-w-md mx-auto">Application deadlines and exam dates show up here as soon as they are published.</p>
-      </div>
-    )}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {milestones.map((m) => (
-        <a
-          href={m.slug ? `/recruitments/${m.slug}` : '/calendar'}
-          class="p-4 sm:p-5 rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all relative flex flex-col justify-between group"
-        >
-          <div>
-            <span class="text-xs font-mono font-bold text-primary block mb-1.5">
-              {m.date}
-            </span>
-            <h4 class="font-bold text-sm text-foreground mb-1 leading-snug group-hover:text-primary transition-colors">
-              {m.title}
-            </h4>
-            <p class="text-xs text-muted-foreground">
-              {m.desc}
-            </p>
-          </div>
-          <div class="mt-4 pt-3 border-t border-border">
-            <span class={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${m.statusClass || 'bg-muted text-muted-foreground border-border'}`}>
-              {m.status}
-            </span>
-          </div>
-        </a>
-      ))}
     </div>
   </section>
 

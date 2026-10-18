@@ -1,3 +1,4 @@
+<!-- gstack: design-md-format=legacy-keep -->
 # Design System — NIRNAY OPS
 
 ## Product Context
@@ -60,6 +61,13 @@
 - **Easing:** ease-out for entering drawers and modals, ease-in-out for sidebar width transitions.
 - **Duration:** 150ms micro-actions, 250ms drawer slide transitions.
 
+## Homepage Exam Board
+- **Purpose:** one place to see every stage. Memorable thing: **everything is verified**, so every row carries an "Official notice" trust line.
+- **Columns:** Upcoming | Closing soon | On-going exams, then a full-width Results strip. Each column: 2px top rule in its stage colour (Upcoming = Info, Closing soon = Warning, On-going = Primary, Results = Success), uppercase 11px label, count, "All" link.
+- **Rows, not cards:** hairline-divided list inside one bg-card panel. Row = mono 11px org + state, 14px semibold title (2-line clamp), countdown line (loudest, semantic colour), mono date + posts, flags (Admit card / Answer key), trust line.
+- **Responsive:** >=768px three columns; <768px tabs (Closing soon selected by default) over one list, Results stacked below. Without JS all lists show stacked.
+- **Empty state:** dashed hairline box, one plain sentence, link to the full list.
+
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -68,3 +76,4 @@
 | 2026-10-04 | Dual Desktop/Mobile Table Architecture | Multi-column tables on desktop; structured high-density cards on phones. |
 | 2026-10-05 | White-blue theme lock | User request: removed black sidebar/CTA blocks and gold chrome accents. Primary actions use Gov Blue; amber kept only for Warning semantics. |
 | 2026-10-05 | Public-site dark mode (light/dark toggle) | User request. Class-driven `.dark` on `<html>`; header toggle persists to `localStorage('nirnay-theme')`, defaults to OS preference. Dark neutrals from the palette above; Gov Blue lifted to `#2563eb` (fills) / `#60a5fa` (text). Admin console stays light. |
+| 2026-10-19 | Homepage exam board | User request: replace Closing Soon + milestones with stage columns and Results strip. Phone uses tabs to keep the page short. |
