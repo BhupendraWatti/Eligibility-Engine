@@ -143,6 +143,8 @@ const boardColumns = [
     empty: 'No exams are pending right now. Drives move here once their forms close.',
   },
 ];
+// Phones open on the most urgent stage that has drives: closing soon, then exams, then upcoming.
+const defaultTab = ([closing-soon, ongoing-exams, upcoming] as const).find(id => boardColumns.find(c => c.id === id)!.total > 0) ?? closing-soon;
 const toneClass: Record<Tone, string> = {
   urgent: 'text-red-700 dark:text-red-400',
   soon: 'text-amber-700 dark:text-amber-400',
@@ -340,8 +342,9 @@ const jsonLd = [
           role="tab"
           id={`tab-${col.id}`}
           aria-controls={col.id}
-          aria-selected={col.id === 'closing-soon' ? 'true' : 'false'}
+          aria-selected={col.id === defaultTab ? 'true' : 'false'}
           data-tab={col.id}
+          data-default={col.id === defaultTab ? '' : undefined}
           class="min-h-11 rounded-lg px-1.5 text-xs font-bold leading-tight text-muted-foreground transition-colors aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {col.label} <span class="font-mono font-semibold">{col.total}</span>
@@ -497,7 +500,7 @@ const jsonLd = [
       tablist.classList.remove('hidden');
       tablist.classList.add('grid');
       const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
-      select(fromHash ?? 'closing-soon');
+      select(fromHash ?? tabs.find((t) => t.hasAttribute('data-default'))?.dataset.tab ?? 'closing-soon');
     }
   </script>
 
