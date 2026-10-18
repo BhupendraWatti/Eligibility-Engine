@@ -129,17 +129,17 @@ const resultRows = resultsAll.slice(0, BOARD_LIMIT).map(r => {
 const boardColumns = [
   {
     id: 'upcoming', label: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
-    rule: 'border-sky-600 dark:border-sky-400',
+    rule: 'border-t-sky-600 dark:border-t-sky-400',
     empty: 'No announced drives are waiting to open. New notices appear here as soon as they are published.',
   },
   {
     id: 'closing-soon', label: 'Closing soon', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
-    rule: 'border-amber-500 dark:border-amber-400',
+    rule: 'border-t-amber-500 dark:border-t-amber-400',
     empty: 'No applications are open right now. Drives taking forms appear here, nearest last date first.',
   },
   {
     id: 'ongoing-exams', label: 'On-going exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
-    rule: 'border-primary',
+    rule: 'border-t-primary',
     empty: 'No exams are pending right now. Drives move here once their forms close.',
   },
 ];
@@ -416,7 +416,7 @@ const jsonLd = [
     </div>
 
     <!-- Results strip -->
-    <div id="results-declared" class="scroll-mt-24 mt-4 lg:mt-6 bg-card border border-border border-t-2 border-emerald-600 dark:border-emerald-400 rounded-b-xl">
+    <div id="results-declared" class="scroll-mt-24 mt-4 lg:mt-6 bg-card border border-border border-t-2 border-t-emerald-600 dark:border-t-emerald-400 rounded-b-xl">
       <div class="flex items-baseline justify-between gap-3 px-4 pt-3.5 pb-3 border-b border-border">
         <h3 class="text-[11px] font-bold uppercase tracking-wider text-foreground">
           Results declared<span class="ml-1.5 font-mono font-semibold text-muted-foreground">{resultsAll.length}</span>
