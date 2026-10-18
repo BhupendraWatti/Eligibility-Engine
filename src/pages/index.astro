@@ -128,17 +128,17 @@ const resultRows = resultsAll.slice(0, BOARD_LIMIT).map(r => {
 
 const boardColumns = [
   {
-    id: 'upcoming', label: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
+    id: 'upcoming', label: 'Upcoming', tab: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
     rule: 'border-t-sky-600 dark:border-t-sky-400',
     empty: 'No announced drives are waiting to open. New notices appear here as soon as they are published.',
   },
   {
-    id: 'closing-soon', label: 'Closing soon', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
+    id: 'closing-soon', label: 'Closing soon', tab: 'Closing', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
     rule: 'border-t-amber-500 dark:border-t-amber-400',
     empty: 'No applications are open right now. Drives taking forms appear here, nearest last date first.',
   },
   {
-    id: 'ongoing-exams', label: 'On-going exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
+    id: 'ongoing-exams', label: 'On-going exams', tab: 'Exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
     rule: 'border-t-primary',
     empty: 'No exams are pending right now. Drives move here once their forms close.',
   },
@@ -347,7 +347,7 @@ const jsonLd = [
           data-default={col.id === defaultTab ? '' : undefined}
           class="min-h-11 rounded-lg px-1.5 text-xs font-bold leading-tight text-muted-foreground transition-colors aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {col.label} <span class="font-mono font-semibold">{col.total}</span>
+          <span class="sr-only">{col.label}</span><span aria-hidden="true">{col.tab}</span> <span class="font-mono font-semibold">{col.total}</span>
         </button>
       ))}
     </div>
