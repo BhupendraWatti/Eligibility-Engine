@@ -144,7 +144,7 @@ const boardColumns = [
   },
 ];
 // Phones open on the most urgent stage that has drives: closing soon, then exams, then upcoming.
-const defaultTab = ([closing-soon, ongoing-exams, upcoming] as const).find(id => boardColumns.find(c => c.id === id)!.total > 0) ?? closing-soon;
+const defaultTab = ['closing-soon', 'ongoing-exams', 'upcoming'].find(id => boardColumns.find(c => c.id === id)!.total > 0) ?? 'closing-soon';
 const toneClass: Record<Tone, string> = {
   urgent: 'text-red-700 dark:text-red-400',
   soon: 'text-amber-700 dark:text-amber-400',
