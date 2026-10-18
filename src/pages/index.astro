@@ -496,7 +496,12 @@ const jsonLd = [
         });
       });
       // The selected tab already names the stage, so the panel heading is only for screen readers on phones.
-      for (const panel of panels) panel.querySelector('h3')?.classList.add('max-md:sr-only');
+      for (const panel of panels) {
+        const heading = panel.querySelector('h3');
+        // A header left with nothing but the hidden heading would be a blank strip.
+        if (heading?.parentElement?.querySelector('a')) heading.classList.add('max-md:sr-only');
+        else heading?.parentElement?.classList.add('max-md:hidden');
+      }
       tablist.classList.remove('hidden');
       tablist.classList.add('grid');
       const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
