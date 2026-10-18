@@ -505,6 +505,11 @@ const jsonLd = [
       tablist.classList.remove('hidden');
       tablist.classList.add('grid');
       const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
+      // Same-page links such as the footer's /#closing-soon only change the hash.
+      addEventListener('hashchange', () => {
+        const id = panels.find((p) => `#${p.id}` === location.hash)?.id;
+        if (id) select(id);
+      });
       select(fromHash ?? tabs.find((t) => t.hasAttribute('data-default'))?.dataset.tab ?? 'closing-soon');
     }
   </script>
