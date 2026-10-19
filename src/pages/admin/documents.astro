@@ -260,7 +260,7 @@ const filterTags = [
 
     <!-- Documents Table (FlowStep Screen 28) -->
     <div class="rounded-xl border border-zinc-200 bg-white shadow-2xs overflow-hidden">
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto" id="documentsTableWrapper">
         <table class="w-full text-left text-xs border-collapse" id="documentsDataTable">
           <thead>
             <tr class="border-b border-zinc-200 bg-zinc-50/50 font-semibold uppercase text-[10px] tracking-wider text-zinc-500">
@@ -594,7 +594,8 @@ const filterTags = [
     // simple-datatables rewrites <tbody> on every page change and sort,
     // which destroys any listeners attached directly to row buttons.
     // Using a delegated listener on the stable parent (the card div) fixes this.
-    const tableWrapper = document.querySelector('.overflow-x-auto');
+    // By id: the filter-tag bar above also has .overflow-x-auto and comes first in the page.
+    const tableWrapper = document.getElementById('documentsTableWrapper');
     if (tableWrapper) {
       tableWrapper.addEventListener('click', (e) => {
         // ── Edit button ──────────────────────────────────────────────────────

@@ -3,13 +3,26 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAllActiveRecruitments, updateRecruitmentSeo } from '../../db/queries';
 import { readAdminSubmission, parseBooleanInput } from '../../services/admin-integrity';
+import { recruitmentSeo, TITLE_MAX, DESCRIPTION_MAX } from '../../services/seo';
 
 const recruitments = await getAllActiveRecruitments(undefined, { includeUnpublished: true });
-const selectedTitle = Astro.url.searchParams.get('recruitment') || recruitments[0]?.title || '';
-const currentRec = recruitments.find(r => r.title === selectedTitle) || recruitments[0];
+// Picked by id: two recruitments can share a title (e.g. a draft and its published copy). Title kept for old links.
+const selectedParam = Astro.url.searchParams.get('recruitment') || '';
+const currentRec = recruitments.find(r => r.id === selectedParam)
+  || recruitments.find(r => r.title === selectedParam)
+  || recruitments[0];
 
-const generatedTitle = `${currentRec?.title || 'Government Recruitment'} | Eligibility, Dates & Official Link`;
-const generatedDesc = `Explore ${currentRec?.title || 'this government recruitment'}${currentRec?.stateName ? ` in ${currentRec.stateName}` : ''}. Check eligibility, important dates, vacancies, and direct official links.`;
+// The same generator the public recruitment page falls back to, so the preview matches the live page.
+const generated = currentRec ? recruitmentSeo({
+  title: currentRec.title,
+  postTitle: currentRec.postTitle,
+  organisationShortName: currentRec.organisationShortName,
+  stateCode: currentRec.stateCode,
+  totalVacancies: currentRec.totalVacancies,
+  minQualificationLevel: currentRec.criteria.minQualificationLevel,
+  cycleYear: currentRec.cycleYear,
+  applicationEnd: currentRec.applicationEnd,
+}) : { title: '', description: '' };
 let message = '';
 let messageType: 'success' | 'error' = 'success';
 if (Astro.request.method === 'POST') {
@@ -17,13 +30,13 @@ if (Astro.request.method === 'POST') {
     if (!Astro.locals.adminEmail || !currentRec) throw new Error('An authenticated admin and recruitment are required.');
     const input = await readAdminSubmission(Astro.request);
     const restore = input.text('_action') === 'restore';
-    await updateRecruitmentSeo({
-      id: currentRec.id,
-      seoTitle: restore ? null : input.text('seoTitle') || null,
-      seoDescription: restore ? null : input.text('seoDescription') || null,
-      robotsIndex: restore ? 1 : (parseBooleanInput(input.value('robotsIndex')) ? 1 : 0),
-      adminEmail: Astro.locals.adminEmail,
-    });
+    // A value equal to the generated one is not an override: store null so it keeps following the record.
+    const override = (value: string, auto: string) => (value && value !== auto ? value : null);
+    const seoTitle = restore ? null : override(input.text('seoTitle'), generated.title);
+    const seoDescription = restore ? null : override(input.text('seoDescription'), generated.description);
+    const robotsIndex = restore ? 1 : (parseBooleanInput(input.value('robotsIndex')) ? 1 : 0);
+    await updateRecruitmentSeo({ id: currentRec.id, seoTitle, seoDescription, robotsIndex, adminEmail: Astro.locals.adminEmail });
+    Object.assign(currentRec, { seoTitle, seoDescription, robotsIndex });
     message = restore ? 'Generated SEO defaults restored.' : 'SEO metadata saved.';
   } catch (error: any) {
     Astro.response.status = 400;
@@ -31,9 +44,18 @@ if (Astro.request.method === 'POST') {
     message = error.message;
   }
 }
-const defaultTitle = currentRec?.seoTitle || generatedTitle;
-const defaultDesc = currentRec?.seoDescription || generatedDesc;
+const isOverridden = Boolean(currentRec?.seoTitle || currentRec?.seoDescription);
+const defaultTitle = currentRec?.seoTitle || generated.title;
+const defaultDesc = currentRec?.seoDescription || generated.description;
 const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
+const indexed = currentRec?.robotsIndex !== 0;
+const isPublished = currentRec?.status === 'PUBLISHED';
+const checks = [
+  { ok: defaultTitle.length <= TITLE_MAX, text: defaultTitle.length <= TITLE_MAX ? `Title fits in ${TITLE_MAX} characters` : `Title is ${defaultTitle.length} characters; Google shows about ${TITLE_MAX}, so the end may be cut` },
+  { ok: defaultDesc.length <= DESCRIPTION_MAX, text: `Description fits in ${DESCRIPTION_MAX} characters` },
+  { ok: indexed, text: indexed ? 'Search engines may index it (listed in the sitemap)' : 'Hidden from search engines and the sitemap' },
+  { ok: isPublished, text: isPublished ? 'Published, so the page is public' : 'Not published, so search engines cannot see the page yet' },
+];
 ---
 
 <AdminLayout
@@ -46,7 +68,7 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
 >
   <div class="mx-auto max-w-5xl space-y-6">
     {message && <div role="status" class={`rounded-lg border p-3 text-xs ${messageType === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>{message}</div>}
-    <form method="GET" class="flex justify-end"><select name="recruitment" onchange="this.form.submit()" class="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs">{recruitments.map(rec => <option value={rec.title} selected={rec.id === currentRec?.id}>{rec.title}</option>)}</select></form>
+    <form method="GET" class="flex justify-end"><select name="recruitment" onchange="this.form.submit()" class="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs">{recruitments.map(rec => <option value={rec.id} selected={rec.id === currentRec?.id}>{rec.title} ({rec.status.replace(/_/g, ' ').toLowerCase()})</option>)}</select></form>
     <!-- Header with Action (FlowStep Screen 29) -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
       <div class="space-y-1">
@@ -60,11 +82,11 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
             SEO management
           </h1>
           <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200">
-            Inherited defaults
+            {isOverridden ? 'Manual override' : 'Generated from the record'}
           </span>
         </div>
         <p class="text-xs text-zinc-500 font-mono">
-          Target: {selectedTitle}
+          Target: {currentRec?.title}
         </p>
       </div>
 
@@ -97,7 +119,7 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
       <form method="POST" id="seoForm" class="rounded-xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-5">
         <div class="border-b border-zinc-100 pb-3">
           <h2 class="text-sm font-bold text-zinc-950">Page Metadata & Open Graph</h2>
-          <p class="text-xs text-zinc-500">Defaults are generated automatically from structured recruitment records.</p>
+          <p class="text-xs text-zinc-500">Used for the public recruitment page's browser title, Google snippet and share preview. Leave a field as generated and it keeps updating when the record changes; any edit here replaces it until you restore defaults.</p>
         </div>
 
         <div class="space-y-4 text-xs">
@@ -105,8 +127,8 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <label class="font-semibold text-zinc-800">Page Meta Title *</label>
-              <span class="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                58 / 60 chars (Optimal)
+              <span data-count-for="seoTitleInput" data-max={TITLE_MAX} class={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${defaultTitle.length <= TITLE_MAX ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-800 bg-amber-50 border-amber-200'}`}>
+                {defaultTitle.length} / {TITLE_MAX} chars
               </span>
             </div>
             <input
@@ -122,8 +144,8 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <label class="font-semibold text-zinc-800">Meta Description *</label>
-              <span class="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                146 / 160 chars (Optimal)
+              <span data-count-for="seoDescInput" data-max={DESCRIPTION_MAX} class={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${defaultDesc.length <= DESCRIPTION_MAX ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-800 bg-amber-50 border-amber-200'}`}>
+                {defaultDesc.length} / {DESCRIPTION_MAX} chars
               </span>
             </div>
             <textarea
@@ -174,50 +196,52 @@ const canonicalSlug = `/recruitments/${currentRec?.slug || ''}`;
             <div class="text-[11px] text-zinc-600 flex items-center gap-1 font-mono">
               <span>govtrecruitments.com</span>
               <span>›</span>
-              <span>jobs</span>
+              <span>recruitments</span>
               <span>›</span>
-              <span class="truncate">{currentRec?.slug || 'mp-police-constable-2026'}</span>
+              <span class="truncate">{currentRec?.slug}</span>
             </div>
-            <div class="text-sm font-semibold text-[#1a0dab] hover:underline cursor-pointer leading-snug">
+            <div id="serpTitle" class="text-sm font-semibold text-[#1a0dab] leading-snug">
               {defaultTitle}
             </div>
-            <p class="text-xs text-zinc-600 line-clamp-2 leading-relaxed">
+            <p id="serpDesc" class="text-xs text-zinc-600 line-clamp-2 leading-relaxed">
               {defaultDesc}
             </p>
           </div>
-
-          <div class="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs">
-            <span class="font-bold text-zinc-900">Completeness Score:</span>
-            <span class="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
-              84% Complete
-            </span>
-          </div>
         </div>
 
-        <!-- SEO Checklist -->
+        <!-- SEO Checklist: computed from the saved record -->
         <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-2xs text-xs space-y-2.5">
-          <div class="font-bold text-zinc-950">SEO Quality Checks</div>
+          <div class="font-bold text-zinc-950">SEO checks</div>
           <div class="space-y-1.5 text-[11px]">
-            <div class="flex items-center gap-2 text-emerald-700">
-              <span>✓</span>
-              <span>Target authority keywords present</span>
-            </div>
-            <div class="flex items-center gap-2 text-emerald-700">
-              <span>✓</span>
-              <span>Length within search viewport constraints</span>
-            </div>
-            <div class="flex items-center gap-2 text-emerald-700">
-              <span>✓</span>
-              <span>Structured JSON-LD (JobPosting schema)</span>
-            </div>
-            <div class="flex items-center gap-2 text-emerald-700">
-              <span>✓</span>
-              <span>Mobile-optimized viewport configured</span>
-            </div>
+            {checks.map(c => (
+              <div class={`flex items-center gap-2 ${c.ok ? 'text-emerald-700' : 'text-amber-800'}`}>
+                <span>{c.ok ? '✓' : '!'}</span>
+                <span>{c.text}</span>
+              </div>
+            ))}
           </div>
         </div>
       </aside>
     </div>
   </div>
 
+  <script is:inline>
+    // Live character counts and SERP preview while typing.
+    document.querySelectorAll('[data-count-for]').forEach((badge) => {
+      const field = document.getElementById(badge.getAttribute('data-count-for'));
+      const max = Number(badge.getAttribute('data-max'));
+      const preview = document.getElementById(field?.id === 'seoTitleInput' ? 'serpTitle' : 'serpDesc');
+      field?.addEventListener('input', () => {
+        const n = field.value.length;
+        badge.textContent = `${n} / ${max} chars`;
+        badge.classList.toggle('text-emerald-700', n <= max);
+        badge.classList.toggle('bg-emerald-50', n <= max);
+        badge.classList.toggle('border-emerald-200', n <= max);
+        badge.classList.toggle('text-amber-800', n > max);
+        badge.classList.toggle('bg-amber-50', n > max);
+        badge.classList.toggle('border-amber-200', n > max);
+        if (preview) preview.textContent = field.value;
+      });
+    });
+  </script>
 </AdminLayout>
