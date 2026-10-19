@@ -3911,6 +3911,14 @@ export async function updateRecruitmentAtomic(
     return { success: false, id, validation: null, errors: [duplicateCheck.summary], message: duplicateCheck.summary };
   }
 
+  // An update that leaves sources out keeps the stored ones (see sourcesList below), so validate against those.
+  const storedSources = data.sources === undefined && !data.sourceUrl && d1
+    ? await getDb(d1)
+        .select({ sourceType: schema.sources.sourceType, sourceUrl: schema.sources.sourceUrl, sourceTitle: schema.sources.sourceTitle })
+        .from(schema.sources)
+        .where(eq(schema.sources.recruitmentId, id))
+    : [];
+
   const validationInput = {
     id,
     title: data.title,
@@ -3932,7 +3940,7 @@ export async function updateRecruitmentAtomic(
       sourceUrl: data.sourceUrl,
       sourceTitle: data.sourceTitle || `${org.shortName} Official Notification`,
       status: 'VALID' as const,
-    }] : [],
+    }] : storedSources,
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
