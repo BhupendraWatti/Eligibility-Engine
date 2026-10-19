@@ -118,7 +118,7 @@ Then deploy the app (`npm run deploy`) and the MCP (see `mcp/README.md`).
 
 ## Automated pipeline (`pipeline/` Worker, migration 0015)
 
-Cron: every 3 h (notices), daily 02:30 UTC (syllabus/books/knowledge), Mondays 03:30 UTC (dead-link check). It only PROPOSES; approve in `/admin/pending-changes`.
+Cron: every 3 h (notices, which also finds new notifications), daily 02:30 UTC (syllabus/books/knowledge), Mondays 03:30 UTC (link check: dead links, PDF links that are not PDFs, links off the official domain list, and recruitments missing an apply link or notification PDF; shown in `/admin/pipeline`, never changes a URL). It only PROPOSES; approve in `/admin/pending-changes`.
 Controls live in `/admin/pipeline` (kill switch, auto-publish [OFF], LLM cap, new-draft cap, model, alert email, run log) and `/admin/source-registry`.
 
 Deploy (owner), in this order:

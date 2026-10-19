@@ -55,9 +55,12 @@ export async function runPipeline(env: Env, opts: RunOptions): Promise<RunSummar
   if (opts.kind === 'LINKS') {
     const r = await runLinkCheck(d1);
     summary.sourcesChecked = r.checked;
-    summary.sourceNotes.push(`links checked ${r.checked}, ok ${r.ok}, failing ${r.failing}, newly broken ${r.newlyBroken.length}, sources re-verified ${r.sourcesVerified}`);
-    await finishRun(d1, runId, { status: 'OK', sourcesChecked: r.checked, sourcesChanged: r.newlyBroken.length, itemsFound: 0, proposalsCreated: 0, errors: 0, detail: r });
-    if (r.newlyBroken.length) await sendAlert(env, settings.alertEmail, `${r.newlyBroken.length} official link(s) now broken`, r.newlyBroken.slice(0, 40));
+    summary.sourceNotes.push(`links checked ${r.checked}, ok ${r.ok}, failing ${r.failing}, newly broken ${r.newlyBroken.length}, not a PDF ${r.notPdf.length}, unverified domain ${r.unverifiedDomain.length}, recruitments missing a required link ${r.gaps}, sources re-verified ${r.sourcesVerified}`);
+    const flagged = [...r.newlyBroken, ...r.notPdf, ...r.unverifiedDomain];
+    await finishRun(d1, runId, { status: 'OK', sourcesChecked: r.checked, sourcesChanged: flagged.length, itemsFound: 0, proposalsCreated: 0, errors: 0, detail: r });
+    if (flagged.length) await sendAlert(env, settings.alertEmail, `${flagged.length} official link(s) newly flagged`, [
+      ...r.newlyBroken.map(u => `BROKEN ${u}`), ...r.notPdf.map(u => `NOT_PDF ${u}`), ...r.unverifiedDomain.map(u => `UNVERIFIED_DOMAIN ${u}`),
+    ].slice(0, 40));
     return summary;
   }
 

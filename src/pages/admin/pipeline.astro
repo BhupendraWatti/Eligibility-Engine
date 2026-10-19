@@ -6,7 +6,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAdminD1 } from '../../db/queries';
 import { readAdminSubmission } from '../../services/admin-integrity';
 import {
-  KNOWN_MODELS, dayStart, dismissItem, getSettings, listAttentionItems, listBrokenLinks, listRunItems, listRuns, listSources,
+  KNOWN_MODELS, dayStart, dismissItem, getSettings, listAttentionItems, listBrokenLinks, listLinkGaps, listRunItems, listRuns, listSources,
   llmCostThisMonth, llmCostToday, newDraftsToday, recordSettingAudit, setSetting, type ItemRow, type RunRow,
 } from '../../services/pipeline-store';
 import { PIPELINE_ENABLED } from '../../lib/features';
@@ -64,11 +64,12 @@ if (Astro.request.method === 'POST') {
 let loadError = '';
 const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => fn().catch(e => { console.error('[admin/pipeline]', e); loadError = 'Pipeline tables are unavailable. Has migration 0015 been applied?'; return fallback; });
 const settings = d1 ? await safe(() => getSettings(d1), null) : null;
-const [costToday, costMonth, draftsToday, runs, attention, broken, sources] = d1 && settings ? await Promise.all([
+const [costToday, costMonth, draftsToday, runs, attention, broken, sources, gaps] = d1 && settings ? await Promise.all([
   safe(() => llmCostToday(d1), 0), safe(() => llmCostThisMonth(d1), 0), safe(() => newDraftsToday(d1), 0),
   safe(() => listRuns(d1, 30), [] as RunRow[]), safe(() => listAttentionItems(d1, 40), [] as ItemRow[]),
   safe(() => listBrokenLinks(d1, 30), [] as Awaited<ReturnType<typeof listBrokenLinks>>), safe(() => listSources(d1), []),
-]) : [0, 0, 0, [] as RunRow[], [] as ItemRow[], [] as Awaited<ReturnType<typeof listBrokenLinks>>, []];
+  safe(() => listLinkGaps(d1, 30), [] as Awaited<ReturnType<typeof listLinkGaps>>),
+]) : [0, 0, 0, [] as RunRow[], [] as ItemRow[], [] as Awaited<ReturnType<typeof listBrokenLinks>>, [], [] as Awaited<ReturnType<typeof listLinkGaps>>];
 
 const selectedRun = Astro.url.searchParams.get('run');
 const runItems = d1 && selectedRun ? await listRunItems(d1, selectedRun).catch(() => []) : [];
@@ -227,10 +228,19 @@ const label = 'block text-[10px] font-bold uppercase tracking-wider text-slate-5
 
     <section class="rounded-xl border border-slate-200 bg-white p-4">
       <h2 class="text-sm font-bold text-slate-950 mb-1">Broken official links</h2>
-      <p class="text-[11px] text-slate-500 mb-3">Weekly check. A link is flagged after two failed weeks. Fix it in the recruitment's edit page.</p>
+      <p class="text-[11px] text-slate-500 mb-3">Weekly check. BROKEN: failed two weeks in a row. NOT_PDF: a PDF link that opens a web page instead. UNVERIFIED_DOMAIN: not on the official domain list, so not checked; confirm it belongs to the recruiting body. Nothing is changed automatically: fix it in the recruitment's edit page.</p>
       {broken.length === 0 ? <p class="text-xs text-slate-400">No broken links.</p> : (
         <ul class="space-y-1.5 text-[11px]">{broken.map(l => (
-          <li class="flex flex-wrap gap-x-2"><a href={`/recruitments/${l.recruitmentId}/edit`} class="text-primary underline">{l.recruitmentTitle}</a><span class="font-mono text-slate-500">{l.linkType}</span><span class="font-mono text-rose-700 break-all">{l.url}</span><span class="text-slate-400">{l.failures} failed checks · {when(l.checkedAt)}</span></li>))}</ul>
+          <li class="flex flex-wrap gap-x-2"><a href={`/recruitments/${l.recruitmentId}/edit`} class="text-primary underline">{l.recruitmentTitle}</a><span class="font-mono font-bold text-rose-700">{l.status}</span><span class="font-mono text-slate-500">{l.linkType}</span><span class="font-mono text-rose-700 break-all">{l.url}</span><span class="text-slate-400">{l.status === 'BROKEN' ? `${l.failures} failed checks · ` : ''}{when(l.checkedAt)}</span></li>))}</ul>
+      )}
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <h2 class="text-sm font-bold text-slate-950 mb-1">Recruitments missing a required link</h2>
+      <p class="text-[11px] text-slate-500 mb-3">Every recruitment needs an APPLY_ONLINE link (the page where candidates fill the form) and a NOTIFICATION_PDF link (the official notice itself). Add them from the official source only.</p>
+      {gaps.length === 0 ? <p class="text-xs text-slate-400">Every recruitment has both.</p> : (
+        <ul class="space-y-1.5 text-[11px]">{gaps.map(g => (
+          <li class="flex flex-wrap gap-x-2"><a href={`/recruitments/${g.id}/edit`} class="text-primary underline">{g.title}</a><span class="text-slate-400">{g.status}</span><span class="font-mono text-rose-700">missing {g.missing.join(', ')}</span></li>))}</ul>
       )}
     </section>
   </div>

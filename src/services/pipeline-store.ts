@@ -183,8 +183,19 @@ export async function listRunItems(d1: D1Database, runId: string): Promise<ItemR
   return ((await d1.prepare('SELECT id, run_id AS runId, source_id AS sourceId, doc_url AS docUrl, status, doc_type AS docType, title, confidence, reason, extracted_json AS extractedJson, validation_json AS validationJson, proposal_id AS proposalId, dry_run AS dryRun, dismissed, created_at AS createdAt FROM pipeline_items WHERE run_id = ? ORDER BY created_at').bind(runId).all<ItemRow>()).results ?? []);
 }
 
+/** Link statuses the weekly check flags for an admin: dead for two weeks, a "PDF" that is not one, or a domain off the allow-list. */
+export const FLAGGED_LINK_STATUSES = ['BROKEN', 'NOT_PDF', 'UNVERIFIED_DOMAIN'] as const;
+/** Link types whose URL must return the document itself. */
+export const PDF_LINK_TYPES = ['NOTIFICATION_PDF', 'RULEBOOK', 'SYLLABUS_PDF', 'CORRIGENDUM'];
+
 export async function listBrokenLinks(d1: D1Database, limit = 50) {
-  return ((await d1.prepare("SELECT l.id, l.recruitment_id AS recruitmentId, r.title AS recruitmentTitle, l.link_type AS linkType, l.title, l.url, l.link_failures AS failures, l.link_checked_at AS checkedAt FROM official_links l JOIN recruitments r ON r.id = l.recruitment_id WHERE l.link_status = 'BROKEN' ORDER BY l.link_checked_at DESC LIMIT ?").bind(limit).all<{ id: string; recruitmentId: string; recruitmentTitle: string; linkType: string; title: string; url: string; failures: number; checkedAt: number }>()).results ?? []);
+  return ((await d1.prepare(`SELECT l.id, l.recruitment_id AS recruitmentId, r.title AS recruitmentTitle, l.link_type AS linkType, l.title, l.url, l.link_status AS status, l.link_failures AS failures, l.link_checked_at AS checkedAt FROM official_links l JOIN recruitments r ON r.id = l.recruitment_id WHERE l.link_status IN (${FLAGGED_LINK_STATUSES.map(() => '?').join(', ')}) ORDER BY l.link_checked_at DESC LIMIT ?`).bind(...FLAGGED_LINK_STATUSES, limit).all<{ id: string; recruitmentId: string; recruitmentTitle: string; linkType: string; title: string; url: string; status: string; failures: number; checkedAt: number }>()).results ?? []);
+}
+
+/** Live (not archived) recruitments without an active apply link or an active notification PDF. */
+export async function listLinkGaps(d1: D1Database, limit = 50) {
+  const rows = (await d1.prepare("SELECT r.id, r.title, r.status, MAX(CASE WHEN l.link_type = 'APPLY_ONLINE' THEN 1 ELSE 0 END) AS hasApply, MAX(CASE WHEN l.link_type = 'NOTIFICATION_PDF' THEN 1 ELSE 0 END) AS hasPdf FROM recruitments r LEFT JOIN official_links l ON l.recruitment_id = r.id AND l.is_active = 1 WHERE r.status != 'ARCHIVED' GROUP BY r.id HAVING hasApply = 0 OR hasPdf = 0 ORDER BY r.title LIMIT ?").bind(limit).all<{ id: string; title: string; status: string; hasApply: number; hasPdf: number }>()).results ?? [];
+  return rows.map(r => ({ id: r.id, title: r.title, status: r.status, missing: [!r.hasApply && 'APPLY_ONLINE', !r.hasPdf && 'NOTIFICATION_PDF'].filter(Boolean) as string[] }));
 }
 
 // ── Source registry admin writes ───────────────────────────────────────────────────────────────────────
