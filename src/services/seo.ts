@@ -160,3 +160,31 @@ export function homeSeo(year: number = currentYear()): SeoMeta {
     ],
   };
 }
+
+/**
+ * JobPosting `baseSalary` from the notice's own pay text ("Rs 35,400 - 1,12,400 (Level 6)").
+ * Indian pay scales are monthly, so the unit is MONTH. Several ranges ("Level 5 / Level 6") become
+ * one range from the lowest to the highest. Null when the text gives no rupee amount, or names another
+ * period or unit (annum, year, day, hour, lakh, LPA, crore), so nothing is guessed.
+ */
+export function noticeBaseSalary(payText?: string | null) {
+  const text = payText?.trim();
+  if (!text || /annum|annual|year|\bp\.\s?a\b|\bday|daily|hour|week|lakh|lac\b|lpa|crore/i.test(text)) return null;
+  const rupee = String.raw`(?:\b(?:rs\.?|inr)|₹)\s*`;
+  const amount = (s: string) => Number(s.replace(/,/g, ''));
+  const values: number[] = [];
+  for (const m of text.matchAll(new RegExp(String.raw`${rupee}(\d[\d,]*)(?:\s*(?:-|–|—|to)\s*(?:${rupee})?(\d[\d,]*))?`, 'gi'))) {
+    values.push(amount(m[1]));
+    if (m[2]) values.push(amount(m[2]));
+  }
+  if (!values.length || values.some(v => !Number.isFinite(v) || v <= 0)) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return {
+    '@type': 'MonetaryAmount',
+    currency: 'INR',
+    value: min === max
+      ? { '@type': 'QuantitativeValue', value: min, unitText: 'MONTH' }
+      : { '@type': 'QuantitativeValue', minValue: min, maxValue: max, unitText: 'MONTH' },
+  };
+}

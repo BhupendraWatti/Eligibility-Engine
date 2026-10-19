@@ -6,7 +6,7 @@ import { getRecruitmentWithRelations } from '../../db/queries';
 import { findApplyLink } from '../../services/cadre-guide';
 import { domicileScopeLabel } from '../../services/domicile-scope';
 import { jurisdictionName } from '../../data/india-jurisdictions';
-import { recruitmentSeo, stateKeywordName } from '../../services/seo';
+import { noticeBaseSalary, recruitmentSeo, stateKeywordName } from '../../services/seo';
 
 const { slug } = Astro.params;
 
@@ -93,6 +93,10 @@ if (recruitment && canonicalUrl) {
     || recruitment.sourcesList?.find(src => src.publicationDate)?.publicationDate
     || recruitment.applicationStart;
   if (!isUnderVerification && !isInvalid && notified) {
+    // Pay only from the notice (noticePay), never the master default. No street, PIN code or city: a
+    // recruitment fills posts across its state (or India) and no record holds an office address, so the
+    // address stops at the region rather than inventing one (Google lists those fields as recommended).
+    const baseSalary = noticeBaseSalary(noticePay);
     jsonLd.push({
       '@type': 'JobPosting',
       title: recruitment.postTitle || recruitment.title,
@@ -103,6 +107,7 @@ if (recruitment && canonicalUrl) {
       ...(recruitment.totalVacancies > 0 ? { totalJobOpenings: recruitment.totalVacancies } : {}),
       hiringOrganization: { '@type': 'Organization', name: recruitment.organisationName, sameAs: recruitment.organisationUrl },
       jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressCountry: 'IN', ...(stateName ? { addressRegion: stateName } : {}) } },
+      ...(baseSalary ? { baseSalary } : {}),
       ...(recruitment.advtNumber ? { identifier: { '@type': 'PropertyValue', name: recruitment.organisationShortName, value: recruitment.advtNumber } } : {}),
       url: canonicalUrl,
     });

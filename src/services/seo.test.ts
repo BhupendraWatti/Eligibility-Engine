@@ -2,7 +2,7 @@
  * SEO keywords: a state job targets its own state first and the national terms after; central jobs target "central government jobs".
  * Run: `npx tsx src/services/seo.test.ts`
  */
-import { clip, DESCRIPTION_MAX, recruitmentSeo, stateListingSeo, stateKeywordName, TITLE_MAX } from './seo';
+import { clip, DESCRIPTION_MAX, noticeBaseSalary, recruitmentSeo, stateListingSeo, stateKeywordName, TITLE_MAX } from './seo';
 
 let failures = 0;
 function assert(condition: boolean, msg: string) {
@@ -27,5 +27,18 @@ assert(central.title === 'SSC CGL – Central Govt Job 2026', `central title (${
 assert(stateKeywordName('IN') === null && stateKeywordName('XX') === null && stateKeywordName('tg') === 'Telangana', 'state names only for real states');
 assert(stateListingSeo('AS', 2026).title.startsWith('Assam Govt Jobs 2026'), 'state listing title');
 assert(clip('one two three four', 10) === 'one two…', 'clip cuts at a word');
+
+// baseSalary: only from the notice's pay text, monthly rupees, nothing guessed.
+const range = (t: string) => { const v = noticeBaseSalary(t)?.value as any; return v ? `${v.minValue ?? v.value}-${v.maxValue ?? v.value}` : null; };
+assert(range('Rs 35,400 - 1,12,400 (Level 6)') === '35400-112400', 'a pay range reads Indian digit grouping');
+assert(range('Rs 29,200 - 92,300 (Level 5) / Rs 35,400 - 1,12,400 (Level 6)') === '29200-112400', 'several ranges span lowest to highest');
+assert(range('Rs 21,700 - 1,12,400 (Level 3 to Level 6, by post)') === '21700-112400', 'pay levels in brackets are not read as rupees');
+assert(range('Rs. 19,500 - 62,000/- (Pay Matrix Level 4)') === '19500-62000' && range('₹56,100 to ₹1,77,500') === '56100-177500', 'Rs./-, ₹ and "to" are read');
+assert((noticeBaseSalary('Rs 25,000 fixed')?.value as any)?.value === 25000, 'a single amount is a value, not a range');
+assert(noticeBaseSalary('Rs 35,400 - 1,12,400')?.value.unitText === 'MONTH' && noticeBaseSalary('Rs 1')?.currency === 'INR', 'monthly INR');
+assert(noticeBaseSalary(null) === null && noticeBaseSalary('As per rules') === null && noticeBaseSalary('Level 6') === null, 'no rupee amount, no salary');
+assert(noticeBaseSalary('Rs 6 lakh per annum') === null && noticeBaseSalary('Rs 500 per day') === null, 'another period or unit is left out');
+assert(range('Group A Officers 2026: Rs 56,100 - 1,77,500') === '56100-177500', '"Group A" is not per annum, "Officers 2026" is not rupees');
+assert(noticeBaseSalary('Rs 7,20,000 p.a.') === null, 'p.a. is left out');
 
 if (failures) { console.error(`${failures} failure(s)`); process.exit(1); }
