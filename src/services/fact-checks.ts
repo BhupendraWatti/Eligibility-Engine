@@ -188,6 +188,14 @@ function checkValue(field: string, value: unknown, quotes: string[], payload: Re
       ? { status: 'NOT_IN_QUOTE', detail: `Date(s) not in the quotes: ${missing.map(d => `${d.eventType} ${d.eventDate}`).join(', ')}.` }
       : { status: 'MATCHES_QUOTE', detail: 'Every date appears in the quotes. Check that each is the right event.' };
   }
+  if (field === 'postingPlaces' && Array.isArray(value)) {
+    // PIN codes are compared; town names are not, since a Hindi or other-language quote prints them in its own script.
+    const pins = (value as Array<{ postalCode?: string }>).map(p => p.postalCode).filter((p): p is string => !!p);
+    const printed = new Set([...asciiDigits(all).matchAll(/(?<!\d)(\d{3})[\s-]?(\d{3})(?!\d)/g)].map(m => m[1] + m[2]));
+    const missing = pins.filter(p => !printed.has(p));
+    if (missing.length) return { status: 'NOT_IN_QUOTE', detail: `PIN code(s) not in the quotes: ${missing.join(', ')}.` };
+    if (pins.length) return { status: 'MATCHES_QUOTE', detail: 'Every PIN code appears in the quotes. Read the town and address of each place against them.' };
+  }
   return { status: 'NEEDS_READING', detail: 'Cannot be compared mechanically (summary, category, yes/no or link). Read it against the quote.' };
 }
 

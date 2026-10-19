@@ -17,6 +17,7 @@ import { jurisdictionName } from '../data/india-jurisdictions';
 import { isPdfUrl } from './cadre-guide';
 import { recruitmentSeo, type RecruitmentSeoInput } from './seo';
 import { CERTIFICATE_CODES, unknownRequirementParts } from '../data/credentials';
+import { cleanPostingPlaces, PostingPlaceError } from './posting-places';
 import type { Actor } from './recruitment-query';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
@@ -73,12 +74,14 @@ type FieldSpec =
   | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList' | 'certificateList'
   | 'nullableString' | 'nullableNumber' | 'nullableStateCode' | 'categoryQualifications'
   | { enum: string[] }
-  | 'selectionStages' | 'vacancies' | 'dates' | 'sources' | 'links';
+  | 'selectionStages' | 'vacancies' | 'dates' | 'sources' | 'links' | 'postingPlaces';
 
 /** Fields an UPDATE proposal may change. Deliberately excludes status, postId, organisationId, stateId, slug, isFeatured, robotsIndex. */
 export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   title: 'string', advtNumber: 'nullableString', totalVacancies: 'int', shortSummary: 'text', overviewMarkdown: 'text',
   cycleYear: 'int', payScaleOverride: 'string', salaryDetailsMarkdown: 'text', cadreClassification: 'string',
+  // Places the notice names for posting; each gives its own stateCode (proposals are checked before the state is known).
+  postingPlaces: 'postingPlaces',
   minAge: 'int', maxAgeGeneral: 'int', ageCutoffDate: 'date',
   ageRelaxationScSt: 'int', ageRelaxationObc: 'int', ageRelaxationFemale: 'int', ageRelaxationEws: 'int',
   minQualificationLevel: { enum: QUALIFICATIONS },
@@ -261,6 +264,13 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
         title: str(s.title, `${field}[${i}].title`, 200),
         url: httpUrl(s.url, `${field}[${i}].url`),
       }));
+    case 'postingPlaces':
+      try {
+        return cleanPostingPlaces(v, null);
+      } catch (e) {
+        if (e instanceof PostingPlaceError) throw new InvalidProposalError(`${field}: ${e.message} Send [{"locality":"Bhopal","stateCode":"MP","postalCode":"462001","streetAddress":"..."}], only places the notice names.`);
+        throw e;
+      }
   }
 }
 

@@ -6,6 +6,8 @@ import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../
 // src/pages/admin/recruitments/[id]/edit.astro (FlowStep Screen 22)
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../../components/admin/AgeRangeGuard.astro';
+import PostingPlacesFields from '../../../../components/admin/PostingPlacesFields.astro';
+import { postingPlacesFromForm } from '../../../../services/posting-places';
 import {
   getRecruitmentById,
   getAllCanonicalPosts,
@@ -152,6 +154,7 @@ if (Astro.request.method === 'POST') {
     const payScaleOverride = formData.get('payScaleOverride')?.toString().trim();
     const cadreClassification = formData.get('cadreClassification')?.toString().trim();
     const salaryDetailsMarkdown = formData.get('salaryDetailsMarkdown')?.toString().trim();
+    const postingPlaces = postingPlacesFromForm(formData);
 
     // Sources & Official Links
     const sourceTitle = formData.get('sourceTitle')?.toString().trim();
@@ -246,6 +249,7 @@ if (Astro.request.method === 'POST') {
         payScaleOverride,
         cadreClassification,
         salaryDetailsMarkdown,
+        postingPlaces,
         applicationStart,
         applicationEnd,
         examDate,
@@ -562,6 +566,10 @@ const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || 
                   <label class="block text-[11px] font-semibold text-zinc-600 mb-1">EWS</label>
                   <input type="number" name="vac_ews" value={vacEws} disabled={!vacanciesEditable} class="w-full px-2.5 py-1.5 rounded border border-zinc-200 text-xs font-mono tabular-nums outline-none" />
                 </div>
+              </div>
+
+              <div class="sm:col-span-2 pt-3 border-t border-zinc-100">
+                <PostingPlacesFields places={recruitment.postingPlaces} ownStateCode={recruitment.stateCode} />
               </div>
             </div>
           </div>

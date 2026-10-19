@@ -148,13 +148,13 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Propose an update to a recruitment',
       description:
         'Queue a field-level change to an EXISTING recruitment for owner approval. Does NOT change the live site. ' +
-        'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification), ' +
+        'Covers every tab of the admin editor: Basic (title, advtNumber, cycleYear, totalVacancies, shortSummary, overviewMarkdown, examStatus, resultStatus), Vacancy (vacanciesBreakdown, payScaleOverride, salaryDetailsMarkdown, cadreClassification, postingPlaces = places of posting the notice names, each with its own stateCode), ' +
         'Eligibility (age, relaxations, qualification, domicileScope = who may apply: STATE_ONLY / OPEN / OPEN_STATE_QUOTA, see get_domain_schema eligibilityNotes; physical standards), Dates (applicationStart/End, examDate, importantDates for notification, correction window, admit card, result), Sources (sources, officialLinks) and SEO (seoTitle, seoDescription). ' +
         'SEO is filled automatically from the facts while it is empty or still the generated text (a state job targets "{State} govt jobs" / "{State} govt job vacancy" first, a central one "central government jobs", both then "government jobs {year}"); send seoTitle/seoDescription only to override with your own plain-English text. ' +
         `Allowed fields in "changes": ${editable}. ` +
         'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write every text field in plain, simple English, translating notices in Hindi, Gujarati or any other language (text in another script is refused; evidence snippets and advtNumber stay as printed): plain factual statements taken from the notice, no promotional tone, no guesses. ' +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
-        'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
+        'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages, postingPlaces) REPLACE the whole list, so send the full list. ' +
         'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
         'Returns PENDING_CHANGE_CONFLICT if an open proposal already changes the same fields (withdraw it first). Call get_domain_schema for exact formats.',
       inputSchema: {

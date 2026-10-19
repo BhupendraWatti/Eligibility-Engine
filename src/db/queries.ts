@@ -8,6 +8,7 @@ import { normalizeSectorIcon, normalizeSectorTheme } from '../services/sector-th
 import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
 import { deriveDomicileColumns, nextScope, stateCodeForId, type DomicileColumns, type DomicileScope } from '../services/domicile-scope';
 import { buildCadreGuide, type CadreGuide, type HiringBody } from '../services/cadre-guide';
+import { cleanPostingPlaces, parsePostingPlaces, postingPlacesJson, PostingPlaceError, type PostingPlace } from '../services/posting-places';
 import {
   resolveRecruitmentLifecycle,
   getLifecyclePresentation,
@@ -185,6 +186,8 @@ export interface RecruitmentWithDetails {
   sectorSlug?: string;
   payScale?: string | null;
   payScaleOverride?: string | null;
+  /** Places the notice names (src/services/posting-places.ts); empty when it names none. */
+  postingPlaces?: PostingPlace[];
   salaryDetailsMarkdown?: string | null;
   cadreClassification?: string | null;
   seoTitle?: string | null;
@@ -3241,6 +3244,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     sectorSlug: r.post?.sector?.slug,
     payScale: r.payScaleOverride || r.post?.payScale,
     payScaleOverride: r.payScaleOverride,
+    postingPlaces: parsePostingPlaces(r.postingPlacesJson),
     salaryDetailsMarkdown: r.salaryDetailsMarkdown,
     cadreClassification: r.cadreClassification,
     seoTitle: r.seoTitle,
@@ -3336,6 +3340,8 @@ export interface CreateRecruitmentInput {
   status?: string; // 'DRAFT' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'PUBLISHED'
   cycleYear?: number;
   payScaleOverride?: string;
+  /** Places of posting the notice names. Undefined on an update keeps the stored ones; [] clears them. */
+  postingPlaces?: unknown[];
   salaryDetailsMarkdown?: string;
   cadreClassification?: string;
   minAge?: number;
@@ -3431,6 +3437,14 @@ async function storedDomicile(recruitmentId: string, d1?: D1Database): Promise<S
   return row ? { scope: row.scope ?? undefined, scopeState: row.scopeState, stateId: row.stateId } : undefined;
 }
 
+/** The sources a recruitment already has, for the publication check of an update that keeps them. */
+async function storedSources(recruitmentId: string, d1?: D1Database): Promise<Array<{ sourceType: string; sourceUrl: string; sourceTitle: string }>> {
+  if (!d1) return FALLBACK_RECRUITMENTS.find(r => r.id === recruitmentId || r.slug === recruitmentId)?.sourcesList ?? [];
+  const { results } = await d1.prepare('SELECT source_type AS sourceType, source_url AS sourceUrl, source_title AS sourceTitle FROM sources WHERE recruitment_id = ?')
+    .bind(recruitmentId).all<{ sourceType: string; sourceUrl: string; sourceTitle: string }>();
+  return results ?? [];
+}
+
 /**
  * The only place the domicile columns are computed (docs/designs/domicile-scope.md): every save of a recruitment's
  * eligibility goes through here, so the scope and the legacy columns can never disagree.
@@ -3447,6 +3461,17 @@ function domicileForSave(requested: unknown, requestedState: string | null | und
   return { scope, ...deriveDomicileColumns(scope, state) };
 }
 
+/** Column value for the places of posting: undefined keeps the stored one, or the reason they cannot be saved. */
+function postingPlacesForSave(places: unknown[] | undefined, stateId: string): { json?: string | null; error?: string } {
+  if (places === undefined) return {};
+  try {
+    return { json: postingPlacesJson(cleanPostingPlaces(places, stateCodeForId(stateId))) };
+  } catch (e) {
+    if (e instanceof PostingPlaceError) return { error: e.message };
+    throw e;
+  }
+}
+
 /**
  * Ingest and create a new recruitment drive atomically with all relational child records
  * (recruitment, eligibility, vacancies, dates, sources, official links, and audit log)
@@ -3461,6 +3486,8 @@ export async function createRecruitmentAtomic(
 
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
   const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId);
+  const places = postingPlacesForSave(data.postingPlaces, stateId);
+  if (places.error) return { success: false, id: newId, validation: null, errors: [places.error], message: places.error };
 
   // 1. Validation & Duplicate Detection
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -3552,6 +3579,7 @@ export async function createRecruitmentAtomic(
     sectorName: matchedPost?.sectorName,
     payScale: data.payScaleOverride || matchedPost?.payScale,
     payScaleOverride: data.payScaleOverride || null,
+    postingPlaces: parsePostingPlaces(places.json),
     salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
     cadreClassification: data.cadreClassification || null,
     seoTitle: data.seoTitle || null,
@@ -3682,6 +3710,7 @@ export async function createRecruitmentAtomic(
           validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
           selectionStagesJson,
           payScaleOverride: data.payScaleOverride || null,
+          postingPlacesJson: places.json ?? null,
           salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
           cadreClassification: data.cadreClassification || null,
           seoTitle: data.seoTitle || null,
@@ -3903,6 +3932,10 @@ export async function updateRecruitmentAtomic(
   const d1 = resolveD1(providedD1, 'updating a recruitment');
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
   const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId, await storedDomicile(id, d1));
+  const places = postingPlacesForSave(data.postingPlaces, stateId);
+  if (places.error) return { success: false, id, validation: null, errors: [places.error], message: places.error };
+  // Sources left out of an update are kept (see "Recreate sources if specified"), so the check reads the stored ones.
+  const keptSources = data.sources === undefined && !data.sourceUrl ? await storedSources(id, d1) : [];
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -3932,7 +3965,7 @@ export async function updateRecruitmentAtomic(
       sourceUrl: data.sourceUrl,
       sourceTitle: data.sourceTitle || `${org.shortName} Official Notification`,
       status: 'VALID' as const,
-    }] : [],
+    }] : keptSources.map(source => ({ ...source, status: 'VALID' as const })),
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
@@ -3982,6 +4015,7 @@ export async function updateRecruitmentAtomic(
       resultStatus: data.resultStatus !== undefined ? data.resultStatus : existing.resultStatus,
       payScale: data.payScaleOverride || matchedPost?.payScale || existing.payScale,
       payScaleOverride: data.payScaleOverride || null,
+      postingPlaces: places.json === undefined ? existing.postingPlaces : parsePostingPlaces(places.json),
       salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
       cadreClassification: data.cadreClassification || null,
       seoTitle: data.seoTitle !== undefined ? data.seoTitle : existing.seoTitle,
@@ -4110,6 +4144,7 @@ export async function updateRecruitmentAtomic(
             validationErrorsJson: JSON.stringify(validationResult.blockingErrors),
             selectionStagesJson,
             payScaleOverride: data.payScaleOverride || null,
+            ...(places.json !== undefined ? { postingPlacesJson: places.json } : {}),
             salaryDetailsMarkdown: data.salaryDetailsMarkdown || null,
             cadreClassification: data.cadreClassification || null,
             seoTitle: data.seoTitle || null,

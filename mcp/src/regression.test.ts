@@ -130,6 +130,11 @@ async function run() {
   assert(refused === 3, 'unknown categories and levels, and the retired reservationStateCode, are rejected');
 
   // ── 6b2. Certificates are catalogue codes; "|" joins alternatives; post-wise rules are text ────────
+  const places = sanitizeChanges('UPDATE_RECRUITMENT', { postingPlaces: [{ locality: 'Bhopal', stateCode: 'mp', postalCode: '462 001' }] }).postingPlaces as Array<{ stateCode: string; postalCode: string }>;
+  assert(places.length === 1 && places[0].stateCode === 'MP' && places[0].postalCode === '462001', 'a place of posting is accepted and tidied');
+  let noState = '';
+  try { sanitizeChanges('UPDATE_RECRUITMENT', { postingPlaces: [{ locality: 'Bhopal' }] }); } catch (e) { noState = (e as Error).message; }
+  assert(noState.includes('postingPlaces') && noState.includes('state code'), 'a proposed place must name its state');
   const certs = sanitizeChanges('UPDATE_RECRUITMENT', { additionalSkills: ['DELED|BELED', 'UPTET_PRIMARY|CTET_PAPER_1'], postSpecificRules: 'Lifeguards need Class 10; coaches need a degree.' });
   assert((certs.additionalSkills as string[]).length === 2 && typeof certs.postSpecificRules === 'string', 'certificate codes with alternatives and post-wise rules are accepted');
   let badCert = '';

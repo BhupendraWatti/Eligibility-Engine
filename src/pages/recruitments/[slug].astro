@@ -7,6 +7,7 @@ import { findApplyLink } from '../../services/cadre-guide';
 import { domicileScopeLabel } from '../../services/domicile-scope';
 import { jurisdictionName } from '../../data/india-jurisdictions';
 import { noticeBaseSalary, recruitmentSeo, stateKeywordName } from '../../services/seo';
+import { postingPlaceJobLocations, postingPlaceLabel } from '../../services/posting-places';
 
 const { slug } = Astro.params;
 
@@ -44,6 +45,7 @@ const ageCutoffDate = formatDate(recruitment?.criteria.ageCutoffDate);
 const relaxationNotes = recruitment?.criteria.relaxationNotesMarkdown?.trim() || null;
 // The mapper's payScale falls back to the unverified master default; only the override is the notice's pay.
 const noticePay = recruitment?.payScaleOverride?.trim() || null;
+const postingPlaces = recruitment?.postingPlaces ?? [];
 
 const recordLastVerified = (() => {
   const times = (recruitment?.sourcesList ?? []).map((src: any) => (src.lastVerifiedAt ? new Date(src.lastVerifiedAt).getTime() : 0)).filter((t: number) => t > 0);
@@ -93,9 +95,8 @@ if (recruitment && canonicalUrl) {
     || recruitment.sourcesList?.find(src => src.publicationDate)?.publicationDate
     || recruitment.applicationStart;
   if (!isUnderVerification && !isInvalid && notified) {
-    // Pay only from the notice (noticePay), never the master default. No street, PIN code or city: a
-    // recruitment fills posts across its state (or India) and no record holds an office address, so the
-    // address stops at the region rather than inventing one (Google lists those fields as recommended).
+    // Pay only from the notice (noticePay), never the master default. The location is each place of posting the
+    // notice names; without one the address stops at the state rather than inventing a street, city or PIN code.
     const baseSalary = noticeBaseSalary(noticePay);
     jsonLd.push({
       '@type': 'JobPosting',
@@ -106,7 +107,9 @@ if (recruitment && canonicalUrl) {
       employmentType: 'FULL_TIME',
       ...(recruitment.totalVacancies > 0 ? { totalJobOpenings: recruitment.totalVacancies } : {}),
       hiringOrganization: { '@type': 'Organization', name: recruitment.organisationName, sameAs: recruitment.organisationUrl },
-      jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressCountry: 'IN', ...(stateName ? { addressRegion: stateName } : {}) } },
+      jobLocation: postingPlaces.length
+        ? postingPlaceJobLocations(postingPlaces)
+        : { '@type': 'Place', address: { '@type': 'PostalAddress', addressCountry: 'IN', ...(stateName ? { addressRegion: stateName } : {}) } },
       ...(baseSalary ? { baseSalary } : {}),
       ...(recruitment.advtNumber ? { identifier: { '@type': 'PropertyValue', name: recruitment.organisationShortName, value: recruitment.advtNumber } } : {}),
       url: canonicalUrl,
@@ -602,6 +605,14 @@ if (recruitment && canonicalUrl) {
                   )}
                 </div>
               </div>
+              {postingPlaces.length > 0 && (
+                <div class="pt-3 border-t border-border/60 text-xs leading-relaxed" data-posting-places>
+                  <span class="font-semibold text-foreground block mb-1">Place of Posting:</span>
+                  <ul class="space-y-1 text-foreground/90">
+                    {postingPlaces.map(p => <li>{postingPlaceLabel(p)}</li>)}
+                  </ul>
+                </div>
+              )}
               {recruitment.salaryDetailsMarkdown && (
                 <div class="pt-3 border-t border-border/60 text-xs text-muted-foreground leading-relaxed">
                   <span class="font-semibold text-foreground block mb-1">Allowances & Service Terms:</span>

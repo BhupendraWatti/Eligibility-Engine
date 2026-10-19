@@ -93,6 +93,7 @@ export const recruitments = sqliteTable('recruitments', {
   overviewMarkdown: text('overview_markdown'),
   selectionStagesJson: text('selection_stages_json'),
   payScaleOverride: text('pay_scale_override'),
+  postingPlacesJson: text('posting_places_json'), // JSON PostingPlace[]; NULL when the notice names no place
   salaryDetailsMarkdown: text('salary_details_markdown'),
   cadreClassification: text('cadre_classification'),
   seoTitle: text('seo_title'),

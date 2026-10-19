@@ -90,6 +90,9 @@ export function getDomainSchema() {
       postSpecificRules: 'Only when one recruitment covers posts with different rules. Store the LEAST strict rule any post accepts in the other fields (lowest qualification, widest age range, lowest height, only certificates every post needs), and write here, in plain English, how each post differs. A candidate who passes is then shown "check the post-wise rules" instead of "eligible".',
       experienceMonths: 'Months of required experience: "two years as an advocate" is 24.',
     },
+    fieldNotes: {
+      postingPlaces: 'Places of posting the notice names: [{"locality":"Bhopal","stateCode":"MP","postalCode":"462001","streetAddress":"Office of the Collector, Jail Road"}]. locality (city, town or district headquarters) and stateCode (2-3 letter state or UT code, never IN) are required; postalCode (6-digit PIN) and streetAddress only when printed. Leave the field out when the notice names no place (posting anywhere in the state or India): never use the recruiting body\'s head office unless the notice says candidates are posted there. Each PIN code must appear in its snippet.',
+    },
     lifecycles: LIFECYCLES,
     applicationStatuses: APPLICATION_STATUSES,
     evidence: {

@@ -9,6 +9,8 @@ type ReferenceRecord = {
 export type AdminSubmission = {
   value: (...keys: string[]) => unknown;
   text: (...keys: string[]) => string;
+  /** Every value of a repeated form field (rows), or a JSON array. */
+  list: (key: string) => unknown[];
 };
 
 export class AdminValidationError extends Error {
@@ -17,13 +19,15 @@ export class AdminValidationError extends Error {
 
 export async function readAdminSubmission(request: Request): Promise<AdminSubmission> {
   let values: Record<string, unknown>;
+  let form: FormData | undefined;
   if ((request.headers.get('content-type') || '').includes('application/json')) {
     const body = await request.json().catch(() => ({}));
     values = body && typeof body === 'object' && !Array.isArray(body)
       ? body as Record<string, unknown>
       : {};
   } else {
-    values = Object.fromEntries(await request.formData());
+    form = await request.formData();
+    values = Object.fromEntries(form);
   }
 
   const value = (...keys: string[]): unknown => {
@@ -37,6 +41,7 @@ export async function readAdminSubmission(request: Request): Promise<AdminSubmis
   return {
     value,
     text: (...keys: string[]) => String(value(...keys) ?? '').trim(),
+    list: (key: string) => (form ? form.getAll(key) : Array.isArray(values[key]) ? values[key] as unknown[] : []),
   };
 }
 

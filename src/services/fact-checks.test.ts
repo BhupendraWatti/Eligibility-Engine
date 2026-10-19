@@ -109,4 +109,13 @@ assert(dc('Candidates of other states may apply only against unreserved posts.')
   assert(checkFacts({ maxAgeGeneral: 33, ageRelaxationScSt: 3 }, [q('maxAgeGeneral', 'मध्यप्रदेश के अनारक्षित 33 वर्ष'), q('ageRelaxationScSt', driver)]).notInQuote.includes('ageRelaxationScSt'), 'a wrong relaxation is still caught');
 }
 
+{
+  // Places of posting: PIN codes are compared (also "462 001" and Devanagari digits); town names are left to the reader.
+  const place = (p: object[], quote: string) => checkFacts({ postingPlaces: p }, [q('postingPlaces', quote)]);
+  assert(place([{ locality: 'Bhopal', stateCode: 'MP', postalCode: '462001' }], 'कलेक्टर कार्यालय, भोपाल - 462 001').matched === 1, 'a PIN printed with a space matches, the Hindi town name is not compared');
+  assert(place([{ locality: 'Bhopal', stateCode: 'MP', postalCode: '462001' }], 'भोपाल - ४६२००१').matched === 1, 'a PIN in Devanagari digits matches');
+  assert(place([{ locality: 'Bhopal', stateCode: 'MP', postalCode: '462011' }], 'Collectorate, Bhopal 462001').notInQuote.includes('postingPlaces'), 'a wrong PIN is caught');
+  assert(!place([{ locality: 'Bhopal', stateCode: 'MP' }], 'Posting at Bhopal').notInQuote.includes('postingPlaces'), 'a place without a PIN is left to the reader');
+}
+
 console.log('\nAll fact-check tests passed.');
