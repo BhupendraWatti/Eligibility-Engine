@@ -17,6 +17,7 @@ import {
 import { approveProposal, type DecisionDeps } from '../../src/services/change-proposal-decision';
 import { findApplyLink, isPdfUrl } from '../../src/services/cadre-guide';
 import { isAllowedRedirect, isStaticToken, parseUsers, personActor, userForCode } from './auth';
+import { checkLink } from './links';
 import { proposeMaster, resolveMaster, type MasterDeps, type MasterRecord } from '../../src/services/master-proposals';
 
 function assert(condition: boolean, msg: string) {
@@ -407,6 +408,14 @@ async function run() {
   assert((await isStaticToken(codeA, codeA)) && !(await isStaticToken(codeA, undefined)) && !(await isStaticToken('short', 'short')), 'the static token works only when configured with 24+ chars');
   assert(isAllowedRedirect('https://claude.ai/api/mcp/auth_callback') && isAllowedRedirect('https://claude.com/api/mcp/auth_callback') && isAllowedRedirect('http://localhost:33418/callback') && isAllowedRedirect('http://127.0.0.1:5000/cb'), 'claude.ai, claude.com and local apps may receive tokens');
   assert(!isAllowedRedirect('https://evil.example/cb') && !isAllowedRedirect('https://claude.ai.evil.example/cb') && !isAllowedRedirect('http://claude.ai/cb') && !isAllowedRedirect('cursor://x'), 'any other app is refused before the code is asked for');
+
+  // ── 13. check_links: a gov.in site that blocks the checker is unknown, not dead ───────────────────────
+  const timeout: typeof fetch = async () => { throw new DOMException('timed out', 'TimeoutError'); };
+  const status = (s: number): typeof fetch => async () => new Response(null, { status: s });
+  const blocked = await checkLink('https://upsc.gov.in/', timeout);
+  assert(blocked.ok === null && /yourself/.test(blocked.error ?? ''), 'a timeout from the checker is unknown and says to open the link yourself');
+  assert((await checkLink('https://bpsc.bihar.gov.in/', status(526))).ok === null, "a 526 (the checker refused the site's certificate) is unknown, not dead");
+  assert((await checkLink('https://ssc.gov.in/x', status(404))).ok === false && (await checkLink('https://ssc.gov.in/', status(200))).ok === true, 'a real 404 is dead and a 200 is live');
 
   console.log('\nAll regression checks passed.');
 }

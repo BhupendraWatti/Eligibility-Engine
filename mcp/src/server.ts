@@ -259,8 +259,9 @@ export function createMcpServer(ctx: ServerContext): McpServer {
     'check_links',
     {
       title: 'Check official links',
-      description: 'Check up to 10 URLs are reachable (HTTP status and content type). READ-only. Run before citing a source; a dead link must not be proposed.',
-      inputSchema: { urls: z.array(z.string().max(1000)).min(1).max(10) },
+      description: 'Check up to 6 URLs are reachable (HTTP status and content type). READ-only. Run before citing a source; a dead link (ok=false) must not be proposed. ok=null means the checker could not reach the site (many gov.in sites block it): open the link yourself and cite it only if it opens.',
+      // Workers open at most 6 connections at once; more would queue while their timeout runs and fail as false timeouts.
+      inputSchema: { urls: z.array(z.string().max(1000)).min(1).max(6) },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (args) => {
