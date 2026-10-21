@@ -28,6 +28,45 @@ const rows = (e: EligibilityExam) => [
   ['Where it is valid', e.validity],
 ] as const;
 
+import { todayIST } from '../../services/lifecycle';
+import type { ListingInfo } from '../../data/net-exams';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const today = todayIST();
+const dayMs = 86_400_000;
+const daysBetween = (fromIso: string, toIso: string) =>
+  Math.round((new Date(`${toIso}T00:00:00+05:30`).getTime() - new Date(`${fromIso}T00:00:00+05:30`).getTime()) / dayMs);
+const plural = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
+
+function applicationStatus(l: ListingInfo): { label: string; detail: string; cls: string } {
+  if (today < l.applyStartIso) {
+    return { label: 'Upcoming', detail: `Applications open in ${plural(daysBetween(today, l.applyStartIso))}`, cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900' };
+  }
+  if (today <= l.applyEndIso) {
+    const left = daysBetween(today, l.applyEndIso);
+    return {
+      label: left <= 7 ? 'Closing soon' : 'Applications open',
+      detail: left === 0 ? 'Last date is today' : `Closes in ${plural(left)}`,
+      cls: left <= 7
+        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900'
+        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900',
+    };
+  }
+  if (l.lateFeeEndIso && today <= l.lateFeeEndIso) {
+    return { label: 'Late-fee window', detail: `Late applications close in ${plural(daysBetween(today, l.lateFeeEndIso))}`, cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900' };
+  }
+  if (l.correctionStartIso && l.correctionEndIso && today >= l.correctionStartIso && today <= l.correctionEndIso) {
+    return { label: 'Correction window', detail: 'Applications are closed; form corrections are open', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900' };
+  }
+  return { label: 'Applications closed', detail: 'The application window has ended', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' };
+}
+
+function examStage(l: ListingInfo): string {
+  if (today < l.examStartIso) return `Exam starts in ${plural(daysBetween(today, l.examStartIso))}`;
+  if (today <= l.examEndIso) return 'Exam window is on';
+  return 'Exam dates have passed';
+}
+
 const nationalExams = [
   { num: 1, exam: ugcNet },
   { num: 2, exam: csirNet },
@@ -50,6 +89,50 @@ const nationalExams = [
             <p class="text-xs text-foreground leading-relaxed max-w-xl">{exam.purpose}</p>
             <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[exam.verification].cls}`}>{badge[exam.verification].label}</span>
           </div>
+          {exam.listing && (() => {
+            const l = exam.listing;
+            const st = applicationStatus(l);
+            const resources: [string, string | null][] = [
+              ['Admit card', l.admitCardUrl],
+              ['Answer key', l.answerKeyUrl],
+              ['Result', l.resultUrl],
+            ];
+            return (
+              <div class="rounded-xl border border-border bg-muted/30 p-4 mb-4">
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                  <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${st.cls}`}>{st.label}</span>
+                  <span class="text-xs text-foreground font-medium">{st.detail}</span>
+                  <span class="text-xs text-muted-foreground ml-auto">{examStage(l)}</span>
+                </div>
+                <dl class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs mb-3">
+                  <div><dt class="text-muted-foreground font-medium">Application starts</dt><dd class="text-foreground mt-0.5">{exam.applicationStart}</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">Last date</dt><dd class="text-foreground mt-0.5">{l.applyEndIso.split('-').reverse().join('-')} (11:50 PM)</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">Exam date</dt><dd class="text-foreground mt-0.5">{l.examDatesLabel}</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">Late fee window</dt><dd class="text-foreground mt-0.5">{l.lateFeeLabel ?? SEE_NOTICE}</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">Correction window</dt><dd class="text-foreground mt-0.5">{l.correctionLabel ?? SEE_NOTICE}</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">City intimation</dt><dd class="text-foreground mt-0.5">{l.cityIntimation ?? 'To be announced'}</dd></div>
+                  <div><dt class="text-muted-foreground font-medium">Admit card</dt><dd class="text-foreground mt-0.5">{l.admitCardDate ?? 'To be announced'}</dd></div>
+                </dl>
+                <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
+                  {today <= (l.lateFeeEndIso ?? l.applyEndIso) && (
+                    <a href={l.applyUrl} target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary-hover transition-colors">Apply on official portal</a>
+                  )}
+                  {l.notificationPdfs.map((p) => (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" class="px-3 py-2 rounded-lg border border-border bg-card text-xs font-semibold text-primary hover:bg-muted transition-colors">{p.label} (PDF)</a>
+                  ))}
+                </div>
+                <ul class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs">
+                  {resources.map(([label, url]) => (
+                    <li>
+                      {url
+                        ? <a href={url} target="_blank" rel="noopener noreferrer" class="font-semibold text-primary hover:underline">{label}</a>
+                        : <span class="text-muted-foreground">{label}: not released yet</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-4">
             {rows(exam).map(([k, v]) => (
               <div>

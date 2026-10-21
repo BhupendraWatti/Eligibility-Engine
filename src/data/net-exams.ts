@@ -12,8 +12,31 @@ export type LinkItem = { label: string; url: string };
 
 export type VerificationLevel = 'verified' | 'partial' | 'pending';
 
+/** Dates and links for an exam that is currently being scheduled. All ISO dates are IST calendar days. */
+export interface ListingInfo {
+  applyStartIso: string;
+  applyEndIso: string;
+  lateFeeEndIso?: string;
+  correctionStartIso?: string;
+  correctionEndIso?: string;
+  examStartIso: string;
+  examEndIso: string;
+  examDatesLabel: string;
+  lateFeeLabel?: string;
+  correctionLabel?: string;
+  cityIntimation: string | null;
+  admitCardDate: string | null;
+  applyUrl: string;
+  notificationPdfs: LinkItem[];
+  /** null until the official site publishes it for this cycle */
+  admitCardUrl: string | null;
+  answerKeyUrl: string | null;
+  resultUrl: string | null;
+}
+
 export interface EligibilityExam {
   id: string;
+  listing?: ListingInfo;
   name: string;
   fullName: string;
   authority: string | null;
@@ -47,26 +70,63 @@ export const ugcNet: EligibilityExam = {
   purpose:
     'National eligibility test for Assistant Professor, for Junior Research Fellowship (JRF) with Assistant Professor, and for PhD admission in eligible subjects.',
   eligibility: [
-    'Eligibility is for Indian nationals; the qualification, percentage and age conditions are set in the information bulletin of each cycle.',
-    'The official site also describes UGC NET as the selection test for the National Fellowship for Scheduled Caste Students, the National Fellowship for Other Backward Classes and the Maulana Azad National Fellowship for Minority Students.',
+    'Master\'s degree with at least 55% marks (General, Unreserved, General-EWS) or at least 50% (OBC-NCL, SC, ST, PwD/PwBD, third gender), without rounding off.',
+    'PhD holders whose Master\'s was completed by 19 September 1991 get a 5% relaxation (55% to 50%).',
+    'Four-year bachelor\'s degree holders need at least 75% aggregate, with a 5% relaxation for certain categories.',
+    'JRF age limit: not more than 30 years on 1 December 2026. The bulletin gives three kinds of qualification: JRF with Assistant Professor, Assistant Professor with PhD admission, and PhD admission only.',
+    'The exam is a computer-based test.',
   ],
   subjects: ['Political Science', 'History', 'Geography', 'Commerce', 'Education'],
   subjectNote:
-    'These are some of the officially offered subjects. The complete subject list for each cycle is in the NTA information bulletin.',
+    'Examples from the 87 subjects in the bulletin\'s Annexure II. Read the Annexure for the complete list and subject codes.',
   cycle: 'December 2026',
-  notification: null,
-  applicationStart: null,
-  applicationEnd: null,
-  examDate: null,
+  notification: 'Information bulletin as on 8 Oct 2026; updated bulletin as on 16 Oct 2026',
+  applicationStart: '8 Oct 2026',
+  applicationEnd: '28 Oct 2026, up to 11:50 PM (late-fee window 29 to 31 Oct 2026)',
+  examDate: '14 to 18 Dec 2026 and 21 Dec 2026',
   validity: 'All India',
+  listing: {
+    applyStartIso: '2026-10-08',
+    applyEndIso: '2026-10-28',
+    lateFeeEndIso: '2026-10-31',
+    correctionStartIso: '2026-11-02',
+    correctionEndIso: '2026-11-04',
+    examStartIso: '2026-12-14',
+    examEndIso: '2026-12-21',
+    examDatesLabel: '14 to 18 Dec 2026 and 21 Dec 2026',
+    lateFeeLabel: '29 to 31 Oct 2026 (Rs 500 late fee)',
+    correctionLabel: '2 to 4 Nov 2026',
+    cityIntimation: '23 Nov 2026',
+    admitCardDate: '7 Dec 2026',
+    applyUrl:
+      'https://examinationservices.nic.in/ExamSys27/root/home.aspx?enc=Ei4cajBkK1gZSfgr53ImFV/yIzhTZHBze3wooSg9DjjOvzupXmjixBOc0vZyJQ9v',
+    notificationPdfs: [
+      {
+        label: 'Updated information bulletin (as on 16.10.2026)',
+        url: 'https://cdnbbsr.s3waas.gov.in/s301eee509ee2f68dc6014898c309e86bf/uploads/2026/10/20261016860019603.pdf',
+      },
+      {
+        label: 'Information bulletin (as on 08.10.2026)',
+        url: 'https://cdnbbsr.s3waas.gov.in/s301eee509ee2f68dc6014898c309e86bf/uploads/2026/10/202610081852912625.pdf',
+      },
+      {
+        label: 'Registration notice',
+        url: 'https://cdnbbsr.s3waas.gov.in/s301eee509ee2f68dc6014898c309e86bf/uploads/2026/10/202610081928217016.pdf',
+      },
+    ],
+    admitCardUrl: null,
+    answerKeyUrl: null,
+    resultUrl: null,
+  },
   links: [
     { label: 'Official website (NTA)', url: 'https://ugcnet.nta.nic.in/' },
-    { label: 'Online application', url: 'https://examinationservices.nic.in/' },
+    { label: 'Information bulletin page', url: 'https://ugcnet.nta.nic.in/information-bulletin/' },
   ],
   checkedOn: CHECKED,
-  verification: 'partial',
+  verification: 'verified',
   notes: [
-    'On 21 Oct 2026 the official site showed the December 2026 application form as live. It also carries a corrigendum to the December 2026 bulletin. Application and exam dates were not shown on the page, so read them in the bulletin.',
+    'The 8 Oct 2026 registration notice gave the exam as 14 to 19 Dec 2026. The updated bulletin as on 16 Oct 2026 gives 14 to 18 Dec and 21 Dec 2026, and this page follows the updated bulletin. The bulletin says dates are tentative and exam timing is to be intimated later.',
+    'Result, recorded responses and provisional answer keys are listed as "to be announced later" in the bulletin.',
   ],
 };
 
@@ -97,13 +157,36 @@ export const csirNet: EligibilityExam = {
   applicationEnd: '5 Nov 2026 (regular fee); late-fee window 6 to 9 Nov 2026',
   examDate: '19, 22 and 27 Dec 2026',
   validity: 'All India',
-  links: [
-    { label: 'Official website (NTA)', url: 'https://csirnet.nta.nic.in/' },
-    {
-      label: 'Information bulletin (PDF)',
-      url: 'https://cdnbbsr.s3waas.gov.in/s3efdf562ce2fb0ad460fd8e9d33e57f57/uploads/2026/10/202610071407707951.pdf',
-    },
-  ],
+  listing: {
+    applyStartIso: '2026-10-07',
+    applyEndIso: '2026-11-05',
+    lateFeeEndIso: '2026-11-09',
+    correctionStartIso: '2026-11-10',
+    correctionEndIso: '2026-11-12',
+    examStartIso: '2026-12-19',
+    examEndIso: '2026-12-27',
+    examDatesLabel: '19, 22 and 27 Dec 2026',
+    lateFeeLabel: '6 to 9 Nov 2026 (Rs 500 late fee)',
+    correctionLabel: '10 to 12 Nov 2026',
+    cityIntimation: null,
+    admitCardDate: null,
+    applyUrl:
+      'https://examinationservices.nic.in/ExamSys27/root/Home.aspx?enc=Ei4cajBkK1gZSfgr53ImFTqGsyg38PlGNCGSuvSzsiU0N2QIZeKq/cbFBgqeJZQh',
+    notificationPdfs: [
+      {
+        label: 'Information bulletin',
+        url: 'https://cdnbbsr.s3waas.gov.in/s3efdf562ce2fb0ad460fd8e9d33e57f57/uploads/2026/10/202610071407707951.pdf',
+      },
+      {
+        label: 'Public notice: inviting online applications',
+        url: 'https://cdnbbsr.s3waas.gov.in/s3efdf562ce2fb0ad460fd8e9d33e57f57/uploads/2026/10/20261007908428552.pdf',
+      },
+    ],
+    admitCardUrl: null,
+    answerKeyUrl: null,
+    resultUrl: null,
+  },
+  links: [{ label: 'Official website (NTA)', url: 'https://csirnet.nta.nic.in/' }],
   checkedOn: CHECKED,
   verification: 'verified',
   notes: [
