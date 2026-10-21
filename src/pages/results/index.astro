@@ -26,50 +26,58 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-// Derive results dynamically from verified recruitment milestones
-const results = allRecruitments.filter(r =>
-  r.resultStatus === 'DECLARED' ||
-  r.officialLinksList?.some(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType) && l.isActive === 1) ||
-  r.importantDatesList?.some(d => d.eventType === 'RESULT')
-).map((r) => {
-  const resultLink = r.officialLinksList?.find(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType) && l.isActive === 1);
-  const resultDate = r.importantDatesList?.find(d => d.eventType === 'RESULT')?.date;
-  const isDeclared = r.resolvedLifecycle === 'RESULT_DECLARED' || r.resultStatus === 'DECLARED' || r.lifecycleStatus === 'RESULT_DECLARED';
-  const isExamDone = r.resolvedLifecycle === 'EXAM_COMPLETED' || r.examStatus === 'COMPLETED' || r.lifecycleStatus === 'EXAM_COMPLETED';
-  
-  let statusText = 'Pending Exam';
-  let statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
-  let releaseDateText = r.examDate ? `Post Exam (${formatDate(r.examDate)})` : 'Expected Post Examination';
+// One card per published result link (Final / Provisional / Merit List / Cut-off / Scorecard).
+// Links an admin marked as superseded (a newer result replaced them) are not listed.
+const RESULT_LINK_TYPES = ['RESULT', 'SCORECARD', 'MERIT_LIST'];
+const RESULT_TYPE_LABELS: Record<string, string> = {
+  FINAL: 'Final Result',
+  PROVISIONAL: 'Provisional Result',
+  MERIT_LIST: 'Merit List',
+  CUT_OFF: 'Cut-off',
+  SCORECARD: 'Scorecard',
+};
+const RESULT_TYPE_COLORS: Record<string, string> = {
+  FINAL: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  PROVISIONAL: 'bg-amber-50 text-amber-700 border-amber-200',
+  MERIT_LIST: 'bg-blue-50 text-blue-700 border-blue-200',
+  CUT_OFF: 'bg-blue-50 text-blue-700 border-blue-200',
+  SCORECARD: 'bg-blue-50 text-blue-700 border-blue-200',
+};
 
-  if (isDeclared) {
-    statusText = 'Declared';
-    statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    releaseDateText = resultDate ? formatDate(resultDate) : 'Declared';
-  } else if (isExamDone) {
-    statusText = 'Under Evaluation';
-    statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
-    releaseDateText = 'Evaluation Underway (Merit Roster Processing)';
-  }
-
-  return {
-    title: `${r.title} - Official Examination Result & Merit List`,
-    exam: `${r.postTitle} (${advtLabel(r.advtNumber)})`,
-    org: `${r.organisationName} (${r.organisationShortName})`,
-    orgShort: r.organisationShortName,
-    releaseDate: releaseDateText,
-    status: statusText,
-    statusColor,
-    sourceUrl: resultLink?.url,
-    slug: r.slug,
-    vacancies: r.totalVacancies,
-  };
-}).filter((r) => {
-  if (selectedOrg && r.orgShort !== selectedOrg) return false;
-  if (q) {
-    return r.title.toLowerCase().includes(q) || r.exam.toLowerCase().includes(q) || r.org.toLowerCase().includes(q);
-  }
-  return true;
-});
+const results = allRecruitments
+  .flatMap((r) => {
+    const fallbackDate = r.importantDatesList?.find((d) => d.eventType === 'RESULT')?.date;
+    return (r.officialLinksList ?? [])
+      .filter((l) => RESULT_LINK_TYPES.includes(l.linkType) && l.isActive === 1 && !l.superseded)
+      .map((l) => {
+        const typeKey = l.resultType || (l.linkType === 'MERIT_LIST' ? 'MERIT_LIST' : l.linkType === 'SCORECARD' ? 'SCORECARD' : '');
+        const resultDate = l.declaredOn || fallbackDate || '';
+        return {
+          title: r.title,
+          post: r.postTitle,
+          advt: advtLabel(r.advtNumber),
+          org: `${r.organisationName} (${r.organisationShortName})`,
+          orgShort: r.organisationShortName,
+          examDate: r.examDate || '',
+          resultDate,
+          resultDateText: resultDate ? formatDate(resultDate) : 'Date not stated',
+          typeLabel: RESULT_TYPE_LABELS[typeKey] || 'Result',
+          statusColor: RESULT_TYPE_COLORS[typeKey] || 'bg-blue-50 text-blue-700 border-blue-200',
+          sourceUrl: l.url,
+          slug: r.slug,
+          vacancies: r.totalVacancies,
+        };
+      });
+  })
+  .filter((r) => {
+    if (selectedOrg && r.orgShort !== selectedOrg) return false;
+    if (q) {
+      return [r.title, r.post, r.org, r.typeLabel, r.advt].some((v) => String(v).toLowerCase().includes(q));
+    }
+    return true;
+  })
+  // Newest result first; undated results go last.
+  .sort((a, b) => (b.resultDate || '').localeCompare(a.resultDate || '') || a.title.localeCompare(b.title));
 ---
 
 <BaseLayout
@@ -139,7 +147,7 @@ const results = allRecruitments.filter(r =>
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                 <div class="flex items-center gap-2">
                   <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${r.statusColor}`}>
-                    {r.status}
+                    {r.typeLabel}
                   </span>
                   <span class="text-xs text-muted-foreground font-semibold">
                     {r.org}
@@ -156,7 +164,7 @@ const results = allRecruitments.filter(r =>
                 </a>
               </h2>
               <p class="text-xs text-muted-foreground mb-4">
-                Cadre Examination: <strong class="text-foreground">{r.exam}</strong> · <span class="font-mono">{r.releaseDate}</span>
+                Post: <strong class="text-foreground">{r.post}</strong> ({r.advt}) · Exam: <span class="font-mono">{r.examDate ? formatDate(r.examDate) : 'Date not stated'}</span> · Result: <span class="font-mono">{r.resultDateText}</span>
               </p>
             </div>
 

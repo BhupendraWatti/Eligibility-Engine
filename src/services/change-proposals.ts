@@ -69,6 +69,11 @@ export const LINK_TYPES = [
   'FINAL_ANSWER_KEY', 'RESULT', 'SCORECARD', 'MERIT_LIST', 'CORRIGENDUM', 'EXAM_CITY_SLIP', 'OFFICIAL_WEBSITE', 'PORTAL',
 ];
 
+/** Kinds of result a RESULT / SCORECARD / MERIT_LIST link can be (Results Board). */
+export const RESULT_TYPES = ['FINAL', 'PROVISIONAL', 'MERIT_LIST', 'CUT_OFF', 'SCORECARD'];
+/** Link types that are a published result and therefore carry resultType + declaredOn. */
+export const RESULT_LINK_TYPES = ['RESULT', 'SCORECARD', 'MERIT_LIST'];
+
 type FieldSpec =
   | 'string' | 'text' | 'int' | 'bool' | 'date' | 'stringList' | 'certificateList'
   | 'nullableString' | 'nullableNumber' | 'nullableStateCode' | 'categoryQualifications'
@@ -260,6 +265,9 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
         linkType: str(s.linkType, `${field}[${i}].linkType`, 50),
         title: str(s.title, `${field}[${i}].title`, 200),
         url: httpUrl(s.url, `${field}[${i}].url`),
+        resultType: s.resultType === undefined || s.resultType === null ? undefined : validateField(`${field}[${i}].resultType`, { enum: RESULT_TYPES }, s.resultType) as string,
+        declaredOn: s.declaredOn === undefined || s.declaredOn === null ? undefined : isoDate(s.declaredOn, `${field}[${i}].declaredOn`),
+        superseded: s.superseded === undefined ? undefined : (s.superseded ? 1 : 0),
       }));
   }
 }
@@ -377,7 +385,12 @@ export function currentFieldValue(r: RecruitmentWithDetails, field: string): unk
     case 'sources':
       return (r.sourcesList ?? []).map(s => ({ sourceType: s.sourceType, sourceTitle: s.sourceTitle, sourceUrl: s.sourceUrl, publicationDate: s.publicationDate ?? undefined }));
     case 'officialLinks':
-      return (r.officialLinksList ?? []).filter(l => l.isActive).map(l => ({ linkType: l.linkType, title: l.title, url: l.url }));
+      return (r.officialLinksList ?? []).filter(l => l.isActive).map(l => ({
+        linkType: l.linkType, title: l.title, url: l.url,
+        ...(l.resultType ? { resultType: l.resultType } : {}),
+        ...(l.declaredOn ? { declaredOn: l.declaredOn } : {}),
+        ...(l.superseded ? { superseded: 1 } : {}),
+      }));
     default: {
       const criteria = r.criteria as Record<string, unknown> | undefined;
       if (criteria && field in criteria) return norm(criteria[field]);
@@ -586,12 +599,20 @@ const isExamStage = (s: { name: string; desc: string }) => {
  * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
  * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
  */
-export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = []): void {
-  const links = (payload.officialLinks as Array<{ linkType: string; url: string }> | undefined) ?? [];
+export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = [], existingLinkUrls: string[] = []): void {
+  const links = (payload.officialLinks as Array<{ linkType: string; url: string; resultType?: string; declaredOn?: string; superseded?: number }> | undefined) ?? [];
   for (const [i, l] of links.entries()) {
     // officialLinks replaces the whole list, so a type already on the live record may be sent back unchanged.
     if (!LINK_TYPES.includes(l.linkType) && !existingLinkTypes.includes(l.linkType)) {
       throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}].linkType "${l.linkType}" is not allowed. Use one of: ${LINK_TYPES.join(', ')}.`, { index: i });
+    }
+    // Results Board: a NEW result link says which kind of result it is and when it was declared.
+    // A result already on the live record (older rows have neither) may be sent back unchanged.
+    if (RESULT_LINK_TYPES.includes(l.linkType) && !existingLinkUrls.includes(l.url) && (!l.resultType || !l.declaredOn)) {
+      throw new ProposalBlockedError('RESULT_DETAILS_REQUIRED', `officialLinks[${i}] is a ${l.linkType} link: add resultType (${RESULT_TYPES.join(', ')}) and declaredOn (the date the official result page or PDF shows) and quote that date as evidence. The url must open the actual result page or PDF, not the body's home page.`, { index: i });
+    }
+    if (!RESULT_LINK_TYPES.includes(l.linkType) && (l.resultType || l.declaredOn || l.superseded)) {
+      throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}]: resultType, declaredOn and superseded belong only on ${RESULT_LINK_TYPES.join(', ')} links.`, { index: i });
     }
     if (l.linkType === 'APPLY_ONLINE' && isPdfUrl(l.url)) {
       throw new ProposalBlockedError('INVALID_LINK', `officialLinks[${i}] is APPLY_ONLINE but points at a PDF. Give the page where candidates start filling the form; list the PDF as NOTIFICATION_PDF or RULEBOOK.`, { index: i });

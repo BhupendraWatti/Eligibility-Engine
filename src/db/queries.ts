@@ -208,7 +208,7 @@ export interface RecruitmentWithDetails {
   vacanciesList?: Array<{ category: string; count: number; gender?: string; pct?: string; code?: string; quotaPct?: string; subPostName?: string }>;
   importantDatesList?: Array<{ event: string; desc: string; date: string; status: string; eventType?: string; isTentative?: number; notes?: string | null }>;
   sourcesList?: Array<{ id?: string; sourceType: string; sourceUrl: string; sourceTitle: string; publicationDate: string | null; lastVerifiedAt: Date | string | null; status?: string }>;
-  officialLinksList?: Array<{ linkType: string; title: string; url: string; isActive: number }>;
+  officialLinksList?: Array<{ linkType: string; title: string; url: string; isActive: number; resultType?: string | null; declaredOn?: string | null; superseded?: number; linkStatus?: string | null; linkCheckedAt?: number | null }>;
   canonicalPost?: CanonicalPostWithDetails;
   criteria: {
     minAge: number;
@@ -3185,6 +3185,11 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     title: l.title,
     url: l.url,
     isActive: l.isActive,
+    resultType: l.resultType ?? null,
+    declaredOn: l.declaredOn ?? null,
+    superseded: l.superseded ?? 0,
+    linkStatus: l.linkStatus ?? null,
+    linkCheckedAt: l.linkCheckedAt ?? null,
   }));
 
   const canonicalPost: CanonicalPostWithDetails | undefined = r.post ? {
@@ -3379,7 +3384,7 @@ export interface CreateRecruitmentInput {
   vacanciesBreakdown?: Array<{ category: string; count: number; gender?: string; pct?: string; quotaPct?: string; subPostName?: string }>;
   importantDates?: Array<{ eventType: string; eventDate: string; isTentative?: number; notes?: string }>;
   sources?: Array<{ sourceType: string; sourceTitle: string; sourceUrl: string; publicationDate?: string }>;
-  officialLinks?: Array<{ linkType: string; title: string; url: string }>;
+  officialLinks?: Array<{ linkType: string; title: string; url: string; resultType?: string; declaredOn?: string; superseded?: number }>;
   seoTitle?: string;
   seoDescription?: string;
   robotsIndex?: number;
@@ -3606,6 +3611,9 @@ export async function createRecruitmentAtomic(
           title: l.title,
           url: l.url,
           isActive: 1,
+          resultType: l.resultType ?? null,
+          declaredOn: l.declaredOn ?? null,
+          superseded: l.superseded ?? 0,
         }))
       : data.officialApplyUrl ? [{
           linkType: 'APPLY_ONLINE',
@@ -3778,6 +3786,9 @@ export async function createRecruitmentAtomic(
             title: l.title,
             url: l.url,
             isActive: 1,
+            resultType: l.resultType ?? null,
+            declaredOn: l.declaredOn ?? null,
+            superseded: l.superseded ?? 0,
           })
         );
       }
@@ -4252,8 +4263,15 @@ export async function updateRecruitmentAtomic(
 
       // Recreate official links if specified
       if (data.officialLinks !== undefined) {
+        // The list is rebuilt, so carry each URL's last link-check result over instead of losing it (a result link
+        // is only shown on the Results Board while its last check has not failed).
+        const previousChecks = new Map(
+          (await db.select({ url: schema.officialLinks.url, linkStatus: schema.officialLinks.linkStatus, linkCheckedAt: schema.officialLinks.linkCheckedAt })
+            .from(schema.officialLinks).where(eq(schema.officialLinks.recruitmentId, id))).map(r => [r.url, r] as const),
+        );
         statements.push(db.delete(schema.officialLinks).where(eq(schema.officialLinks.recruitmentId, id)));
         for (const l of data.officialLinks) {
+          const prev = previousChecks.get(l.url);
           statements.push(
             db.insert(schema.officialLinks).values({
               id: `link_${crypto.randomUUID()}`,
@@ -4262,6 +4280,11 @@ export async function updateRecruitmentAtomic(
               title: l.title,
               url: l.url,
               isActive: 1,
+              resultType: l.resultType ?? null,
+              declaredOn: l.declaredOn ?? null,
+              superseded: l.superseded ?? 0,
+              linkStatus: prev?.linkStatus ?? null,
+              linkCheckedAt: prev?.linkCheckedAt ?? null,
             })
           );
         }

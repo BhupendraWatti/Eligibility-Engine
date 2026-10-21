@@ -192,6 +192,13 @@ export const officialLinks = sqliteTable('official_links', {
   title: text('title').notNull(),
   url: text('url').notNull(),
   isActive: integer('is_active').notNull().default(1),
+  // Results Board (migration 0019): only set on RESULT / SCORECARD / MERIT_LIST links.
+  resultType: text('result_type'), // 'FINAL' | 'PROVISIONAL' | 'MERIT_LIST' | 'CUT_OFF' | 'SCORECARD'
+  declaredOn: text('declared_on'), // ISO date the result was declared
+  superseded: integer('superseded').notNull().default(0), // 1 = a newer result replaced this one
+  // Weekly pipeline link check (migration 0015): 'OK' | 'FAILING' | 'BROKEN', null = never checked.
+  linkStatus: text('link_status'),
+  linkCheckedAt: integer('link_checked_at'),
 }, (table) => [
   index('idx_links_rec').on(table.recruitmentId),
 ]);
