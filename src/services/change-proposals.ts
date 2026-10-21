@@ -18,6 +18,7 @@ import { isPdfUrl } from './cadre-guide';
 import { recruitmentSeo, type RecruitmentSeoInput } from './seo';
 import { CERTIFICATE_CODES, unknownRequirementParts } from '../data/credentials';
 import type { Actor } from './recruitment-query';
+import { TABLE_FORMAT, tableProblems } from '../lib/text-tables';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
@@ -191,7 +192,13 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
   }
   switch (spec) {
     case 'string': return str(v, field, 300);
-    case 'text': return str(v, field, 20_000);
+    case 'text': {
+      const t = str(v, field, 20_000);
+      // A table must be a real pipe table, or the page shows its raw "| a | b |" lines.
+      const problems = tableProblems(t);
+      if (problems.length) throw new InvalidProposalError(`${field}: ${problems.join('; ')}. ${TABLE_FORMAT}`);
+      return t;
+    }
     case 'int': return int(v, field);
     case 'bool':
       if (typeof v !== 'boolean') throw new InvalidProposalError(`${field} must be a boolean.`);
