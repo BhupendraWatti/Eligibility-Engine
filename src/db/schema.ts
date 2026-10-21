@@ -83,6 +83,8 @@ export const recruitments = sqliteTable('recruitments', {
   shortSummary: text('short_summary').notNull(),
   cycleYear: integer('cycle_year').notNull(),
   totalVacancies: integer('total_vacancies').notNull().default(0),
+  // RECRUITMENT (a job with vacancies) | ELIGIBILITY_TEST | ENTRANCE_EXAM (no vacancies; migration 0019).
+  examKind: text('exam_kind').notNull().default('RECRUITMENT'),
   status: text('status').notNull().default('DRAFT'), // 'DRAFT', 'PENDING_VERIFICATION', 'VERIFIED', 'PUBLISHED', 'UPDATE_REQUIRED', 'ARCHIVED'
   lifecycleStatus: text('lifecycle_status').notNull().default('NOT_STARTED'), // Canonical derived lifecycle state: 'NOT_STARTED', 'APPLICATION_OPEN', 'APPLICATION_CLOSING', 'APPLICATION_CLOSED', 'EXAM_SCHEDULED', 'EXAM_COMPLETED', 'RESULT_DECLARED'
   examStatus: text('exam_status').notNull().default('NOT_SCHEDULED'), // 'NOT_SCHEDULED', 'SCHEDULED', 'POSTPONED', 'CANCELLED', 'COMPLETED'
@@ -115,6 +117,7 @@ export const recruitmentEligibility = sqliteTable('recruitment_eligibility', {
   recruitmentId: text('recruitment_id').notNull().unique().references(() => recruitments.id, { onDelete: 'cascade' }),
   minAge: integer('min_age').notNull().default(18),
   maxAgeGeneral: integer('max_age_general').notNull().default(33),
+  noUpperAgeLimit: integer('no_upper_age_limit').notNull().default(0), // 1 = the notice states no upper age limit; maxAgeGeneral is ignored
   ageCutoffDate: text('age_cutoff_date').notNull(), // 'YYYY-MM-DD'
   ageRelaxationScSt: integer('age_relaxation_sc_st').notNull().default(5),
   ageRelaxationObc: integer('age_relaxation_obc').notNull().default(3),

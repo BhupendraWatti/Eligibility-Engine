@@ -79,6 +79,14 @@ assert(sportsResult.items.some(i => i.ruleName === 'Post-wise rules' && i.messag
 assert(evaluateEligibility({ dob: '2000-01-01', gender: 'MALE', category: 'UR', qualificationLevel: '8TH' }, sports).overallStatus === 'NOT_ELIGIBLE', 'failing the least strict rule is still not eligible');
 assert(evaluateEligibility({ dob: '2000-01-01', gender: 'MALE', category: 'UR', qualificationLevel: 'GRADUATION' }, { ...sports, postSpecificRules: '  ' }).overallStatus === 'ELIGIBLE', 'a blank note changes nothing');
 
+// ── No upper age limit (UGC NET Assistant Professor, NEET UG) ─────────────────────────────────────
+const noLimit: RecruitmentCriteria = { ...base, minAge: 17, maxAgeGeneral: 33, noUpperAgeLimit: true, ageCutoffDate: '2026-12-31' };
+const ageRule = 'Age Requirement';
+assert(status({ dob: '1970-01-01' }, noLimit, ageRule) === 'MATCH', 'a 56-year-old passes when there is no upper age limit');
+assert(status({ dob: '2010-06-01' }, noLimit, ageRule) === 'FAIL', 'the minimum age is still checked');
+assert(evaluateEligibility({ dob: '1970-01-01' }, noLimit).items.find(i => i.ruleName === ageRule)?.requirement.includes('no upper age limit') === true, 'the requirement says there is no upper age limit');
+assert(status({ dob: '1970-01-01' }, { ...noLimit, noUpperAgeLimit: false }, ageRule) === 'FAIL', 'without the flag the stored maximum applies');
+
 // ── Admin form parser ─────────────────────────────────────────────────────────────────────────────
 const parsed = parseQualificationByCategory(' st:8th, XX:10TH, SC:PHD ');
 assert(JSON.stringify(parsed) === '{"ST":"8TH"}', 'form parser keeps valid category:level pairs only');

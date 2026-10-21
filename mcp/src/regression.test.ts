@@ -14,11 +14,11 @@ import {
   type ProposalDeps,
   type ProposalRow,
 } from '../../src/services/change-proposals';
-import { approveProposal, type DecisionDeps } from '../../src/services/change-proposal-decision';
+import { approveProposal, mergeUpdateInput, type DecisionDeps } from '../../src/services/change-proposal-decision';
 import { findApplyLink, isPdfUrl } from '../../src/services/cadre-guide';
 import { isAllowedRedirect, isStaticToken, parseUsers, personActor, userForCode } from './auth';
 import { checkLink } from './links';
-import { proposeMaster, resolveMaster, type MasterDeps, type MasterRecord } from '../../src/services/master-proposals';
+import { proposeMaster, proposeMasterUpdate, resolveMaster, type MasterDeps, type MasterRecord, type MasterUpdateDeps } from '../../src/services/master-proposals';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -265,6 +265,8 @@ async function run() {
     update: async (_id, input) => { updated = input; return { success: true, id: 'rec_1' } as any; },
     masters: masters,
     createMaster: async () => 'org_new',
+    masterUpdates: { load: async () => undefined, masters, states: async () => [] },
+    updateMaster: async () => true,
   };
   const approved = await approveProposal(d1, 'prop_1', 'admin@x.in', {}, decision);
   assert(approved.ok && finalized.includes('APPROVED'), 'an approved proposal is marked APPROVED');
@@ -416,6 +418,91 @@ async function run() {
   assert(blocked.ok === null && /yourself/.test(blocked.error ?? ''), 'a timeout from the checker is unknown and says to open the link yourself');
   assert((await checkLink('https://bpsc.bihar.gov.in/', status(526))).ok === null, "a 526 (the checker refused the site's certificate) is unknown, not dead");
   assert((await checkLink('https://ssc.gov.in/x', status(404))).ok === false && (await checkLink('https://ssc.gov.in/', status(200))).ok === true, 'a real 404 is dead and a 200 is live');
+
+  // ── 14. Existing masters can be edited, only through an approved proposal ─────────────────────────────
+  const liveMasters: Record<string, Record<string, unknown>> = {
+    org_mppsc: { name: 'Madhya Pradesh Public Service Commission', shortName: 'MPPSC', slug: 'mppsc', stateId: 'st_mp', websiteUrl: 'https://mppsc.mp.gov.in/', isActive: 1 },
+    sec_police: { name: 'Police, Defence & Prisons', slug: 'police-defence-prisons', description: 'd', icon: 'shield', theme: 'blue', displayOrder: 1, isActive: 1 },
+    post_clerk: { title: 'Clerk', slug: 'clerk', summary: '', payScale: null, defaultMinAge: 18, defaultMaxAge: 40, defaultQualification: '12TH', sectorId: 'sec_admin', departmentId: 'dept_gad', isActive: 1 },
+  };
+  const mu: MasterUpdateDeps = { load: async (_d, _t, id) => liveMasters[id], masters, states: async () => [{ id: 'st_mp', name: 'Madhya Pradesh', code: 'MP', slug: 'madhya-pradesh' }] };
+  const site = (field: string, snippet: string) => ({ field, sourceUrl: 'https://mppsc.mp.gov.in/', snippet, method: 'NATIVE' });
+  const muCode = async (input: Parameters<typeof proposeMasterUpdate>[2]) => {
+    try { await proposeMasterUpdate(d1, proposer, input, deps, mu); return 'QUEUED'; } catch (e: any) { return e.code ?? e.message; }
+  };
+  const newSite = { type: 'organisation' as const, id: 'org_mppsc', summary: 'MPPSC moved its website', changes: { websiteUrl: 'https://mppsc.mp.gov.in/new', shortName: 'MPPSC' } };
+  const queuedBefore = inserted.length;
+  assert(await muCode(newSite) === 'EVIDENCE_REQUIRED', 'a master fact edit without a quote is refused');
+  const preview = await proposeMasterUpdate(d1, proposer, { ...newSite, evidence: [site('websiteUrl', 'Official website: mppsc.mp.gov.in/new')], dryRun: true }, deps, mu);
+  assert(!preview.queued && preview.changes.length === 1 && preview.changes[0].before === 'https://mppsc.mp.gov.in/' && inserted.length === queuedBefore, 'a dry run shows before/after, drops unchanged values and queues nothing');
+  assert(await muCode({ ...newSite, evidence: [site('websiteUrl', 'Official website: mppsc.mp.gov.in/new')] }) === 'QUEUED', 'a quoted master edit is queued');
+  const queuedEdit = inserted[inserted.length - 1];
+  assert(queuedEdit.kind === 'UPDATE_ORGANISATION' && queuedEdit.meta?.targetId === 'org_mppsc' && queuedEdit.baseSnapshot?.websiteUrl === 'https://mppsc.mp.gov.in/' && !('shortName' in queuedEdit.payload), 'the edit records its target and the live value it replaces');
+  assert(await muCode({ ...newSite, evidence: [site('websiteUrl', 'Official website: mppsc.mp.gov.in/new')] }) === 'PENDING_CHANGE_CONFLICT', 'a second open edit of the same field is refused');
+  assert(await muCode({ type: 'organisation', id: 'org_mppsc', summary: 'x', changes: { shortName: 'MPPSC' } }) === 'NO_CHANGE', 'an edit that changes nothing is refused');
+  assert(await muCode({ type: 'organisation', id: 'org_mppsc', summary: 'x', changes: { slug: 'new-slug' } }) !== 'QUEUED', 'a slug stays admin-only');
+  assert(await muCode({ type: 'organisation', id: 'org_mppsc', summary: 'x', changes: { stateId: 'st_in' } }) !== 'QUEUED', "an organisation's state stays admin-only");
+  assert(await muCode({ type: 'sector', id: 'sec_police', summary: 'x', changes: { name: 'Banking and Finance' } }) === 'DUPLICATE_MASTER', 'a sector cannot be renamed onto a similar sector');
+  assert(await muCode({ type: 'sector', id: 'sec_police', summary: 'Hide it', changes: { isActive: false, displayOrder: 4 } }) === 'QUEUED', 'sector housekeeping fields need no quote');
+  assert(await muCode({ type: 'post', id: 'post_clerk', summary: 'x', changes: { departmentId: 'dept_unknown' } }) === 'DUPLICATE_MASTER', 'a post cannot move under a department that does not exist');
+  assert(await muCode({ type: 'post', id: 'post_clerk', summary: 'x', changes: { defaultMinAge: 45 }, evidence: [site('defaultMinAge', 'minimum age 45 years')] }) !== 'QUEUED', 'a post edit with min age above max age is refused');
+  assert(await muCode({ type: 'state', id: 'st_unknown', summary: 'x', changes: { name: 'X' } }) !== 'QUEUED', 'an unknown master is refused');
+
+  let wrote: { type: string; id: string; payload: Record<string, unknown> } | undefined;
+  const editRow: ProposalRow = { ...pending, id: 'prop_e', kind: 'UPDATE_ORGANISATION', recruitmentId: null, payload: queuedEdit.payload, baseSnapshot: queuedEdit.baseSnapshot, meta: queuedEdit.meta };
+  const editDecision: DecisionDeps = { ...decision, get: async () => editRow, masterUpdates: mu, updateMaster: async (type, id, payload) => { wrote = { type, id, payload }; return true; } };
+  r = await approveProposal(d1, 'prop_e', 'admin@x.in', {}, editDecision);
+  assert(r.ok && wrote?.type === 'organisation' && wrote.id === 'org_mppsc' && wrote.payload.websiteUrl === 'https://mppsc.mp.gov.in/new', 'an approved master edit is written through the admin writer');
+  wrote = undefined;
+  liveMasters.org_mppsc = { ...liveMasters.org_mppsc, websiteUrl: 'https://mppsc.mp.gov.in/other' };
+  r = await approveProposal(d1, 'prop_e', 'admin@x.in', {}, editDecision);
+  assert(!r.ok && r.code === 'STALE' && !wrote, 'an edit of a master that changed meanwhile waits for the admin to confirm');
+  r = await approveProposal(d1, 'prop_e', 'admin@x.in', { confirmStale: true }, editDecision);
+  assert(r.ok && !!wrote, 'the admin can confirm a stale master edit');
+
+  // ── 15. A recruitment can be moved to another post or organisation ────────────────────────────────
+  const moved = sanitizeChanges('UPDATE_RECRUITMENT', { postId: 'post_clerk', organisationId: 'org_mppsc' });
+  assert(moved.postId === 'post_clerk' && moved.organisationId === 'org_mppsc', 'an update may name another post and organisation');
+  let unknownPost = '';
+  try { await createProposal(d1, proposer, { kind: 'UPDATE_RECRUITMENT', recruitmentId: 'rec_1', summary: 'move', changes: { postId: 'post_x' } }, { ...base(), loadRecruitment: async () => live, postExists: async () => false }); } catch (e: any) { unknownPost = e.code; }
+  assert(unknownPost === 'UNKNOWN_POST', 'an update to an unknown post is refused');
+  const merged = mergeUpdateInput(live, { organisationId: 'org_mppsc' }, 'admin@x.in');
+  assert(merged.organisationId === 'org_mppsc' && merged.stateId === undefined && merged.organisationShortName === undefined && merged.postId === 'post_1', "a move to another organisation takes that organisation's state");
+
+  // ── 16. Eligibility tests and entrance exams: no vacancies, open to every eligible candidate ───────
+  const ntaPage = 'https://ugcnet.nta.ac.in/notice';
+  const ntaQuote = (field: string, snippet: string) => ({ field, sourceUrl: ntaPage, page: 1, snippet, method: 'NATIVE' });
+  const ntaDeps: ProposalDeps = { ...base(), orgWebsite: async () => 'https://nta.ac.in', orgStateCode: async () => 'IN' };
+  const ugcNet = {
+    title: 'UGC NET December 2026', postId: 'post_ugc_net', organisationId: 'org_nta', examKind: 'ELIGIBILITY_TEST', noUpperAgeLimit: true,
+    selectionStages: [{ name: 'Computer Based Test', desc: 'Paper 1 and Paper 2, objective questions' }],
+    officialLinks: [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: 'https://ugcnet.nta.ac.in/apply' }],
+  };
+  const ugcNetEvidence = [
+    ntaQuote('title', 'UGC NET December 2026'), ntaQuote('examKind', 'National Eligibility Test for Assistant Professor and Junior Research Fellowship'),
+    ntaQuote('noUpperAgeLimit', 'There is no upper age limit for applying for Assistant Professor.'),
+    ntaQuote('selectionStages', 'The examination will be conducted in Computer Based Test (CBT) mode'), ntaQuote('officialLinks', 'Apply online at ugcnet.nta.ac.in'),
+  ];
+  const exam = async (changes: Record<string, unknown>, evidence: unknown[] = ugcNetEvidence, d: ProposalDeps = ntaDeps) => {
+    try { return await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'UGC NET', changes, evidence }, d); }
+    catch (e: any) { return { status: e.code ?? 'INVALID_INPUT', message: e.message as string } as any; }
+  };
+  const net = await exam(ugcNet);
+  assert(net.status === 'PENDING', 'an eligibility test with no vacancy count is queued');
+  assert(!net.checks.needsReading.includes('noUpperAgeLimit'), '"no upper age limit" is matched against its quote');
+  const netRow = store[store.length - 1];
+  assert(netRow.payload.totalVacancies === undefined && String(netRow.payload.seoTitle).includes('Eligibility Test') && !String(netRow.payload.seoTitle).includes('Govt Job'), 'an eligibility test gets exam SEO, not "govt job"');
+  const { examKind: _kind, ...asJob } = ugcNet;
+  assert((await exam({ ...asJob, title: 'Some job 2026' })).status === 'VACANCIES_REQUIRED', 'a job without totalVacancies is refused as VACANCIES_REQUIRED');
+  assert((await exam({ ...ugcNet, title: 'UGC NET June 2027', totalVacancies: 100 }, [...ugcNetEvidence, ntaQuote('totalVacancies', '100 seats')])).status === 'VACANCIES_NOT_APPLICABLE', 'a vacancy count on an eligibility test is refused');
+  assert((await exam({ ...ugcNet, title: 'JEE Main 2027', examKind: 'ENTRANCE_EXAM', vacanciesBreakdown: [{ category: 'UR', count: 10 }] }, [...ugcNetEvidence, ntaQuote('vacanciesBreakdown', 'UR 10')])).status === 'VACANCIES_NOT_APPLICABLE', 'a vacancy breakdown on an entrance exam is refused');
+  assert((await exam({ ...ugcNet, title: 'CSIR NET 2027', maxAgeGeneral: 30 }, [...ugcNetEvidence, ntaQuote('maxAgeGeneral', 'JRF: not more than 30 years')])).status === 'INVALID_INPUT', 'noUpperAgeLimit with a maxAgeGeneral is refused as contradictory');
+  assert((await exam({ ...ugcNet, title: 'CTET 2027', examKind: 'PASS_EXAM' })).status === 'INVALID_INPUT', 'an unknown examKind is refused');
+  let updateCode = 'OK';
+  try { checkMcpScope('UPDATE_RECRUITMENT', { totalVacancies: 5 }, [], 'ELIGIBILITY_TEST'); } catch (e: any) { updateCode = e.code; }
+  assert(updateCode === 'VACANCIES_NOT_APPLICABLE', 'an update cannot add vacancies to a stored eligibility test');
+  const keptKind = mergeUpdateInput({ ...live, examKind: 'ELIGIBILITY_TEST', criteria: { ...live.criteria, noUpperAgeLimit: true } }, { title: 'UGC NET December 2026 (revised)' }, 'admin@x.in');
+  assert(keptKind.examKind === 'ELIGIBILITY_TEST' && keptKind.noUpperAgeLimit === true, 'an approved update keeps the stored examKind and no-upper-age flag');
 
   console.log('\nAll regression checks passed.');
 }

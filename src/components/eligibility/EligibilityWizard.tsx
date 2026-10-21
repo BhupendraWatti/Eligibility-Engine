@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { evaluateEligibility, type UserEligibilityProfile, type RecruitmentCriteria } from '../../engine/eligibility';
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
 import { CERTIFICATES, STREAM_ALIASES, requirementOptions } from '../../data/credentials';
+import { isQualifyingExam, vacancyLabel } from '../../services/exam-kind';
 
 interface RecruitmentData {
   id: string;
@@ -9,6 +10,7 @@ interface RecruitmentData {
   slug: string;
   advtNumber: string;
   totalVacancies: number;
+  examKind?: string;
   postTitle: string;
   organisationName: string;
   organisationShortName?: string;
@@ -647,7 +649,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                             org: r.recruitment.organisationName,
                             vacancies: r.recruitment.totalVacancies,
                             minAge: r.recruitment.criteria?.minAge,
-                            maxAge: r.recruitment.criteria?.maxAgeGeneral,
+                            maxAge: r.recruitment.criteria?.noUpperAgeLimit ? null : r.recruitment.criteria?.maxAgeGeneral,
                             url: r.recruitment.organisationUrl,
                           })),
                         verificationOpportunities: results
@@ -787,7 +789,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
 
                   <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground font-mono">
-                      Total Vacancies: {r.recruitment.totalVacancies?.toLocaleString() || 'Announced'}
+                      {isQualifyingExam(r.recruitment.examKind) ? vacancyLabel(r.recruitment) : `Total Vacancies: ${vacancyLabel(r.recruitment, 'Announced')}`}
                     </span>
                     <a
                       href={`/recruitments/${r.recruitment.slug}`}

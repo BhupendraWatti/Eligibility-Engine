@@ -22,6 +22,7 @@ const generated = currentRec ? recruitmentSeo({
   minQualificationLevel: currentRec.criteria.minQualificationLevel,
   cycleYear: currentRec.cycleYear,
   applicationEnd: currentRec.applicationEnd,
+  examKind: currentRec.examKind,
 }) : { title: '', description: '' };
 let message = '';
 let messageType: 'success' | 'error' = 'success';

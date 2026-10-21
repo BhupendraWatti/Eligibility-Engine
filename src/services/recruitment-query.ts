@@ -72,6 +72,8 @@ export interface RecruitmentSummary {
   applicationStatus: ApplicationStatus;
   publicationStatus: string;
   totalVacancies: number;
+  /** RECRUITMENT, ELIGIBILITY_TEST or ENTRANCE_EXAM. A qualifying exam has no vacancies (totalVacancies is 0). */
+  examKind: string;
   importantDates: Array<{ eventType: string; date: string; isTentative: boolean; notes: string | null }>;
   vacancies: Array<{ category: string; gender: string | null; count: number; subPostName: string | null }>;
   officialLinks: Array<{ linkType: string; title: string; url: string }>;
@@ -157,6 +159,7 @@ export function toSummary(r: RecruitmentWithDetails): RecruitmentSummary {
     applicationStatus: toApplicationStatus(r.resolvedLifecycle),
     publicationStatus: r.status,
     totalVacancies: r.totalVacancies,
+    examKind: r.examKind ?? 'RECRUITMENT',
     importantDates: (r.importantDatesList ?? []).map(d => ({
       eventType: d.eventType ?? d.event,
       date: d.date,

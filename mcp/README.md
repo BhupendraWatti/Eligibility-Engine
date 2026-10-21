@@ -15,13 +15,17 @@ recruitment link; nothing in it is tied to one state. Use `resolve_entity` / `li
 | `get_proposal` | Full detail of one of its own proposals (payload, evidence, duplicate warning, decision). |
 | `withdraw_proposal` | Take back its own PENDING proposal (status becomes WITHDRAWN; nothing is edited or removed). |
 | `propose_master` | Resolve a missing sector, organisation, department or post against existing masters (MATCH / POSSIBLE_MATCH / NOT_FOUND); only NOT_FOUND queues a `CREATE_SECTOR` / `CREATE_ORGANISATION` / `CREATE_DEPARTMENT` / `CREATE_POST` proposal. A sector sharing half its words with an existing one is POSSIBLE_MATCH and never queued. Proposals wait for admin approval. `dryRun` resolves only. |
+| `get_master` | READ the live, editable values of one state, sector, organisation, department or post (inactive ones included). |
+| `propose_master_update` | Queue an edit of an EXISTING master, the same edits an admin makes in Master Records: state {name, isActive}, sector {name, description, icon, theme, displayOrder, isActive}, organisation {name, shortName, websiteUrl, isActive}, department {name, description, organisationId, isActive}, post {title, summary, payScale, defaultMinAge, defaultMaxAge, defaultQualification, sectorId, departmentId, isActive}. Only real changes are kept (`NO_CHANGE` otherwise); names, websites, pay scales, ages and qualifications need a quoted official source (`EVIDENCE_REQUIRED`); a rename onto another master is `DUPLICATE_MASTER`; an open edit of the same fields is `PENDING_CHANGE_CONFLICT`. Queued as `UPDATE_<TYPE>`; `dryRun` shows before/after only. |
 | `resolve_entity` | Exact lookup of a state, organisation, department, sector or post: MATCH, AMBIGUOUS or NOT_FOUND. Never guesses. |
 | `list_entities` | List active masters of one type, optionally filtered. |
 | `get_domain_schema` | Allowed fields, formats, enums and the evidence format, generated from the validators. |
 
 `propose_recruitment_update` covers every tab of the admin editor (Basic, Vacancy, Eligibility, Dates, Sources, SEO).
 `seoTitle` and `seoDescription` are filled by `src/services/seo.ts` when a proposal leaves them out: state jobs lead with "{State} govt jobs", central jobs with "central government jobs", then the national "government jobs {year}" terms. On an update they are refreshed only while still empty or the generated text, never over an admin's own wording.
-Publication status, the Verified badge, featured, robots, post and organisation stay admin-only.
+It can also move a recruitment to another existing post or organisation (`postId`, `organisationId`; the state follows the organisation).
+Publication status, the Verified badge, featured, robots and slugs stay admin-only, and so do master slugs, state codes and an organisation's state
+(public URLs, domicile rules and every recruitment of a body hang on them). Recruitment documents are the `sources` list of `propose_recruitment_update`.
 
 The propose tools require `evidence[]` (field, sourceUrl, page, section, snippet, method NATIVE/OCR/VISION, confidence;
 shown to the reviewer as an unverified claim): one item with a snippet quoted from the official source for every changed
@@ -50,7 +54,8 @@ never put an unrelated letter number there.
 ```
 AI client -> mcp/ (bearer auth) -> search:   ../src/services/recruitment-query.ts   -> D1 (read)
                                 -> propose:  ../src/services/change-proposals.ts    -> change_proposals (PENDING)
-Owner -> /admin/pending-changes -> Approve -> existing atomic writers -> live tables + audit_logs
+                                -> masters:  ../src/services/master-proposals.ts    -> change_proposals (PENDING)
+Owner -> /admin/pending-changes -> Approve -> existing atomic / master writers -> live tables + audit_logs
 ```
 
 Nothing is live until the owner approves it in `/admin/pending-changes` (before/after diff, stale-record

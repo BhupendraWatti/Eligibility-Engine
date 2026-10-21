@@ -47,6 +47,8 @@ const RELAXATION_FIELDS = new Set(['ageRelaxationScSt', 'ageRelaxationObc', 'age
 const NOT_COMPLETED = /(पूर्ण|पूरी)\s*(न|नहीं)(?=[\s,।.]|$)|not\s+(have\s+)?(completed|attained)/i;
 const DATE_FIELDS = new Set(['applicationStart', 'applicationEnd', 'examDate', 'ageCutoffDate']);
 const EXACT_TEXT_FIELDS = new Set(['advtNumber']);
+/** "no upper age limit", "no maximum age", "upper age limit: nil", "कोई ऊपरी आयु सीमा नहीं", "अधिकतम आयु सीमा नहीं". */
+const NO_UPPER_AGE = /\bno\s+(upper|maximum|max\.?)\s+age\b|\bno\s+age\s+(limit|bar)\b|\b(upper|maximum)\s+age(\s+limit)?\s*[:\-–]?\s*(nil|none|not\s+applicable|no\s+limit)\b|(ऊपरी|अधिकतम)\s*आयु\s*(सीमा)?\s*(नहीं|कोई\s*नहीं)/i;
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 /** Hindi month names after folding nukta and "म्ब" -> "ंब" (सितम्बर = सितंबर). */
@@ -187,6 +189,11 @@ function checkValue(field: string, value: unknown, quotes: string[], payload: Re
     return missing.length
       ? { status: 'NOT_IN_QUOTE', detail: `Date(s) not in the quotes: ${missing.map(d => `${d.eventType} ${d.eventDate}`).join(', ')}.` }
       : { status: 'MATCHES_QUOTE', detail: 'Every date appears in the quotes. Check that each is the right event.' };
+  }
+  if (field === 'noUpperAgeLimit' && value === true) {
+    return NO_UPPER_AGE.test(all)
+      ? { status: 'MATCHES_QUOTE', detail: 'The quote says there is no upper age limit.' }
+      : { status: 'NEEDS_READING', detail: 'The quote was not read by machine as "no upper age limit". Read it and confirm the notice sets no maximum age.' };
   }
   return { status: 'NEEDS_READING', detail: 'Cannot be compared mechanically (summary, category, yes/no or link). Read it against the quote.' };
 }

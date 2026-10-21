@@ -28,4 +28,10 @@ assert(stateKeywordName('IN') === null && stateKeywordName('XX') === null && sta
 assert(stateListingSeo('AS', 2026).title.startsWith('Assam Govt Jobs 2026'), 'state listing title');
 assert(clip('one two three four', 10) === 'one two…', 'clip cuts at a word');
 
+const net = recruitmentSeo({ title: 'UGC NET December 2026', stateCode: 'IN', cycleYear: 2026, examKind: 'ELIGIBILITY_TEST', minQualificationLevel: 'POST_GRADUATION' });
+assert(net.title === 'UGC NET December 2026 – Eligibility Test' && !net.keywords.some(k => k.includes('govt job')), `an eligibility test is not called a govt job (${net.title})`);
+assert(net.description.startsWith('National eligibility test 2026'), 'a central eligibility test is described as national');
+const jee = recruitmentSeo({ title: 'JEE Main', stateCode: 'IN', cycleYear: 2027, examKind: 'ENTRANCE_EXAM' });
+assert(jee.title === 'JEE Main 2027 – Entrance Exam' && jee.keywords.includes('entrance exam 2027'), `an entrance exam gets exam wording (${jee.title})`);
+
 if (failures) { console.error(`${failures} failure(s)`); process.exit(1); }

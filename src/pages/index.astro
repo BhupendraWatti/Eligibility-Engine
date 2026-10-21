@@ -8,6 +8,7 @@ import { calculateRecruitmentMetrics, isActiveDrive, isUpcomingDrive, normalizeD
 import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
 import { INDIA_JURISDICTIONS, jurisdictionName } from '../data/india-jurisdictions';
 import { homeSeo, currentYear } from '../services/seo';
+import { vacancyPhrase } from '../services/exam-kind';
 
 // Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -101,7 +102,7 @@ function toRow(r: Rec, when: string, tone: Tone, date: string | null, flags: str
     when,
     tone,
     date: date ? formatDate(date) : null,
-    posts: r.totalVacancies ? `${r.totalVacancies.toLocaleString('en-IN')} ${r.totalVacancies === 1 ? 'post' : 'posts'}` : null,
+    posts: vacancyPhrase(r),
     flags,
     noticeUrl: notice?.url ?? null,
   };

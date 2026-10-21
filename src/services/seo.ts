@@ -63,6 +63,8 @@ export interface RecruitmentSeoInput {
   minQualificationLevel?: string | null;
   cycleYear?: number | null;
   applicationEnd?: string | null;
+  /** ELIGIBILITY_TEST / ENTRANCE_EXAM get exam wording instead of "govt job" (src/services/exam-kind.ts). */
+  examKind?: string | null;
 }
 
 export interface SeoMeta {
@@ -85,8 +87,38 @@ function recruitmentYear(input: RecruitmentSeoInput): number {
   return end && !isNaN(end.getTime()) ? end.getUTCFullYear() : currentYear();
 }
 
+/** Title, description and keywords for an eligibility test or entrance exam: no vacancies, open to every eligible candidate. */
+function qualifyingExamSeo(input: RecruitmentSeoInput): SeoMeta {
+  const state = stateKeywordName(input.stateCode);
+  const year = recruitmentYear(input);
+  const title = input.title.trim();
+  const entrance = input.examKind === 'ENTRANCE_EXAM';
+  const kind = entrance ? 'Entrance Exam' : 'Eligibility Test';
+  const qualificationShort = input.minQualificationLevel ? QUALIFICATION_SHORT[input.minQualificationLevel] : undefined;
+  const lastDate = formatDay(input.applicationEnd);
+  const short = `${title}${title.includes(String(year)) ? '' : ` ${year}`} – ${kind}`;
+  const seoTitle = short.length <= TITLE_MAX + 5 ? short : clip(short, TITLE_MAX + 18);
+  const where = state ? `${state} ${kind.toLowerCase()} ${year}` : `${entrance ? 'National entrance exam' : 'National eligibility test'} ${year}`;
+  const parts = [
+    `${where}: ${clip(title, 70)}${qualificationShort ? ` (${qualificationShort})` : ''}.`,
+    lastDate ? `Last date ${lastDate}.` : '',
+    'Check eligibility, exam dates and the official link.',
+  ].filter(Boolean);
+  const full = parts.join(' ');
+  const description = full.length <= DESCRIPTION_MAX ? full : clip(parts.slice(0, -1).join(' '), DESCRIPTION_MAX);
+  const keywords = [
+    `${title} ${year}`,
+    `${title} eligibility`,
+    entrance ? `entrance exam ${year}` : `eligibility test ${year}`,
+    input.organisationShortName ? `${input.organisationShortName} exam ${year}` : null,
+    state ? `${state} ${kind.toLowerCase()}` : null,
+  ].filter((k): k is string => Boolean(k));
+  return { title: seoTitle, description, keywords: [...new Set(keywords.map(k => k.toLowerCase()))] };
+}
+
 /** Title, description and keywords for one recruitment page. */
 export function recruitmentSeo(input: RecruitmentSeoInput): SeoMeta {
+  if (input.examKind === 'ELIGIBILITY_TEST' || input.examKind === 'ENTRANCE_EXAM') return qualifyingExamSeo(input);
   const state = stateKeywordName(input.stateCode);
   const year = recruitmentYear(input);
   const title = input.title.trim();

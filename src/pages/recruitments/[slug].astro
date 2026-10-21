@@ -6,6 +6,7 @@ import NoticeText from '../../components/common/NoticeText.astro';
 import { getRecruitmentWithRelations } from '../../db/queries';
 import { findApplyLink } from '../../services/cadre-guide';
 import { domicileScopeLabel } from '../../services/domicile-scope';
+import { EXAM_KIND_LABELS, isQualifyingExam, vacancyLabel } from '../../services/exam-kind';
 import { jurisdictionName } from '../../data/india-jurisdictions';
 import { recruitmentSeo, stateKeywordName } from '../../services/seo';
 
@@ -42,6 +43,7 @@ const importantDates = recruitment?.importantDatesList ?? [];
 const selectionStages = recruitment?.selectionStages ?? [];
 // age_cutoff_date is NOT NULL, so there is always a date to show.
 const ageCutoffDate = formatDate(recruitment?.criteria.ageCutoffDate);
+const qualifyingExam = isQualifyingExam(recruitment?.examKind);
 const relaxationNotes = recruitment?.criteria.relaxationNotesMarkdown?.trim() || null;
 // The mapper's payScale falls back to the unverified master default; only the override is the notice's pay.
 const noticePay = recruitment?.payScaleOverride?.trim() || null;
@@ -74,6 +76,7 @@ const seo = recruitment ? recruitmentSeo({
   minQualificationLevel: recruitment.criteria.minQualificationLevel,
   cycleYear: recruitment.cycleYear,
   applicationEnd: recruitment.applicationEnd,
+  examKind: recruitment.examKind,
 }) : null;
 const canonicalUrl = recruitment ? new URL(`/recruitments/${recruitment.slug}`, Astro.url.origin).href : undefined;
 
@@ -93,7 +96,8 @@ if (recruitment && canonicalUrl) {
   const notified = importantDates.find(d => d.eventType === 'NOTIFICATION')?.date
     || recruitment.sourcesList?.find(src => src.publicationDate)?.publicationDate
     || recruitment.applicationStart;
-  if (!isUnderVerification && !isInvalid && notified) {
+  // A qualifying exam is not a job, so it never claims JobPosting markup.
+  if (!isUnderVerification && !isInvalid && notified && !qualifyingExam) {
     jsonLd.push({
       '@type': 'JobPosting',
       title: recruitment.postTitle || recruitment.title,
@@ -210,16 +214,16 @@ if (recruitment && canonicalUrl) {
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-muted/50 border border-border mb-6">
               <div>
-                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Vacancies</span>
-                <span class="text-lg font-bold text-foreground font-mono">{recruitment.totalVacancies?.toLocaleString() || 'Announced'}</span>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">{qualifyingExam ? 'Exam type' : 'Vacancies'}</span>
+                <span class={`font-bold text-foreground ${qualifyingExam ? 'text-sm' : 'text-lg font-mono'}`}>{qualifyingExam ? EXAM_KIND_LABELS[recruitment.examKind!] : vacancyLabel(recruitment, 'Announced')}</span>
               </div>
               <div>
                 <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Qualification</span>
                 <span class="text-lg font-bold text-primary">{recruitment.criteria.minQualificationLevel}</span>
               </div>
               <div>
-                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Max Age (General)</span>
-                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria.maxAgeGeneral} yrs</span>
+                <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">{recruitment.criteria.noUpperAgeLimit ? 'Age limit' : 'Max Age (General)'}</span>
+                <span class="text-lg font-bold text-foreground font-mono">{recruitment.criteria.noUpperAgeLimit ? 'No upper limit' : `${recruitment.criteria.maxAgeGeneral} yrs`}</span>
                 <span class="text-[10px] text-muted-foreground block">as on <span class="font-mono">{ageCutoffDate}</span></span>
               </div>
               <div>
@@ -376,7 +380,9 @@ if (recruitment && canonicalUrl) {
               ) : (
                 <>
                   <p>
-                    The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> has published this recruitment for <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong> under <strong>{recruitment.departmentName || 'the relevant government cadre'}</strong>{recruitment.stateName ? ` in ${recruitment.stateName}` : ''}.
+                    The <strong>{recruitment.organisationName} ({recruitment.organisationShortName})</strong> {qualifyingExam
+                      ? <> conducts <strong>{recruitment.postTitle}</strong>, {recruitment.examKind === 'ENTRANCE_EXAM' ? 'an entrance exam' : 'an eligibility test'} with no fixed vacancies: every candidate who clears the cutoff qualifies,</>
+                      : <> has published this recruitment for <strong>{recruitment.totalVacancies?.toLocaleString()}</strong> vacancies for <strong>{recruitment.postTitle}</strong></>} under <strong>{recruitment.departmentName || 'the relevant government cadre'}</strong>{recruitment.stateName ? ` in ${recruitment.stateName}` : ''}.
                   </p>
                   <p>
                     Candidates holding the required qualification ({recruitment.criteria.minQualificationLevel}) and meeting the age limit as on {ageCutoffDate} may apply online through the official portal.
@@ -421,7 +427,9 @@ if (recruitment && canonicalUrl) {
                       <div class="flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         <span>
-                          Up to <span class="font-mono">{recruitment.criteria.maxAgeGeneral}</span> years (General category) as on <span class="font-mono">{ageCutoffDate}</span>
+                          {recruitment.criteria.noUpperAgeLimit
+                            ? <>At least <span class="font-mono">{recruitment.criteria.minAge}</span> years as on <span class="font-mono">{ageCutoffDate}</span>, no upper age limit</>
+                            : <>Up to <span class="font-mono">{recruitment.criteria.maxAgeGeneral}</span> years (General category) as on <span class="font-mono">{ageCutoffDate}</span></>}
                         </span>
                       </div>
                     </td>
@@ -482,13 +490,21 @@ if (recruitment && canonicalUrl) {
           <!-- Vacancy Breakdown -->
           <section id="vacancy" role="tabpanel" aria-labelledby="tab-vacancy" tabindex="0" class="rec-panel scroll-mt-36 focus:outline-none">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="text-xl font-bold text-foreground">Category-wise Vacancy Breakdown</h2>
+              <h2 class="text-xl font-bold text-foreground">{qualifyingExam ? 'How candidates qualify' : 'Category-wise Vacancy Breakdown'}</h2>
               <span class="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                Total: {recruitment.totalVacancies?.toLocaleString()} Posts
+                {qualifyingExam ? EXAM_KIND_LABELS[recruitment.examKind!] : `Total: ${recruitment.totalVacancies?.toLocaleString()} Posts`}
               </span>
             </div>
 
-            {vacancies && vacancies.length > 0 ? (
+            {qualifyingExam ? (
+              <div class="p-6 rounded-xl bg-card border border-border space-y-2">
+                <p class="text-sm text-foreground">
+                  This {recruitment.examKind === 'ENTRANCE_EXAM' ? 'entrance exam' : 'eligibility test'} has no vacancies. Every candidate who meets the conditions may sit for it, and everyone who clears the cutoff
+                  {recruitment.examKind === 'ENTRANCE_EXAM' ? ' (percentile or All India Rank)' : ' (qualifying marks or percentile)'} qualifies.
+                </p>
+                <p class="text-xs text-muted-foreground">Category-wise cutoffs are published by the conducting body with the result. Check the official notice and result links on this page.</p>
+              </div>
+            ) : vacancies && vacancies.length > 0 ? (
               <div class="bg-card rounded-xl border border-border overflow-hidden">
                 <table class="w-full text-xs text-left">
                   <thead class="bg-muted text-muted-foreground uppercase text-[10px] tracking-wider font-semibold border-b border-border">

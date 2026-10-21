@@ -24,6 +24,8 @@ export interface UserEligibilityProfile {
 export interface RecruitmentCriteria {
   minAge: number;
   maxAgeGeneral: number;
+  /** The notice states no upper age limit (many eligibility tests and entrance exams): only minAge is checked. */
+  noUpperAgeLimit?: boolean;
   ageCutoffDate: string; // 'YYYY-MM-DD'
   ageRelaxationScSt: number;
   ageRelaxationObc: number;
@@ -195,7 +197,9 @@ export function evaluateEligibility(
       ruleName: 'Age Requirement',
       status: 'UNKNOWN',
       userValue: 'Not provided',
-      requirement: `${criteria.minAge}-${criteria.maxAgeGeneral} yrs as on ${criteria.ageCutoffDate}`,
+      requirement: criteria.noUpperAgeLimit
+        ? `At least ${criteria.minAge} yrs as on ${criteria.ageCutoffDate}, no upper age limit`
+        : `${criteria.minAge}-${criteria.maxAgeGeneral} yrs as on ${criteria.ageCutoffDate}`,
       message: 'Date of birth not provided. Age cannot be calculated.',
     });
   } else {
@@ -207,6 +211,19 @@ export function evaluateEligibility(
         userValue: user.dob,
         requirement: `Valid date of birth and cutoff date ${criteria.ageCutoffDate}`,
         message: 'Date of birth or age cutoff date is invalid.',
+      });
+    } else if (criteria.noUpperAgeLimit) {
+      const completedYears = completedYearsAtCutoff(user.dob, criteria.ageCutoffDate);
+      const isMatch = completedYears >= criteria.minAge;
+      const formattedAge = ageAtCutoff.toFixed(1);
+      items.push({
+        ruleName: 'Age Requirement',
+        status: isMatch ? 'MATCH' : 'FAIL',
+        userValue: `${formattedAge} years (as of ${criteria.ageCutoffDate})`,
+        requirement: `At least ${criteria.minAge} years (as of ${criteria.ageCutoffDate}), no upper age limit`,
+        message: isMatch
+          ? `Age (${formattedAge} yrs) meets the minimum; there is no upper age limit.`
+          : `Age (${formattedAge} yrs) is below the minimum of ${criteria.minAge} yrs.`,
       });
     } else {
     // Indian notices compare COMPLETED years on the cutoff date against the limits
