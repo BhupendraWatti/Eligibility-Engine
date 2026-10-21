@@ -6,6 +6,7 @@ import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSec
 import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES, LINK_TYPES, DATE_TYPES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
 import { CERTIFICATES, STREAM_ALIASES } from '../data/credentials';
+import { TABLE_FORMAT } from '../lib/text-tables';
 
 /** What the MCP may add, for every state and central body. Shown in get_domain_schema and the MCP server instructions. */
 export const SCOPE_RULES = [
@@ -90,6 +91,7 @@ export function getDomainSchema() {
       postSpecificRules: 'Only when one recruitment covers posts with different rules. Store the LEAST strict rule any post accepts in the other fields (lowest qualification, widest age range, lowest height, only certificates every post needs), and write here, in plain English, how each post differs. A candidate who passes is then shown "check the post-wise rules" instead of "eligible".',
       experienceMonths: 'Months of required experience: "two years as an advocate" is 24.',
     },
+    textFields: TABLE_FORMAT,
     lifecycles: LIFECYCLES,
     applicationStatuses: APPLICATION_STATUSES,
     evidence: {

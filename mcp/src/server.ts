@@ -26,6 +26,7 @@ import {
 import { MASTER_TYPES, proposeMaster } from '../../src/services/master-proposals';
 import { SECTOR_ICONS, SECTOR_THEMES } from '../../src/services/sector-theme';
 import { checkLink } from './links';
+import { TABLE_FORMAT } from '../../src/lib/text-tables';
 import { ENTITY_TYPES, SCOPE_RULES, getDomainSchema, listEntities, resolveEntity } from '../../src/services/reference-data';
 
 export interface ServerContext {
@@ -153,6 +154,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'SEO is filled automatically from the facts while it is empty or still the generated text (a state job targets "{State} govt jobs" / "{State} govt job vacancy" first, a central one "central government jobs", both then "government jobs {year}"); send seoTitle/seoDescription only to override with your own plain-English text. ' +
         `Allowed fields in "changes": ${editable}. ` +
         'Use only official sources (the recruiting body notice, corrigendum, gazette or portal), never news or coaching sites. Write every text field in plain, simple English, translating notices in Hindi, Gujarati or any other language (text in another script is refused; evidence snippets and advtNumber stay as printed): plain factual statements taken from the notice, no promotional tone, no guesses. ' +
+        `${TABLE_FORMAT} A broken table is refused. ` +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
         'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
@@ -176,6 +178,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
         `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
         `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
+        `${TABLE_FORMAT} A broken table is refused. ` +
         'Leave out seoTitle and seoDescription: they are written for you from the title, state, vacancies, qualification and last date, so a state job reaches people searching for jobs in that state and also shows for all-India "government jobs {year}" searches. ' +
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
         'If the post or organisation is missing, queue it with propose_master in the same run and pass the returned proposal id (prop_...) instead: the owner approves the masters first, then this recruitment. ' +
