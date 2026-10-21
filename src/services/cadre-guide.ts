@@ -25,6 +25,7 @@ export interface GuideNotice {
   slug: string;
   cycleYear: number;
   totalVacancies: number;
+  examKind?: string;
   organisationShortName: string;
   stateName: string | null;
   statusLabel: string;
@@ -51,6 +52,7 @@ export interface GuideFacts {
   qualificationDetails: string | null;
   qualificationByCategory: string | null;
   maxAgeGeneral: number;
+  noUpperAgeLimit: boolean;
   ageCutoffDate: string | null;
   relaxationNotes: string | null;
   pay: string | null;
@@ -110,6 +112,7 @@ function toNotice(r: RecruitmentWithDetails, referenceDate?: Date | string): Gui
     slug: r.slug,
     cycleYear: r.cycleYear,
     totalVacancies: r.totalVacancies,
+    examKind: r.examKind,
     organisationShortName: r.organisationShortName,
     stateName: r.stateName ?? null,
     statusLabel: presentation.label,
@@ -178,6 +181,7 @@ function factsOf(r: RecruitmentWithDetails, referenceDate?: Date | string): Guid
     qualificationDetails: r.criteria.qualificationDetailsMarkdown?.trim() || null,
     qualificationByCategory: byCategory || null,
     maxAgeGeneral: r.criteria.maxAgeGeneral,
+    noUpperAgeLimit: r.criteria.noUpperAgeLimit === true,
     ageCutoffDate: r.criteria.ageCutoffDate || null,
     relaxationNotes: r.criteria.relaxationNotesMarkdown?.trim() || null,
     // Only the notice's own pay. The mapper's payScale falls back to the unverified master default.

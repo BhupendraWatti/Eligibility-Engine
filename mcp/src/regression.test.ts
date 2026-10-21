@@ -469,6 +469,41 @@ async function run() {
   const merged = mergeUpdateInput(live, { organisationId: 'org_mppsc' }, 'admin@x.in');
   assert(merged.organisationId === 'org_mppsc' && merged.stateId === undefined && merged.organisationShortName === undefined && merged.postId === 'post_1', "a move to another organisation takes that organisation's state");
 
+  // ── 16. Eligibility tests and entrance exams: no vacancies, open to every eligible candidate ───────
+  const ntaPage = 'https://ugcnet.nta.ac.in/notice';
+  const ntaQuote = (field: string, snippet: string) => ({ field, sourceUrl: ntaPage, page: 1, snippet, method: 'NATIVE' });
+  const ntaDeps: ProposalDeps = { ...base(), orgWebsite: async () => 'https://nta.ac.in', orgStateCode: async () => 'IN' };
+  const ugcNet = {
+    title: 'UGC NET December 2026', postId: 'post_ugc_net', organisationId: 'org_nta', examKind: 'ELIGIBILITY_TEST', noUpperAgeLimit: true,
+    selectionStages: [{ name: 'Computer Based Test', desc: 'Paper 1 and Paper 2, objective questions' }],
+    officialLinks: [{ linkType: 'APPLY_ONLINE', title: 'Apply online', url: 'https://ugcnet.nta.ac.in/apply' }],
+  };
+  const ugcNetEvidence = [
+    ntaQuote('title', 'UGC NET December 2026'), ntaQuote('examKind', 'National Eligibility Test for Assistant Professor and Junior Research Fellowship'),
+    ntaQuote('noUpperAgeLimit', 'There is no upper age limit for applying for Assistant Professor.'),
+    ntaQuote('selectionStages', 'The examination will be conducted in Computer Based Test (CBT) mode'), ntaQuote('officialLinks', 'Apply online at ugcnet.nta.ac.in'),
+  ];
+  const exam = async (changes: Record<string, unknown>, evidence: unknown[] = ugcNetEvidence, d: ProposalDeps = ntaDeps) => {
+    try { return await createProposal(d1, proposer, { kind: 'CREATE_RECRUITMENT', summary: 'UGC NET', changes, evidence }, d); }
+    catch (e: any) { return { status: e.code ?? 'INVALID_INPUT', message: e.message as string } as any; }
+  };
+  const net = await exam(ugcNet);
+  assert(net.status === 'PENDING', 'an eligibility test with no vacancy count is queued');
+  assert(!net.checks.needsReading.includes('noUpperAgeLimit'), '"no upper age limit" is matched against its quote');
+  const netRow = store[store.length - 1];
+  assert(netRow.payload.totalVacancies === undefined && String(netRow.payload.seoTitle).includes('Eligibility Test') && !String(netRow.payload.seoTitle).includes('Govt Job'), 'an eligibility test gets exam SEO, not "govt job"');
+  const { examKind: _kind, ...asJob } = ugcNet;
+  assert((await exam({ ...asJob, title: 'Some job 2026' })).status === 'VACANCIES_REQUIRED', 'a job without totalVacancies is refused as VACANCIES_REQUIRED');
+  assert((await exam({ ...ugcNet, title: 'UGC NET June 2027', totalVacancies: 100 }, [...ugcNetEvidence, ntaQuote('totalVacancies', '100 seats')])).status === 'VACANCIES_NOT_APPLICABLE', 'a vacancy count on an eligibility test is refused');
+  assert((await exam({ ...ugcNet, title: 'JEE Main 2027', examKind: 'ENTRANCE_EXAM', vacanciesBreakdown: [{ category: 'UR', count: 10 }] }, [...ugcNetEvidence, ntaQuote('vacanciesBreakdown', 'UR 10')])).status === 'VACANCIES_NOT_APPLICABLE', 'a vacancy breakdown on an entrance exam is refused');
+  assert((await exam({ ...ugcNet, title: 'CSIR NET 2027', maxAgeGeneral: 30 }, [...ugcNetEvidence, ntaQuote('maxAgeGeneral', 'JRF: not more than 30 years')])).status === 'INVALID_INPUT', 'noUpperAgeLimit with a maxAgeGeneral is refused as contradictory');
+  assert((await exam({ ...ugcNet, title: 'CTET 2027', examKind: 'PASS_EXAM' })).status === 'INVALID_INPUT', 'an unknown examKind is refused');
+  let updateCode = 'OK';
+  try { checkMcpScope('UPDATE_RECRUITMENT', { totalVacancies: 5 }, [], 'ELIGIBILITY_TEST'); } catch (e: any) { updateCode = e.code; }
+  assert(updateCode === 'VACANCIES_NOT_APPLICABLE', 'an update cannot add vacancies to a stored eligibility test');
+  const keptKind = mergeUpdateInput({ ...live, examKind: 'ELIGIBILITY_TEST', criteria: { ...live.criteria, noUpperAgeLimit: true } }, { title: 'UGC NET December 2026 (revised)' }, 'admin@x.in');
+  assert(keptKind.examKind === 'ELIGIBILITY_TEST' && keptKind.noUpperAgeLimit === true, 'an approved update keeps the stored examKind and no-upper-age flag');
+
   console.log('\nAll regression checks passed.');
 }
 

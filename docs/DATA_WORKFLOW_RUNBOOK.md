@@ -7,6 +7,14 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 - Only government recruitments that select by a **written or computer-based exam**. Skip honorary, volunteer, walk-in,
   interview-only, merit-only and "fill the form and we will call you" posts. `selectionStages` must show the exam, or the
   proposal is refused as `NO_EXAM_STAGE`.
+- **Eligibility tests and entrance exams are in scope** (UGC NET, CSIR NET, CTET, state TET/SET, JEE Main, NEET UG, CUET).
+  They have **no vacancies**: everyone who meets the conditions may sit, and everyone who clears the cutoff (qualifying marks,
+  percentile or All India Rank) qualifies. Send `examKind: ELIGIBILITY_TEST` or `ENTRANCE_EXAM` with a quote and leave
+  `totalVacancies` and `vacanciesBreakdown` out (else `VACANCIES_NOT_APPLICABLE`; a job without `totalVacancies` is `VACANCIES_REQUIRED`).
+  Masters: organisation = the conducting body (National Testing Agency is `org_nta`, Central Government); department = the body the
+  test is held for, as the notice names it (e.g. University Grants Commission); post = the test itself (e.g. "UGC NET");
+  sector = `sec_national_tests`. A central test is open to every state: leave `domicileScope` out. When the notice says there is no
+  upper age limit, send `noUpperAgeLimit: true` and leave `maxAgeGeneral` out.
 - `officialLinks` must include an `APPLY_ONLINE` link: the official page where candidates start filling the form (for example OJAS
   or MPOnline). A notice or rulebook PDF is `NOTIFICATION_PDF` or `RULEBOOK`, never `APPLY_ONLINE` (else `APPLY_LINK_REQUIRED` / `INVALID_LINK`). An update that sends `officialLinks` must keep the record's existing apply link.
 - Masters belong to one state (organisation, then department, then post). A post with the same name in another state is not a
@@ -32,6 +40,8 @@ The official source is the authority. The MCP proposes, an admin approves. Nothi
 6. **`preview_proposal`** with the full input and evidence. Read `action`, the before/after rows and `duplicateWarning`.
    - `CONFIRMED_DUPLICATE`, `PENDING_CHANGE_CONFLICT`, `UNKNOWN_POST`, `UNKNOWN_ORGANISATION`, `NO_EXAM_STAGE`: do not propose; report.
    - `APPLY_LINK_REQUIRED`, `INVALID_LINK`: fix the links from the official source, then preview again.
+   - `VACANCIES_REQUIRED`: a job needs its quoted `totalVacancies`; if it is really an eligibility test or entrance exam, set `examKind` instead.
+   - `VACANCIES_NOT_APPLICABLE`: remove `totalVacancies` / `vacanciesBreakdown` from the test or entrance exam.
    - `EVIDENCE_REQUIRED`, `VALUE_NOT_IN_QUOTE`: add a quote for that field or drop it.
 7. **`propose_new_recruitment` / `propose_recruitment_update`** with the same input. To correct your own pending proposal, `withdraw_proposal` it and propose again.
 8. An admin approves or rejects in `/admin/pending-changes`. Status shown on the site comes from the lifecycle resolver; never propose a status.

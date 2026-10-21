@@ -7,6 +7,7 @@ import { resolveSectorRoute } from '../services/sector-routing';
 import { normalizeSectorIcon, normalizeSectorTheme } from '../services/sector-theme';
 import { INDIA_JURISDICTIONS } from '../data/india-jurisdictions';
 import { deriveDomicileColumns, nextScope, stateCodeForId, type DomicileColumns, type DomicileScope } from '../services/domicile-scope';
+import { isExamKind, isQualifyingExam, type ExamKind } from '../services/exam-kind';
 import { buildCadreGuide, type CadreGuide, type HiringBody } from '../services/cadre-guide';
 import {
   resolveRecruitmentLifecycle,
@@ -170,6 +171,8 @@ export interface RecruitmentWithDetails {
   overviewMarkdown?: string | null;
   cycleYear: number;
   totalVacancies: number;
+  /** RECRUITMENT, or a qualifying exam (ELIGIBILITY_TEST / ENTRANCE_EXAM) with no vacancies (src/services/exam-kind.ts). */
+  examKind?: ExamKind;
   status: string;
   lifecycleStatus: string;
   examStatus?: string;
@@ -213,6 +216,8 @@ export interface RecruitmentWithDetails {
   criteria: {
     minAge: number;
     maxAgeGeneral: number;
+    /** The notice states no upper age limit: maxAgeGeneral is not checked. */
+    noUpperAgeLimit?: boolean;
     ageCutoffDate: string;
     ageRelaxationScSt: number;
     ageRelaxationObc: number;
@@ -3226,6 +3231,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     overviewMarkdown: r.overviewMarkdown,
     cycleYear: r.cycleYear,
     totalVacancies: r.totalVacancies,
+    examKind: isExamKind(r.examKind) ? r.examKind : 'RECRUITMENT',
     status: r.status,
     lifecycleStatus: resolvedLifecycle,
     examStatus: (r as any).examStatus || (examDateEvent?.eventDate ? 'SCHEDULED' : 'NOT_SCHEDULED'),
@@ -3269,6 +3275,7 @@ function mapDbRecruitmentToDetails(r: any): RecruitmentWithDetails {
     criteria: {
       minAge: r.eligibility.minAge,
       maxAgeGeneral: r.eligibility.maxAgeGeneral,
+      noUpperAgeLimit: r.eligibility?.noUpperAgeLimit === 1,
       ageCutoffDate: r.eligibility.ageCutoffDate,
       ageRelaxationScSt: r.eligibility.ageRelaxationScSt,
       ageRelaxationObc: r.eligibility.ageRelaxationObc,
@@ -3329,7 +3336,10 @@ export interface CreateRecruitmentInput {
   organisationId?: string;
   organisationShortName?: string;
   advtNumber?: string | null;
+  /** 0 for a qualifying exam (it has no vacancies). */
   totalVacancies: number;
+  /** Undefined on an update keeps the stored kind. */
+  examKind?: ExamKind;
   shortSummary?: string;
   overviewMarkdown?: string;
   lifecycleStatus?: string;
@@ -3340,6 +3350,8 @@ export interface CreateRecruitmentInput {
   cadreClassification?: string;
   minAge?: number;
   maxAgeGeneral?: number;
+  /** Undefined on an update keeps the stored value. */
+  noUpperAgeLimit?: boolean;
   ageCutoffDate?: string;
   ageRelaxationScSt?: number;
   ageRelaxationObc?: number;
@@ -3461,6 +3473,10 @@ export async function createRecruitmentAtomic(
 
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
   const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId);
+  // A qualifying exam has no vacancies, whatever was sent.
+  const examKind: ExamKind = isExamKind(data.examKind) ? data.examKind : 'RECRUITMENT';
+  const totalVacancies = isQualifyingExam(examKind) ? 0 : (data.totalVacancies ?? 0);
+  const noUpperAgeLimit = data.noUpperAgeLimit === true;
 
   // 1. Validation & Duplicate Detection
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -3484,7 +3500,7 @@ export async function createRecruitmentAtomic(
     slug,
     advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
-    totalVacancies: data.totalVacancies,
+    totalVacancies,
     postId: data.postId,
     postTitle: matchedPost?.title || 'State Government Post',
     departmentName: matchedPost?.departmentName || 'General Administration Department',
@@ -3503,6 +3519,7 @@ export async function createRecruitmentAtomic(
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+      noUpperAgeLimit,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
       minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
       domicileScope: dom.scope,
@@ -3539,10 +3556,13 @@ export async function createRecruitmentAtomic(
     advtNumber: cleanAdvt(data.advtNumber),
     title: data.title,
     slug,
-    shortSummary: data.shortSummary || `Direct recruitment for ${data.totalVacancies.toLocaleString()} vacancies of ${matchedPost?.title || 'government posts'}.`,
+    shortSummary: data.shortSummary || (isQualifyingExam(examKind)
+      ? `${matchedPost?.title || data.title}: a qualifying exam open to every eligible candidate, with no fixed vacancies.`
+      : `Direct recruitment for ${totalVacancies.toLocaleString()} vacancies of ${matchedPost?.title || 'government posts'}.`),
     overviewMarkdown: data.overviewMarkdown || null,
     cycleYear: data.cycleYear || new Date().getFullYear(),
-    totalVacancies: data.totalVacancies,
+    totalVacancies,
+    examKind,
     status: targetStatus,
     lifecycleStatus: data.lifecycleStatus || 'OPEN',
     isFeatured: data.isFeatured ?? 0,
@@ -3616,6 +3636,7 @@ export async function createRecruitmentAtomic(
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+      noUpperAgeLimit,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
       ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
       ageRelaxationObc: data.ageRelaxationObc ?? 3,
@@ -3672,7 +3693,8 @@ export async function createRecruitmentAtomic(
           shortSummary: newRecruitment.shortSummary,
           overviewMarkdown: data.overviewMarkdown || null,
           cycleYear: newRecruitment.cycleYear,
-          totalVacancies: data.totalVacancies,
+          totalVacancies,
+          examKind,
           status: targetStatus,
           lifecycleStatus: enrichedRecruitment.resolvedLifecycle,
           examStatus: enrichedRecruitment.examStatus || 'NOT_SCHEDULED',
@@ -3696,6 +3718,7 @@ export async function createRecruitmentAtomic(
           recruitmentId: newId,
           minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
           maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+          noUpperAgeLimit: noUpperAgeLimit ? 1 : 0,
           ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
           ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
           ageRelaxationObc: data.ageRelaxationObc ?? 3,
@@ -3849,7 +3872,7 @@ function duplicateCandidate(id: string, data: CreateRecruitmentInput, org: { id:
     sourceUrls: urls,
     postId: data.postId,
     cycleYear: data.cycleYear || new Date().getFullYear(),
-    totalVacancies: data.totalVacancies,
+    totalVacancies: isQualifyingExam(data.examKind) ? 0 : data.totalVacancies,
     applicationStart: data.applicationStart,
     applicationEnd: data.applicationEnd,
   };
@@ -3903,6 +3926,10 @@ export async function updateRecruitmentAtomic(
   const d1 = resolveD1(providedD1, 'updating a recruitment');
   const { post: matchedPost, organisation: org, stateId } = await resolveRecruitmentMasters(data, d1);
   const dom = domicileForSave(data.domicileScope, data.domicileScopeState, stateId, await storedDomicile(id, d1));
+  // Undefined keeps the stored kind and age-limit flag; a qualifying exam never stores vacancies.
+  const examKind = isExamKind(data.examKind) ? data.examKind : undefined;
+  const totalVacancies = isQualifyingExam(examKind) ? 0 : (data.totalVacancies ?? 0);
+  const noUpperAgeLimit = data.noUpperAgeLimit === undefined ? undefined : data.noUpperAgeLimit ? 1 : 0;
   const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
@@ -3925,7 +3952,7 @@ export async function updateRecruitmentAtomic(
     slug,
     advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
-    totalVacancies: data.totalVacancies,
+    totalVacancies,
     postId: data.postId,
     postTitle: matchedPost?.title || 'State Government Post',
     departmentName: matchedPost?.departmentName || 'General Administration Department',
@@ -3944,6 +3971,7 @@ export async function updateRecruitmentAtomic(
     criteria: {
       minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+      noUpperAgeLimit: noUpperAgeLimit === 1,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
       minQualificationLevel: data.minQualificationLevel ?? matchedPost?.defaultQualification ?? '10TH',
       domicileScope: dom.scope,
@@ -3978,10 +4006,11 @@ export async function updateRecruitmentAtomic(
     const existing = FALLBACK_RECRUITMENTS[idx];
     const rawUpdated = {
       ...existing,
+      examKind: examKind ?? existing.examKind,
       title: data.title,
       slug,
       advtNumber: cleanAdvt(data.advtNumber),
-      totalVacancies: data.totalVacancies,
+      totalVacancies,
       shortSummary: data.shortSummary || existing.shortSummary,
       overviewMarkdown: data.overviewMarkdown !== undefined ? data.overviewMarkdown : existing.overviewMarkdown,
       status: targetStatus,
@@ -4035,6 +4064,7 @@ export async function updateRecruitmentAtomic(
         ...existing.criteria,
         minAge: data.minAge ?? existing.criteria.minAge,
         maxAgeGeneral: data.maxAgeGeneral ?? existing.criteria.maxAgeGeneral,
+        noUpperAgeLimit: data.noUpperAgeLimit ?? existing.criteria.noUpperAgeLimit,
         ageCutoffDate: data.ageCutoffDate || existing.criteria.ageCutoffDate,
         minQualificationLevel: data.minQualificationLevel ?? existing.criteria.minQualificationLevel,
         ageRelaxationScSt: data.ageRelaxationScSt ?? existing.criteria.ageRelaxationScSt,
@@ -4092,7 +4122,7 @@ export async function updateRecruitmentAtomic(
         examDate: data.examDate,
         examStatus: data.examStatus,
         resultStatus: data.resultStatus,
-        totalVacancies: data.totalVacancies,
+        totalVacancies,
       });
 
       // Update recruitments table
@@ -4107,7 +4137,8 @@ export async function updateRecruitmentAtomic(
             advtNumber: cleanAdvt(data.advtNumber),
             shortSummary: data.shortSummary || '',
             overviewMarkdown: data.overviewMarkdown || null,
-            totalVacancies: data.totalVacancies,
+            totalVacancies,
+            examKind,
             cycleYear: data.cycleYear || new Date().getFullYear(),
             status: targetStatus,
             lifecycleStatus: resolvedLStatus,
@@ -4136,6 +4167,7 @@ export async function updateRecruitmentAtomic(
             recruitmentId: id,
             minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
             maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+            noUpperAgeLimit: noUpperAgeLimit ?? 0,
             ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
             ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
             ageRelaxationObc: data.ageRelaxationObc ?? 3,
@@ -4168,6 +4200,7 @@ export async function updateRecruitmentAtomic(
             set: {
               minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
               maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
+              noUpperAgeLimit,
               ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
               ageRelaxationScSt: data.ageRelaxationScSt ?? 5,
               ageRelaxationObc: data.ageRelaxationObc ?? 3,

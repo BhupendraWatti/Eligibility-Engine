@@ -46,6 +46,8 @@ export interface RecruitmentValidationInput {
   criteria?: {
     minAge?: number;
     maxAgeGeneral?: number;
+    /** The notice states no upper age limit, so maxAgeGeneral is not checked. */
+    noUpperAgeLimit?: boolean;
     ageCutoffDate?: string;
     ageRelaxationScSt?: number;
     ageRelaxationObc?: number;
@@ -212,12 +214,12 @@ export function validateRecruitmentForPublication(
       checks.eligibility = 'FAIL';
     }
 
-    if (c.maxAgeGeneral === undefined || c.maxAgeGeneral < 18 || c.maxAgeGeneral > 65) {
+    if (!c.noUpperAgeLimit && (c.maxAgeGeneral === undefined || c.maxAgeGeneral < 18 || c.maxAgeGeneral > 65)) {
       blockingErrors.push(`Invalid maximum age limit (${c.maxAgeGeneral}). Must be between 18 and 65.`);
       checks.eligibility = 'FAIL';
     }
 
-    if (c.minAge !== undefined && c.maxAgeGeneral !== undefined && c.minAge > c.maxAgeGeneral) {
+    if (!c.noUpperAgeLimit && c.minAge !== undefined && c.maxAgeGeneral !== undefined && c.minAge > c.maxAgeGeneral) {
       blockingErrors.push(`Minimum age (${c.minAge}) cannot exceed maximum age (${c.maxAgeGeneral}).`);
       checks.eligibility = 'FAIL';
     }

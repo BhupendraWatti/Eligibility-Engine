@@ -77,7 +77,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Search recruitments',
       description:
         'Search NIRNAY government recruitments (hiring cycles, not evergreen posts). READ-only. Drafts and pending-verification records are included by default for this authenticated MCP (pass includeUnpublished=false for published only); the public website never sees them. ' +
-        'Returns structured recruitment summaries with dates, vacancies, official links and a source summary.',
+        'Returns structured recruitment summaries with dates, vacancies, examKind (RECRUITMENT, or ELIGIBILITY_TEST / ENTRANCE_EXAM with no vacancies), official links and a source summary.',
       inputSchema: searchInput,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -185,7 +185,9 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Propose a new recruitment',
       description:
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
-        `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
+        `Required in "changes": title, postId (canonical post id), organisationId, and totalVacancies for a job. ` +
+        'For an eligibility test or entrance exam (UGC NET, CSIR NET, CTET, a state TET/SET, JEE Main, NEET UG, CUET) send examKind ELIGIBILITY_TEST or ENTRANCE_EXAM instead and leave totalVacancies and vacanciesBreakdown out: it has no vacancies, every candidate who clears the cutoff qualifies (else VACANCIES_REQUIRED / VACANCIES_NOT_APPLICABLE). ' +
+        `advtNumber is optional. Optional: ${editable}. ` +
         `Also accepts: ${Object.keys(MASTER_REF_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
         `${TABLE_FORMAT} A broken table is refused. ` +
         'Leave out seoTitle and seoDescription: they are written for you from the title, state, vacancies, qualification and last date, so a state job reaches people searching for jobs in that state and also shows for all-India "government jobs {year}" searches. ' +
@@ -299,7 +301,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / SELECTION_STAGES_REQUIRED / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK / FIELD_RETIRED / DOMICILE_SCOPE_INVALID / DOMICILE_CLAUSE_MISMATCH) and checks (fields to re-read: needsReading, fromImage, handwritten; domicileFlag when the domicile clause was accepted but needs the admin to read it), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / SELECTION_STAGES_REQUIRED / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK / VACANCIES_REQUIRED / VACANCIES_NOT_APPLICABLE / FIELD_RETIRED / DOMICILE_SCOPE_INVALID / DOMICILE_CLAUSE_MISMATCH) and checks (fields to re-read: needsReading, fromImage, handwritten; domicileFlag when the domicile clause was accepted but needs the admin to read it), ' +
         'a before/after row per field and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),

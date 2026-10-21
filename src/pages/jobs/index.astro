@@ -8,6 +8,7 @@ import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdic
 import type { RecruitmentWithDetails } from '../../db/queries';
 import { domicileScopeLabel } from '../../services/domicile-scope';
 import { currentYear, stateKeywordName, stateListingSeo } from '../../services/seo';
+import { ageRangeLabel, isQualifyingExam, vacancyLabel, vacancyPhrase } from '../../services/exam-kind';
 
 // Ordering depends on the visitor's state, so this page must never be shared from an edge cache.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -396,8 +397,8 @@ const stateName = state ? stateKeywordName(state) : null;
                         <!-- Key Metadata Row -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-3 px-3.5 sm:px-4 rounded-xl bg-muted/40 border border-border/70 mb-4 text-xs">
                           <div>
-                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">Total Vacancies</span>
-                            <span class="font-bold text-foreground font-mono text-sm">{job.totalVacancies?.toLocaleString() || 'N/A'} Posts</span>
+                            <span class="text-muted-foreground block text-[10px] uppercase font-bold">{isQualifyingExam(job.examKind) ? 'Exam type' : 'Total Vacancies'}</span>
+                            <span class="font-bold text-foreground font-mono text-sm">{isQualifyingExam(job.examKind) ? vacancyPhrase(job) : `${vacancyLabel(job, 'N/A')} Posts`}</span>
                           </div>
                           <div>
                             <span class="text-muted-foreground block text-[10px] uppercase font-bold">Min Education</span>
@@ -405,7 +406,7 @@ const stateName = state ? stateKeywordName(state) : null;
                           </div>
                           <div>
                             <span class="text-muted-foreground block text-[10px] uppercase font-bold">Age Bracket</span>
-                            <span class="font-semibold text-foreground font-mono">{job.criteria.minAge}-{job.criteria.maxAgeGeneral} Yrs</span>
+                            <span class="font-semibold text-foreground font-mono">{ageRangeLabel(job.criteria, 'Yrs')}</span>
                           </div>
                           <div>
                             <span class="text-muted-foreground block text-[10px] uppercase font-bold">Domicile Scope</span>

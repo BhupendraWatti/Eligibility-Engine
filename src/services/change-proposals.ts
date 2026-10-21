@@ -19,6 +19,7 @@ import { recruitmentSeo, type RecruitmentSeoInput } from './seo';
 import { CERTIFICATE_CODES, unknownRequirementParts } from '../data/credentials';
 import type { Actor } from './recruitment-query';
 import { TABLE_FORMAT, tableProblems } from '../lib/text-tables';
+import { EXAM_KINDS, isQualifyingExam } from './exam-kind';
 
 export const PROPOSAL_KINDS = ['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
@@ -42,7 +43,8 @@ export class ProposalBlockedError extends InvalidProposalError {
   constructor(
     readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE' | 'DUPLICATE_MASTER' | 'NO_CHANGE'
       | 'NO_EXAM_STAGE' | 'SELECTION_STAGES_REQUIRED' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE'
-      | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH' | 'EXAM_DATE_REQUIRED',
+      | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH' | 'EXAM_DATE_REQUIRED'
+      | 'VACANCIES_REQUIRED' | 'VACANCIES_NOT_APPLICABLE',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -82,8 +84,12 @@ type FieldSpec =
 /** Fields an UPDATE proposal may change. Deliberately excludes status, stateId, slug, isFeatured, robotsIndex (postId and organisationId are MASTER_REF_FIELDS). */
 export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   title: 'string', advtNumber: 'nullableString', totalVacancies: 'int', shortSummary: 'text', overviewMarkdown: 'text',
+  // A job (RECRUITMENT) or a qualifying exam with no vacancies: ELIGIBILITY_TEST (UGC NET, CTET, TET) or ENTRANCE_EXAM (JEE Main, NEET UG).
+  examKind: { enum: [...EXAM_KINDS] },
   cycleYear: 'int', payScaleOverride: 'string', salaryDetailsMarkdown: 'text', cadreClassification: 'string',
   minAge: 'int', maxAgeGeneral: 'int', ageCutoffDate: 'date',
+  // true when the notice states no upper age limit; maxAgeGeneral is then left out.
+  noUpperAgeLimit: 'bool',
   ageRelaxationScSt: 'int', ageRelaxationObc: 'int', ageRelaxationFemale: 'int', ageRelaxationEws: 'int',
   minQualificationLevel: { enum: QUALIFICATIONS },
   qualificationDetailsMarkdown: 'text', relaxationNotesMarkdown: 'text', specialConditionsNotes: 'text',
@@ -108,8 +114,12 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
  * existing post or organisation (the state follows the organisation). Each must be an existing master or a pending master proposal.
  */
 export const MASTER_REF_FIELDS: Record<string, FieldSpec> = { postId: 'string', organisationId: 'string' };
-/** advtNumber is optional: omit or send null when the official notice states none. */
-export const CREATE_REQUIRED = ['title', 'postId', 'organisationId', 'totalVacancies'] as const;
+/**
+ * advtNumber is optional: omit or send null when the official notice states none.
+ * totalVacancies is required only for a job (examKind RECRUITMENT, the default): a qualifying exam has none.
+ */
+export const CREATE_REQUIRED = ['title', 'postId', 'organisationId'] as const;
+export const JOB_CREATE_REQUIRED = ['totalVacancies'] as const;
 
 /**
  * A master that is itself still waiting for approval can be named by its proposal id (prop_…) wherever its id is expected,
@@ -296,6 +306,9 @@ export function sanitizeChanges(kind: ProposalKind, changes: unknown): Record<st
   if (kind === 'CREATE_RECRUITMENT') {
     const missing = CREATE_REQUIRED.filter(f => out[f] === undefined);
     if (missing.length) throw new InvalidProposalError(`A new recruitment requires: ${missing.join(', ')}.`);
+    if (!isQualifyingExam(out.examKind as string | undefined) && out.totalVacancies === undefined) {
+      throw new ProposalBlockedError('VACANCIES_REQUIRED', `A new job recruitment requires totalVacancies, quoted from the notice. If this is an eligibility test or entrance exam with no vacancies (UGC NET, CSIR NET, CTET, a state TET or SET, JEE Main, NEET UG, CUET), send examKind ELIGIBILITY_TEST or ENTRANCE_EXAM with a quote and leave totalVacancies out.`);
+    }
   }
   if (new TextEncoder().encode(JSON.stringify(out)).length > MAX_PAYLOAD_BYTES) throw new InvalidProposalError('Proposal is too large.');
   return out;
@@ -599,7 +612,7 @@ const isExamStage = (s: { name: string; desc: string }) => {
  * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
  * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
  */
-export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = []): void {
+export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = [], existingExamKind?: string): void {
   const links = (payload.officialLinks as Array<{ linkType: string; url: string }> | undefined) ?? [];
   for (const [i, l] of links.entries()) {
     // officialLinks replaces the whole list, so a type already on the live record may be sent back unchanged.
@@ -623,8 +636,27 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   if (payload.examStatus === 'SCHEDULED' && (create || dates) && !payload.examDate && !dates?.some(d => d.eventType === 'EXAM_DATE')) {
     throw new ProposalBlockedError('EXAM_DATE_REQUIRED', 'examStatus is SCHEDULED but importantDates has no EXAM_DATE. Add one EXAM_DATE row for each exam day the notice gives (a 3 and 4 December exam is two rows) and quote it, or leave examStatus out if the notice gives no exam date.');
   }
+  checkQualifyingExam(payload, existingExamKind);
   if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
     throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');
+  }
+}
+
+/**
+ * Eligibility tests and entrance exams (docs/designs/qualifying-exams.md) have no vacancies: everyone who meets the conditions
+ * may sit, and clearing the cutoff (qualifying marks, percentile or All India Rank) is what counts. A vacancy count on one is refused,
+ * so the page never shows "0 posts" or a made-up number.
+ */
+function checkQualifyingExam(payload: Record<string, unknown>, existingExamKind?: string): void {
+  const examKind = (payload.examKind as string | undefined) ?? existingExamKind;
+  if (isQualifyingExam(examKind)) {
+    const breakdown = payload.vacanciesBreakdown as unknown[] | undefined;
+    if (payload.totalVacancies !== undefined || breakdown?.length) {
+      throw new ProposalBlockedError('VACANCIES_NOT_APPLICABLE', `This is an ${examKind === 'ENTRANCE_EXAM' ? 'entrance exam' : 'eligibility test'} (examKind ${examKind}): it has no vacancies, because every candidate who clears the cutoff qualifies. Leave totalVacancies and vacanciesBreakdown out; put the qualifying marks or percentile rules in qualificationDetailsMarkdown or specialConditionsNotes if the notice states them.`, { examKind });
+    }
+  }
+  if (payload.noUpperAgeLimit === true && payload.maxAgeGeneral !== undefined) {
+    throw new InvalidProposalError('noUpperAgeLimit is true, so leave maxAgeGeneral out: the engine checks only minAge. If the limit differs by post (e.g. UGC NET: JRF up to 30 years, Assistant Professor no limit), store the least strict rule (noUpperAgeLimit true) and describe the difference in postSpecificRules.');
   }
 }
 
@@ -676,11 +708,12 @@ const SEO_FIELDS = ['seoTitle', 'seoDescription'] as const;
 const seoInputOf = (r: RecruitmentWithDetails): RecruitmentSeoInput => ({
   title: r.title, postTitle: r.postTitle, organisationShortName: r.organisationShortName, stateCode: r.stateCode,
   totalVacancies: r.totalVacancies, minQualificationLevel: r.criteria?.minQualificationLevel, cycleYear: r.cycleYear, applicationEnd: r.applicationEnd,
+  examKind: r.examKind,
 });
 
 /** The SEO inputs a proposal may change, read from its payload. */
 const seoInputFromPayload = (payload: Record<string, unknown>): Partial<RecruitmentSeoInput> => Object.fromEntries(
-  (['title', 'totalVacancies', 'minQualificationLevel', 'cycleYear', 'applicationEnd'] as const)
+  (['title', 'totalVacancies', 'minQualificationLevel', 'cycleYear', 'applicationEnd', 'examKind'] as const)
     .filter(f => payload[f] !== undefined && payload[f] !== null)
     .map(f => [f, payload[f]]),
 );
@@ -767,7 +800,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
-    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
+    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType), current.examKind);
     const refs = await checkMasterRefs(db, deps, payload);
     stateCode = refs.stateCode ?? current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
     const scopeState = current.criteria?.domicileScope !== 'OPEN' ? current.criteria?.reservationStateCode : null;
@@ -904,7 +937,7 @@ async function recordBlocked(db: D1Database, actor: Actor, input: ProposalInput,
 
 /** Every field the eligibility engine reads, in the shape a proposal sends it. */
 export const ELIGIBILITY_FIELDS = [
-  'minAge', 'maxAgeGeneral', 'ageCutoffDate', 'ageRelaxationScSt', 'ageRelaxationObc', 'ageRelaxationFemale', 'ageRelaxationEws',
+  'minAge', 'maxAgeGeneral', 'noUpperAgeLimit', 'ageCutoffDate', 'ageRelaxationScSt', 'ageRelaxationObc', 'ageRelaxationFemale', 'ageRelaxationEws',
   'minQualificationLevel', 'qualificationByCategory', 'allowedStreams', 'minPercentageRequired', 'experienceMonths', 'additionalSkills',
   'domicileScope', 'genderAllowed', 'requiresMpEmploymentReg', 'employmentRegistrationLabel', 'requiresCpct',
   'minHeightMaleCm', 'minHeightFemaleCm', 'minChestMaleCm', 'postSpecificRules',
@@ -923,6 +956,7 @@ export async function readRecruitmentEligibility(d1: D1Database | undefined, rec
   return {
     recruitmentId: r.id,
     title: r.title,
+    examKind: r.examKind ?? 'RECRUITMENT',
     stateCode: r.stateId ? stateCodeForId(r.stateId) : null,
     fields,
     unchecked: [

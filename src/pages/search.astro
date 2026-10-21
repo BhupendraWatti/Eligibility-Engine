@@ -3,6 +3,7 @@ import { advtLabel } from '../services/advt-number';
 // src/pages/search.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getAllActiveRecruitments, getAllCanonicalPosts, getAllSectors, getAllOrganisations } from '../db/queries';
+import { vacancyPhrase } from '../services/exam-kind';
 
 const query = (Astro.url.searchParams.get('q') || '').trim();
 const activeCategory = Astro.url.searchParams.get('type') || 'all';
@@ -181,7 +182,7 @@ const categories = [
                           {r.shortSummary}
                         </p>
                         <span class="text-[11px] font-mono text-muted-foreground block mt-2">
-                          {r.totalVacancies.toLocaleString()} Vacancies · {r.criteria.minQualificationLevel} · {r.organisationShortName} · {advtLabel(r.advtNumber)}
+                          {vacancyPhrase(r, 'vacancy') ?? 'Vacancies not announced'} · {r.criteria.minQualificationLevel} · {r.organisationShortName} · {advtLabel(r.advtNumber)}
                         </span>
                       </div>
                       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-muted-foreground group-hover:text-primary transition-colors mt-2 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
