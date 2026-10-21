@@ -21,6 +21,8 @@ import {
   ProposalBlockedError,
   QUALIFICATIONS,
   checkParentRef,
+  httpUrl,
+  same,
   defaultProposalDeps,
   isProposalRef,
   sanitizeEvidence,
@@ -273,13 +275,7 @@ export async function proposeMaster(
 export const UPDATABLE_MASTER_TYPES = ['state', 'sector', 'organisation', 'department', 'post'] as const;
 export type UpdatableMasterType = (typeof UPDATABLE_MASTER_TYPES)[number];
 
-export const MASTER_UPDATE_KIND: Record<UpdatableMasterType, MasterUpdateKind> = {
-  state: 'UPDATE_STATE',
-  sector: 'UPDATE_SECTOR',
-  organisation: 'UPDATE_ORGANISATION',
-  department: 'UPDATE_DEPARTMENT',
-  post: 'UPDATE_POST',
-};
+export const MASTER_UPDATE_KIND = Object.fromEntries(UPDATABLE_MASTER_TYPES.map(t => [t, `UPDATE_${t.toUpperCase()}`])) as Record<UpdatableMasterType, MasterUpdateKind>;
 export const MASTER_TYPE_OF_UPDATE_KIND = Object.fromEntries(Object.entries(MASTER_UPDATE_KIND).map(([t, k]) => [k, t])) as Record<MasterUpdateKind, UpdatableMasterType>;
 export const isMasterUpdateKind = (kind: string): kind is MasterUpdateKind => (MASTER_UPDATE_KINDS as readonly string[]).includes(kind);
 
@@ -369,14 +365,7 @@ export function sanitizeMasterUpdate(type: UpdatableMasterType, raw: unknown): R
       case 'description': out.description = text(v, 'description', type === 'sector' ? 300 : 1000); break;
       case 'summary': out.summary = text(v, 'summary', 2000); break;
       case 'payScale': out.payScale = v === null ? null : text(v, 'payScale', 200); break;
-      case 'websiteUrl': {
-        const url = text(v, 'websiteUrl', 500)!;
-        let u: URL;
-        try { u = new URL(url); } catch { throw new InvalidProposalError('websiteUrl must be a valid URL.'); }
-        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new InvalidProposalError('websiteUrl must be an http(s) URL.');
-        out.websiteUrl = url;
-        break;
-      }
+      case 'websiteUrl': out.websiteUrl = httpUrl(v, 'websiteUrl'); break;
       case 'icon': if (!(String(v) in SECTOR_ICONS)) throw new InvalidProposalError(`icon must be one of: ${Object.keys(SECTOR_ICONS).join(', ')}.`); out.icon = v; break;
       case 'theme': if (!(String(v) in SECTOR_THEMES)) throw new InvalidProposalError(`theme must be one of: ${Object.keys(SECTOR_THEMES).join(', ')}.`); out.theme = v; break;
       case 'displayOrder': if (!Number.isInteger(v) || (v as number) < 0 || (v as number) > 999) throw new InvalidProposalError('displayOrder must be an integer from 0 to 999.'); out.displayOrder = v; break;
@@ -389,20 +378,18 @@ export function sanitizeMasterUpdate(type: UpdatableMasterType, raw: unknown): R
   return assertEnglish(out, 'changes');
 }
 
-const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-
 /** Before/after rows for a master edit, against the live record. */
 export function masterUpdateDiff(payload: Record<string, unknown>, current: Record<string, unknown> | undefined) {
   return Object.entries(payload).map(([field, after]) => {
     const before = current ? current[field] ?? null : null;
-    return { field, before, after, changed: !sameValue(before, after) };
+    return { field, before, after, changed: !same(before, after) };
   });
 }
 
 /** Fields whose live value moved since the edit was proposed. */
 export function masterStaleFields(snapshot: Record<string, unknown> | null, current: Record<string, unknown> | undefined): string[] {
   if (!snapshot || !current) return [];
-  return Object.keys(snapshot).filter(f => !sameValue(snapshot[f], current[f]));
+  return Object.keys(snapshot).filter(f => !same(snapshot[f], current[f]));
 }
 
 /**
@@ -463,7 +450,7 @@ export async function proposeMasterUpdate(
   if (!current) throw new InvalidProposalError(`There is no ${input.type} with id "${id}". Use resolve_entity or list_entities for its id.`);
 
   const proposed = sanitizeMasterUpdate(input.type, input.changes);
-  const payload = Object.fromEntries(Object.entries(proposed).filter(([f, v]) => !sameValue(current[f], v)));
+  const payload = Object.fromEntries(Object.entries(proposed).filter(([f, v]) => !same(current[f], v)));
   const changed = Object.keys(payload);
   if (!changed.length) throw new ProposalBlockedError('NO_CHANGE', `Every proposed value already matches the live ${input.type}. Nothing to change.`);
   const next = { ...current, ...payload };

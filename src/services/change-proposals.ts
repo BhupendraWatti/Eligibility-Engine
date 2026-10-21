@@ -171,7 +171,7 @@ function isoDate(v: unknown, field: string): string {
   if (typeof v !== 'string' || !ISO_DATE.test(v) || Number.isNaN(Date.parse(v))) throw new InvalidProposalError(`${field} must be an ISO date (YYYY-MM-DD).`);
   return v;
 }
-function httpUrl(v: unknown, field: string): string {
+export function httpUrl(v: unknown, field: string): string {
   const s = str(v, field, 1000);
   let u: URL;
   try { u = new URL(s); } catch { throw new InvalidProposalError(`${field} must be a valid URL.`); }
@@ -416,7 +416,7 @@ export function snapshotFields(r: RecruitmentWithDetails, fields: string[]): Rec
   return Object.fromEntries(fields.map(f => [f, norm(currentFieldValue(r, f))]));
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+export const same = (a: unknown, b: unknown) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 
 export interface DiffRow { field: string; before: unknown; after: unknown; changed: boolean }
 
