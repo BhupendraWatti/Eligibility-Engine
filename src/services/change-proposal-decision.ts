@@ -152,6 +152,8 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
   const base: CreateRecruitmentInput = {
     title: existing.title,
     postId: existing.postId,
+    // By id: short names are not unique across states, and the writer falls back to looking one up by short name.
+    organisationId: existing.organisationId,
     stateId: existing.stateId,
     organisationShortName: existing.organisationShortName,
     advtNumber: existing.advtNumber,

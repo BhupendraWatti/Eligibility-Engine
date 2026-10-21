@@ -498,11 +498,24 @@ async function run() {
   assert((await exam({ ...ugcNet, title: 'JEE Main 2027', examKind: 'ENTRANCE_EXAM', vacanciesBreakdown: [{ category: 'UR', count: 10 }] }, [...ugcNetEvidence, ntaQuote('vacanciesBreakdown', 'UR 10')])).status === 'VACANCIES_NOT_APPLICABLE', 'a vacancy breakdown on an entrance exam is refused');
   assert((await exam({ ...ugcNet, title: 'CSIR NET 2027', maxAgeGeneral: 30 }, [...ugcNetEvidence, ntaQuote('maxAgeGeneral', 'JRF: not more than 30 years')])).status === 'INVALID_INPUT', 'noUpperAgeLimit with a maxAgeGeneral is refused as contradictory');
   assert((await exam({ ...ugcNet, title: 'CTET 2027', examKind: 'PASS_EXAM' })).status === 'INVALID_INPUT', 'an unknown examKind is refused');
-  let updateCode = 'OK';
-  try { checkMcpScope('UPDATE_RECRUITMENT', { totalVacancies: 5 }, [], 'ELIGIBILITY_TEST'); } catch (e: any) { updateCode = e.code; }
-  assert(updateCode === 'VACANCIES_NOT_APPLICABLE', 'an update cannot add vacancies to a stored eligibility test');
+  const storedTest = (payload: Record<string, unknown>) => {
+    try { checkMcpScope('UPDATE_RECRUITMENT', payload, [], { examKind: 'ELIGIBILITY_TEST', noUpperAgeLimit: true }); return 'OK'; } catch (e: any) { return e.code ?? 'INVALID_INPUT'; }
+  };
+  assert(storedTest({ totalVacancies: 5 }) === 'VACANCIES_NOT_APPLICABLE', 'an update cannot add vacancies to a stored eligibility test');
+  // Regression: ISSUE-002 — an upper age on a stored no-upper-limit test was accepted, then ignored by the engine
+  // Found by /qa on 2026-10-22
+  assert(storedTest({ maxAgeGeneral: 30 }) === 'INVALID_INPUT', 'an upper age on a stored no-upper-limit test needs noUpperAgeLimit false');
+  assert(storedTest({ maxAgeGeneral: 30, noUpperAgeLimit: false }) === 'OK', 'an upper age with noUpperAgeLimit false is accepted');
+  // Regression: ISSUE-003 — turning a stored test into a job without a vacancy count left a job with 0 vacancies
+  // Found by /qa on 2026-10-22
+  assert(storedTest({ examKind: 'RECRUITMENT' }) === 'VACANCIES_REQUIRED', 'a stored test turned into a job needs its vacancy count');
+  assert(storedTest({ examKind: 'RECRUITMENT', totalVacancies: 40 }) === 'OK', 'a stored test turned into a job with a count is accepted');
   const keptKind = mergeUpdateInput({ ...live, examKind: 'ELIGIBILITY_TEST', criteria: { ...live.criteria, noUpperAgeLimit: true } }, { title: 'UGC NET December 2026 (revised)' }, 'admin@x.in');
   assert(keptKind.examKind === 'ELIGIBILITY_TEST' && keptKind.noUpperAgeLimit === true, 'an approved update keeps the stored examKind and no-upper-age flag');
+  // Regression: ISSUE-001 — an update that names no organisation was applied by short name, which another state's body may share
+  // Found by /qa on 2026-10-22
+  const keptOrg = mergeUpdateInput({ ...live, organisationId: 'org_up_board', organisationShortName: 'MPPSC' }, { applicationEnd: '2026-11-30' }, 'admin@x.in');
+  assert(keptOrg.organisationId === 'org_up_board', 'an update that names no organisation keeps the stored organisation id');
 
   console.log('\nAll regression checks passed.');
 }

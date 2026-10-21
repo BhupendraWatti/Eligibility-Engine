@@ -612,7 +612,7 @@ const isExamStage = (s: { name: string; desc: string }) => {
  * and, on a new recruitment or whenever stages or links are sent, a written/computer exam and the page where candidates fill the form.
  * Honorary, volunteer, walk-in, interview-only and merit-only selections are out of scope in every state.
  */
-export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = [], existingExamKind?: string): void {
+export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknown>, existingLinkTypes: string[] = [], existing: StoredExam = {}): void {
   const links = (payload.officialLinks as Array<{ linkType: string; url: string }> | undefined) ?? [];
   for (const [i, l] of links.entries()) {
     // officialLinks replaces the whole list, so a type already on the live record may be sent back unchanged.
@@ -636,7 +636,7 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
   if (payload.examStatus === 'SCHEDULED' && (create || dates) && !payload.examDate && !dates?.some(d => d.eventType === 'EXAM_DATE')) {
     throw new ProposalBlockedError('EXAM_DATE_REQUIRED', 'examStatus is SCHEDULED but importantDates has no EXAM_DATE. Add one EXAM_DATE row for each exam day the notice gives (a 3 and 4 December exam is two rows) and quote it, or leave examStatus out if the notice gives no exam date.');
   }
-  checkQualifyingExam(payload, existingExamKind);
+  checkQualifyingExam(payload, existing);
   if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
     throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');
   }
@@ -647,16 +647,22 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
  * may sit, and clearing the cutoff (qualifying marks, percentile or All India Rank) is what counts. A vacancy count on one is refused,
  * so the page never shows "0 posts" or a made-up number.
  */
-function checkQualifyingExam(payload: Record<string, unknown>, existingExamKind?: string): void {
-  const examKind = (payload.examKind as string | undefined) ?? existingExamKind;
+type StoredExam = { examKind?: string; noUpperAgeLimit?: boolean };
+
+function checkQualifyingExam(payload: Record<string, unknown>, existing: StoredExam): void {
+  const examKind = (payload.examKind as string | undefined) ?? existing.examKind;
+  if (!isQualifyingExam(examKind) && isQualifyingExam(existing.examKind) && payload.totalVacancies === undefined) {
+    throw new ProposalBlockedError('VACANCIES_REQUIRED', `This record is stored as an ${existing.examKind === 'ENTRANCE_EXAM' ? 'entrance exam' : 'eligibility test'} with no vacancies. To make it a job, send totalVacancies quoted from the notice in the same proposal.`);
+  }
   if (isQualifyingExam(examKind)) {
     const breakdown = payload.vacanciesBreakdown as unknown[] | undefined;
     if (payload.totalVacancies !== undefined || breakdown?.length) {
       throw new ProposalBlockedError('VACANCIES_NOT_APPLICABLE', `This is an ${examKind === 'ENTRANCE_EXAM' ? 'entrance exam' : 'eligibility test'} (examKind ${examKind}): it has no vacancies, because every candidate who clears the cutoff qualifies. Leave totalVacancies and vacanciesBreakdown out; put the qualifying marks or percentile rules in qualificationDetailsMarkdown or specialConditionsNotes if the notice states them.`, { examKind });
     }
   }
-  if (payload.noUpperAgeLimit === true && payload.maxAgeGeneral !== undefined) {
-    throw new InvalidProposalError('noUpperAgeLimit is true, so leave maxAgeGeneral out: the engine checks only minAge. If the limit differs by post (e.g. UGC NET: JRF up to 30 years, Assistant Professor no limit), store the least strict rule (noUpperAgeLimit true) and describe the difference in postSpecificRules.');
+  // The stored flag counts too: an upper age sent alone on a no-limit record would be saved and then ignored.
+  if ((payload.noUpperAgeLimit ?? existing.noUpperAgeLimit) === true && payload.maxAgeGeneral !== undefined) {
+    throw new InvalidProposalError(`noUpperAgeLimit is true${payload.noUpperAgeLimit === undefined ? ' on this record' : ''}, so leave maxAgeGeneral out: the engine checks only minAge. To set an upper age limit, send noUpperAgeLimit false with it. If the limit differs by post (e.g. UGC NET: JRF up to 30 years, Assistant Professor no limit), store the least strict rule (noUpperAgeLimit true) and describe the difference in postSpecificRules.`);
   }
 }
 
@@ -800,7 +806,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
-    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType), current.examKind);
+    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType), { examKind: current.examKind, noUpperAgeLimit: current.criteria?.noUpperAgeLimit });
     const refs = await checkMasterRefs(db, deps, payload);
     stateCode = refs.stateCode ?? current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
     const scopeState = current.criteria?.domicileScope !== 'OPEN' ? current.criteria?.reservationStateCode : null;
