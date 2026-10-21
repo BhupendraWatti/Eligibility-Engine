@@ -134,7 +134,8 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
 
     if (isAdminHost && !isAdminPath) {
       (locals as { adminRewritten?: boolean }).adminRewritten = true;
-      return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}`);
+      // Keep the query string: pages like /sources?recruitment=... read it.
+      return rewrite(`/admin${url.pathname === '/' ? '' : url.pathname}${url.search}`);
     }
   } else {
     // Public pages: which state's recruitments to rank first (see src/services/viewer-state.ts).
