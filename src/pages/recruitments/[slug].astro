@@ -2,6 +2,7 @@
 import { advtLabel } from '../../services/advt-number';
 // src/pages/recruitments/[slug].astro
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import NoticeText from '../../components/common/NoticeText.astro';
 import { getRecruitmentWithRelations } from '../../db/queries';
 import { findApplyLink } from '../../services/cadre-guide';
 import { domicileScopeLabel } from '../../services/domicile-scope';
@@ -371,7 +372,7 @@ if (recruitment && canonicalUrl) {
             <h2 class="text-xl font-bold text-foreground mb-4">Overview</h2>
             <div class="prose prose-slate dark:prose-invert max-w-none text-xs sm:text-sm text-muted-foreground leading-relaxed space-y-3">
               {recruitment.overviewMarkdown ? (
-                <p class="whitespace-pre-line text-foreground/90">{recruitment.overviewMarkdown}</p>
+                <NoticeText text={recruitment.overviewMarkdown} class="text-foreground/90" />
               ) : (
                 <>
                   <p>
@@ -410,7 +411,7 @@ if (recruitment && canonicalUrl) {
                     <tr class="hover:bg-muted/40 transition-colors">
                       <td class="py-3 px-4 font-semibold text-muted-foreground">Qualification Details</td>
                       <td class="py-3 px-4 font-medium text-foreground">
-                        <p class="text-xs leading-relaxed text-foreground/90 whitespace-pre-line">{recruitment.criteria.qualificationDetailsMarkdown}</p>
+                        <NoticeText text={recruitment.criteria.qualificationDetailsMarkdown} class="text-xs leading-relaxed text-foreground/90" />
                       </td>
                     </tr>
                   )}
@@ -429,7 +430,7 @@ if (recruitment && canonicalUrl) {
                     <td class="py-3 px-4 font-semibold text-muted-foreground">Age Relaxations</td>
                     <td class="py-3 px-4 font-medium text-foreground">
                       {relaxationNotes ? (
-                        <p class="text-xs leading-relaxed text-foreground/90 whitespace-pre-line">{relaxationNotes}</p>
+                        <NoticeText text={relaxationNotes} class="text-xs leading-relaxed text-foreground/90" />
                       ) : (
                         <p class="text-xs leading-relaxed text-muted-foreground">Not summarised for this notice. See the official document in the Documents tab for your category.</p>
                       )}
@@ -600,7 +601,7 @@ if (recruitment && canonicalUrl) {
               {recruitment.salaryDetailsMarkdown && (
                 <div class="pt-3 border-t border-border/60 text-xs text-muted-foreground leading-relaxed">
                   <span class="font-semibold text-foreground block mb-1">Allowances & Service Terms:</span>
-                  <p class="whitespace-pre-line text-foreground/90">{recruitment.salaryDetailsMarkdown}</p>
+                  <NoticeText text={recruitment.salaryDetailsMarkdown} class="text-foreground/90" />
                 </div>
               )}
             </div>

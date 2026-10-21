@@ -1,0 +1,38 @@
+---
+/**
+ * A notice text field: plain text with line breaks kept, plus any pipe tables drawn as real tables
+ * (see src/lib/text-tables.ts). Everything is escaped by Astro; nothing is rendered as HTML.
+ */
+import { splitTextBlocks } from '../../lib/text-tables';
+
+interface Props {
+  text: string | null | undefined;
+  /** Classes for the plain-text paragraphs. */
+  class?: string;
+}
+
+const { text, class: textClass = '' } = Astro.props;
+const blocks = splitTextBlocks(text);
+const isFigure = (cell: string) => /\d/.test(cell) && /^(Rs\.?|₹)?[\s\d.,%/₹-]+$/i.test(cell);
+---
+
+{blocks.map(block => block.kind === 'text' ? (
+  <p class={`whitespace-pre-line ${textClass}`}>{block.text}</p>
+) : (
+  <div class="my-2 overflow-x-auto rounded-lg border border-border bg-card not-prose">
+    <table class="w-full text-xs text-left">
+      <thead class="bg-muted/40">
+        <tr>
+          {block.header.map(h => <th scope="col" class="py-2 px-3 font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-border">
+        {block.rows.map(row => (
+          <tr>
+            {row.map(cell => <td class={`py-2 px-3 text-foreground ${isFigure(cell) ? 'font-mono tabular-nums whitespace-nowrap' : ''}`}>{cell}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+))}
