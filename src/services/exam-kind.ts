@@ -42,8 +42,9 @@ export function vacancyPhrase(r: VacancyInput, unit: 'post' | 'vacancy' = 'post'
 
 type AgeInput = { minAge?: number | null; maxAgeGeneral?: number | null; noUpperAgeLimit?: boolean | null };
 
-/** "18-33 yrs", or "17+ yrs (no upper limit)" when the notice states no upper age limit. */
+/** "18-33 yrs", "17+ yrs (no upper limit)", or "No age limit"; a minimum of 0 means none (tests and entrance exams only). */
 export function ageRangeLabel(c: AgeInput, unit = 'yrs'): string {
-  if (c.noUpperAgeLimit) return `${c.minAge ?? 0}+ ${unit} (no upper limit)`;
+  if (c.noUpperAgeLimit) return c.minAge ? `${c.minAge}+ ${unit} (no upper limit)` : 'No age limit';
+  if (c.minAge === 0) return `Up to ${c.maxAgeGeneral ?? '?'} ${unit}`;
   return `${c.minAge ?? '?'}-${c.maxAgeGeneral ?? '?'} ${unit}`;
 }

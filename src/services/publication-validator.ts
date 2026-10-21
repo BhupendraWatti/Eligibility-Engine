@@ -5,6 +5,8 @@
  * can transition to PUBLISHED state or be rendered on public portals.
  */
 
+import { isQualifyingExam } from './exam-kind';
+
 export interface ValidationCheckState {
   recruitment: 'PASS' | 'FAIL' | 'WARNING';
   canonicalMapping: 'PASS' | 'FAIL' | 'WARNING';
@@ -29,6 +31,7 @@ export interface RecruitmentValidationInput {
   advtNumber?: string | null;
   cycleYear: number;
   totalVacancies: number;
+  examKind?: string;
   status?: string;
   lifecycleStatus?: string;
   shortSummary?: string;
@@ -209,8 +212,10 @@ export function validateRecruitmentForPublication(
     if (c.domicileScope === 'UNKNOWN') {
       warnings.push('Who may apply is not checked yet: the page will say "Domicile rule not checked, see notice". Set the domicile scope from the eligibility clause of the notice.');
     }
-    if (c.minAge === undefined || c.minAge < 14 || c.minAge > 45) {
-      blockingErrors.push(`Invalid minimum age limit (${c.minAge}). Must be between 14 and 45.`);
+    // 0 = no minimum age, which only a test or entrance exam may state (JEE Main has none).
+    const minFloor = isQualifyingExam(record.examKind) ? 0 : 14;
+    if (c.minAge === undefined || c.minAge < minFloor || c.minAge > 45) {
+      blockingErrors.push(`Invalid minimum age limit (${c.minAge}). Must be between ${minFloor} and 45.`);
       checks.eligibility = 'FAIL';
     }
 

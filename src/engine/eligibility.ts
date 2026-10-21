@@ -198,7 +198,7 @@ export function evaluateEligibility(
       status: 'UNKNOWN',
       userValue: 'Not provided',
       requirement: criteria.noUpperAgeLimit
-        ? `At least ${criteria.minAge} yrs as on ${criteria.ageCutoffDate}, no upper age limit`
+        ? (criteria.minAge ? `At least ${criteria.minAge} yrs as on ${criteria.ageCutoffDate}, no upper age limit` : 'No age limit')
         : `${criteria.minAge}-${criteria.maxAgeGeneral} yrs as on ${criteria.ageCutoffDate}`,
       message: 'Date of birth not provided. Age cannot be calculated.',
     });
@@ -220,8 +220,11 @@ export function evaluateEligibility(
         ruleName: 'Age Requirement',
         status: isMatch ? 'MATCH' : 'FAIL',
         userValue: `${formattedAge} years (as of ${criteria.ageCutoffDate})`,
-        requirement: `At least ${criteria.minAge} years (as of ${criteria.ageCutoffDate}), no upper age limit`,
-        message: isMatch
+        // A minimum of 0 means the notice states no age limit at all (e.g. JEE Main).
+        requirement: criteria.minAge ? `At least ${criteria.minAge} years (as of ${criteria.ageCutoffDate}), no upper age limit` : 'No age limit',
+        message: !criteria.minAge
+          ? 'There is no age limit for this exam.'
+          : isMatch
           ? `Age (${formattedAge} yrs) meets the minimum; there is no upper age limit.`
           : `Age (${formattedAge} yrs) is below the minimum of ${criteria.minAge} yrs.`,
       });

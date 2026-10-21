@@ -86,6 +86,11 @@ assert(status({ dob: '1970-01-01' }, noLimit, ageRule) === 'MATCH', 'a 56-year-o
 assert(status({ dob: '2010-06-01' }, noLimit, ageRule) === 'FAIL', 'the minimum age is still checked');
 assert(evaluateEligibility({ dob: '1970-01-01' }, noLimit).items.find(i => i.ruleName === ageRule)?.requirement.includes('no upper age limit') === true, 'the requirement says there is no upper age limit');
 assert(status({ dob: '1970-01-01' }, { ...noLimit, noUpperAgeLimit: false }, ageRule) === 'FAIL', 'without the flag the stored maximum applies');
+// Regression: ISSUE-004 — an exam with no age limit at all (JEE Main) defaulted to a minimum of 18
+// Found by /qa on 2026-10-22
+const noAgeLimit: RecruitmentCriteria = { ...noLimit, minAge: 0 };
+assert(status({ dob: '2009-12-01' }, noAgeLimit, ageRule) === 'MATCH', 'a 17-year-old passes an exam with no age limit');
+assert(evaluateEligibility({ dob: '2009-12-01' }, noAgeLimit).items.find(i => i.ruleName === ageRule)?.requirement === 'No age limit', 'the requirement says there is no age limit');
 
 // ── Admin form parser ─────────────────────────────────────────────────────────────────────────────
 const parsed = parseQualificationByCategory(' st:8th, XX:10TH, SC:PHD ');

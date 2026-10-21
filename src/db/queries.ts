@@ -3401,6 +3401,13 @@ export interface CreateRecruitmentInput {
   isFeatured?: number;
 }
 
+/**
+ * No minimum age stated: a job falls back to its post's default (else 18). A test or entrance exam checks none
+ * (JEE Main is open to 17-year-olds): its age rules come from each year's notice, not from the post master.
+ */
+const minAgeOf = (data: CreateRecruitmentInput, post: { defaultMinAge?: number | null } | undefined, examKind?: string) =>
+  data.minAge ?? (isQualifyingExam(examKind) ? 0 : post?.defaultMinAge ?? 18);
+
 async function resolveRecruitmentMasters(data: CreateRecruitmentInput, d1?: D1Database): Promise<{ post: any; organisation: any; stateId: string }> {
   if (!d1) {
     const post = FALLBACK_POSTS.find(p => p.id === data.postId);
@@ -3501,6 +3508,7 @@ export async function createRecruitmentAtomic(
     advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies,
+    examKind,
     postId: data.postId,
     postTitle: matchedPost?.title || 'State Government Post',
     departmentName: matchedPost?.departmentName || 'General Administration Department',
@@ -3517,7 +3525,7 @@ export async function createRecruitmentAtomic(
       status: 'VALID' as const,
     }] : [],
     criteria: {
-      minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+      minAge: minAgeOf(data, matchedPost, examKind),
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
       noUpperAgeLimit,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -3634,7 +3642,7 @@ export async function createRecruitmentAtomic(
           isActive: 1,
         }] : [],
     criteria: {
-      minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+      minAge: minAgeOf(data, matchedPost, examKind),
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
       noUpperAgeLimit,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -3716,7 +3724,7 @@ export async function createRecruitmentAtomic(
         db.insert(schema.recruitmentEligibility).values({
           id: `elig_${newId}`,
           recruitmentId: newId,
-          minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+          minAge: minAgeOf(data, matchedPost, examKind),
           maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
           noUpperAgeLimit: noUpperAgeLimit ? 1 : 0,
           ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -3953,6 +3961,7 @@ export async function updateRecruitmentAtomic(
     advtNumber: cleanAdvt(data.advtNumber),
     cycleYear: data.cycleYear || new Date().getFullYear(),
     totalVacancies,
+    examKind,
     postId: data.postId,
     postTitle: matchedPost?.title || 'State Government Post',
     departmentName: matchedPost?.departmentName || 'General Administration Department',
@@ -3969,7 +3978,7 @@ export async function updateRecruitmentAtomic(
       status: 'VALID' as const,
     }] : storedSources,
     criteria: {
-      minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+      minAge: minAgeOf(data, matchedPost, examKind),
       maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
       noUpperAgeLimit: noUpperAgeLimit === 1,
       ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -4165,7 +4174,7 @@ export async function updateRecruitmentAtomic(
           .values({
             id: `elig_${id}`,
             recruitmentId: id,
-            minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+            minAge: minAgeOf(data, matchedPost, examKind),
             maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
             noUpperAgeLimit: noUpperAgeLimit ?? 0,
             ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -4198,7 +4207,7 @@ export async function updateRecruitmentAtomic(
           .onConflictDoUpdate({
             target: schema.recruitmentEligibility.recruitmentId,
             set: {
-              minAge: data.minAge ?? matchedPost?.defaultMinAge ?? 18,
+              minAge: minAgeOf(data, matchedPost, examKind),
               maxAgeGeneral: data.maxAgeGeneral ?? matchedPost?.defaultMaxAge ?? 33,
               noUpperAgeLimit,
               ageCutoffDate: data.ageCutoffDate || `${new Date().getFullYear()}-01-01`,
@@ -4231,10 +4240,11 @@ export async function updateRecruitmentAtomic(
           })
       );
 
-      // Recreate child vacancies if specified
-      if (data.vacanciesBreakdown !== undefined) {
+      // Recreate child vacancies if specified. A qualifying exam has none: a job turned into one drops its old rows.
+      const vacancyRows = isQualifyingExam(examKind) ? [] : data.vacanciesBreakdown;
+      if (vacancyRows !== undefined) {
         statements.push(db.delete(schema.vacancies).where(eq(schema.vacancies.recruitmentId, id)));
-        for (const v of data.vacanciesBreakdown) {
+        for (const v of vacancyRows) {
           statements.push(
             db.insert(schema.vacancies).values({
               id: `vac_${crypto.randomUUID()}`,
