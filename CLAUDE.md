@@ -24,6 +24,10 @@ The private MCP server lives in `mcp/` (own packages and deploy, see `mcp/README
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+## Before Deploying
+
+Delete every test file you created for QA testing or review testing (test specs, repro scripts, fixtures, seed data, screenshots) before deploying. Builds use the working tree, so a leftover file ships with the deploy. Run `git status` and remove any such file, then deploy.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build

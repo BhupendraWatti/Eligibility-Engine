@@ -1,6 +1,8 @@
 ---
 // src/components/common/Header.astro
-const pathname = Astro.url.pathname;
+import { navPathname } from '../../services/nav-section';
+
+const pathname = navPathname(Astro.url);
 
 const navItems = [
   { href: '/jobs', label: 'All Jobs', active: pathname.startsWith('/jobs') || pathname.startsWith('/recruitments') },

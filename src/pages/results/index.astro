@@ -151,7 +151,7 @@ const results = allRecruitments.filter(r =>
               </div>
 
               <h2 class="text-base sm:text-lg font-bold text-foreground mb-1 font-heading">
-                <a href={`/recruitments/${r.slug}`} class="hover:text-primary transition-colors">
+                <a href={`/recruitments/${r.slug}?from=results`} class="hover:text-primary transition-colors">
                   {r.title}
                 </a>
               </h2>
@@ -162,7 +162,7 @@ const results = allRecruitments.filter(r =>
 
             <div class="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3">
               <a
-                href={`/recruitments/${r.slug}`}
+                href={`/recruitments/${r.slug}?from=results`}
                 class="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1.5"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
