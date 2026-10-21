@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   '/answer-keys',
   '/results',
   '/calendar',
+  '/net-exams',
   '/organisations',
   '/eligibility-checker',
   '/about',

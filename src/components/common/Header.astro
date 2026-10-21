@@ -5,6 +5,7 @@ const pathname = Astro.url.pathname;
 const navItems = [
   { href: '/jobs', label: 'All Jobs', active: pathname.startsWith('/jobs') || pathname.startsWith('/recruitments') },
   { href: '/calendar', label: 'Exam Calendar', active: pathname.startsWith('/calendar') },
+  { href: '/net-exams', label: 'NET Exams', active: pathname.startsWith('/net-exams') },
   { href: '/results', label: 'Results', active: pathname.startsWith('/results') },
   { href: '/admit-cards', label: 'Admit Cards', active: pathname.startsWith('/admit-cards') },
   { href: '/answer-keys', label: 'Answer Keys', active: pathname.startsWith('/answer-keys') },
