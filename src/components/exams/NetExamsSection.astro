@@ -1,0 +1,162 @@
+---
+// src/components/exams/NetExamsSection.astro
+// NET / eligibility exams shown on the Exam Calendar page. Data lives in src/data/net-exams.ts.
+import {
+  ugcNet,
+  csirNet,
+  stateExams,
+  otherExams,
+  otherExamsScopeNote,
+  setValidityNote,
+  type EligibilityExam,
+} from '../../data/net-exams';
+
+const SEE_NOTICE = 'See official notice';
+
+const badge: Record<string, { label: string; cls: string }> = {
+  verified: { label: 'Checked on official site', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900' },
+  partial: { label: 'Partly checked', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900' },
+  pending: { label: 'Not yet checked', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
+};
+
+const rows = (e: EligibilityExam) => [
+  ['Conducting authority', e.authority],
+  ['Cycle', e.cycle],
+  ['Notification', e.notification],
+  ['Application dates', e.applicationStart && e.applicationEnd ? `${e.applicationStart} to ${e.applicationEnd}` : e.applicationStart ?? e.applicationEnd],
+  ['Exam date', e.examDate],
+  ['Where it is valid', e.validity],
+] as const;
+
+const nationalExams = [
+  { num: 1, exam: ugcNet },
+  { num: 2, exam: csirNet },
+];
+---
+
+<section id="net-exams" class="scroll-mt-24 mt-14 pt-10 border-t border-border">
+  <h2 class="text-lg font-bold text-foreground tracking-tight">NET &amp; Eligibility Exams</h2>
+  <p class="text-xs text-muted-foreground mt-1 mb-6 max-w-2xl">
+    Eligibility tests for Assistant Professor posts, research fellowships and PhD admission. These are not job vacancies; the posts are advertised separately. Each category is listed on its own.
+  </p>
+
+  <div class="space-y-10">
+    {nationalExams.map(({ num, exam }) => (
+      <div>
+        <h3 class="text-sm font-bold uppercase tracking-wider text-foreground mb-1">{num}. {exam.name}</h3>
+        <p class="text-xs text-muted-foreground mb-3">{exam.fullName}</p>
+        <article class="rounded-2xl bg-card border border-border p-5">
+          <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <p class="text-xs text-foreground leading-relaxed max-w-xl">{exam.purpose}</p>
+            <span class={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[exam.verification].cls}`}>{badge[exam.verification].label}</span>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-4">
+            {rows(exam).map(([k, v]) => (
+              <div>
+                <dt class="text-muted-foreground font-medium">{k}</dt>
+                <dd class="text-foreground mt-0.5">{v ?? SEE_NOTICE}</dd>
+              </div>
+            ))}
+          </dl>
+          {exam.subjects && (
+            <div class="mb-4">
+              <p class="text-xs font-bold text-foreground mb-2">Subjects</p>
+              <ul class="flex flex-wrap gap-2">
+                {exam.subjects.map((s) => <li class="px-2.5 py-1 rounded-md bg-muted text-xs text-foreground">{s}</li>)}
+              </ul>
+              {exam.subjectNote && <p class="text-[11px] text-muted-foreground mt-2">{exam.subjectNote}</p>}
+            </div>
+          )}
+          {exam.eligibility.length > 0 && (
+            <ul class="list-disc pl-5 space-y-1 text-xs text-muted-foreground leading-relaxed mb-3">
+              {exam.eligibility.map((t) => <li>{t}</li>)}
+            </ul>
+          )}
+          {exam.notes && exam.notes.map((n) => <p class="text-[11px] text-muted-foreground mb-1">Note: {n}</p>)}
+          <div class="pt-3 mt-3 border-t border-border flex flex-wrap items-center gap-x-5 gap-y-2">
+            {exam.links.map((l) => <a href={l.url} target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-primary hover:underline">{l.label}</a>)}
+            {exam.checkedOn && <span class="text-[11px] text-muted-foreground ml-auto">Checked {exam.checkedOn}</span>}
+          </div>
+        </article>
+      </div>
+    ))}
+
+    <div>
+      <h3 class="text-sm font-bold uppercase tracking-wider text-foreground mb-1">3. SET / SLET (State Eligibility Test)</h3>
+      <p class="text-xs text-muted-foreground mb-2 max-w-2xl">State-level tests for Assistant Professor posts, run by authorised state agencies. Each state is listed separately.</p>
+      <p class="text-xs text-muted-foreground mb-4 max-w-2xl rounded-lg border border-border bg-muted/40 px-3 py-2">{setValidityNote}</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {stateExams.map((e) => (
+          <article id={`set-${e.id}`} class="rounded-2xl bg-card border border-border p-5 scroll-mt-24">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div>
+                <p class="text-[11px] font-mono font-bold text-muted-foreground uppercase">{e.state}</p>
+                <h4 class="text-base font-bold text-foreground leading-snug">{e.name}</h4>
+                <p class="text-xs text-muted-foreground">{e.fullName}</p>
+              </div>
+              <span class={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[e.verification].cls}`}>{badge[e.verification].label}</span>
+            </div>
+            <dl class="grid grid-cols-1 gap-y-2 text-xs my-4">
+              {rows(e).map(([k, v]) => (
+                <div>
+                  <dt class="text-muted-foreground font-medium">{k}</dt>
+                  <dd class="text-foreground mt-0.5">{v ?? SEE_NOTICE}</dd>
+                </div>
+              ))}
+              <div>
+                <dt class="text-muted-foreground font-medium">Eligible subjects</dt>
+                <dd class="text-foreground mt-0.5">{e.subjects ? e.subjects.join(', ') : (e.subjectNote ?? SEE_NOTICE)}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground font-medium">Eligibility conditions</dt>
+                <dd class="text-foreground mt-0.5">{e.eligibility.length > 0 ? e.eligibility.join(' ') : SEE_NOTICE}</dd>
+              </div>
+            </dl>
+            {e.notes && e.notes.map((n) => <p class="text-[11px] text-muted-foreground mb-1">Note: {n}</p>)}
+            {e.links.length > 0 && (
+              <div class="pt-3 mt-3 border-t border-border flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {e.links.map((l) => <a href={l.url} target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-primary hover:underline">{l.label}</a>)}
+                {e.checkedOn && <span class="text-[11px] text-muted-foreground ml-auto">Checked {e.checkedOn}</span>}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-bold uppercase tracking-wider text-foreground mb-1">4. Other NET / Eligibility Examinations</h3>
+      <p class="text-xs text-muted-foreground mb-4 max-w-2xl">{otherExamsScopeNote}</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {otherExams.map((e) => (
+          <article class="rounded-2xl bg-card border border-border p-5">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div>
+                <h4 class="text-base font-bold text-foreground leading-snug">{e.name}</h4>
+                <p class="text-xs text-muted-foreground">{e.fullName}</p>
+              </div>
+              <span class={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[e.verification].cls}`}>{badge[e.verification].label}</span>
+            </div>
+            <p class="text-xs text-foreground my-3 leading-relaxed">{e.purpose}</p>
+            <dl class="grid grid-cols-1 gap-y-2 text-xs mb-3">
+              {rows(e).map(([k, v]) => (
+                <div>
+                  <dt class="text-muted-foreground font-medium">{k}</dt>
+                  <dd class="text-foreground mt-0.5">{v ?? SEE_NOTICE}</dd>
+                </div>
+              ))}
+            </dl>
+            {e.notes && e.notes.map((n) => <p class="text-[11px] text-muted-foreground mb-1">Note: {n}</p>)}
+            <div class="pt-3 mt-3 border-t border-border flex flex-wrap items-center gap-x-4">
+              {e.links.map((l) => <a href={l.url} target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-primary hover:underline">{l.label}</a>)}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <p class="text-[11px] text-muted-foreground mt-8 max-w-2xl">
+    Independent guide, not an official source. Dates change and corrigenda are issued, so confirm everything in the official notice before you apply.
+  </p>
+</section>

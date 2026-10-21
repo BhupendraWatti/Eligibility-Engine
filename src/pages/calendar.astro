@@ -1,6 +1,7 @@
 ---
 // src/pages/calendar.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
+import NetExamsSection from '../components/exams/NetExamsSection.astro';
 import { getAllActiveRecruitments, getLastVerifiedAt } from '../db/queries';
 import {
   resolveApplicationWindow,
@@ -520,6 +521,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
         </div>
       </aside>
     </div>
+
+    <NetExamsSection />
   </div>
 
   <script is:inline>
