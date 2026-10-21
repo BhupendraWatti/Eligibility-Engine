@@ -16,11 +16,30 @@ import {
   createCanonicalPost,
   createSector,
   getAllSectors,
+  updateCanonicalPost,
+  updateDepartment,
+  updateOrganisation,
+  updateSector,
+  updateState,
   type CreateRecruitmentInput,
   type RecruitmentWithDetails,
 } from '../db/queries';
 import { createdMasterId, currentFieldValue, InvalidProposalError, listProposalRows, parentRefs, sanitizeChanges, snapshotFields, staleFields, toProposalRow, type ProposalRow, type ProposalKind } from './change-proposals';
-import { MASTER_TYPE_OF_KIND, defaultMasterDeps, isMasterKind, resolveMaster, type MasterDeps, type MasterRecord } from './master-proposals';
+import {
+  MASTER_TYPE_OF_KIND,
+  MASTER_TYPE_OF_UPDATE_KIND,
+  checkMasterUpdate,
+  defaultMasterDeps,
+  defaultMasterUpdateDeps,
+  isMasterKind,
+  isMasterUpdateKind,
+  masterStaleFields,
+  resolveMaster,
+  type MasterDeps,
+  type MasterRecord,
+  type MasterUpdateDeps,
+  type UpdatableMasterType,
+} from './master-proposals';
 
 export interface DecisionOptions {
   /** CREATE only: publish immediately (the validator may still block it). Default is DRAFT. */
@@ -51,6 +70,10 @@ export interface DecisionDeps {
   createMaster: (kind: ProposalRow['kind'], payload: Record<string, unknown>, adminEmail: string, d1: D1Database) => Promise<string>;
   /** PENDING proposals (who else still uses a master proposal, for the reject cascade). */
   listPending: (d1: D1Database) => Promise<ProposalRow[]>;
+  /** The live master an approved edit targets, and its siblings (the duplicate re-check). */
+  masterUpdates: MasterUpdateDeps;
+  /** Apply an approved master edit through the same writer the admin form uses. False when the master is gone. */
+  updateMaster: (type: UpdatableMasterType, id: string, payload: Record<string, unknown>, adminEmail: string, d1: D1Database) => Promise<boolean>;
 }
 
 export const defaultDecisionDeps: DecisionDeps = {
@@ -107,6 +130,14 @@ export const defaultDecisionDeps: DecisionDeps = {
     return createCanonicalPost({ departmentId: p.departmentId as string, sectorId: p.sectorId as string, title: p.title as string, slug: p.slug as string, summary: (p.summary as string) ?? '', payScale: (p.payScale as string | undefined) ?? null, defaultMinAge: p.defaultMinAge as number | undefined, defaultMaxAge: p.defaultMaxAge as number | undefined, defaultQualification: p.defaultQualification as string | undefined } as Parameters<typeof createCanonicalPost>[0], d1);
   },
   listPending: d1 => listProposalRows(d1, { status: 'PENDING', limit: 500 }),
+  masterUpdates: defaultMasterUpdateDeps,
+  updateMaster: (type, id, p, adminEmail, d1) => {
+    if (type === 'state') return updateState({ id, ...p, adminEmail }, d1);
+    if (type === 'sector') return updateSector({ id, ...p, adminEmail }, d1);
+    if (type === 'organisation') return updateOrganisation({ id, ...p, adminEmail }, d1);
+    if (type === 'department') return updateDepartment({ id, ...p, adminEmail } as Parameters<typeof updateDepartment>[0], d1);
+    return updateCanonicalPost({ id, ...p }, d1);
+  },
 };
 
 const DATE_FIELD_EVENTS = { applicationStart: 'APPLICATION_START', applicationEnd: 'APPLICATION_END', examDate: 'EXAM_DATE' } as const;
@@ -172,6 +203,11 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
     adminEmail,
   };
   const merged = { ...base, ...payload } as CreateRecruitmentInput;
+  // A move to another organisation takes that organisation's state: the writer resolves both from organisationId.
+  if (payload.organisationId !== undefined) {
+    merged.stateId = undefined;
+    merged.organisationShortName = undefined;
+  }
 
   // The three headline dates live as important_dates rows; keep the rows in step when only the dates were proposed.
   const touched = (Object.keys(DATE_FIELD_EVENTS) as Array<keyof typeof DATE_FIELD_EVENTS>).filter(k => payload[k] !== undefined);
@@ -240,6 +276,25 @@ export async function approveProposal(
       return await fail(`It is built on ${ref.id}, which is ${parent?.status ?? 'missing'}. Reject this proposal.`);
     }
 
+    if (isMasterUpdateKind(proposal.kind)) {
+      const type = MASTER_TYPE_OF_UPDATE_KIND[proposal.kind];
+      const targetId = String(proposal.meta?.targetId ?? '');
+      const current = targetId ? await deps.masterUpdates.load(d1, type, targetId) : undefined;
+      if (!current) return await fail(`The ${type} ${targetId} no longer exists.`);
+      const stale = masterStaleFields(proposal.baseSnapshot, current);
+      if (stale.length && !options.confirmStale) {
+        await deps.release(d1, id);
+        return { ok: false, code: 'STALE', staleFields: stale, message: `The live ${type} changed since this was proposed (${stale.join(', ')}). Review the diff and confirm to apply anyway.` };
+      }
+      // Someone may have added a master with the new name since the edit was queued.
+      const check = await checkMasterUpdate(d1, type, targetId, { ...current, ...p }, Object.keys(p), deps.masterUpdates);
+      if (check.blocking) return await fail(check.blocking);
+      if (!(await deps.updateMaster(type, targetId, p, adminEmail, d1))) return await fail(`The ${type} ${targetId} no longer exists.`);
+      const note = `Updated ${type} ${targetId} (${Object.keys(p).join(', ')}).`;
+      await deps.finalize(d1, id, 'APPLYING', { status: 'APPROVED', decidedBy: adminEmail, note }, audit('APPROVE', targetId, proposal.summary));
+      return { ok: true, status: 'APPROVED', message: note };
+    }
+
     if (isMasterKind(proposal.kind)) {
       // Re-check against the masters as they are now: someone may have added it since the proposal was queued.
       const type = MASTER_TYPE_OF_KIND[proposal.kind];
@@ -271,7 +326,7 @@ export async function approveProposal(
         await deps.release(d1, id);
         return { ok: false, code: 'STALE', staleFields: stale, message: `The live record changed since this was proposed (${stale.join(', ')}). Review the diff and confirm to apply anyway.` };
       }
-      result = await deps.update(recruitmentId, mergeUpdateInput(current, proposal.payload, adminEmail), d1);
+      result = await deps.update(recruitmentId, mergeUpdateInput(current, p, adminEmail), d1);
     }
 
     if (!result.success) return await fail(summarizeErrors(result.errors, result.message), result.errors);
@@ -335,7 +390,7 @@ export async function editProposal(
   const proposal = await deps.get(d1, id);
   if (!proposal) return { ok: false, code: 'NOT_FOUND', message: 'Proposal not found.' };
   if (proposal.status !== 'PENDING') return { ok: false, code: 'NOT_PENDING', message: `Proposal is already ${proposal.status}.` };
-  if (isMasterKind(proposal.kind)) return { ok: false, code: 'FAILED', message: 'A master proposal cannot be edited. Reject it and ask the MCP to propose it again.' };
+  if (isMasterKind(proposal.kind) || isMasterUpdateKind(proposal.kind)) return { ok: false, code: 'FAILED', message: 'A master proposal cannot be edited. Reject it and ask the MCP to propose it again.' };
   let payload: Record<string, unknown>;
   try { payload = sanitizeChanges(proposal.kind as ProposalKind, rawChanges); }
   catch (e) { if (e instanceof InvalidProposalError) return { ok: false, code: 'FAILED', message: e.message }; throw e; }

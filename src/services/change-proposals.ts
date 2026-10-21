@@ -25,6 +25,9 @@ export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 /** Proposals to add a missing canonical master (see master-proposals.ts). Stored in the same table; applied only by an admin. */
 export const MASTER_PROPOSAL_KINDS = ['CREATE_SECTOR', 'CREATE_ORGANISATION', 'CREATE_DEPARTMENT', 'CREATE_POST'] as const;
 export type MasterProposalKind = (typeof MASTER_PROPOSAL_KINDS)[number];
+/** Proposals to edit an existing master the admin also edits by hand (see master-proposals.ts proposeMasterUpdate). */
+export const MASTER_UPDATE_KINDS = ['UPDATE_STATE', 'UPDATE_SECTOR', 'UPDATE_ORGANISATION', 'UPDATE_DEPARTMENT', 'UPDATE_POST'] as const;
+export type MasterUpdateKind = (typeof MASTER_UPDATE_KINDS)[number];
 /**
  * APPLYING is a short-lived claim held while an admin approval is being written (stops double-approve).
  * WITHDRAWN is the proposer taking back (or superseding) its own PENDING proposal.
@@ -37,7 +40,7 @@ export class InvalidProposalError extends Error {}
 /** A well-formed proposal that must not be queued (pending conflict, confirmed duplicate, unknown post). */
 export class ProposalBlockedError extends InvalidProposalError {
   constructor(
-    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE'
+    readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE' | 'DUPLICATE_MASTER' | 'NO_CHANGE'
       | 'NO_EXAM_STAGE' | 'SELECTION_STAGES_REQUIRED' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE'
       | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH' | 'EXAM_DATE_REQUIRED',
     message: string,
@@ -76,7 +79,7 @@ type FieldSpec =
   | { enum: string[] }
   | 'selectionStages' | 'vacancies' | 'dates' | 'sources' | 'links';
 
-/** Fields an UPDATE proposal may change. Deliberately excludes status, postId, organisationId, stateId, slug, isFeatured, robotsIndex. */
+/** Fields an UPDATE proposal may change. Deliberately excludes status, stateId, slug, isFeatured, robotsIndex (postId and organisationId are MASTER_REF_FIELDS). */
 export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   title: 'string', advtNumber: 'nullableString', totalVacancies: 'int', shortSummary: 'text', overviewMarkdown: 'text',
   cycleYear: 'int', payScaleOverride: 'string', salaryDetailsMarkdown: 'text', cadreClassification: 'string',
@@ -100,8 +103,11 @@ export const EDITABLE_FIELDS: Record<string, FieldSpec> = {
   sources: 'sources', officialLinks: 'links',
 };
 
-/** A CREATE proposal may additionally name the canonical post and the recruiting organisation (both required). */
-export const CREATE_ONLY_FIELDS: Record<string, FieldSpec> = { postId: 'string', organisationId: 'string' };
+/**
+ * The canonical post and the recruiting organisation: required on a CREATE, and an UPDATE may move a recruitment to another
+ * existing post or organisation (the state follows the organisation). Each must be an existing master or a pending master proposal.
+ */
+export const MASTER_REF_FIELDS: Record<string, FieldSpec> = { postId: 'string', organisationId: 'string' };
 /** advtNumber is optional: omit or send null when the official notice states none. */
 export const CREATE_REQUIRED = ['title', 'postId', 'organisationId', 'totalVacancies'] as const;
 
@@ -274,7 +280,7 @@ function validateField(field: string, spec: FieldSpec, v: unknown): unknown {
 /** Validate and normalise a proposed change set. Unknown or forbidden fields are rejected, never ignored. */
 export function sanitizeChanges(kind: ProposalKind, changes: unknown): Record<string, unknown> {
   if (!isObj(changes) || Object.keys(changes).length === 0) throw new InvalidProposalError('changes must be a non-empty object.');
-  const allowed = kind === 'CREATE_RECRUITMENT' ? { ...EDITABLE_FIELDS, ...CREATE_ONLY_FIELDS } : EDITABLE_FIELDS;
+  const allowed = { ...EDITABLE_FIELDS, ...MASTER_REF_FIELDS };
   const out: Record<string, unknown> = {};
   const retired = Object.keys(changes).filter(f => (RETIRED_DOMICILE_FIELDS as readonly string[]).includes(f));
   if (retired.length) {
@@ -419,7 +425,7 @@ export function staleFields(snapshot: Record<string, unknown> | null, current: R
 
 export interface ProposalRow {
   id: string;
-  kind: ProposalKind | MasterProposalKind;
+  kind: ProposalKind | MasterProposalKind | MasterUpdateKind;
   recruitmentId: string | null;
   summary: string;
   payload: Record<string, unknown>;
@@ -707,6 +713,31 @@ function fillUpdateSeo(payload: Record<string, unknown>, current: RecruitmentWit
   return filled;
 }
 
+/**
+ * postId / organisationId, when present: an existing master, or a master proposal queued in the same run (prop_…).
+ * Returns the organisation's website and state code, for the official-source and domicile checks.
+ */
+async function checkMasterRefs(db: D1Database, deps: ProposalDeps, payload: Record<string, unknown>): Promise<{ website?: string; stateCode?: string }> {
+  if (payload.postId !== undefined) {
+    const postId = isProposalRef(payload.postId) ? await checkParentRef(db, deps, 'postId', payload.postId) : payload.postId as string;
+    if (!isProposalRef(postId) && !(await deps.postExists(db, postId))) {
+      throw new ProposalBlockedError('UNKNOWN_POST', `postId "${postId}" is not a canonical post. Use resolve_entity(post); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as postId.`, { postId });
+    }
+    payload.postId = postId;
+  }
+  if (payload.organisationId === undefined) return {};
+  const organisationId = isProposalRef(payload.organisationId) ? await checkParentRef(db, deps, 'organisationId', payload.organisationId) : payload.organisationId as string;
+  if (!isProposalRef(organisationId) && !(await deps.orgExists(db, organisationId))) {
+    throw new ProposalBlockedError('UNKNOWN_ORGANISATION', `organisationId "${organisationId}" is not an organisation. Use resolve_entity(organisation); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as organisationId.`, { organisationId });
+  }
+  payload.organisationId = organisationId;
+  if (isProposalRef(organisationId)) {
+    const queued = (await deps.get(db, organisationId))?.payload;
+    return { website: queued?.websiteUrl as string | undefined, stateCode: typeof queued?.stateId === 'string' ? stateCodeForId(queued.stateId) : undefined };
+  }
+  return { website: await deps.orgWebsite(db, organisationId), stateCode: await deps.orgStateCode?.(db, organisationId) };
+}
+
 async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput, deps: ProposalDeps) {
   if (!PROPOSAL_KINDS.includes(input.kind)) throw new InvalidProposalError('Unknown proposal kind.');
   const summary = assertEnglish(str(input.summary, 'summary', MAX_SUMMARY), 'summary');
@@ -737,7 +768,8 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
     checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType));
-    stateCode = current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
+    const refs = await checkMasterRefs(db, deps, payload);
+    stateCode = refs.stateCode ?? current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
     const scopeState = current.criteria?.domicileScope !== 'OPEN' ? current.criteria?.reservationStateCode : null;
     if (scopeState && scopeState !== stateCode) adminState = scopeState;
     // officialLinks replaces the whole list: an MCP update must not drop the apply link the record already has.
@@ -746,7 +778,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     if (links && hadApply && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
       throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks replaces the whole list: include the existing APPLY_ONLINE link again.');
     }
-    requireOfficialSources(payload, evidence, current.organisationUrl);
+    requireOfficialSources(payload, evidence, refs.website ?? current.organisationUrl);
     // Best-effort (D1 has no cross-statement transaction); the admin stale-guard remains the backstop.
     const open = await deps.findOpen(db, recruitmentId);
     const clash = open.filter(p => Object.keys(p.payload).some(f => f in payload));
@@ -760,27 +792,11 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     diff = buildDiff(payload, current);
   } else {
     if (input.recruitmentId) throw new InvalidProposalError('recruitmentId is only valid for UPDATE_RECRUITMENT.');
-    // Either an existing master, or a master proposal queued in the same run (prop_…).
-    const postId = isProposalRef(payload.postId) ? await checkParentRef(db, deps, 'postId', payload.postId) : payload.postId as string;
-    if (!isProposalRef(postId) && !(await deps.postExists(db, postId))) {
-      throw new ProposalBlockedError('UNKNOWN_POST', `postId "${postId}" is not a canonical post. Use resolve_entity(post); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as postId.`, { postId });
-    }
-    const organisationId = isProposalRef(payload.organisationId) ? await checkParentRef(db, deps, 'organisationId', payload.organisationId) : payload.organisationId as string;
-    if (!isProposalRef(organisationId) && !(await deps.orgExists(db, organisationId))) {
-      throw new ProposalBlockedError('UNKNOWN_ORGANISATION', `organisationId "${organisationId}" is not an organisation. Use resolve_entity(organisation); if NOT_FOUND, queue it with propose_master and pass the returned proposal id as organisationId.`, { organisationId });
-    }
-    payload.postId = postId;
-    payload.organisationId = organisationId;
-    const website = isProposalRef(organisationId)
-      ? (await deps.get(db, organisationId))?.payload.websiteUrl as string | undefined
-      : await deps.orgWebsite(db, organisationId);
-    requireOfficialSources(payload, evidence, website);
-    if (isProposalRef(organisationId)) {
-      const sid = (await deps.get(db, organisationId))?.payload.stateId;
-      stateCode = typeof sid === 'string' ? stateCodeForId(sid) : undefined;
-    } else {
-      stateCode = await deps.orgStateCode?.(db, organisationId);
-    }
+    const refs = await checkMasterRefs(db, deps, payload);
+    const postId = payload.postId as string;
+    const organisationId = payload.organisationId as string;
+    requireOfficialSources(payload, evidence, refs.website);
+    stateCode = refs.stateCode;
     const sources = payload.sources as Array<{ sourceUrl: string }> | undefined;
     const window = { totalVacancies: payload.totalVacancies as number, applicationStart: payload.applicationStart as string | undefined, applicationEnd: payload.applicationEnd as string | undefined };
     const dup = await deps.checkDuplicate(db, {

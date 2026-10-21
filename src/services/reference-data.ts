@@ -3,8 +3,9 @@
  * Resolution is exact-match only (name, slug, short name or code). It never guesses a canonical master.
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
-import { CREATE_ONLY_FIELDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES, LINK_TYPES, DATE_TYPES } from './change-proposals';
+import { MASTER_REF_FIELDS, MASTER_UPDATE_KINDS, CREATE_REQUIRED, EDITABLE_FIELDS, EVIDENCE_EXEMPT_FIELDS, EVIDENCE_METHODS, MASTER_PROPOSAL_KINDS, PROPOSAL_KINDS, PROPOSAL_STATUSES, QUALIFICATIONS, EXAM_STATUSES, RESULT_STATUSES, GENDERS, RESERVATION_CATEGORIES, LINK_TYPES, DATE_TYPES } from './change-proposals';
 import { APPLICATION_STATUSES, LIFECYCLES } from './recruitment-query';
+import { MASTER_FACT_FIELDS, MASTER_UPDATE_FIELDS } from './master-proposals';
 import { CERTIFICATES, STREAM_ALIASES } from '../data/credentials';
 import { TABLE_FORMAT } from '../lib/text-tables';
 
@@ -17,7 +18,7 @@ export const SCOPE_RULES = [
     '(1) Find the notice on the recruiting body\'s own official website or a government domain (.gov.in, .nic.in). A job portal, coaching site, news article or social post is only a lead, never a source, and is refused as UNOFFICIAL_SOURCE. ' +
     '(2) Confirm it is genuine and current: the body really exists, the advertisement number, year and dates are on the official page, the notice is not fake, expired, cancelled or superseded, and every link opens (check_links ok=true, or, when it says ok=null, you opened the link yourself). ' +
     '(3) search_recruitments (includeUnpublished) by organisation, post, advertisement number and source URL. If the recruitment already exists, use propose_recruitment_update instead. ' +
-    '(4) resolve_entity / list_entities for the sector, organisation, department and post. Reuse every MATCH. On AMBIGUOUS, stop and report: never pick one. On NOT_FOUND, queue the master with propose_master; if propose_master answers POSSIBLE_MATCH (never queued), reuse that master when it is the same body, otherwise stop and report. ' +
+    '(4) resolve_entity / list_entities for the sector, organisation, department and post. Reuse every MATCH. On AMBIGUOUS, stop and report: never pick one. On NOT_FOUND, queue the master with propose_master; if propose_master answers POSSIBLE_MATCH (never queued), reuse that master when it is the same body, otherwise stop and report. A master that exists but is wrong (misspelt name, old website, wrong pay scale) is corrected with propose_master_update, never re-created. ' +
     '(5) Read every value from the official notice and quote it as evidence. Leave out any field the notice does not state or you are not sure of. ' +
     '(6) preview_proposal, fix every flag (re-read needsReading / fromImage / handwritten fields), then propose.',
   'Write everything in plain English, for every state: names, summary and every text field. Translate a notice in Hindi, Gujarati or any other language; use the body\'s own English name where it has one. Text in another script is refused (evidence snippets and the advertisement number stay as printed).',
@@ -76,10 +77,14 @@ export function getDomainSchema() {
   const spec = (s: unknown) => (typeof s === 'object' && s ? `enum: ${(s as { enum: string[] }).enum.join(' | ')}` : String(s));
   const describe = (fields: Record<string, unknown>) => Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, spec(v)]));
   return {
-    proposalKinds: [...PROPOSAL_KINDS, ...MASTER_PROPOSAL_KINDS],
+    proposalKinds: [...PROPOSAL_KINDS, ...MASTER_PROPOSAL_KINDS, ...MASTER_UPDATE_KINDS],
     proposalStatuses: PROPOSAL_STATUSES,
     updateFields: describe(EDITABLE_FIELDS),
-    createOnlyFields: describe(CREATE_ONLY_FIELDS),
+    masterRefFields: describe(MASTER_REF_FIELDS),
+    masterRefNote: 'postId and organisationId are required on a new recruitment; an update may move a recruitment to another existing post or organisation (its state follows the organisation).',
+    masterUpdateFields: MASTER_UPDATE_FIELDS,
+    masterUpdateEvidence: MASTER_FACT_FIELDS,
+    masterUpdateNote: 'propose_master_update edits an existing state, sector, organisation, department or post (get_master shows its live values). Send only the fields that change. masterUpdateEvidence lists, per type, the fields that need a quoted official source. Slugs, state codes and an organisation\'s state stay admin-only.',
     createRequired: CREATE_REQUIRED,
     enums: { minQualificationLevel: QUALIFICATIONS, examStatus: EXAM_STATUSES, resultStatus: RESULT_STATUSES, genderAllowed: GENDERS, qualificationByCategoryKeys: RESERVATION_CATEGORIES, importantDatesEventType: DATE_TYPES },
     eligibilityNotes: {

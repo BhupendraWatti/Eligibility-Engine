@@ -7,6 +7,7 @@ import { readAdminSubmission } from '../../services/admin-integrity';
 import { MASTER_PROPOSAL_KINDS, buildDiff, createdMasterId, defaultProposalDeps, listProposalRows, parentRefs, staleFields, type ProposalRow, type ProposalStatus } from '../../services/change-proposals';
 import { approveProposal, editProposal, rejectProposal } from '../../services/change-proposal-decision';
 import { checkFacts, type FieldCheck } from '../../services/fact-checks';
+import { MASTER_TYPE_OF_UPDATE_KIND, defaultMasterUpdateDeps, isMasterUpdateKind, masterStaleFields, masterUpdateDiff } from '../../services/master-proposals';
 
 const adminEmail = Astro.locals.adminEmail;
 const acceptsHtml = Astro.request.headers.get('accept')?.includes('text/html') ?? false;
@@ -111,7 +112,12 @@ const parentOf = (id: string) => {
 
 const items = await Promise.all(proposals.map(async (p) => {
   const current = p.recruitmentId && p.status === 'PENDING' ? await getRecruitmentById(p.recruitmentId, d1).catch(() => undefined) : undefined;
-  const missingTarget = p.kind === 'UPDATE_RECRUITMENT' && p.status === 'PENDING' && !current;
+  // A master edit is compared with the live master, the same way a recruitment update is.
+  const targetId = typeof p.meta?.targetId === 'string' ? p.meta.targetId : undefined;
+  const liveMaster = isMasterUpdateKind(p.kind) && p.status === 'PENDING' && d1 && targetId
+    ? await defaultMasterUpdateDeps.load(d1, MASTER_TYPE_OF_UPDATE_KIND[p.kind], targetId).catch(() => undefined)
+    : undefined;
+  const missingTarget = (p.kind === 'UPDATE_RECRUITMENT' || isMasterUpdateKind(p.kind)) && p.status === 'PENDING' && !current && !liveMaster;
   const parents = await Promise.all(parentRefs(p.payload).map(async r => ({ ...r, parent: await parentOf(r.id) })));
   const waiting = p.status === 'PENDING' ? parents.filter(r => r.parent?.status !== 'APPROVED') : [];
   return {
@@ -120,9 +126,10 @@ const items = await Promise.all(proposals.map(async (p) => {
     // Masters carry names and ids, not notice facts: only recruitment proposals are checked value-by-value.
     checks: checkFacts(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT' ? p.payload : {}, evidenceOf(p)),
     p,
-    diff: buildDiff(p.payload, current),
-    stale: staleFields(p.baseSnapshot, current),
-    currentTitle: current?.title,
+    diff: isMasterUpdateKind(p.kind) ? masterUpdateDiff(p.payload, liveMaster) : buildDiff(p.payload, current),
+    stale: isMasterUpdateKind(p.kind) ? masterStaleFields(p.baseSnapshot, liveMaster) : staleFields(p.baseSnapshot, current),
+    isUpdate: p.kind === 'UPDATE_RECRUITMENT' || isMasterUpdateKind(p.kind),
+    currentTitle: current?.title ?? (isMasterUpdateKind(p.kind) ? `${String(liveMaster?.name ?? liveMaster?.title ?? p.meta?.targetName ?? targetId)} (${targetId})` : undefined),
     missingTarget,
     evidence: evidenceOf(p),
     duplicate: duplicateOf(p),
@@ -168,6 +175,13 @@ const fmt = (v: unknown): string => {
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   return JSON.stringify(v, null, 2);
 };
+const KIND_LABEL: Record<string, string> = {
+  CREATE_RECRUITMENT: 'New recruitment', UPDATE_RECRUITMENT: 'Update',
+  CREATE_SECTOR: 'New sector (master)', CREATE_ORGANISATION: 'New organisation (master)', CREATE_DEPARTMENT: 'New department (master)', CREATE_POST: 'New post (master)',
+  UPDATE_STATE: 'Edit state (master)', UPDATE_SECTOR: 'Edit sector (master)', UPDATE_ORGANISATION: 'Edit organisation (master)', UPDATE_DEPARTMENT: 'Edit department (master)', UPDATE_POST: 'Edit post (master)',
+};
+type Similar = { matches: Array<{ id: string; name: string }>; reasons: string[] };
+const similarOf = (p: ProposalRow) => (p.meta?.similar ? (p.meta.similar as Similar) : null);
 const when = (d: Date | null) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—';
 const badge: Record<string, string> = {
   PENDING: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -235,13 +249,13 @@ const badge: Record<string, string> = {
       </div>
     )}
 
-    {items.map(({ p, diff, stale, currentTitle, missingTarget, evidence, duplicate, waiting, checks }) => (
+    {items.map(({ p, diff, stale, isUpdate, currentTitle, missingTarget, evidence, duplicate, waiting, checks }) => (
       <article class="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
         <header class="flex flex-wrap items-start justify-between gap-3 p-4 border-b border-slate-100">
           <div class="min-w-0 space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
               <span class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badge[p.status] ?? badge.PENDING}`}>{p.status}</span>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{p.kind === 'CREATE_RECRUITMENT' ? 'New recruitment' : p.kind === 'UPDATE_RECRUITMENT' ? 'Update' : p.kind === 'CREATE_SECTOR' ? 'New sector (master)' : p.kind === 'CREATE_ORGANISATION' ? 'New organisation (master)' : p.kind === 'CREATE_DEPARTMENT' ? 'New department (master)' : 'New post (master)'}</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{KIND_LABEL[p.kind] ?? p.kind}</span>
               {checks.total > 0 && (
                 <span title="Counted by machine: a field passes only when its number, date or advertisement number appears in the quoted text. It does not prove the quote is in the document." class={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${checks.notInQuote.length ? 'bg-rose-50 text-rose-700 border-rose-200' : checks.matched === checks.total ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>machine-checked {checks.matched} of {checks.total}</span>
               )}
@@ -253,7 +267,7 @@ const badge: Record<string, string> = {
             )}
             {(pipelineOf(p)?.warnings?.length ?? 0) > 0 && <p class="text-[11px] text-amber-800">Checks: {pipelineOf(p)!.warnings!.join(' ')}</p>}
             <p class="text-[11px] text-slate-500 font-mono">
-              {p.kind === 'UPDATE_RECRUITMENT' && <span>{currentTitle ?? p.recruitmentId} · </span>}
+              {isUpdate && <span>{currentTitle ?? p.recruitmentId ?? String(p.meta?.targetId ?? '')} · </span>}
               {p.id} · proposed by {p.proposedBy} · {when(p.createdAt)}{p.supersedesId && <> · replaces <span>{p.supersedesId}</span></>}
             </p>
           </div>
@@ -270,6 +284,11 @@ const badge: Record<string, string> = {
             <ul class="mt-1 list-disc pl-4">
               {duplicate.matches.map(m => <li>{m.matchedTitle} ({m.matchedAdvtNumber ?? 'no advt number'}) <span class="font-mono">{m.matchedRecruitmentId}</span>: {m.reasons.join(' ')}</li>)}
             </ul>
+          </div>
+        )}
+        {similarOf(p) && (
+          <div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <strong>Similar master exists.</strong> {similarOf(p)!.reasons.join(' ')} <span class="font-mono">{similarOf(p)!.matches.map(m => m.id).join(', ')}</span>
           </div>
         )}
         {waiting.map(w => (
@@ -292,7 +311,7 @@ const badge: Record<string, string> = {
           </div>
         )}
         {missingTarget && (
-          <div class="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">The target recruitment no longer exists. Reject this proposal.</div>
+          <div class="mx-4 mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">The target {p.kind === 'UPDATE_RECRUITMENT' ? 'recruitment' : 'master'} no longer exists. Reject this proposal.</div>
         )}
 
         <div class="p-4 overflow-x-auto">
@@ -300,7 +319,7 @@ const badge: Record<string, string> = {
             <thead>
               <tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <th class="py-1.5 pr-3 font-bold">Field</th>
-                <th class="py-1.5 pr-3 font-bold">{p.kind !== 'UPDATE_RECRUITMENT' ? '—' : 'Live now'}</th>
+                <th class="py-1.5 pr-3 font-bold">{isUpdate ? 'Live now' : '—'}</th>
                 <th class="py-1.5 font-bold">Proposed</th>
               </tr>
             </thead>
@@ -316,8 +335,8 @@ const badge: Record<string, string> = {
                       </div>
                     ))}
                   </td>
-                  <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{p.kind !== 'UPDATE_RECRUITMENT' ? '' : fmt(row.before)}</pre></td>
-                  <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{p.kind === 'UPDATE_RECRUITMENT' && !row.changed ? '  (unchanged)' : ''}</pre>
+                  <td class="py-2 pr-3 text-slate-500"><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{isUpdate ? fmt(row.before) : ''}</pre></td>
+                  <td class={`py-2 ${row.changed ? 'text-slate-950' : 'text-slate-400'}`}><pre class="whitespace-pre-wrap break-words font-mono text-[11px]">{fmt(row.after)}{isUpdate && !row.changed ? '  (unchanged)' : ''}</pre>
                     {PARENT_FIELDS.has(row.field) && chainOf(row.after) && <p class="mt-1 text-[11px] font-sans font-semibold text-slate-700" data-parent-chain>{chainOf(row.after)}</p>}
                     {checks.fields.filter(c => c.field === row.field && c.status !== 'MATCHES_QUOTE').map(c => <p class="mt-1 text-[10px] font-sans text-slate-600">{c.detail}</p>)}
                     {evidenceFor(evidence, row.field).map(e => (
@@ -335,6 +354,7 @@ const badge: Record<string, string> = {
         </div>
 
         {p.status === 'PENDING' ? (
+          <>
           <footer class="flex flex-wrap items-end justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/60">
             <form
               method="POST"
@@ -372,7 +392,7 @@ const badge: Record<string, string> = {
               </button>
             </form>
           </footer>
-          <details class="px-4 pb-4 bg-slate-50/60 border-t border-slate-100">
+          {(p.kind === 'CREATE_RECRUITMENT' || p.kind === 'UPDATE_RECRUITMENT') && <details class="px-4 pb-4 bg-slate-50/60 border-t border-slate-100">
             <summary class="cursor-pointer py-2 text-[11px] font-semibold text-slate-600">Edit proposed values</summary>
             <form method="POST" class="space-y-2">
               <input type="hidden" name="_action" value="edit" />
@@ -381,7 +401,8 @@ const badge: Record<string, string> = {
               <p class="text-[10px] text-slate-500">Values are validated like any proposal. Array fields (dates, links, vacancies) replace the whole list. After saving, check the diff above, then approve.</p>
               <button type="submit" class="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold cursor-pointer">Save edits</button>
             </form>
-          </details>
+          </details>}
+          </>
         ) : (
           <footer class="p-4 border-t border-slate-100 bg-slate-50/60 text-[11px] text-slate-600">
             {p.status === 'APPLYING'

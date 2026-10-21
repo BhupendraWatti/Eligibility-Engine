@@ -8,10 +8,10 @@ import {
   type Actor,
 } from '../../src/services/recruitment-query';
 import {
-  CREATE_ONLY_FIELDS,
   EDITABLE_FIELDS,
   EVIDENCE_EXEMPT_FIELDS,
   InvalidProposalError,
+  MASTER_REF_FIELDS,
   PROPOSAL_STATUSES,
   ProposalBlockedError,
   createProposal,
@@ -23,7 +23,15 @@ import {
   type ProposalInput,
 } from '../../src/services/change-proposals';
 
-import { MASTER_TYPES, proposeMaster } from '../../src/services/master-proposals';
+import {
+  MASTER_FACT_FIELDS,
+  MASTER_TYPES,
+  MASTER_UPDATE_FIELDS,
+  UPDATABLE_MASTER_TYPES,
+  defaultMasterUpdateDeps,
+  proposeMaster,
+  proposeMasterUpdate,
+} from '../../src/services/master-proposals';
 import { SECTOR_ICONS, SECTOR_THEMES } from '../../src/services/sector-theme';
 import { checkLink } from './links';
 import { TABLE_FORMAT } from '../../src/lib/text-tables';
@@ -157,7 +165,8 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         `${TABLE_FORMAT} A broken table is refused. ` +
         'Dates are ISO YYYY-MM-DD. To move headline dates use applicationStart / applicationEnd / examDate. ' +
         'Array fields (vacanciesBreakdown, importantDates, sources, officialLinks, selectionStages) REPLACE the whole list, so send the full list. ' +
-        'Publication status, slug and ids cannot be proposed. Find the recruitmentId with search_recruitments first. ' +
+        'To move the recruitment to another canonical post or recruiting organisation, send postId / organisationId (an existing id from resolve_entity, or a pending propose_master id); its state follows the organisation. ' +
+        'Publication status, featured, search indexing and slug stay admin-only. Find the recruitmentId with search_recruitments first. ' +
         'Returns PENDING_CHANGE_CONFLICT if an open proposal already changes the same fields (withdraw it first). Call get_domain_schema for exact formats.',
       inputSchema: {
         recruitmentId: z.string().trim().min(1).max(100).describe('id from search_recruitments'),
@@ -177,7 +186,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       description:
         'Queue a NEW recruitment for owner approval. Does NOT create anything live; the owner decides in /admin whether to save it as a draft or publish it. ' +
         `Required in "changes": title, postId (canonical post id), organisationId, totalVacancies. advtNumber is optional. Optional: ${editable}. ` +
-        `Also accepts: ${Object.keys(CREATE_ONLY_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
+        `Also accepts: ${Object.keys(MASTER_REF_FIELDS).join(', ')}. Include official sources and links so the reviewer can verify. ` +
         `${TABLE_FORMAT} A broken table is refused. ` +
         'Leave out seoTitle and seoDescription: they are written for you from the title, state, vacancies, qualification and last date, so a state job reaches people searching for jobs in that state and also shows for all-India "government jobs {year}" searches. ' +
         'postId and organisationId must come from resolve_entity (never guess; an unknown post is refused as UNKNOWN_POST). ' +
@@ -225,6 +234,62 @@ export function createMcpServer(ctx: ServerContext): McpServer {
         const out = await proposeMaster(ctx.d1, ctx.actor, args);
         return { ...out, ...(out.status === 'NOT_FOUND' && out.queued ? { message: 'Master proposal queued. Nothing is live until the owner approves it in /admin/pending-changes.' } : {}) } as Record<string, unknown>;
       }, 'Could not process the master proposal.');
+    },
+  );
+
+  const fieldList = UPDATABLE_MASTER_TYPES.map(t => `${t} {${MASTER_UPDATE_FIELDS[t].join(', ')}}`).join('; ');
+  const factList = UPDATABLE_MASTER_TYPES.filter(t => MASTER_FACT_FIELDS[t].length).map(t => `${t}: ${MASTER_FACT_FIELDS[t].join(', ')}`).join('; ');
+
+  server.registerTool(
+    'get_master',
+    {
+      title: 'Read one master record',
+      description: 'READ-only. The live, editable values of one existing state, sector, organisation, department or post (inactive ones included). Read it before propose_master_update.',
+      inputSchema: { type: z.enum(UPDATABLE_MASTER_TYPES), id: z.string().trim().min(1).max(100).describe('id from resolve_entity or list_entities') },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'get_master', actor: ctx.actor.id, mode: ctx.actor.mode, type: args.type }));
+      if (!ctx.d1) return result({ error: { code: 'INTERNAL_ERROR', message: 'Database unavailable.' } }, true);
+      try {
+        const record = await defaultMasterUpdateDeps.load(ctx.d1, args.type, args.id);
+        if (!record) return result({ error: { code: 'NOT_FOUND', message: `There is no ${args.type} with id "${args.id}". Use resolve_entity or list_entities.` } }, true);
+        return result({ type: args.type, id: args.id, ...record, editableFields: MASTER_UPDATE_FIELDS[args.type] });
+      } catch (error) {
+        console.error('[mcp] get_master failed:', error);
+        return result({ error: { code: 'INTERNAL_ERROR', message: 'Could not read the master.' } }, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'propose_master_update',
+    {
+      title: 'Propose an edit to an existing master (state, sector, organisation, department or post)',
+      description:
+        'Queue a correction to an EXISTING master for owner approval, the same edits an admin makes by hand in Master Records. Does NOT change the live site. ' +
+        'Read the live values with get_master first and send only the fields that change (unchanged values are dropped; nothing left is refused as NO_CHANGE). ' +
+        `Editable fields: ${fieldList}. isActive is true/false (false hides the master). Slugs, state codes and an organisation's state stay admin-only. ` +
+        `Evidence with a snippet quoted from the official website or notice is REQUIRED for ${factList} (else EVIDENCE_REQUIRED). ` +
+        'A new organisationId / departmentId / sectorId must be an existing master (resolve_entity). A rename onto another master under the same parent, or a sector onto one covering the same work, is refused as DUPLICATE_MASTER; ' +
+        'an open edit of the same fields is PENDING_CHANGE_CONFLICT (withdraw it first). Names in plain English. Set dryRun=true to see the before/after rows without queuing. ' +
+        'To fix a recruitment itself use propose_recruitment_update; to add a missing master use propose_master.',
+      inputSchema: {
+        type: z.enum(UPDATABLE_MASTER_TYPES),
+        id: z.string().trim().min(1).max(100).describe('id of the master to edit (resolve_entity / list_entities)'),
+        summary: summaryField,
+        changes: z.record(z.string(), z.unknown()).describe('Object of field -> new value (only the fields that change)'),
+        evidence: evidenceField,
+        dryRun: z.boolean().optional().describe('Run every check and return the before/after rows; never queue'),
+      },
+      annotations: proposeAnnotations,
+    },
+    async (args) => {
+      console.info(JSON.stringify({ evt: 'mcp.tool', tool: 'propose_master_update', actor: ctx.actor.id, mode: ctx.actor.mode, type: args.type, fields: Object.keys(args.changes ?? {}), dryRun: args.dryRun === true }));
+      return guarded('propose_master_update', async () => {
+        const out = await proposeMasterUpdate(ctx.d1, ctx.actor, args);
+        return { ...out, ...(out.queued ? { message: 'Edit queued. Nothing is live until the owner approves it in /admin/pending-changes.' } : {}) } as Record<string, unknown>;
+      }, 'Could not process the master edit.');
     },
   );
 

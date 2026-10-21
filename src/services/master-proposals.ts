@@ -5,13 +5,20 @@
  *   MCP tool -> proposeMaster() -> resolve against existing masters -> change_proposals (PENDING, only when NOT_FOUND)
  *   Admin    -> approveProposal() -> createSector / createOrganisation / createDepartment / createCanonicalPost
  *
+ * It may also ask to EDIT an existing master (state, sector, organisation, department, post), the same fields an admin edits by hand:
+ *
+ *   MCP tool -> proposeMasterUpdate() -> change_proposals (PENDING, UPDATE_<TYPE>, meta.targetId)
+ *   Admin    -> approveProposal() -> updateState / updateSector / updateOrganisation / updateDepartment / updateCanonicalPost
+ *
  * Like change-proposals.ts this module must NOT import the master writers (the MCP bundles it).
  */
 import { getAllCanonicalPosts, getAllDepartments, getAllOrganisations, getAllSectors, getAllStates } from '../db/queries';
 import {
   InvalidProposalError,
   MASTER_PROPOSAL_KINDS,
+  MASTER_UPDATE_KINDS,
   MAX_PENDING_PROPOSALS,
+  ProposalBlockedError,
   QUALIFICATIONS,
   checkParentRef,
   defaultProposalDeps,
@@ -19,6 +26,7 @@ import {
   sanitizeEvidence,
   assertEnglish,
   type MasterProposalKind,
+  type MasterUpdateKind,
   type ProposalDeps,
 } from './change-proposals';
 import type { Actor } from './recruitment-query';
@@ -258,4 +266,237 @@ export async function proposeMaster(
   const id = `prop_${crypto.randomUUID()}`;
   await deps.insert(d1, { id, kind, recruitmentId: null, summary, payload, baseSnapshot: null, meta: evidence?.length ? { evidence } : null, supersedesId: null, proposedBy: actor.id });
   return { status: 'NOT_FOUND', queued: true, id, kind, payload };
+}
+
+// ── Editing an existing master ──────────────────────────────────────────────────────────────────────
+
+export const UPDATABLE_MASTER_TYPES = ['state', 'sector', 'organisation', 'department', 'post'] as const;
+export type UpdatableMasterType = (typeof UPDATABLE_MASTER_TYPES)[number];
+
+export const MASTER_UPDATE_KIND: Record<UpdatableMasterType, MasterUpdateKind> = {
+  state: 'UPDATE_STATE',
+  sector: 'UPDATE_SECTOR',
+  organisation: 'UPDATE_ORGANISATION',
+  department: 'UPDATE_DEPARTMENT',
+  post: 'UPDATE_POST',
+};
+export const MASTER_TYPE_OF_UPDATE_KIND = Object.fromEntries(Object.entries(MASTER_UPDATE_KIND).map(([t, k]) => [k, t])) as Record<MasterUpdateKind, UpdatableMasterType>;
+export const isMasterUpdateKind = (kind: string): kind is MasterUpdateKind => (MASTER_UPDATE_KINDS as readonly string[]).includes(kind);
+
+/**
+ * What an update may change: the admin form's fields, except slugs, state codes and an organisation's state.
+ * Public URLs, the domicile rules and every recruitment of a body hang on those, so they stay admin-only.
+ */
+export const MASTER_UPDATE_FIELDS: Record<UpdatableMasterType, readonly string[]> = {
+  state: ['name', 'isActive'],
+  sector: ['name', 'description', 'icon', 'theme', 'displayOrder', 'isActive'],
+  organisation: ['name', 'shortName', 'websiteUrl', 'isActive'],
+  department: ['name', 'description', 'organisationId', 'isActive'],
+  post: ['title', 'summary', 'payScale', 'defaultMinAge', 'defaultMaxAge', 'defaultQualification', 'sectorId', 'departmentId', 'isActive'],
+};
+
+/** Facts read from an official source: each needs an evidence item with a quote. Sectors are NIRNAY's own job families, so none of theirs are. */
+export const MASTER_FACT_FIELDS: Record<UpdatableMasterType, readonly string[]> = {
+  state: ['name'],
+  sector: [],
+  organisation: ['name', 'shortName', 'websiteUrl'],
+  department: ['name'],
+  post: ['title', 'payScale', 'defaultMinAge', 'defaultMaxAge', 'defaultQualification'],
+};
+
+export interface MasterUpdateDeps {
+  /** The live master's editable fields (inactive ones included), or undefined when there is none. */
+  load: (d1: D1Database, type: UpdatableMasterType, id: string) => Promise<Record<string, unknown> | undefined>;
+  /** Siblings a rename or a move is matched against. */
+  masters: MasterDeps;
+  states: (d1: D1Database) => Promise<Array<{ id: string; name: string; code: string; slug: string }>>;
+}
+
+export const defaultMasterUpdateDeps: MasterUpdateDeps = {
+  load: async (d1, type, id) => {
+    if (type === 'state') {
+      const s = (await getAllStates(d1, { includeInactive: true })).find(x => x.id === id);
+      return s && { name: s.name, code: s.code, slug: s.slug, isActive: s.isActive ?? 1 };
+    }
+    if (type === 'sector') {
+      const s = (await getAllSectors(d1, { includeInactive: true })).find(x => x.id === id);
+      return s && { name: s.name, slug: s.slug, description: s.description ?? null, icon: s.icon, theme: s.theme ?? null, displayOrder: s.displayOrder, isActive: s.isActive ?? 1 };
+    }
+    if (type === 'organisation') {
+      const o = (await getAllOrganisations(d1, { includeInactive: true })).find(x => x.id === id);
+      return o && { name: o.name, shortName: o.shortName, slug: o.slug, stateId: o.stateId, websiteUrl: o.websiteUrl, isActive: o.isActive };
+    }
+    if (type === 'department') {
+      const d = (await getAllDepartments(d1, { includeInactive: true })).find(x => x.id === id);
+      return d && { name: d.name, slug: d.slug, organisationId: d.organisationId, description: d.description, isActive: d.isActive };
+    }
+    const p = (await getAllCanonicalPosts(d1)).find(x => x.id === id);
+    return p && { title: p.title, slug: p.slug, summary: p.summary, payScale: p.payScale, defaultMinAge: p.defaultMinAge, defaultMaxAge: p.defaultMaxAge, defaultQualification: p.defaultQualification, sectorId: p.sectorId, departmentId: p.departmentId, isActive: p.isActive };
+  },
+  masters: defaultMasterDeps,
+  states: async d1 => getAllStates(d1, { includeInactive: true }),
+};
+
+export interface MasterUpdateInput {
+  type: UpdatableMasterType;
+  /** The master's id (resolve_entity / list_entities / get_master). */
+  id: string;
+  summary: string;
+  /** Only the fields that change. */
+  changes: unknown;
+  evidence?: unknown;
+  /** Run every check and return the before/after rows; never queue. */
+  dryRun?: boolean;
+}
+
+const flag = (v: unknown, field: string) => {
+  if (typeof v !== 'boolean') throw new InvalidProposalError(`${field} must be true or false.`);
+  return v ? 1 : 0;
+};
+
+/** Validate an edit. Unknown or admin-only fields are refused, never ignored. */
+export function sanitizeMasterUpdate(type: UpdatableMasterType, raw: unknown): Record<string, unknown> {
+  if (!isObj(raw) || Object.keys(raw).length === 0) throw new InvalidProposalError('changes must be a non-empty object.');
+  const allowed = MASTER_UPDATE_FIELDS[type];
+  const refused = Object.keys(raw).filter(k => !allowed.includes(k));
+  if (refused.length) throw new InvalidProposalError(`Field(s) cannot be proposed for a ${type}: ${refused.join(', ')}. Allowed: ${allowed.join(', ')}. Slugs, state codes and an organisation's state stay admin-only.`);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    switch (k) {
+      case 'name': out.name = text(v, 'name', type === 'sector' ? 80 : 200); break;
+      case 'title': out.title = text(v, 'title', 200); break;
+      case 'shortName': out.shortName = text(v, 'shortName', 40); break;
+      case 'description': out.description = text(v, 'description', type === 'sector' ? 300 : 1000); break;
+      case 'summary': out.summary = text(v, 'summary', 2000); break;
+      case 'payScale': out.payScale = v === null ? null : text(v, 'payScale', 200); break;
+      case 'websiteUrl': {
+        const url = text(v, 'websiteUrl', 500)!;
+        let u: URL;
+        try { u = new URL(url); } catch { throw new InvalidProposalError('websiteUrl must be a valid URL.'); }
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new InvalidProposalError('websiteUrl must be an http(s) URL.');
+        out.websiteUrl = url;
+        break;
+      }
+      case 'icon': if (!(String(v) in SECTOR_ICONS)) throw new InvalidProposalError(`icon must be one of: ${Object.keys(SECTOR_ICONS).join(', ')}.`); out.icon = v; break;
+      case 'theme': if (!(String(v) in SECTOR_THEMES)) throw new InvalidProposalError(`theme must be one of: ${Object.keys(SECTOR_THEMES).join(', ')}.`); out.theme = v; break;
+      case 'displayOrder': if (!Number.isInteger(v) || (v as number) < 0 || (v as number) > 999) throw new InvalidProposalError('displayOrder must be an integer from 0 to 999.'); out.displayOrder = v; break;
+      case 'isActive': out.isActive = flag(v, 'isActive'); break;
+      case 'defaultMinAge': case 'defaultMaxAge': out[k] = age(v, k); break;
+      case 'defaultQualification': if (!QUALIFICATIONS.includes(String(v))) throw new InvalidProposalError(`defaultQualification must be one of: ${QUALIFICATIONS.join(', ')}.`); out.defaultQualification = v; break;
+      default: out[k] = text(v, k, 100); // organisationId, departmentId, sectorId
+    }
+  }
+  return assertEnglish(out, 'changes');
+}
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** Before/after rows for a master edit, against the live record. */
+export function masterUpdateDiff(payload: Record<string, unknown>, current: Record<string, unknown> | undefined) {
+  return Object.entries(payload).map(([field, after]) => {
+    const before = current ? current[field] ?? null : null;
+    return { field, before, after, changed: !sameValue(before, after) };
+  });
+}
+
+/** Fields whose live value moved since the edit was proposed. */
+export function masterStaleFields(snapshot: Record<string, unknown> | null, current: Record<string, unknown> | undefined): string[] {
+  if (!snapshot || !current) return [];
+  return Object.keys(snapshot).filter(f => !sameValue(snapshot[f], current[f]));
+}
+
+/**
+ * Would the edited master collide with another one? A rename onto an existing name under the same parent (or, for a sector,
+ * onto one covering the same field of work) is blocking; any other similarity is a warning for the reviewer.
+ * Also checks that a new parent exists.
+ */
+export async function checkMasterUpdate(
+  d1: D1Database,
+  type: UpdatableMasterType,
+  id: string,
+  next: Record<string, unknown>,
+  changed: string[],
+  deps: MasterUpdateDeps,
+): Promise<{ blocking?: string; similar?: MasterResolution }> {
+  const m = deps.masters;
+  if (changed.includes('organisationId') && !(await m.organisations(d1)).some(o => o.id === next.organisationId)) return { blocking: `organisationId "${next.organisationId}" is not an organisation. Use resolve_entity(organisation).` };
+  if (changed.includes('departmentId') && !(await m.departments(d1)).some(x => x.id === next.departmentId)) return { blocking: `departmentId "${next.departmentId}" is not a department. Use resolve_entity(department).` };
+  if (changed.includes('sectorId') && !(await m.sectorIds(d1)).includes(next.sectorId as string)) return { blocking: `sectorId "${next.sectorId}" is not an active sector. Use resolve_entity(sector).` };
+
+  if (!['name', 'shortName', 'title', 'websiteUrl', 'organisationId', 'departmentId'].some(f => changed.includes(f))) return {};
+  if (type === 'state') {
+    const clash = (await deps.states(d1)).find(s => s.id !== id && [s.name, s.code, s.slug].map(norm).includes(norm(next.name)));
+    return clash ? { blocking: `Another state or UT is already called "${clash.name}" (${clash.id}).` } : {};
+  }
+  const existing = (await (type === 'sector' ? m.sectors(d1) : type === 'organisation' ? m.organisations(d1) : type === 'department' ? m.departments(d1) : m.posts(d1))).filter(e => e.id !== id);
+  const parentId = (type === 'organisation' ? next.stateId : type === 'department' ? next.organisationId : type === 'post' ? next.departmentId : undefined) as string | undefined;
+  // The slug never changes on an edit, so only the names are matched.
+  const found = resolveMaster(type, { name: (next.name ?? next.title) as string, shortName: next.shortName as string | undefined, websiteUrl: changed.includes('websiteUrl') ? next.websiteUrl as string : undefined, parentId }, existing);
+  if (found.status === 'MATCH') return { blocking: `This would duplicate ${type} "${found.matches[0].name}" (${found.matches[0].id}). Keep one: report it to the admin instead.` };
+  if (found.status === 'POSSIBLE_MATCH' && type === 'sector') return { blocking: `A similar sector already exists (${found.matches.map(x => x.name).join(', ')}).` };
+  return found.status === 'POSSIBLE_MATCH' ? { similar: found } : {};
+}
+
+export type MasterUpdateOutcome = {
+  kind: MasterUpdateKind;
+  targetId: string;
+  changes: ReturnType<typeof masterUpdateDiff>;
+  similar?: MasterResolution;
+} & ({ queued: false; dryRun: true } | { queued: true; id: string; status: 'PENDING' });
+
+/**
+ * Queue an edit of an existing master for admin approval. Only fields that really change are kept; every fact needs a quote.
+ * Refused: unknown master, nothing to change, a parent that does not exist, a rename onto another master, an open edit of the same fields.
+ */
+export async function proposeMasterUpdate(
+  d1: D1Database | undefined,
+  actor: Actor,
+  input: MasterUpdateInput,
+  deps: ProposalDeps = defaultProposalDeps,
+  mdeps: MasterUpdateDeps = defaultMasterUpdateDeps,
+): Promise<MasterUpdateOutcome> {
+  if (!d1) throw new Error('D1 binding unavailable.');
+  if (!(UPDATABLE_MASTER_TYPES as readonly string[]).includes(input.type)) throw new InvalidProposalError(`type must be one of: ${UPDATABLE_MASTER_TYPES.join(', ')}.`);
+  const summary = assertEnglish(text(input.summary, 'summary', 300)!, 'summary');
+  const id = text(input.id, 'id', 100)!;
+  const current = await mdeps.load(d1, input.type, id);
+  if (!current) throw new InvalidProposalError(`There is no ${input.type} with id "${id}". Use resolve_entity or list_entities for its id.`);
+
+  const proposed = sanitizeMasterUpdate(input.type, input.changes);
+  const payload = Object.fromEntries(Object.entries(proposed).filter(([f, v]) => !sameValue(current[f], v)));
+  const changed = Object.keys(payload);
+  if (!changed.length) throw new ProposalBlockedError('NO_CHANGE', `Every proposed value already matches the live ${input.type}. Nothing to change.`);
+  const next = { ...current, ...payload };
+  if (input.type === 'post' && Number(next.defaultMinAge) > Number(next.defaultMaxAge)) throw new InvalidProposalError('defaultMinAge cannot be above defaultMaxAge.');
+
+  const evidence = sanitizeEvidence(input.evidence, payload);
+  const quoted = new Set((evidence ?? []).filter(e => e.snippet).map(e => e.field));
+  const unquoted = changed.filter(f => MASTER_FACT_FIELDS[input.type].includes(f) && !quoted.has(f));
+  if (unquoted.length) throw new ProposalBlockedError('EVIDENCE_REQUIRED', `Quote the official source (sourceUrl + snippet) for: ${unquoted.join(', ')}.`, { fields: unquoted });
+
+  const check = await checkMasterUpdate(d1, input.type, id, next, changed, mdeps);
+  if (check.blocking) throw new ProposalBlockedError('DUPLICATE_MASTER', check.blocking);
+
+  const kind = MASTER_UPDATE_KIND[input.type];
+  const open = (await deps.list(d1, { status: 'PENDING', limit: 250 })).filter(p => p.kind === kind && p.meta?.targetId === id);
+  const clash = open.filter(p => Object.keys(p.payload).some(f => f in payload));
+  if (clash.length) {
+    const fields = [...new Set(clash.flatMap(p => Object.keys(p.payload).filter(f => f in payload)))];
+    throw new ProposalBlockedError('PENDING_CHANGE_CONFLICT', `Open proposal(s) already change ${fields.join(', ')} on this ${input.type}. Withdraw them first.`, { conflictingIds: clash.map(p => p.id), fields });
+  }
+
+  const changes = masterUpdateDiff(payload, current);
+  const common = { kind, targetId: id, changes, ...(check.similar ? { similar: check.similar } : {}) };
+  if (input.dryRun) return { ...common, queued: false, dryRun: true };
+  if ((await deps.countPending(d1, actor.id)) >= MAX_PENDING_PROPOSALS) throw new InvalidProposalError(`Too many pending proposals (${MAX_PENDING_PROPOSALS}). Ask an admin to review the queue first.`);
+  const proposalId = `prop_${crypto.randomUUID()}`;
+  const meta: Record<string, unknown> = { targetId: id, targetName: current.name ?? current.title };
+  if (evidence?.length) meta.evidence = evidence;
+  if (check.similar) meta.similar = check.similar;
+  await deps.insert(d1, {
+    id: proposalId, kind, recruitmentId: null, summary, payload,
+    baseSnapshot: Object.fromEntries(changed.map(f => [f, current[f] ?? null])),
+    meta, supersedesId: null, proposedBy: actor.id,
+  });
+  return { ...common, queued: true, id: proposalId, status: 'PENDING' };
 }
