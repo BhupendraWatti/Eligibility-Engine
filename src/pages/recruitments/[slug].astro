@@ -67,10 +67,12 @@ const applyLink = applyUrl
   ? { url: applyUrl, label: `Apply on ${recruitment!.organisationShortName} portal`, shortLabel: 'Apply Officially' }
   : { url: recruitment?.organisationUrl, label: `Visit ${recruitment?.organisationShortName} website`, shortLabel: 'Official Website' };
 
-// Opened from the Results list: the only action is the result itself (same link types as /results).
+// Once the result is declared (same test as the homepage strip), or when opened from the Results list,
+// the only action is the result itself: no apply or eligibility buttons.
 const section = sectionFrom(Astro.url);
-const resultMode = section === 'results';
 const resultUrl = recruitment?.officialLinksList?.find(l => ['RESULT', 'SCORECARD', 'MERIT_LIST'].includes(l.linkType) && l.isActive === 1)?.url;
+const resultDeclared = recruitment?.resolvedLifecycle === 'RESULT_DECLARED' || recruitment?.resultStatus === 'DECLARED' || Boolean(resultUrl);
+const resultMode = section === 'results' || resultDeclared;
 
 // Search title and description: the admin's own text when set, else built from the record so it
 // targets the job's state first ("Assam govt job vacancy") and the national terms after.

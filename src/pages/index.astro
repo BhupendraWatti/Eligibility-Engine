@@ -441,7 +441,7 @@ const jsonLd = [
                 <span class="shrink-0 max-w-[50%] truncate">{row.place}</span>
               </div>
               <h4 class="mt-1 text-sm font-semibold leading-snug text-foreground line-clamp-2">
-                <a href={`/recruitments/${row.slug}`} class="hover:text-primary transition-colors">{row.title}</a>
+                <a href={`/recruitments/${row.slug}?from=results`} class="hover:text-primary transition-colors">{row.title}</a>
               </h4>
               <p class="mt-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">{row.when}</p>
               {row.date && <p class="mt-0.5 font-mono tabular-nums text-xs text-muted-foreground">{row.date}</p>}
@@ -451,7 +451,7 @@ const jsonLd = [
                   <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
                 </a>
               ) : (
-                <a href={`/recruitments/${row.slug}`} class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-bold text-primary hover:underline">View details</a>
+                <a href={`/recruitments/${row.slug}?from=results`} class="mt-1.5 inline-flex items-center gap-1 py-1 text-[11px] font-bold text-primary hover:underline">View details</a>
               )}
             </li>
           ))}
