@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { isAdminSubdomain } from './lib/hostname';
 import { isAdminTestBypass, isSameOrigin } from './services/admin-integrity';
 import { verifyAccessJwt } from './services/cf-access';
+import { refreshJurisdictionNames } from './services/jurisdiction-names';
 import {
   homeValueToSave,
   resolveViewerState,
@@ -163,6 +164,8 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
     }
 
     locals.viewerState = resolveViewerState({ home, cookie: savedCookie, cf });
+    // State names renamed in admin (cached; never blocks the page if the database is unavailable).
+    await refreshJurisdictionNames();
   }
 
   return next();

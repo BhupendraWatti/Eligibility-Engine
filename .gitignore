@@ -165,6 +165,12 @@ scratch/
 .system_generated/
 .gstack/
 testsprite_tests/
+.testsprite/
+# Local MCP tool config for testing (TestSprite); keys come from local env vars
+.mcp.json
+# Ad-hoc QA scripts and screenshots from manual or AI review runs
+qa/
+screenshots/
 
 # Consolidated local markdown specifications, architecture notes & audits
 markdown/

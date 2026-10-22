@@ -4,6 +4,7 @@ import { advtLabel, cleanAdvt } from '../../../../services/advt-number';
 import { formatQualificationByCategory, parseQualificationByCategory } from '../../../../engine/eligibility';
 import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../../../services/domicile-scope';
 import { EXAM_KINDS, EXAM_KIND_LABELS, isExamKind } from '../../../../services/exam-kind';
+import { formatSelectionStages, parseSelectionStages } from '../../../../services/selection-stages';
 // src/pages/admin/recruitments/[id]/edit.astro (FlowStep Screen 22)
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../../components/admin/AgeRangeGuard.astro';
@@ -73,10 +74,22 @@ if (Astro.request.method === 'POST') {
     const advtNumber = cleanAdvt(formData.get('advtNumber')?.toString());
     const cycleYear = parseInt(formData.get('cycleYear')?.toString() || String(recruitment.cycleYear || 2026), 10);
     const totalVacancies = parseInt(formData.get('totalVacancies')?.toString() || '0', 10);
-    const lifecycleStatus = formData.get('lifecycleStatus')?.toString().trim() || 'OPEN';
+    // The form has no inputs for the stage fields, so the stored ones are carried over instead of defaults
+    // (a default here used to reset "Result declared" and "Exam scheduled" on every save).
+    const lifecycleStatus = formData.get('lifecycleStatus')?.toString().trim() || recruitment.lifecycleStatus || 'OPEN';
     const status = formData.get('status')?.toString().trim() || 'PUBLISHED';
-    const examStatus = formData.get('examStatus')?.toString().trim() || 'NOT_SCHEDULED';
-    const resultStatus = formData.get('resultStatus')?.toString().trim() || 'NOT_DECLARED';
+    // SCHEDULED / NOT_SCHEDULED follow the exam date (undefined lets the writer derive them); any other stored
+    // state (completed, postponed...) is kept.
+    const storedExamStatus = recruitment.examStatus;
+    const examStatus = formData.get('examStatus')?.toString().trim()
+      || (storedExamStatus && !['SCHEDULED', 'NOT_SCHEDULED'].includes(storedExamStatus) ? storedExamStatus : undefined);
+    const resultStatus = formData.get('resultStatus')?.toString().trim() || recruitment.resultStatus || undefined;
+    // Stages are sent only when the box was changed, so an untouched save keeps them exactly as stored.
+    const stagesText = formData.get('selectionStages')?.toString() ?? null;
+    const stagesShown = formData.get('selectionStagesShown')?.toString() ?? null;
+    const selectionStages = stagesText === null || stagesText.trim() === (stagesShown ?? '').trim()
+      ? undefined
+      : parseSelectionStages(stagesText, recruitment.selectionStages ?? []);
     const isFeatured = formData.get('isFeatured') === '1' ? 1 : 0;
     const shortSummary = formData.get('shortSummary')?.toString().trim();
     const overviewMarkdown = formData.get('overviewMarkdown')?.toString().trim();
@@ -255,6 +268,7 @@ if (Astro.request.method === 'POST') {
         applicationStart,
         applicationEnd,
         examDate,
+        selectionStages,
         // A breakdown the five quota boxes cannot show (posts, codes, genders) is left as it is.
         vacanciesBreakdown: vacanciesEditable ? vacanciesBreakdown : undefined,
         importantDates,
@@ -699,6 +713,18 @@ const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || 
                 <label class="block text-xs font-semibold text-zinc-800">Scheduled Exam Date</label>
                 <input type="date" name="examDate" value={dateOf('EXAM_DATE')} class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono outline-none" />
               </div>
+            </div>
+            <div class="space-y-1.5 pt-2">
+              <label for="selectionStages" class="block text-xs font-semibold text-zinc-800">Selection Process</label>
+              <p class="text-[11px] text-zinc-500">One stage per line, in order: <span class="font-mono">Stage name | what it involves</span>. Shown to candidates as the selection process.</p>
+              <textarea
+                id="selectionStages"
+                name="selectionStages"
+                rows="4"
+                placeholder="Written Examination | Objective, 100 marks&#10;Physical Efficiency Test | Qualifying"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+              >{formatSelectionStages(recruitment.selectionStages)}</textarea>
+              <input type="hidden" name="selectionStagesShown" value={formatSelectionStages(recruitment.selectionStages)} />
             </div>
           </div>
 

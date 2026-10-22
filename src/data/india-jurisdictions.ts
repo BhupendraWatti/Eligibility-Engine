@@ -67,6 +67,21 @@ export function resolveRegionAlias(code?: string | null): string | null {
   return INDIA_JURISDICTIONS.some(item => item.code === mapped) ? mapped : null;
 }
 
+// Display names edited in admin (/admin/states), by code. The list above stays the source of codes and slugs;
+// a renamed state shows its admin name everywhere the public site prints a state.
+let nameOverrides: Record<string, string> = {};
+
+/** Replaces the admin display names (only codes whose name differs from the list above need an entry). */
+export function setJurisdictionNameOverrides(names: Record<string, string>): void {
+  nameOverrides = names;
+}
+
 export function jurisdictionName(code?: string | null): string {
-  return INDIA_JURISDICTIONS.find(item => item.code === code?.toUpperCase())?.name || code || 'the required jurisdiction';
+  const upper = code?.toUpperCase();
+  return (upper && nameOverrides[upper]) || INDIA_JURISDICTIONS.find(item => item.code === upper)?.name || code || 'the required jurisdiction';
+}
+
+/** Every jurisdiction with its display name, for state pickers and state link lists. */
+export function jurisdictionList(): IndiaJurisdiction[] {
+  return INDIA_JURISDICTIONS.map(item => (nameOverrides[item.code] ? { ...item, name: nameOverrides[item.code] } : item));
 }

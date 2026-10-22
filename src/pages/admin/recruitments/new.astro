@@ -6,6 +6,7 @@ import { DOMICILE_SCOPE_OPTIONS, DOMICILE_STATES, isDomicileScope } from '../../
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AgeRangeGuard from '../../../components/admin/AgeRangeGuard.astro';
 import { getAllCanonicalPosts, getAllSectors, getAllOrganisations, getAllStates, createRecruitmentAtomic } from '../../../db/queries';
+import { parseSelectionStages } from '../../../services/selection-stages';
 import {
   AdminValidationError,
   parseBooleanInput,
@@ -88,8 +89,10 @@ if (Astro.request.method === 'POST' && masterDataError) {
     const applicationStart = input.text('applicationStart', 'application_start');
     const applicationEnd = input.text('applicationEnd', 'application_end');
     const examDate = input.text('examDate', 'exam_date');
-    const examStatus = input.text('examStatus', 'exam_status') || 'NOT_SCHEDULED';
-    const resultStatus = input.text('resultStatus', 'result_status') || 'NOT_DECLARED';
+    // Left blank, the writer derives them (an exam date means SCHEDULED).
+    const examStatus = input.text('examStatus', 'exam_status') || undefined;
+    const resultStatus = input.text('resultStatus', 'result_status') || undefined;
+    const selectionStages = parseSelectionStages(input.text('selectionStages', 'selection_stages'));
     const sourceUrl = input.text('sourceUrl', 'source_url');
     const sourceTitle = input.text('sourceTitle', 'source_title');
     const officialApplyUrl = input.text('officialApplyUrl', 'official_apply_url');
@@ -152,6 +155,7 @@ if (Astro.request.method === 'POST' && masterDataError) {
         applicationStart,
         applicationEnd,
         examDate,
+        selectionStages: selectionStages.length > 0 ? selectionStages : undefined,
         examStatus,
         resultStatus,
         sourceUrl,
@@ -603,6 +607,18 @@ const unassignedPosts = posts.filter(p => !groupedPostIds.has(p.id));
                   class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
                 />
               </div>
+            </div>
+
+            <div class="space-y-1.5 pt-2">
+              <label for="selectionStages" class="block text-xs font-semibold text-zinc-800">Selection Process</label>
+              <p class="text-[11px] text-zinc-500">One stage per line, in order: <span class="font-mono">Stage name | what it involves</span>. Shown to candidates as the selection process.</p>
+              <textarea
+                id="selectionStages"
+                name="selectionStages"
+                rows="4"
+                placeholder="Written Examination | Objective, 100 marks&#10;Physical Efficiency Test | Qualifying"
+                class="w-full px-3 py-2 rounded-lg border border-zinc-200 text-xs font-mono focus:ring-2 focus:ring-zinc-900 outline-none"
+              ></textarea>
             </div>
           </div>
 

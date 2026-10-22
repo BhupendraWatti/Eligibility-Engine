@@ -6,7 +6,7 @@ import StatePicker from '../components/common/StatePicker.astro';
 import { getAllSectors, getAllCanonicalPosts, calculateSectorActiveDrives } from '../db/queries';
 import { calculateRecruitmentMetrics, isActiveDrive, isUpcomingDrive, normalizeDateString, todayIST } from '../services/lifecycle';
 import { inRelevanceOrder, loadPublicRecruitments, queryListing } from '../services/public-listing';
-import { INDIA_JURISDICTIONS, jurisdictionName } from '../data/india-jurisdictions';
+import { INDIA_JURISDICTIONS, jurisdictionList, jurisdictionName } from '../data/india-jurisdictions';
 import { homeSeo, currentYear } from '../services/seo';
 import { vacancyPhrase } from '../services/exam-kind';
 
@@ -155,7 +155,7 @@ const toneClass: Record<Tone, string> = {
 
 const year = currentYear();
 const seo = homeSeo(year);
-const stateLinks = INDIA_JURISDICTIONS.filter(j => j.code !== 'IN');
+const stateLinks = jurisdictionList().filter(j => j.code !== 'IN');
 
 // Shown on the page and sent as FAQPage data, so the two never differ.
 const faqs = [

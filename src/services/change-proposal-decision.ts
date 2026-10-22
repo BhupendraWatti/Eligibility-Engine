@@ -197,7 +197,7 @@ export function mergeUpdateInput(existing: RecruitmentWithDetails, payload: Reco
     applicationStart: existing.applicationStart,
     applicationEnd: existing.applicationEnd,
     examDate: existing.examDate,
-    selectionStages: existing.selectionStages,
+    selectionStages: existing.selectionStages ?? [],
     seoTitle: existing.seoTitle ?? undefined,
     seoDescription: existing.seoDescription ?? undefined,
     robotsIndex: existing.robotsIndex,

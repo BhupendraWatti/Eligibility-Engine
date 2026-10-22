@@ -2034,6 +2034,21 @@ export async function createOrganisation(
   return id;
 }
 
+/**
+ * A master that still has published recruitments cannot be switched off: its public page would disappear while
+ * its jobs stayed live and linked to it. Archive or move those recruitments first.
+ */
+async function assertNoPublishedRecruitments(d1: D1Database, kind: 'organisation' | 'sector', id: string): Promise<void> {
+  const sql = kind === 'organisation'
+    ? "SELECT COUNT(*) AS n FROM recruitments WHERE organisation_id = ? AND status = 'PUBLISHED'"
+    : "SELECT COUNT(*) AS n FROM recruitments r JOIN posts p ON p.id = r.post_id WHERE p.sector_id = ? AND r.status = 'PUBLISHED'";
+  const row = await d1.prepare(sql).bind(id).first<{ n: number }>();
+  const n = Number(row?.n ?? 0);
+  if (n > 0) {
+    throw new Error(`This ${kind} still has ${n} published recruitment${n === 1 ? '' : 's'}. Archive ${n === 1 ? 'it' : 'them'} or move ${n === 1 ? 'it' : 'them'} to another ${kind === 'organisation' ? 'organisation' : 'post'} before making it inactive.`);
+  }
+}
+
 export async function updateOrganisation(
   data: { id: string; stateId?: string; name?: string; shortName?: string; slug?: string; websiteUrl?: string; isActive?: number; adminEmail: string },
   providedD1?: D1Database
@@ -2055,8 +2070,9 @@ export async function updateOrganisation(
     return true;
   }
   const db = getDb(d1);
-  const existing = await db.select({ id: schema.organisations.id }).from(schema.organisations).where(eq(schema.organisations.id, data.id)).limit(1);
+  const existing = await db.select({ id: schema.organisations.id, isActive: schema.organisations.isActive }).from(schema.organisations).where(eq(schema.organisations.id, data.id)).limit(1);
   if (existing.length === 0) return false;
+  if (data.isActive === 0 && existing[0].isActive !== 0) await assertNoPublishedRecruitments(d1, 'organisation', data.id);
   const updateSet: Record<string, any> = {};
   if (data.name !== undefined) updateSet.name = data.name;
   if (data.shortName !== undefined) updateSet.shortName = data.shortName;
@@ -2271,8 +2287,9 @@ export async function updateSector(
     return true;
   }
   const db = getDb(d1);
-  const existing = await db.select({ id: schema.sectors.id }).from(schema.sectors).where(eq(schema.sectors.id, data.id)).limit(1);
+  const existing = await db.select({ id: schema.sectors.id, isActive: schema.sectors.isActive }).from(schema.sectors).where(eq(schema.sectors.id, data.id)).limit(1);
   if (existing.length === 0) return false;
+  if (cleanIsActive === 0 && existing[0].isActive !== 0) await assertNoPublishedRecruitments(d1, 'sector', data.id);
   const auditedChanges: Record<string, string | number> = {};
   const updateSet: Record<string, any> = { updatedAt: sql`(unixepoch())` };
   if (cleanName !== undefined) updateSet.name = auditedChanges.name = cleanName;
@@ -3926,6 +3943,17 @@ async function versionStatement(db: ReturnType<typeof getDb>, d1: D1Database, id
 /**
  * Update an existing recruitment drive atomically across all relational sections
  */
+/** The stored values an update must keep when the caller leaves them out. */
+async function storedRecruitmentShape(id: string, d1?: D1Database): Promise<{ slug: string; selectionStagesJson: string | null } | undefined> {
+  if (!d1) {
+    const existing = FALLBACK_RECRUITMENTS.find(r => r.id === id || r.slug === id);
+    return existing ? { slug: existing.slug, selectionStagesJson: (existing as any).selectionStagesJson ?? (existing.selectionStages?.length ? JSON.stringify(existing.selectionStages) : null) } : undefined;
+  }
+  const row = await d1.prepare('SELECT slug, selection_stages_json AS selectionStagesJson FROM recruitments WHERE id = ?')
+    .bind(id).first<{ slug: string; selectionStagesJson: string | null }>();
+  return row ?? undefined;
+}
+
 export async function updateRecruitmentAtomic(
   id: string,
   data: CreateRecruitmentInput,
@@ -3938,7 +3966,10 @@ export async function updateRecruitmentAtomic(
   const examKind = isExamKind(data.examKind) ? data.examKind : undefined;
   const totalVacancies = isQualifyingExam(examKind) ? 0 : (data.totalVacancies ?? 0);
   const noUpperAgeLimit = data.noUpperAgeLimit === undefined ? undefined : data.noUpperAgeLimit ? 1 : 0;
-  const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  // The public URL never changes on an edit, so shared links, bookmarks and search results keep working
+  // when a title is corrected. Selection stages left out of an update are kept, like dates and links.
+  const stored = await storedRecruitmentShape(id, d1);
+  const slug = stored?.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const existingRecruitments = await getAllActiveRecruitments(providedD1, { includeUnpublished: true, limit: 250 });
   const duplicateCheck = detectDuplicates(duplicateCandidate(id, data, org), existingRecruitments.map(duplicateRecord));
@@ -4005,9 +4036,9 @@ export async function updateRecruitmentAtomic(
     };
   }
 
-  const selectionStagesJson = data.selectionStages && data.selectionStages.length > 0
-    ? JSON.stringify(data.selectionStages)
-    : null;
+  const selectionStagesJson = data.selectionStages === undefined
+    ? stored?.selectionStagesJson ?? null
+    : data.selectionStages.length > 0 ? JSON.stringify(data.selectionStages) : null;
 
   // 1. Update in-memory fallback representation
   const idx = FALLBACK_RECRUITMENTS.findIndex(r => r.id === id || r.slug === id);

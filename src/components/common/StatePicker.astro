@@ -2,7 +2,7 @@
 // State chip + picker: shows which state's jobs are ranked first and lets the visitor change it.
 // A native <details> with a labelled <select> and an explicit submit (no auto-submit), so it works
 // with keyboard, screen readers and JS off. Submitting saves the choice (remember=1).
-import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
+import { INDIA_JURISDICTIONS, jurisdictionList, jurisdictionName } from '../../data/india-jurisdictions';
 import type { ViewerState } from '../../services/viewer-state';
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 }
 
 const { viewerState = { code: null, source: 'none' }, action, keep = {}, id = 'state-picker' } = Astro.props;
-const states = INDIA_JURISDICTIONS.filter(item => item.code !== 'IN');
+const states = jurisdictionList().filter(item => item.code !== 'IN');
 const stateName = viewerState.code ? jurisdictionName(viewerState.code) : null;
 ---
 

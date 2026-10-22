@@ -10,6 +10,7 @@ import { EXAM_KIND_LABELS, isQualifyingExam, vacancyLabel } from '../../services
 import { jurisdictionName } from '../../data/india-jurisdictions';
 import { recruitmentSeo, stateKeywordName } from '../../services/seo';
 import { SECTION_LABELS, sectionFrom } from '../../services/nav-section';
+import { formatDateIST } from '../../services/lifecycle';
 
 const { slug } = Astro.params;
 
@@ -586,7 +587,7 @@ if (recruitment && canonicalUrl) {
                       <span class="text-sm font-semibold text-foreground block">{d.event}</span>
                       <span class="text-xs text-muted-foreground">{d.desc}</span>
                     </div>
-                    <span class="text-xs sm:text-sm font-mono font-bold text-foreground whitespace-nowrap tabular-nums">{d.date}</span>
+                    <span class="text-xs sm:text-sm font-mono font-bold text-foreground whitespace-nowrap tabular-nums"><time datetime={d.date}>{formatDateIST(d.date)}</time></span>
                   </li>
                 ))}
               </ol>
@@ -727,7 +728,7 @@ if (recruitment && canonicalUrl) {
                       <span class="text-xs font-bold text-foreground block">{d.event}</span>
                       <span class="text-[11px] text-muted-foreground">{d.desc}</span>
                     </div>
-                    <span class="text-xs font-mono font-bold text-foreground whitespace-nowrap">{d.date}</span>
+                    <span class="text-xs font-mono font-bold text-foreground whitespace-nowrap"><time datetime={d.date}>{formatDateIST(d.date)}</time></span>
                   </div>
                 ))}
               </div>

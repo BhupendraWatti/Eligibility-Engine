@@ -79,6 +79,13 @@ export function formatDayMonthIST(iso: string): string {
   return `${d} ${MONTHS[m - 1]}`;
 }
 
+/** "16 Sep 2026" for a YYYY-MM-DD date; anything else is returned unchanged. */
+export function formatDateIST(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) return iso ?? '';
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
 /** "Wed" for a YYYY-MM-DD date. */
 export function weekdayIST(iso: string): string {
   return IST_WEEKDAY.format(istMidnight(iso));

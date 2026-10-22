@@ -22,12 +22,15 @@ interface Props {
   recruitments: RecruitmentData[];
   /** A state the visitor chose themselves (picker or link), used to pre-fill domicile. Never the geo guess. */
   chosenStateCode?: string | null;
+  /** Display names by state code, as the server knows them (includes names edited in admin). */
+  stateNames?: Record<string, string>;
 }
 
 // Same cookie the StatePicker writes (src/services/viewer-state.ts): a declared domicile ranks that state first.
 const VIEWER_STATE_COOKIE = 'nirnay_state';
 
-export default function EligibilityWizard({ recruitments, chosenStateCode }: Props) {
+export default function EligibilityWizard({ recruitments, chosenStateCode, stateNames }: Props) {
+  const stateName = (code?: string | null) => (code && stateNames?.[code.toUpperCase()]) || jurisdictionName(code);
   const [step, setStep] = useState<number>(1);
 
   // Pure empty starting states — no silent defaults
@@ -398,7 +401,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                       </label>
                       <select value={domicileStateCode} onChange={event => { setDomicileStateCode(event.target.value); setValidationError(null); }} className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground">
                         <option value="">Select domicile</option>
-                        {INDIA_JURISDICTIONS.filter(item => item.code !== 'IN').map(item => <option key={item.code} value={item.code}>{item.name}</option>)}
+                        {INDIA_JURISDICTIONS.filter(item => item.code !== 'IN').map(item => <option key={item.code} value={item.code}>{stateName(item.code)}</option>)}
                       </select>
                     </div>
 
@@ -556,7 +559,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                       <div>DOB: <strong>{dobInput || 'Not provided'}</strong></div>
                       <div>Gender: <strong>{selectedGender}</strong></div>
                       <div>Category: <strong>{selectedCategory}</strong></div>
-                      <div>Domicile: <strong>{jurisdictionName(domicileStateCode)}</strong></div>
+                      <div>Domicile: <strong>{stateName(domicileStateCode)}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -630,7 +633,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode }: Pro
                           dob: dobInput,
                           gender: selectedGender,
                           qualification: selectedQualification,
-                          domicile: jurisdictionName(domicileStateCode),
+                          domicile: stateName(domicileStateCode),
                           category: selectedCategory,
                           registrations: registrations.split(',').map(value => value.trim()).filter(Boolean),
                           hasCpct: hasTechCert,

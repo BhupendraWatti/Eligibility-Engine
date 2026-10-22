@@ -1,5 +1,6 @@
 ---
 // src/pages/admin/states.astro (Master Records - States & Jurisdictions)
+import { clearJurisdictionNameCache } from '../../services/jurisdiction-names';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import MasterSubNav from '../../components/admin/MasterSubNav.astro';
 import {
@@ -40,6 +41,7 @@ if (Astro.request.method === 'POST') {
         adminEmail,
       });
       if (!updated) throw new Error(`Unknown state ID: ${id}`);
+      clearJurisdictionNameCache();
       statusMessage = { type: 'success', text: `Jurisdiction "${name} (${code})" updated successfully!` };
       Astro.response.headers.set('X-State-Id', id);
       if (!acceptsHtml) {

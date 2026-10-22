@@ -3,6 +3,7 @@ import { advtLabel } from '../services/advt-number';
 // src/pages/eligibility-checker.astro
 import BaseLayout from '../layouts/BaseLayout.astro';
 import EligibilityWizard from '../components/eligibility/EligibilityWizard';
+import { jurisdictionList } from '../data/india-jurisdictions';
 import { getAllActiveRecruitments } from '../db/queries';
 
 // @ts-ignore
@@ -31,6 +32,6 @@ if (chosenStateCode) Astro.response.headers.set('Cache-Control', 'private, no-st
   description="Check eligibility across verified central and state government recruitments using each notification's own age, qualification, domicile, and registration rules."
 >
   <div class="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-    <EligibilityWizard client:load recruitments={wizardData} chosenStateCode={chosenStateCode} />
+    <EligibilityWizard client:load recruitments={wizardData} chosenStateCode={chosenStateCode} stateNames={Object.fromEntries(jurisdictionList().map(j => [j.code, j.name]))} />
   </div>
 </BaseLayout>

@@ -6,6 +6,7 @@ import {
   todayIST,
   weekdayIST,
   formatDayMonthIST,
+  formatDateIST,
   resolveRecruitmentLifecycle,
   resolveApplicationWindow,
   groupExamDates,
@@ -48,5 +49,8 @@ const groups = groupExamDates(['2026-12-04', '2026-12-03', '2026-12-15', '2026-1
 assert(groups.length === 3, 'two ranges and a single day');
 assert(groups[0].start === '2026-12-03' && groups[0].end === '2026-12-04' && groups[0].label === '3–4 Dec', 'a two-day exam is one range');
 assert(groups[2].label === '10 Jan', 'a single exam day has no range');
+
+assert(formatDateIST('2026-12-20') === '20 Dec 2026', 'a full date reads day, month and year');
+assert(formatDateIST('Tentative') === 'Tentative' && formatDateIST(undefined) === '', 'a non-date is left as it is');
 
 if (failures) { console.error(`${failures} failure(s)`); process.exit(1); }

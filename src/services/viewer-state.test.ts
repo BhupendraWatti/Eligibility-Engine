@@ -2,7 +2,7 @@
  * Viewer State resolver and region aliases. Plain asserts, no runtime.
  * Run: `npx tsx src/services/viewer-state.test.ts`
  */
-import { resolveRegionAlias } from '../data/india-jurisdictions';
+import { jurisdictionList, jurisdictionName, resolveRegionAlias, setJurisdictionNameOverrides } from '../data/india-jurisdictions';
 import { homeValueToSave, parseHomeValue, resolveViewerState } from './viewer-state';
 
 let failures = 0;
@@ -57,6 +57,15 @@ assert(homeValueToSave('UP', '1') === 'UP', 'picker submit saves the state');
 assert(homeValueToSave('none', '1') === 'none', 'All India saves the none sentinel');
 assert(homeValueToSave('ZZ', '1') === null, 'invalid state is never saved');
 assert(homeValueToSave('UP', 'yes') === null, 'remember must be exactly 1');
+
+// State names edited in admin override the built-in list for display only.
+setJurisdictionNameOverrides({ MP: 'Madhya Pradesh (renamed)' });
+assert(jurisdictionName('mp') === 'Madhya Pradesh (renamed)', 'an admin state name is shown');
+assert(jurisdictionList().find(j => j.code === 'MP')?.name === 'Madhya Pradesh (renamed)', 'state lists use the admin name');
+assert(jurisdictionList().find(j => j.code === 'MP')?.slug === 'madhya-pradesh', 'a rename never changes the code or slug');
+assert(jurisdictionName('UP') === 'Uttar Pradesh', 'states not renamed keep their name');
+setJurisdictionNameOverrides({});
+assert(jurisdictionName('MP') === 'Madhya Pradesh', 'clearing overrides restores the built-in name');
 
 if (failures > 0) {
   console.error(`${failures} viewer-state check(s) failed`);

@@ -4,7 +4,7 @@ import { advtLabel } from '../../services/advt-number';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import StatePicker from '../../components/common/StatePicker.astro';
 import { listPublicRecruitments, type RelevanceTiers } from '../../services/public-listing';
-import { INDIA_JURISDICTIONS, jurisdictionName } from '../../data/india-jurisdictions';
+import { INDIA_JURISDICTIONS, jurisdictionList, jurisdictionName } from '../../data/india-jurisdictions';
 import type { RecruitmentWithDetails } from '../../db/queries';
 import { domicileScopeLabel } from '../../services/domicile-scope';
 import { currentYear, stateKeywordName, stateListingSeo } from '../../services/seo';
@@ -253,7 +253,7 @@ const stateName = state ? stateKeywordName(state) : null;
               class="w-full p-2.5 rounded-xl bg-background border border-input text-foreground outline-none cursor-pointer focus:border-primary transition-colors text-xs font-medium"
             >
               <option value="">All of India</option>
-              {INDIA_JURISDICTIONS.map((item) => (
+              {jurisdictionList().map((item) => (
                 <option value={item.code} selected={state === item.code}>{item.name}</option>
               ))}
             </select>
