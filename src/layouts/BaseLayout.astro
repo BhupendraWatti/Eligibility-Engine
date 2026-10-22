@@ -43,6 +43,18 @@ const jsonLdText = jsonLd.map(item => JSON.stringify({ '@context': 'https://sche
 <!doctype html>
 <html lang="en" class="scroll-smooth">
   <head>
+    <!-- Google tag (gtag.js): public site only; admin pages use AdminLayout and stay untracked. Skipped in dev. -->
+    {import.meta.env.PROD && (
+      <>
+        <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-QH35M9NYTY"></script>
+        <script is:inline>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-QH35M9NYTY');
+        </script>
+      </>
+    )}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
