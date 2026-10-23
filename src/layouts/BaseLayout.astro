@@ -24,7 +24,8 @@ interface Props {
 const {
   title,
   description = 'Explore verified central and state government opportunities across India, check eligibility, track important dates, and use direct official recruitment links.',
-  canonicalUrl = Astro.url.href,
+  // Path only: query strings (?from=results, ?q=, filters) and a trailing slash must not make a new canonical.
+  canonicalUrl = new URL(Astro.url.pathname.replace(/\/+$/, '') || '/', Astro.url.origin).href,
   ogType = 'website',
   isReportPage = false,
   robotsIndex = true,

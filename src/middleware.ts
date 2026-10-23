@@ -25,6 +25,19 @@ export const onRequest = defineMiddleware(async ({ request, url, locals, rewrite
   const isAdminHost = isAdminSubdomain(hostname);
   const isAdminPath = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
 
+  // One URL per public page: http:// and a trailing slash both 301 to the clean https URL.
+  // Without this every variant served 200 with itself as canonical, and Google reported
+  // "Duplicate, Google chose different canonical than user".
+  if (!isLocal && !isAdminHost && (request.method === 'GET' || request.method === 'HEAD')) {
+    const hasTrailingSlash = url.pathname.length > 1 && url.pathname.endsWith('/');
+    if (url.protocol === 'http:' || hasTrailingSlash) {
+      const cleanUrl = new URL(url.toString());
+      cleanUrl.protocol = 'https:';
+      cleanUrl.pathname = url.pathname.replace(/\/+$/, '') || '/';
+      return Response.redirect(cleanUrl.toString(), 301);
+    }
+  }
+
   // On the admin host the panel lives at the root (admin.example.com/states), never under /admin.
   // Old /admin/... links and bookmarks are sent to the clean path; 308 keeps the method for form posts.
   // `adminRewritten` marks our own internal rewrite below so it is not redirected back.
