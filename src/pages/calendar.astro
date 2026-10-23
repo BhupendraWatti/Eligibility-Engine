@@ -147,7 +147,7 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
     </nav>
 
     <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 sm:pb-6 border-b border-border mb-5 sm:mb-8">
       <div>
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/80 border border-blue-200/80 text-primary text-xs font-semibold tracking-wide mb-3">
           <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
@@ -161,7 +161,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <!-- Phones reach the checker from the bottom dock, so the header button only shows from sm. -->
+      <div class="hidden sm:flex items-center gap-3">
         <a
           href="/eligibility-checker"
           class="px-5 py-2.5 rounded-xl bg-primary hover:bg-blue-700 text-primary-foreground font-semibold text-xs sm:text-sm shadow-sm transition-colors inline-flex items-center gap-2"
@@ -173,7 +174,8 @@ const pastMilestones = milestones.filter(m => m.category === 'PAST');
     </div>
 
     <!-- Filter Pills Rail -->
-    <div class="flex flex-wrap items-center gap-2 pb-6 mb-8 border-b border-border/60" id="calendar-filter-bar">
+    <!-- Phones: one swipeable row instead of three wrapped rows. -->
+    <div class="flex sm:flex-wrap items-center gap-2 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-4 mb-5 sm:pb-6 sm:mb-8 border-b border-border/60 [&>button]:shrink-0 [&>button]:whitespace-nowrap [&>button]:min-h-10 sm:[&>button]:min-h-0" id="calendar-filter-bar">
       <button
         type="button"
         data-filter="all"

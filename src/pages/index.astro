@@ -227,10 +227,10 @@ const jsonLd = [
         <StatePicker viewerState={viewerState} action="/" id="home-state-picker" />
 
         <!-- CTA Buttons: 3 Core Tasks -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto">
+        <div class="grid grid-cols-2 sm:flex sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-1 w-full sm:w-auto">
           <a
             href="/eligibility-checker"
-            class="font-bold rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-sm px-6 py-3.5 shadow-sm transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            class="col-span-2 font-bold rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-sm px-6 py-3.5 shadow-sm transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
@@ -240,13 +240,13 @@ const jsonLd = [
           </a>
           <a
             href="#exam-board"
-            class="font-semibold rounded-xl text-foreground bg-card hover:bg-muted active:scale-[0.98] text-sm px-5 py-3.5 border border-border transition-[background-color,transform] flex items-center justify-center gap-2 shadow-2xs"
+            class="font-semibold rounded-xl text-foreground bg-card hover:bg-muted active:scale-[0.98] text-sm px-3 sm:px-5 py-3.5 whitespace-nowrap border border-border transition-[background-color,transform] flex items-center justify-center gap-2 shadow-2xs"
           >
             <span>Browse Exams ({boardDriveCount})</span>
           </a>
           <a
             href="/calendar"
-            class="font-semibold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted text-sm px-4 py-3.5 transition-colors flex items-center justify-center gap-1.5"
+            class="font-semibold rounded-xl text-foreground sm:text-muted-foreground hover:text-foreground bg-card sm:bg-transparent hover:bg-muted border border-border sm:border-transparent text-sm px-3 sm:px-4 py-3.5 whitespace-nowrap transition-colors flex items-center justify-center gap-1.5"
           >
             <span>Exam Calendar</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
