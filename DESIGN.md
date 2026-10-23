@@ -66,7 +66,7 @@
 - **Columns:** Upcoming | Closing soon | On-going exams, then a full-width Results strip. Each column: 2px top rule in its stage colour (Upcoming = Info, Closing soon = Warning, On-going = Primary, Results = Success), uppercase 11px label, count, "All" link.
 - **Rows, not cards:** hairline-divided list inside one bg-card panel. Row = mono 11px org + state, 14px semibold title (2-line clamp), countdown line (loudest, semantic colour), mono date + posts, flags (Admit card / Answer key), trust line.
 - **Responsive:** >=768px three columns plus the Results strip; <768px a swipeable row of pill tabs (Closing soon, Upcoming, On-going exams, Results; Closing soon selected by default) over one list. Selected pill = Gov Blue fill. Without JS all lists show stacked.
-- **Phone hero stats:** <768px the "Open right now" ledger is replaced by a swipeable strip of small stat tiles (Open now, Vacancies open, Opening soon, States/UTs).
+- **Phone hero stats:** <768px the "Open right now" ledger is replaced by a swipeable strip of small stat tiles (Open now, Vacancies open, Opening soon, Central + states/UTs). Tiles that point at a tab switch to it and scroll the board into view.
 - **Empty state:** dashed hairline box, one plain sentence, link to the full list.
 
 ## Decisions Log

@@ -145,7 +145,8 @@ const boardColumns = [
   },
 ];
 // Phones open on the most urgent stage that has drives: closing soon, then exams, then upcoming.
-const defaultTab = ['closing-soon', 'ongoing-exams', 'upcoming'].find(id => boardColumns.find(c => c.id === id)!.total > 0) ?? 'closing-soon';
+const defaultTab = ['closing-soon', 'ongoing-exams', 'upcoming'].find(id => boardColumns.find(c => c.id === id)!.total > 0)
+  ?? (resultsAll.length > 0 ? 'results-declared' : 'closing-soon');
 // Phone tab order: most urgent first, and Results gets its own tab instead of sitting under the list.
 const stageTabs = [
   ...['closing-soon', 'upcoming', 'ongoing-exams'].map(id => boardColumns.find(c => c.id === id)!),
@@ -253,17 +254,18 @@ const jsonLd = [
         </div>
 
         <!-- Phones: the "Open right now" ledger shrinks to one swipeable strip. -->
-        <ul aria-label="Open right now" class="md:hidden -mx-4 px-4 flex gap-2.5 overflow-x-auto snap-x scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-[calc(100%+2rem)]">
+        <ul aria-label="Open right now" class="md:hidden -mx-4 px-4 sm:-mx-6 sm:px-6 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] flex gap-2.5 overflow-x-auto snap-x scroll-px-4 sm:scroll-px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[
-            { value: metrics.activeDriveCount.toLocaleString(), label: 'Open now', href: '#closing-soon' },
+            // Counts match the tab each tile opens.
+            { value: closingAll.length.toLocaleString(), label: 'Open now', href: '#closing-soon' },
             { value: metrics.activeVacancyCount.toLocaleString(), label: 'Vacancies open', href: '/jobs?status=OPEN' },
-            { value: metrics.upcomingDriveCount.toLocaleString(), label: 'Opening soon', href: '#upcoming' },
-            { value: '28 + 8', label: 'States, UTs', href: null },
+            { value: upcomingAll.length.toLocaleString(), label: 'Opening soon', href: '#upcoming' },
+            { value: `Central + ${stateLinks.length}`, label: 'States & UTs', href: null },
           ].map((stat) => {
             const Tag = stat.href ? 'a' : 'div';
             return (
               <li class="snap-start shrink-0">
-                <Tag href={stat.href ?? undefined} class="flex min-w-28 flex-col gap-1 rounded-xl border border-border bg-card px-3.5 py-3 active:scale-[0.98] transition-transform">
+                <Tag href={stat.href ?? undefined} class:list={['flex min-w-28 flex-col gap-1 rounded-xl border border-border bg-card px-3.5 py-3', stat.href && 'active:scale-[0.98] transition-transform']}>
                   <span class="font-heading font-black text-xl leading-none text-foreground tabular-nums">{stat.value}</span>
                   <span class="text-xs text-muted-foreground whitespace-nowrap">{stat.label}</span>
                 </Tag>
@@ -361,7 +363,7 @@ const jsonLd = [
     )}
 
     <!-- Phone tabs: hidden until the script runs, so without JS every list shows stacked. -->
-    <div role="tablist" aria-label="Exam stage" data-exam-tabs class="hidden md:hidden -mx-4 px-4 mb-3 gap-2 overflow-x-auto scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div role="tablist" aria-label="Exam stage" data-exam-tabs class="hidden md:hidden scroll-mt-24 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-3 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {stageTabs.map((col) => (
         <button
           type="button"
@@ -510,7 +512,14 @@ const jsonLd = [
           tab.tabIndex = on ? 0 : -1;
           if (on && focus) tab.focus();
           // Keep the chosen pill in view inside the swipeable row without scrolling the page.
-          if (on) tablist.scrollLeft += tab.getBoundingClientRect().left - tablist.getBoundingClientRect().left - 16;
+          if (on && tablist.offsetParent) {
+            // Only scroll when the pill is cut off, so neighbouring pills stay in view.
+            const pad = parseFloat(getComputedStyle(tablist).paddingLeft);
+            const list = tablist.getBoundingClientRect();
+            const pill = tab.getBoundingClientRect();
+            if (pill.left < list.left + pad) tablist.scrollLeft -= list.left + pad - pill.left;
+            else if (pill.right > list.right - pad) tablist.scrollLeft += pill.right - (list.right - pad);
+          }
         }
         for (const panel of panels) panel.classList.toggle('max-md:hidden', panel.dataset.panel !== id);
       };
@@ -540,6 +549,21 @@ const jsonLd = [
         const id = panels.find((p) => `#${p.id}` === location.hash)?.id;
         if (id) select(id);
       });
+      // The hero stat tiles point at panels that are hidden on phones, so the browser cannot scroll to them
+      // and a repeat tap leaves the hash unchanged. Select and scroll here instead.
+      for (const link of document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')) {
+        const id = link.hash.slice(1);
+        if (!panels.some((p) => p.id === id)) continue;
+        link.addEventListener('click', (e) => {
+          // At md and up every panel shows, so the browser's own jump works.
+          if (!tablist.offsetParent) return;
+          e.preventDefault();
+          history.replaceState(null, '', `#${id}`);
+          select(id);
+          // Next frame: select() moves the pill row's scrollLeft, which cancels a page scroll started in the same frame.
+          requestAnimationFrame(() => tablist.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+        });
+      }
       select(fromHash ?? tabs.find((t) => t.hasAttribute('data-default'))?.dataset.tab ?? 'closing-soon');
     }
   </script>
