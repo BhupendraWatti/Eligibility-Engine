@@ -129,23 +129,28 @@ const resultRows = resultsAll.slice(0, BOARD_LIMIT).map(r => {
 
 const boardColumns = [
   {
-    id: 'upcoming', label: 'Upcoming', tab: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
+    id: 'upcoming', label: 'Upcoming', rows: upcomingRows, total: upcomingAll.length, href: '/jobs?status=UPCOMING',
     rule: 'border-t-sky-600 dark:border-t-sky-400',
     empty: 'No announced drives are waiting to open. New notices appear here as soon as they are published.',
   },
   {
-    id: 'closing-soon', label: 'Closing soon', tab: 'Closing', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
+    id: 'closing-soon', label: 'Closing soon', rows: closingRows, total: closingAll.length, href: '/jobs?status=OPEN',
     rule: 'border-t-amber-500 dark:border-t-amber-400',
     empty: 'No applications are open right now. Drives taking forms appear here, nearest last date first.',
   },
   {
-    id: 'ongoing-exams', label: 'On-going exams', tab: 'Exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
+    id: 'ongoing-exams', label: 'On-going exams', rows: ongoingRows, total: ongoingAll.length, href: '/jobs?status=CONCLUDED',
     rule: 'border-t-primary',
     empty: 'No exams are pending right now. Drives move here once their forms close.',
   },
 ];
 // Phones open on the most urgent stage that has drives: closing soon, then exams, then upcoming.
 const defaultTab = ['closing-soon', 'ongoing-exams', 'upcoming'].find(id => boardColumns.find(c => c.id === id)!.total > 0) ?? 'closing-soon';
+// Phone tab order: most urgent first, and Results gets its own tab instead of sitting under the list.
+const stageTabs = [
+  ...['closing-soon', 'upcoming', 'ongoing-exams'].map(id => boardColumns.find(c => c.id === id)!),
+  { id: 'results-declared', label: 'Results', total: resultsAll.length },
+];
 const toneClass: Record<Tone, string> = {
   urgent: 'text-red-700 dark:text-red-400',
   soon: 'text-amber-700 dark:text-amber-400',
@@ -207,7 +212,7 @@ const jsonLd = [
   <section class="bg-background border-b border-border">
     <div class="grid mx-auto py-10 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 items-center gap-8 lg:gap-12 lg:grid-cols-[1.2fr_0.8fr] max-w-7xl">
       <!-- Left Hero Content -->
-      <div class="flex flex-col items-start gap-4 sm:gap-6">
+      <div class="min-w-0 flex flex-col items-start gap-4 sm:gap-6">
         
         <h1 class="font-black text-foreground text-3xl sm:text-5xl lg:text-6xl leading-[1.1] tracking-normal max-w-2xl font-heading">
           Find government jobs across India <br class="hidden sm:inline" />
@@ -246,10 +251,30 @@ const jsonLd = [
             <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
         </div>
+
+        <!-- Phones: the "Open right now" ledger shrinks to one swipeable strip. -->
+        <ul aria-label="Open right now" class="md:hidden -mx-4 px-4 flex gap-2.5 overflow-x-auto snap-x scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-[calc(100%+2rem)]">
+          {[
+            { value: metrics.activeDriveCount.toLocaleString(), label: 'Open now', href: '#closing-soon' },
+            { value: metrics.activeVacancyCount.toLocaleString(), label: 'Vacancies open', href: '/jobs?status=OPEN' },
+            { value: metrics.upcomingDriveCount.toLocaleString(), label: 'Opening soon', href: '#upcoming' },
+            { value: '28 + 8', label: 'States, UTs', href: null },
+          ].map((stat) => {
+            const Tag = stat.href ? 'a' : 'div';
+            return (
+              <li class="snap-start shrink-0">
+                <Tag href={stat.href ?? undefined} class="flex min-w-28 flex-col gap-1 rounded-xl border border-border bg-card px-3.5 py-3 active:scale-[0.98] transition-transform">
+                  <span class="font-heading font-black text-xl leading-none text-foreground tabular-nums">{stat.value}</span>
+                  <span class="text-xs text-muted-foreground whitespace-nowrap">{stat.label}</span>
+                </Tag>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       <!-- Right: Live ledger -->
-      <div class="w-full border-t-2 border-primary bg-card pt-5 sm:pt-6 pb-5 sm:pb-6 px-5 sm:px-6">
+      <div class="hidden md:block w-full border-t-2 border-primary bg-card pt-5 sm:pt-6 pb-5 sm:pb-6 px-5 sm:px-6">
         <div class="flex items-baseline justify-between gap-3 mb-1">
           <h2 class="text-base font-bold text-foreground font-heading">Open right now</h2>
           <span class="text-xs text-muted-foreground">Updated as drives are published</span>
@@ -335,9 +360,9 @@ const jsonLd = [
       </p>
     )}
 
-    <!-- Phone tabs: hidden until the script runs, so without JS all three lists show stacked. -->
-    <div role="tablist" aria-label="Exam stage" data-exam-tabs class="hidden md:hidden grid-cols-3 gap-1 mb-3 rounded-xl border border-border bg-muted p-1">
-      {boardColumns.map((col) => (
+    <!-- Phone tabs: hidden until the script runs, so without JS every list shows stacked. -->
+    <div role="tablist" aria-label="Exam stage" data-exam-tabs class="hidden md:hidden -mx-4 px-4 mb-3 gap-2 overflow-x-auto scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {stageTabs.map((col) => (
         <button
           type="button"
           role="tab"
@@ -346,9 +371,9 @@ const jsonLd = [
           aria-selected={col.id === defaultTab ? 'true' : 'false'}
           data-tab={col.id}
           data-default={col.id === defaultTab ? '' : undefined}
-          class="min-h-11 rounded-lg px-1.5 text-xs font-bold leading-tight text-muted-foreground transition-colors aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          class="shrink-0 min-h-10 rounded-full border border-border bg-card px-4 text-sm font-semibold whitespace-nowrap text-muted-foreground transition-colors aria-selected:border-primary aria-selected:bg-primary aria-selected:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <span class="sr-only">{col.label}</span><span aria-hidden="true">{col.tab}</span> <span class="font-mono font-semibold">{col.total}</span>
+          {col.label} <span class="font-mono tabular-nums opacity-80">· {col.total}</span>
         </button>
       ))}
     </div>
@@ -420,12 +445,12 @@ const jsonLd = [
     </div>
 
     <!-- Results strip -->
-    <div id="results-declared" class="scroll-mt-24 mt-4 lg:mt-6 bg-card border border-border border-t-2 border-t-emerald-600 dark:border-t-emerald-400 rounded-b-xl">
+    <div id="results-declared" data-panel="results-declared" role="tabpanel" aria-labelledby="tab-results-declared" class="scroll-mt-24 mt-4 lg:mt-6 bg-card border border-border border-t-2 border-t-emerald-600 dark:border-t-emerald-400 rounded-b-xl">
       <div class="flex items-baseline justify-between gap-3 px-4 pt-3.5 pb-3 border-b border-border">
         <h3 class="text-[11px] font-bold uppercase tracking-wider text-foreground">
           Results declared<span class="ml-1.5 font-mono font-semibold text-muted-foreground">{resultsAll.length}</span>
         </h3>
-        <a href="/results" class="text-xs font-bold text-primary hover:underline">All results</a>
+        <a href="/results" class="ml-auto text-xs font-bold text-primary hover:underline">All results</a>
       </div>
       {resultRows.length === 0 ? (
         <div class="m-4 rounded-lg border border-dashed border-border px-4 py-6 text-center">
@@ -484,6 +509,8 @@ const jsonLd = [
           tab.setAttribute('aria-selected', String(on));
           tab.tabIndex = on ? 0 : -1;
           if (on && focus) tab.focus();
+          // Keep the chosen pill in view inside the swipeable row without scrolling the page.
+          if (on) tablist.scrollLeft += tab.getBoundingClientRect().left - tablist.getBoundingClientRect().left - 16;
         }
         for (const panel of panels) panel.classList.toggle('max-md:hidden', panel.dataset.panel !== id);
       };
@@ -503,8 +530,10 @@ const jsonLd = [
         if (heading?.parentElement?.querySelector('a')) heading.classList.add('max-md:sr-only');
         else heading?.parentElement?.classList.add('max-md:hidden');
       }
+      // Results is the only panel outside the column grid, so its top margin would leave a gap under the tabs.
+      document.getElementById('results-declared')?.classList.add('max-md:mt-0');
       tablist.classList.remove('hidden');
-      tablist.classList.add('grid');
+      tablist.classList.add('flex');
       const fromHash = panels.find((p) => `#${p.id}` === location.hash)?.id;
       // Same-page links such as the footer's /#closing-soon only change the hash.
       addEventListener('hashchange', () => {
