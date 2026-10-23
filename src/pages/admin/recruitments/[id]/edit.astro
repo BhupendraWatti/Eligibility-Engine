@@ -308,6 +308,8 @@ const vacSt = vacCount('ST');
 const vacSc = vacCount('SC');
 const vacEws = vacCount('EWS');
 const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || '';
+// The admin host is admin.<site>; public pages live on <site> (root-relative links 404 here).
+const publicOrigin = Astro.url.origin.replace('://admin.', '://');
 ---
 
 <AdminLayout
@@ -336,8 +338,9 @@ const firstSubPost = existingVacancies.find(v => v.subPostName)?.subPostName || 
 
       <div class="flex items-center gap-2.5">
         <a
-          href={`/recruitments/${recruitment.slug}`}
+          href={`${publicOrigin}/recruitments/${recruitment.slug}`}
           target="_blank"
+          rel="noopener noreferrer"
           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-semibold shadow-2xs transition-colors"
         >
           <span>Live Preview</span>

@@ -270,6 +270,8 @@ const standardPayBands = [
   { level: 'Level 12', band: 'Rs. 56,100 - 1,77,500/- (Pay Matrix Level 12)' },
   { level: 'Level J-1', band: 'Rs. 77,840 - 1,36,520/- (Pay Matrix Level J-1)' },
 ];
+// The admin host is admin.<site>; public pages live on <site> (root-relative links 404 here).
+const publicOrigin = Astro.url.origin.replace('://admin.', '://');
 ---
 
 <AdminLayout
@@ -477,8 +479,9 @@ const standardPayBands = [
                 </button>
               </form>
               <a
-                href={`/sectors/${activeSector.slug}`}
+                href={`${publicOrigin}/sectors/${activeSector.slug}`}
                 target="_blank"
+                rel="noopener noreferrer"
                 class="px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-semibold text-zinc-700 shadow-2xs transition-colors"
                 title="View public sector hub"
               >

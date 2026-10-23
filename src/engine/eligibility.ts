@@ -98,6 +98,12 @@ export const QUALIFICATION_RANK: Record<string, number> = {
   'POST_GRADUATION': 7,
 };
 
+const QUALIFICATION_NAME: Record<string, string> = {
+  '7TH': 'Class 7', '8TH': 'Class 8', '10TH': 'Class 10', '12TH': 'Class 12', 'ITI': 'ITI',
+  'DIPLOMA': 'Diploma', 'GRADUATION': 'Graduation', 'POST_GRADUATION': 'Post Graduation',
+};
+const levelName = (level: string) => QUALIFICATION_NAME[level] ?? level;
+
 const ALL_CATEGORIES = ['UR', 'SC', 'ST', 'OBC', 'EWS'] as const;
 
 /** The candidate's domicile code, falling back to the legacy MP flag. Undefined when not provided. */
@@ -331,10 +337,10 @@ export function evaluateEligibility(
       message: unrecognisedRequirement
         ? `Required qualification "${required}" is not a recognised level. Verify against the notice.`
         : isMatch
-        ? `Qualification (${qualificationLevel}) satisfies minimum (${required}).`
+        ? `Qualification (${levelName(qualificationLevel)}) satisfies minimum (${levelName(required)}).`
         : depends
-        ? `Qualification (${qualificationLevel}) is below the general minimum (${required}) but meets a category-wise minimum (${categoryNote})${reservationState ? ` for ${jurisdictionName(reservationState)} domicile holders` : ''}. Provide category${reservationState ? ' and domicile' : ''} to confirm.`
-        : `Qualification (${qualificationLevel}) is below required (${required}).`,
+        ? `Qualification (${levelName(qualificationLevel)}) is below the general minimum (${levelName(required)}) but meets a category-wise minimum (${categoryNote})${reservationState ? ` for ${jurisdictionName(reservationState)} domicile holders` : ''}. Provide category${reservationState ? ' and domicile' : ''} to confirm.`
+        : `Qualification (${levelName(qualificationLevel)}) is below required (${levelName(required)}).`,
     });
 
     // Specific degree/stream evaluation if post requires non-generic streams

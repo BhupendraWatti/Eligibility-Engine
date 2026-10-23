@@ -44,7 +44,7 @@ export class ProposalBlockedError extends InvalidProposalError {
     readonly code: 'PENDING_CHANGE_CONFLICT' | 'CONFIRMED_DUPLICATE' | 'UNKNOWN_POST' | 'UNKNOWN_ORGANISATION' | 'EVIDENCE_REQUIRED' | 'VALUE_NOT_IN_QUOTE' | 'DUPLICATE_MASTER' | 'NO_CHANGE'
       | 'NO_EXAM_STAGE' | 'SELECTION_STAGES_REQUIRED' | 'APPLY_LINK_REQUIRED' | 'INVALID_LINK' | 'UNOFFICIAL_SOURCE'
       | 'FIELD_RETIRED' | 'DOMICILE_SCOPE_INVALID' | 'DOMICILE_CLAUSE_MISMATCH' | 'EXAM_DATE_REQUIRED'
-      | 'VACANCIES_REQUIRED' | 'VACANCIES_NOT_APPLICABLE',
+      | 'VACANCIES_REQUIRED' | 'VACANCIES_NOT_APPLICABLE' | 'DATES_OUT_OF_ORDER',
     message: string,
     readonly details: Record<string, unknown> = {},
   ) {
@@ -637,6 +637,7 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
     throw new ProposalBlockedError('EXAM_DATE_REQUIRED', 'examStatus is SCHEDULED but importantDates has no EXAM_DATE. Add one EXAM_DATE row for each exam day the notice gives (a 3 and 4 December exam is two rows) and quote it, or leave examStatus out if the notice gives no exam date.');
   }
   checkQualifyingExam(payload, existing);
+  checkDateOrder(payload, existing);
   if (create && !links.some(l => l.linkType === 'APPLY_ONLINE')) {
     throw new ProposalBlockedError('APPLY_LINK_REQUIRED', 'officialLinks must include an APPLY_ONLINE link: the official page where candidates start filling the application form (not the notice PDF).');
   }
@@ -647,7 +648,19 @@ export function checkMcpScope(kind: ProposalKind, payload: Record<string, unknow
  * may sit, and clearing the cutoff (qualifying marks, percentile or All India Rank) is what counts. A vacancy count on one is refused,
  * so the page never shows "0 posts" or a made-up number.
  */
-type StoredExam = { examKind?: string; noUpperAgeLimit?: boolean };
+type StoredExam = { examKind?: string; noUpperAgeLimit?: boolean; applicationStart?: string | null; applicationEnd?: string | null; examDate?: string | null };
+
+// Checked here, not only at approval: the publication check refuses these, so a proposal that passed preview failed once approved.
+function checkDateOrder(payload: Record<string, unknown>, existing: StoredExam): void {
+  const pick = (k: 'applicationStart' | 'applicationEnd' | 'examDate') => (payload[k] as string | undefined) ?? existing[k] ?? undefined;
+  const start = pick('applicationStart'), end = pick('applicationEnd'), exam = pick('examDate');
+  if (start && end && start > end) {
+    throw new ProposalBlockedError('DATES_OUT_OF_ORDER', `applicationEnd (${end}) is before applicationStart (${start}). Re-read the notice's dates.`, { applicationStart: start, applicationEnd: end });
+  }
+  if (end && exam && exam < end) {
+    throw new ProposalBlockedError('DATES_OUT_OF_ORDER', `examDate (${exam}) is before applicationEnd (${end}). Re-read the notice's dates.`, { applicationEnd: end, examDate: exam });
+  }
+}
 
 function checkQualifyingExam(payload: Record<string, unknown>, existing: StoredExam): void {
   const examKind = (payload.examKind as string | undefined) ?? existing.examKind;
@@ -806,7 +819,7 @@ async function checkProposal(db: D1Database, actor: Actor, input: ProposalInput,
     recruitmentId = str(input.recruitmentId, 'recruitmentId', 100);
     const current = await deps.loadRecruitment(db, recruitmentId);
     if (!current) throw new InvalidProposalError('Recruitment not found.');
-    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType), { examKind: current.examKind, noUpperAgeLimit: current.criteria?.noUpperAgeLimit });
+    checkMcpScope(input.kind, payload, (current.officialLinksList ?? []).map(l => l.linkType), { examKind: current.examKind, noUpperAgeLimit: current.criteria?.noUpperAgeLimit, applicationStart: current.applicationStart, applicationEnd: current.applicationEnd, examDate: current.examDate });
     const refs = await checkMasterRefs(db, deps, payload);
     stateCode = refs.stateCode ?? current.stateCode ?? (current.stateId ? stateCodeForId(current.stateId) : undefined);
     const scopeState = current.criteria?.domicileScope !== 'OPEN' ? current.criteria?.reservationStateCode : null;

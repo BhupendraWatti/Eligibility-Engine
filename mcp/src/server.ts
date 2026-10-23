@@ -301,7 +301,7 @@ export function createMcpServer(ctx: ServerContext): McpServer {
       title: 'Preview a proposal (dry run)',
       description:
         'Run every proposal check WITHOUT queuing anything or using a pending slot. Same input as the propose tools plus kind. ' +
-        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / SELECTION_STAGES_REQUIRED / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK / VACANCIES_REQUIRED / VACANCIES_NOT_APPLICABLE / FIELD_RETIRED / DOMICILE_SCOPE_INVALID / DOMICILE_CLAUSE_MISMATCH) and checks (fields to re-read: needsReading, fromImage, handwritten; domicileFlag when the domicile clause was accepted but needs the admin to read it), ' +
+        'Returns action (NEW, NEW_POSSIBLE_DUPLICATE, UPDATE, or the blocking code CONFIRMED_DUPLICATE / PENDING_CHANGE_CONFLICT / UNKNOWN_POST / UNKNOWN_ORGANISATION / UNOFFICIAL_SOURCE / EVIDENCE_REQUIRED / VALUE_NOT_IN_QUOTE / SELECTION_STAGES_REQUIRED / NO_EXAM_STAGE / APPLY_LINK_REQUIRED / INVALID_LINK / VACANCIES_REQUIRED / VACANCIES_NOT_APPLICABLE / FIELD_RETIRED / DOMICILE_SCOPE_INVALID / DOMICILE_CLAUSE_MISMATCH / DATES_OUT_OF_ORDER) and checks (fields to re-read: needsReading, fromImage, handwritten; domicileFlag when the domicile clause was accepted but needs the admin to read it), ' +
         'a before/after row per field and approval. Always preview before proposing.',
       inputSchema: {
         kind: z.enum(['CREATE_RECRUITMENT', 'UPDATE_RECRUITMENT']),

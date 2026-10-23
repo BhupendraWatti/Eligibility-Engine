@@ -121,6 +121,8 @@ const organisations = rawOrganisations.map(org => {
 
 const activeCount = organisations.filter(o => o.isActive).length;
 const inactiveCount = organisations.length - activeCount;
+// The admin host is admin.<site>; public pages live on <site> (root-relative links 404 here).
+const publicOrigin = Astro.url.origin.replace('://admin.', '://');
 ---
 
 <AdminLayout
@@ -293,7 +295,7 @@ const inactiveCount = organisations.length - activeCount;
                       Edit
                     </button>
                     <span class="text-zinc-300">·</span>
-                    <a href={`/organisations/${org.slug}`} target="_blank" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
+                    <a href={`${publicOrigin}/organisations/${org.slug}`} target="_blank" rel="noopener noreferrer" class="text-zinc-600 hover:text-zinc-950 font-semibold hover:underline">
                       View public
                     </a>
                   </div>
@@ -370,8 +372,9 @@ const inactiveCount = organisations.length - activeCount;
                 <span>Edit</span>
               </button>
               <a
-                href={`/organisations/${org.slug}`}
+                href={`${publicOrigin}/organisations/${org.slug}`}
                 target="_blank"
+                rel="noopener noreferrer"
                 class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-zinc-500 hover:text-zinc-900 text-xs font-medium"
               >
                 <span>View</span>

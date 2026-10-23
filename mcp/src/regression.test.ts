@@ -510,6 +510,14 @@ async function run() {
   // Found by /qa on 2026-10-22
   assert(storedTest({ examKind: 'RECRUITMENT' }) === 'VACANCIES_REQUIRED', 'a stored test turned into a job needs its vacancy count');
   assert(storedTest({ examKind: 'RECRUITMENT', totalVacancies: 40 }) === 'OK', 'a stored test turned into a job with a count is accepted');
+  // Regression: dates out of order passed preview, then failed only once the admin approved
+  // Found by QA on 2026-10-24
+  const storedDates = (payload: Record<string, unknown>) => {
+    try { checkMcpScope('UPDATE_RECRUITMENT', payload, [], { applicationStart: '2026-10-15', applicationEnd: '2026-10-29', examDate: '2027-01-04' }); return 'OK'; } catch (e: any) { return e.code; }
+  };
+  assert(storedDates({ applicationStart: '2026-11-30' }) === 'DATES_OUT_OF_ORDER', 'a start after the stored last date is refused');
+  assert(storedDates({ examDate: '2026-10-01' }) === 'DATES_OUT_OF_ORDER', 'an exam before applications close is refused');
+  assert(storedDates({ applicationEnd: '2026-11-05' }) === 'OK', 'an extended last date is accepted');
   const keptKind = mergeUpdateInput({ ...live, examKind: 'ELIGIBILITY_TEST', criteria: { ...live.criteria, noUpperAgeLimit: true } }, { title: 'UGC NET December 2026 (revised)' }, 'admin@x.in');
   assert(keptKind.examKind === 'ELIGIBILITY_TEST' && keptKind.noUpperAgeLimit === true, 'an approved update keeps the stored examKind and no-upper-age flag');
   // Regression: ISSUE-001 — an update that names no organisation was applied by short name, which another state's body may share

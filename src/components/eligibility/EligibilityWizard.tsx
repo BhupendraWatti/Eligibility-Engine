@@ -66,7 +66,8 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
       isMpDomicile: domicileStateCode ? domicileStateCode === 'MP' : undefined,
       registrations: registrations ? registrations.split(',').map(value => value.trim()).filter(Boolean) : undefined,
       hasMpRojgarPanjiyan: registrations ? registrations.toUpperCase().split(',').map(value => value.trim()).includes('MP_ROJGAR') : undefined,
-      hasCpct: hasTechCert,
+      // Unticked = not answered, like the other certificates, so a CPCT rule asks instead of failing.
+      hasCpct: hasTechCert || undefined,
       qualificationLevel: (selectedQualification || 'GRADUATION') as any,
       stream: stream.trim() || undefined,
       percentage: percentage ? Number(percentage) : undefined,
@@ -139,6 +140,10 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
         setValidationError('Please select your highest educational qualification level.');
         return;
       }
+      if (percentage && !(Number(percentage) >= 0 && Number(percentage) <= 100)) {
+        setValidationError('Percentage must be between 0 and 100.');
+        return;
+      }
     } else if (step === 3) {
       if (!domicileStateCode) {
         setValidationError('Please select your domicile state or union territory.');
@@ -152,6 +157,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
     }
 
     setStep(s => Math.min(5, s + 1));
+    window.scrollTo({ top: 0 });
   };
 
   const handleFinishEvaluation = () => {
@@ -234,7 +240,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
             {step === 1 && (
               <div className="space-y-6 max-w-2xl">
                 <div>
-                  <label className="text-base sm:text-lg font-bold text-foreground block mb-1">
+                  <label htmlFor="dob-input" className="text-base sm:text-lg font-bold text-foreground block mb-1">
                     What is your date of birth? <span className="text-red-500">*</span>
                   </label>
                   <p className="text-xs text-muted-foreground mb-3">
@@ -242,7 +248,9 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
                   </p>
                   <div className="max-w-xs">
                     <input
+                      id="dob-input"
                       type="date"
+                      max={new Date().toISOString().slice(0, 10)}
                       value={dobInput}
                       onChange={e => {
                         setDobInput(e.target.value);
@@ -266,6 +274,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
                       <button
                         key={g.id}
                         type="button"
+                        aria-pressed={selectedGender === g.id}
                         onClick={() => {
                           setSelectedGender(g.id as any);
                           setValidationError(null);
@@ -376,7 +385,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
                   <div className="p-3.5 rounded-xl bg-muted/60 border border-border text-xs text-muted-foreground leading-relaxed flex items-start gap-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" className="size-4 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <div>
-                      <strong className="text-foreground font-semibold">Why we ask:</strong> We evaluate educational ranks hierarchically: 7TH &lt; 8TH &lt; 10TH &lt; 12TH &lt; DIPLOMA &lt; GRADUATION &lt; POST_GRADUATION. Having a higher degree satisfies lower baseline requirements.
+                      <strong className="text-foreground font-semibold">Why we ask:</strong> A higher qualification also meets every lower requirement (Class 7, Class 8, Class 10, Class 12, Diploma, Graduation, Post Graduation).
                     </div>
                   </div>
                 </div>
@@ -559,6 +568,7 @@ export default function EligibilityWizard({ recruitments, chosenStateCode, state
                       <div>DOB: <strong>{dobInput || 'Not provided'}</strong></div>
                       <div>Gender: <strong>{selectedGender}</strong></div>
                       <div>Category: <strong>{selectedCategory}</strong></div>
+                      <div>Qualification: <strong>{selectedQualification}{percentage ? ` (${percentage}%)` : ''}</strong></div>
                       <div>Domicile: <strong>{stateName(domicileStateCode)}</strong></div>
                     </div>
                   </div>
